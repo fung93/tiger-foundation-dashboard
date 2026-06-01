@@ -73,6 +73,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
     <h2>WEALTH OVERVIEW</h2>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div></div>
     <div class="wealth-sub" id="totalBreakdown">Loading...</div>
+    <div class="wealth-sub" id="monthlyRoi" style="margin-top:6px;font-size:13px;color:var(--green)"></div>
     <div class="progress-section">
       <div class="progress-label"><span>PROGRESS TO TARGET: <span style="color:var(--text)">$8,000 USDC</span></span><span class="pct" id="pctVal">0%</span></div>
       <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
@@ -123,6 +124,10 @@ function load(){
     var pct=Math.min(100,(total/target)*100);
     document.getElementById('totalVal').textContent=fmt(total);
     document.getElementById('totalBreakdown').textContent=fmt(onchain)+' on-chain + '+fmt(lp)+' LP + '+fmt(pending)+' pending';
+    if(d.tracking){
+      var roi=d.tracking;
+      document.getElementById('monthlyRoi').textContent='Monthly ROI: '+roi.monthly_roi_pct+'% | KAT Claimed: '+Number(roi.kat_tokens_claimed).toLocaleString()+' KAT | Since '+roi.start_date+' ('+roi.days_elapsed+' days)';
+    }
     document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
     document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
     document.getElementById('onchainVal').textContent=fmt(onchain);

@@ -336,5 +336,15 @@
       "baseVolume": 270.75
     }
   ],
-  "total_usd": 1135.96
+  "total_usd": 1135.96,
+  "tracking": {
+    "start_date": "2026-05-02",
+    "start_value_usd": 502.29,
+    "current_value_usd": 1135.96,
+    "value_gain_usd": 633.67,
+    "kat_price": 0.007131,
+    "kat_tokens_claimed": 88861,
+    "monthly_roi_pct": 126.2,
+    "days_elapsed": 30
+  }
 }
