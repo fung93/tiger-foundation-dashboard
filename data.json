@@ -124,14 +124,15 @@
       "lp_total_usd": 368.18,
       "total_usd": 377.7,
       "native_token": "SOL",
-      "color": "#9945ff"
+      "color": "#9945ff",
+      "onchain_usd": 9.52
     }
   },
   "summary": {
     "grand_total_usd": 1135.96,
     "katana_usd": 758.26,
     "solana_usd": 377.7,
-    "onchain_usd": 46.129999999999995,
+    "onchain_usd": 55.65,
     "lp_usd": 1080.31,
     "merkl_usd": 0.0,
     "total_defi_positions": 3,
