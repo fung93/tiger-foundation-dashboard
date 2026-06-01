@@ -1,6 +1,16 @@
 {
-  "last_updated": "2026-06-01T09:57:22.257823+00:00",
+  "last_updated": "2026-06-01T12:15:15.420554+00:00",
   "wealth_target_usdc": 8000,
+  "tracking": {
+    "start_date": "2026-05-02",
+    "start_value_usd": 502.29,
+    "current_value_usd": 1138.71,
+    "value_gain_usd": 636.42,
+    "kat_price": 0.006972,
+    "kat_tokens_claimed": 91282,
+    "monthly_roi_pct": 126.7,
+    "days_elapsed": 30
+  },
   "chains": {
     "katana": {
       "name": "Katana",
@@ -11,17 +21,17 @@
           "tokens": {
             "ETH": {
               "balance": 0.00070032107710465,
-              "priceUSD": 1987.21,
-              "valueUSD": 1.39
+              "priceUSD": 1973.06,
+              "valueUSD": 1.38
             },
             "KAT": {
               "balance": 2485.8920221488424,
-              "priceUSD": 0.007131,
-              "valueUSD": 17.73
+              "priceUSD": 0.006972,
+              "valueUSD": 17.33
             },
             "WETH": {
               "balance": 3.129985135022e-06,
-              "priceUSD": 1987.21,
+              "priceUSD": 1973.06,
               "valueUSD": 0.0062
             },
             "USDC": {
@@ -31,7 +41,7 @@
             },
             "WBTC": {
               "balance": 0,
-              "priceUSD": 72928.42,
+              "priceUSD": 72546.16,
               "valueUSD": 0
             },
             "USDT": {
@@ -46,17 +56,23 @@
             },
             "SUSHI": {
               "balance": 0,
-              "priceUSD": 0.202,
+              "priceUSD": 0.208,
               "valueUSD": 0
             }
           },
-          "total_usd": 19.13
+          "total_usd": 18.72
         }
       },
-      "onchain_usd": 46.129999999999995,
+      "onchain_usd": 45.11,
       "merkl_rewards": {
-        "total_usd": 0.0,
-        "rewards": []
+        "total_usd": 3.84,
+        "rewards": [
+          {
+            "symbol": "KAT",
+            "amount": 545.0192702244904,
+            "usd": 3.84
+          }
+        ]
       },
       "lp_positions": [
         {
@@ -65,7 +81,7 @@
           "pair": "vbUSDC / KAT",
           "pool_fee": "0.05%",
           "value_usd": 712.13,
-          "apr": 63.12,
+          "apr": 62.94,
           "note": "Concentrated liquidity NFT"
         }
       ],
@@ -79,15 +95,15 @@
             "token": "avKAT"
           },
           "debt": {
-            "amount": 24213.691429991377,
+            "amount": 24213.803333225915,
             "token": "KAT"
           },
           "lltv": "77%",
-          "note": "Net 3786 KAT = $27.0"
+          "note": "Net 3786 KAT = $26.39"
         }
       ],
       "lp_total_usd": 712.13,
-      "total_usd": 758.26,
+      "total_usd": 761.08,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -99,8 +115,8 @@
       "balances": {
         "SOL": {
           "balance": 0.117296,
-          "priceUSD": 81.04,
-          "valueUSD": 9.51
+          "priceUSD": 80.44,
+          "valueUSD": 9.44
         },
         "USDC": {
           "balance": 0.0132,
@@ -108,7 +124,8 @@
           "valueUSD": 0.01
         }
       },
-      "wallet_total_usd": 9.52,
+      "wallet_total_usd": 9.45,
+      "onchain_usd": 9.45,
       "lp_positions": [
         {
           "type": "LP",
@@ -122,19 +139,18 @@
       ],
       "defi_positions": [],
       "lp_total_usd": 368.18,
-      "total_usd": 377.7,
+      "total_usd": 377.63,
       "native_token": "SOL",
-      "color": "#9945ff",
-      "onchain_usd": 9.52
+      "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 1135.96,
-    "katana_usd": 758.26,
-    "solana_usd": 377.7,
-    "onchain_usd": 55.65,
+    "grand_total_usd": 1138.71,
+    "katana_usd": 761.08,
+    "solana_usd": 377.63,
+    "onchain_usd": 54.56,
     "lp_usd": 1080.31,
-    "merkl_usd": 0.0,
+    "merkl_usd": 3.84,
     "total_defi_positions": 3,
     "chains_count": 2
   },
@@ -143,17 +159,17 @@
       "tokens": {
         "ETH": {
           "balance": 0.00070032107710465,
-          "priceUSD": 1987.21,
-          "valueUSD": 1.39
+          "priceUSD": 1973.06,
+          "valueUSD": 1.38
         },
         "KAT": {
           "balance": 2485.8920221488424,
-          "priceUSD": 0.007131,
-          "valueUSD": 17.73
+          "priceUSD": 0.006972,
+          "valueUSD": 17.33
         },
         "WETH": {
           "balance": 3.129985135022e-06,
-          "priceUSD": 1987.21,
+          "priceUSD": 1973.06,
           "valueUSD": 0.0062
         },
         "USDC": {
@@ -163,7 +179,7 @@
         },
         "WBTC": {
           "balance": 0,
-          "priceUSD": 72928.42,
+          "priceUSD": 72546.16,
           "valueUSD": 0
         },
         "USDT": {
@@ -178,17 +194,23 @@
         },
         "SUSHI": {
           "balance": 0,
-          "priceUSD": 0.202,
+          "priceUSD": 0.208,
           "valueUSD": 0
         }
       },
-      "total_usd": 19.13
+      "total_usd": 18.72
     }
   },
-  "onchain_usd": 46.129999999999995,
+  "onchain_usd": 45.11,
   "merkl_rewards": {
-    "total_usd": 0.0,
-    "rewards": []
+    "total_usd": 3.84,
+    "rewards": [
+      {
+        "symbol": "KAT",
+        "amount": 545.0192702244904,
+        "usd": 3.84
+      }
+    ]
   },
   "lp_positions": [
     {
@@ -197,7 +219,7 @@
       "pair": "vbUSDC / KAT",
       "pool_fee": "0.05%",
       "value_usd": 712.13,
-      "apr": 63.12
+      "apr": 62.94
     },
     {
       "type": "LP",
@@ -218,11 +240,11 @@
         "token": "avKAT"
       },
       "debt": {
-        "amount": 24213.691429991377,
+        "amount": 24213.803333225915,
         "token": "KAT"
       },
       "lltv": "77%",
-      "note": "Net 3786 KAT = $27.0"
+      "note": "Net 3786 KAT = $26.39"
     }
   ],
   "top_pools": [
@@ -230,121 +252,29 @@
       "rank": 1,
       "pair": "vbUSDC-vbETH",
       "protocol": "SushiSwap V3",
-      "tvl": 1090488,
-      "apr": 63.76,
-      "daily_kat": 1905,
-      "daily_usd": 1904.8
+      "tvl": 1089342,
+      "apr": 63.34,
+      "daily_kat": 1887,
+      "daily_usd": 1890.24
     },
     {
       "rank": 2,
       "pair": "vbWBTC-vbUSDC",
       "protocol": "SushiSwap V3",
-      "tvl": 517778,
-      "apr": 55.59,
-      "daily_kat": 789,
-      "daily_usd": 788.61
+      "tvl": 516825,
+      "apr": 55.27,
+      "daily_kat": 781,
+      "daily_usd": 782.59
     },
     {
       "rank": 3,
       "pair": "vbUSDC-vbETH",
-      "protocol": "Charm",
-      "tvl": 242174,
-      "apr": 18.58,
-      "daily_kat": 123,
-      "daily_usd": 123.26
+      "protocol": "SushiSwap V3",
+      "tvl": 12611,
+      "apr": 64.83,
+      "daily_kat": 22,
+      "daily_usd": 22.4
     }
   ],
-  "perps_tickers": [
-    {
-      "market": "SOL-USD",
-      "markPrice": 81.17,
-      "indexPrice": 81.15,
-      "percentChange": -2.05,
-      "openInterest": 1945.22,
-      "baseVolume": 616.46
-    },
-    {
-      "market": "MEGA-USD",
-      "markPrice": 0.05918,
-      "indexPrice": 0.05909,
-      "percentChange": -4.69,
-      "openInterest": 1110.0,
-      "baseVolume": 198982.0
-    },
-    {
-      "market": "DOGE-USD",
-      "markPrice": 0.09987,
-      "indexPrice": 0.10014,
-      "percentChange": -0.66,
-      "openInterest": 0.0,
-      "baseVolume": 278854.0
-    },
-    {
-      "market": "HYPE-USD",
-      "markPrice": 72.29,
-      "indexPrice": 72.33,
-      "percentChange": 5.49,
-      "openInterest": 349.88,
-      "baseVolume": 33207.89
-    },
-    {
-      "market": "TAO-USD",
-      "markPrice": 251.21,
-      "indexPrice": 252.18,
-      "percentChange": -2.68,
-      "openInterest": 4.67,
-      "baseVolume": 131.34
-    },
-    {
-      "market": "XRP-USD",
-      "markPrice": 1.3053,
-      "indexPrice": 1.3064,
-      "percentChange": -2.52,
-      "openInterest": 222.7,
-      "baseVolume": 15023.4
-    },
-    {
-      "market": "KAT-USD",
-      "markPrice": 0.007131,
-      "indexPrice": 0.007135,
-      "percentChange": -2.26,
-      "openInterest": 3826716.0,
-      "baseVolume": 338142580.0
-    },
-    {
-      "market": "ETH-USD",
-      "markPrice": 1989.4,
-      "indexPrice": 1986.98,
-      "percentChange": -1.91,
-      "openInterest": 713.75,
-      "baseVolume": 77.36
-    },
-    {
-      "market": "BTC-USD",
-      "markPrice": 72974.0,
-      "indexPrice": 72896.02,
-      "percentChange": -1.22,
-      "openInterest": 13.36,
-      "baseVolume": 31.98
-    },
-    {
-      "market": "ZEC-USD",
-      "markPrice": 551.57,
-      "indexPrice": 551.9,
-      "percentChange": -1.7,
-      "openInterest": 10.21,
-      "baseVolume": 270.75
-    }
-  ],
-  "total_usd": 1135.96,
-  "tracking": {
-    "start_date": "2026-05-02",
-    "start_value_usd": 502.29,
-    "current_value_usd": 1135.96,
-    "value_gain_usd": 633.67,
-    "kat_price": 0.007131,
-    "kat_tokens_claimed": 88861,
-    "monthly_roi_pct": 126.2,
-    "days_elapsed": 30
-  }
+  "total_usd": 1138.71
 }
