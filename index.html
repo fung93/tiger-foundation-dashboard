@@ -126,7 +126,7 @@ function load(){
     document.getElementById('totalBreakdown').textContent=fmt(onchain)+' on-chain + '+fmt(lp)+' LP + '+fmt(pending)+' pending';
     if(d.tracking){
       var roi=d.tracking;
-      document.getElementById('monthlyRoi').textContent='Monthly ROI: '+roi.monthly_roi_pct+'% | KAT Claimed: '+Number(roi.kat_tokens_claimed).toLocaleString()+' KAT | Since '+roi.start_date+' ('+roi.days_elapsed+' days)';
+      document.getElementById('monthlyRoi').textContent='Monthly ROI: '+roi.monthly_roi_pct+'%';
     }
     document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
     document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
