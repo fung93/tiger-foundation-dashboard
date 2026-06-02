@@ -3,14 +3,6 @@
   "target_usdc": 8000,
   "data": [
     {
-      "date": "2026-05-02",
-      "timestamp": "2026-05-02T00:00:00Z",
-      "onchain_usd": 44.1,
-      "pending_usd": 64.62,
-      "lp_usd": 393.58,
-      "total_usd": 502.29
-    },
-    {
       "date": "2026-05-03",
       "timestamp": "2026-05-03T00:00:00Z",
       "onchain_usd": 45.78,
@@ -250,6 +242,15 @@
       "lp_usd": 1080.31,
       "solana_usd": 377.63,
       "total_usd": 1138.71
+    },
+    {
+      "date": "2026-06-02",
+      "timestamp": "2026-06-02T03:37:07.459125+00:00",
+      "onchain_usd": 38.24,
+      "pending_usd": 7.68,
+      "lp_usd": 1067.2,
+      "solana_usd": 368.85,
+      "total_usd": 1113.12
     }
   ]
 }
