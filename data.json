@@ -4,7 +4,7 @@
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 419.80,
+    "current_value_usd": 419.8,
     "value_gain_usd": -82.49,
     "kat_price": 0.006647644446407574,
     "kat_tokens_claimed": 84937,
@@ -25,12 +25,12 @@
               "valueUSD": 0.78
             },
             "KAT": {
-              "balance": 132.213484113070647526,
+              "balance": 132.21348411307065,
               "priceUSD": 0.006647644446407574,
               "valueUSD": 0.88
             },
             "WETH": {
-              "balance": 0.000003129985135022,
+              "balance": 3.129985135022e-06,
               "priceUSD": 1873.68,
               "valueUSD": 0.01
             },
@@ -69,31 +69,41 @@
         "rewards": [
           {
             "symbol": "KAT",
-            "amount": 3629.814109487851197757,
+            "amount": 3629.814109487851,
             "usd": 24.13
           }
         ]
       },
-      "lp_positions": [],
+      "lp_positions": [
+        {
+          "type": "LP",
+          "protocol": "SushiSwap V3",
+          "pair": "vbUSDC / KAT",
+          "pool_fee": "0.05%",
+          "value_usd": 667.28,
+          "apr": 64.58,
+          "note": "Concentrated liquidity NFT"
+        }
+      ],
       "defi_positions": [
         {
           "type": "Lending",
           "protocol": "Morpho Blue",
           "market": "KAT / avKAT",
           "collateral": {
-            "amount": 27999.377858914748760122,
+            "amount": 27999.377858914748,
             "token": "avKAT"
           },
           "debt": {
-            "amount": 24214.999232649868185525,
+            "amount": 24214.99923264987,
             "token": "KAT"
           },
           "lltv": "77%",
           "note": "Net 3784.38 KAT = $25.16"
         }
       ],
-      "lp_total_usd": 0,
-      "total_usd": 50.95,
+      "lp_total_usd": 667.28,
+      "total_usd": 718.23,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -135,11 +145,11 @@
     }
   },
   "summary": {
-    "grand_total_usd": 419.80,
-    "katana_usd": 50.95,
+    "grand_total_usd": 1087.08,
+    "katana_usd": 718.23,
     "solana_usd": 368.85,
     "onchain_usd": 11.11,
-    "lp_usd": 359.4,
+    "lp_usd": 1026.6799999999998,
     "merkl_usd": 24.13,
     "total_defi_positions": 1,
     "chains_count": 2
@@ -153,12 +163,12 @@
           "valueUSD": 0.78
         },
         "KAT": {
-          "balance": 132.213484113070647526,
+          "balance": 132.21348411307065,
           "priceUSD": 0.006647644446407574,
           "valueUSD": 0.88
         },
         "WETH": {
-          "balance": 0.000003129985135022,
+          "balance": 3.129985135022e-06,
           "priceUSD": 1873.68,
           "valueUSD": 0.01
         },
@@ -191,18 +201,27 @@
       "total_usd": 1.66
     }
   },
-  "onchain_usd": 1.66,
+  "onchain_usd": 11.11,
   "merkl_rewards": {
     "total_usd": 24.13,
     "rewards": [
       {
         "symbol": "KAT",
-        "amount": 3629.814109487851197757,
+        "amount": 3629.814109487851,
         "usd": 24.13
       }
     ]
   },
   "lp_positions": [
+    {
+      "type": "LP",
+      "protocol": "SushiSwap V3",
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "value_usd": 667.28,
+      "apr": 64.58,
+      "note": "Concentrated liquidity NFT"
+    },
     {
       "type": "LP",
       "protocol": "Meteora",
@@ -219,11 +238,11 @@
       "protocol": "Morpho Blue",
       "market": "KAT / avKAT",
       "collateral": {
-        "amount": 27999.377858914748760122,
+        "amount": 27999.377858914748,
         "token": "avKAT"
       },
       "debt": {
-        "amount": 24214.999232649868185525,
+        "amount": 24214.99923264987,
         "token": "KAT"
       },
       "lltv": "77%",
@@ -259,5 +278,5 @@
       "daily_usd": 75.42
     }
   ],
-  "total_usd": 419.80
+  "total_usd": 1087.08
 }
