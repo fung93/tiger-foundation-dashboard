@@ -16,104 +16,202 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .hdr .sub{font-size:13px;color:var(--dim);margin-top:4px;letter-spacing:1px}
 .hdr .ts{font-size:12px;color:var(--dim);text-align:right}
 .wrap{max-width:1200px;margin:0 auto;padding:28px}
+
+/* Hero */
 .hero{background:linear-gradient(135deg,rgba(245,158,11,.08) 0%,rgba(59,130,246,.05) 100%);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
 .hero h2{font-size:18px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .wealth-sub{font-size:15px;color:var(--dim)}
-.progress-section{margin-top:20px}
+.hero-meta{display:flex;gap:28px;margin-top:12px;flex-wrap:wrap}
+.hero-meta-item{font-size:13px}.hero-meta-item .lbl{color:var(--dim);margin-right:6px}
+.progress-section{margin-top:22px}
 .progress-label{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:6px}
 .progress-label .pct{color:var(--gold);font-weight:700}
 .progress-bg{background:rgba(255,255,255,.06);border-radius:10px;height:22px;overflow:hidden}
 .progress-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .6s}
 .progress-markers{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
+
+/* Cards */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
 .c{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
-.c:hover{border-color:var(--accent);transition:border-color .3s}
+.c:hover{border-color:rgba(245,158,11,.4);transition:border-color .3s}
 .cl{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:10px}
-.cv{font-size:28px;font-weight:700}.cs{font-size:13px;margin-top:6px;color:var(--dim)}
-.cv.green{color:var(--green)}.cv.gold{color:var(--gold)}.cv.accent{color:var(--accent)}.cv.blue{color:var(--blue)}.cv.purple{color:var(--purple)}
+.cv{font-size:28px;font-weight:700}
+.cs{font-size:12px;margin-top:6px;color:var(--dim)}
+.cv.green{color:var(--green)}.cv.gold{color:var(--gold)}.cv.accent{color:var(--accent)}
+.cv.blue{color:var(--blue)}.cv.purple{color:var(--purple)}.cv.red{color:var(--red)}
+
+/* Sections */
 .sec{margin-bottom:28px}
 .sec-title{font-size:15px;font-weight:600;color:var(--accent);margin-bottom:14px;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px}
 .sec-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--accent);border-radius:2px}
+
+/* Badges */
 .hf{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
 .hf.green{background:rgba(16,185,129,.12);color:var(--green)}
 .hf.blue{background:rgba(59,130,246,.12);color:var(--blue)}
 .hf.gold{background:rgba(251,191,36,.12);color:var(--gold)}
-.hf.purple{background:rgba(153,69,255,.15);color:var(--sol)}
+.hf.red{background:rgba(239,68,68,.12);color:var(--red)}
 .chain-badge{font-size:10px;padding:2px 8px;border-radius:4px;margin-left:6px;font-weight:600}
 .chain-katana{background:rgba(245,158,11,.15);color:var(--accent)}
 .chain-solana{background:rgba(153,69,255,.15);color:var(--sol)}
+
+/* Position cards */
 .pos-card{background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.15);border-radius:10px;padding:14px;margin-bottom:8px}
 .pos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .pos-proto{font-size:14px;font-weight:600}
-.pos-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+.pos-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.pos-row:last-of-type{border-bottom:none}
 .pos-label{color:var(--dim)}.pos-val{font-weight:600}
+
+/* Chain rows */
 .chain-row{display:flex;align-items:center;gap:14px;padding:14px;margin-bottom:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px}
 .chain-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 .chain-info{flex:1}
 .chain-name{font-size:15px;font-weight:600}
 .chain-detail{font-size:12px;color:var(--dim);margin-top:3px}
 .chain-amt{font-size:18px;font-weight:700;text-align:right}
-.chart-h{position:relative;height:260px;margin-top:10px}
-@media(max-width:768px){.grid4,.grid3{grid-template-columns:1fr}}
+
+/* Health bar */
+.health-wrap{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
+.health-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.health-bar-bg{background:rgba(255,255,255,.06);border-radius:4px;height:7px;overflow:hidden}
+.health-bar-fill{height:100%;border-radius:4px;transition:width .8s}
+.health-note{font-size:11px;color:var(--dim);margin-top:5px}
+
+/* Chart legend */
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--dim)}
+.chart-legend span{display:flex;align-items:center;gap:5px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.chart-h{position:relative;height:300px}
+
+/* KAT sub info */
+.kat-sub{display:flex;gap:10px;margin-top:5px;flex-wrap:wrap}
+.kat-sub span{font-size:11px;color:var(--dim)}
+
+@media(max-width:768px){.grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}}
+@media(max-width:480px){.grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}}
 </style>
 </head>
 <body>
 <div class="hdr">
   <div class="hdr-inner">
-    <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH & INVESTMENT DASHBOARD</div></div>
+    <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     <div class="ts" id="lastUpdated">Loading...</div>
   </div>
 </div>
+
 <div class="wrap">
 
+  <!-- HERO -->
   <div class="hero">
     <h2>WEALTH OVERVIEW</h2>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div></div>
     <div class="wealth-sub" id="totalBreakdown">Loading...</div>
-    <div class="wealth-sub" id="monthlyRoi" style="margin-top:6px;font-size:13px;color:var(--green)"></div>
+    <div class="hero-meta">
+      <div class="hero-meta-item"><span class="lbl">Monthly ROI</span><span id="monthlyRoi">---</span></div>
+      <div class="hero-meta-item"><span class="lbl">Target ETA</span><span id="targetEta" style="color:var(--gold)">---</span></div>
+      <div class="hero-meta-item"><span class="lbl">Days Elapsed</span><span id="daysElapsed" style="color:var(--text)">---</span></div>
+    </div>
     <div class="progress-section">
-      <div class="progress-label"><span>PROGRESS TO TARGET: <span style="color:var(--text)">$8,000 USDC</span></span><span class="pct" id="pctVal">0%</span></div>
+      <div class="progress-label">
+        <span>PROGRESS TO TARGET: <span style="color:var(--text)">$8,000 USDC</span></span>
+        <span class="pct" id="pctVal">0%</span>
+      </div>
       <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
       <div class="progress-markers"><span>$0</span><span>$2K</span><span>$4K</span><span>$6K</span><span>$8K</span></div>
     </div>
   </div>
 
+  <!-- NEW: Metrics row -->
+  <div class="grid3">
+    <div class="c">
+      <div class="cl">Daily Earnings</div>
+      <div class="cv green" id="dailyEarnings">$---</div>
+      <div class="cs" id="dailyEarningsSub">From LP APR</div>
+    </div>
+    <div class="c">
+      <div class="cl">KAT Total Earned</div>
+      <div class="cv gold" id="katTotalAmt">---</div>
+      <div class="cs" id="katTotalUsd">--- USD</div>
+    </div>
+    <div class="c">
+      <div class="cl">All-Time Peak</div>
+      <div class="cv accent" id="peakVal">$---</div>
+      <div class="cs" id="peakDate">---</div>
+    </div>
+  </div>
+
+  <!-- Chain breakdown -->
   <div class="sec">
     <div class="sec-title">Chain Breakdown</div>
     <div id="chainRows"></div>
   </div>
 
+  <!-- Existing stats -->
   <div class="grid4">
-    <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid</div></div>
-    <div class="c"><div class="cl">Pending Rewards</div><div class="cv gold" id="rewardsVal">$---</div><div class="cs">Unclaimed KAT</div></div>
+    <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
+    <div class="c"><div class="cl">Pending Rewards</div><div class="cv gold" id="rewardsVal">$---</div><div class="cs" id="rewardsSub">Unclaimed KAT</div></div>
     <div class="c"><div class="cl">LP Positions</div><div class="cv accent" id="lpVal">$---</div><div class="cs">All chains</div></div>
-    <div class="c"><div class="cl">Chains</div><div class="cv blue" id="chainCount">-</div><div class="cs"><span style="color:var(--green)">&#9679;</span> <span id="chainNames">-</span></div></div>
+    <div class="c"><div class="cl">Active Chains</div><div class="cv blue" id="chainCount">-</div><div class="cs"><span style="color:var(--green)">&#9679;</span> <span id="chainNames">-</span></div></div>
   </div>
 
+  <!-- DeFi positions -->
   <div class="sec">
     <div class="sec-title">DeFi Positions</div>
     <div id="defiList"></div>
   </div>
 
+  <!-- Top pools -->
   <div class="sec">
-    <div class="sec-title">Top 3 LP Merkl Campaigns (Daily KAT Reward)</div>
+    <div class="sec-title">Top 3 LP Merkl Campaigns</div>
     <div class="grid3" id="poolCards"></div>
   </div>
 
+  <!-- History chart -->
   <div class="sec">
     <div class="sec-title">Total Asset Value History</div>
-    <div class="c"><div class="chart-h" style="height:260px"><canvas id="historyChart"></canvas></div></div>
+    <div class="c">
+      <div class="chart-legend">
+        <span><span class="legend-dot" style="background:rgba(245,158,11,.7)"></span>LP Positions</span>
+<span><span class="legend-dot" style="background:rgba(59,130,246,.7)"></span>On-Chain</span>
+      </div>
+      <div class="chart-h"><canvas id="historyChart"></canvas></div>
+    </div>
   </div>
 
 </div>
+
 <script>
-function fmt(v,d){d=d===undefined?2:d;if(v===null||v===undefined)return'---';if(v===0)return'$0.00';if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(2)+'K';if(v<0.01)return'$'+v.toFixed(6);if(v<1)return'$'+v.toFixed(4);return'$'+v.toFixed(d)}
+function fmt(v,d){
+  d=d===undefined?2:d;
+  if(v===null||v===undefined)return'---';
+  if(v===0)return'$0.00';
+  if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';
+  if(v>=1e3)return'$'+(v/1e3).toFixed(2)+'K';
+  if(v<0.01)return'$'+v.toFixed(6);
+  if(v<1)return'$'+v.toFixed(4);
+  return'$'+v.toFixed(d);
+}
+function fmtN(v,d){return Number(v).toLocaleString('en-US',{maximumFractionDigits:d===undefined?0:d});}
+
+function calcEta(current,target,monthlyRoiPct){
+  if(!monthlyRoiPct||monthlyRoiPct<=0)return'Not on track';
+  if(current>=target)return'&#127881; Target reached!';
+  var rate=monthlyRoiPct/100;
+  var months=Math.log(target/current)/Math.log(1+rate);
+  if(!isFinite(months)||months<0)return'—';
+  if(months<1)return'&lt; 1 month';
+  var yr=Math.floor(months/12);
+  var mo=Math.round(months%12);
+  if(yr===0)return'~'+Math.round(months)+' months';
+  return'~'+yr+'y '+mo+'m';
+}
 
 function load(){
-  fetch('/data.json').then(function(r){return r.json()}).then(function(d){
+  fetch('/data.json?t='+Date.now()).then(function(r){return r.json();}).then(function(d){
     if(!d)return;
     var s=d.summary||{};
     var total=s.grand_total_usd||d.total_usd||0;
@@ -122,12 +220,9 @@ function load(){
     var lp=s.lp_usd||0;
     var target=d.wealth_target_usdc||8000;
     var pct=Math.min(100,(total/target)*100);
+
     document.getElementById('totalVal').textContent=fmt(total);
     document.getElementById('totalBreakdown').textContent=fmt(onchain)+' on-chain + '+fmt(lp)+' LP + '+fmt(pending)+' pending';
-    if(d.tracking){
-      var roi=d.tracking;
-      document.getElementById('monthlyRoi').textContent='Monthly ROI: '+roi.monthly_roi_pct+'%';
-    }
     document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
     document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
     document.getElementById('onchainVal').textContent=fmt(onchain);
@@ -136,97 +231,227 @@ function load(){
     document.getElementById('chainCount').textContent=s.chains_count||1;
     if(d.last_updated)document.getElementById('lastUpdated').textContent='Updated: '+d.last_updated.replace('T',' ').slice(0,19)+' UTC';
 
+    // 1. ROI — colour fix (green if positive, red if negative)
+    if(d.tracking){
+      var t=d.tracking;
+      var roiPct=t.monthly_roi_pct||0;
+      var roiColor=roiPct>=0?'var(--green)':'var(--red)';
+      var roiSign=roiPct>0?'+':'';
+      var roiEl=document.getElementById('monthlyRoi');
+      roiEl.textContent=roiSign+roiPct+'%';
+      roiEl.style.color=roiColor;
+      document.getElementById('daysElapsed').textContent=(t.days_elapsed||0)+' days';
+      // 3. Target ETA
+      document.getElementById('targetEta').innerHTML=calcEta(total,target,roiPct);
+    }
+
+    // 4. Daily earnings from all LP APR
+    var dailyEarnings=0;
+    var earningsBreakdown=[];
+    var allLPs=d.lp_positions||[];
+    for(var i=0;i<allLPs.length;i++){
+      var lpp=allLPs[i];
+      if(lpp.apr&&lpp.value_usd){
+        var daily=(lpp.apr/100)*lpp.value_usd/365;
+        dailyEarnings+=daily;
+        earningsBreakdown.push(lpp.pair.split('/')[0].trim()+': $'+daily.toFixed(2));
+      }
+    }
+    if(dailyEarnings>0){
+      document.getElementById('dailyEarnings').textContent='~$'+dailyEarnings.toFixed(2)+'/day';
+      document.getElementById('dailyEarningsSub').innerHTML='<span style="color:var(--dim);font-size:11px">'+earningsBreakdown.join(' &nbsp;·&nbsp; ')+'</span>';
+    }
+
+    // 5. KAT accumulated (claimed + pending)
+    var katClaimed=(d.tracking&&d.tracking.kat_tokens_claimed)||0;
+    var katPending=0;
+    if(d.merkl_rewards&&d.merkl_rewards.rewards){
+      d.merkl_rewards.rewards.forEach(function(r){if(r.symbol==='KAT')katPending+=r.amount;});
+    }
+    var katTotal=katClaimed+katPending;
+    var katPrice=(d.tracking&&d.tracking.kat_price)||0;
+    document.getElementById('katTotalAmt').textContent=fmtN(Math.round(katTotal))+' KAT';
+    document.getElementById('katTotalUsd').textContent=fmt(katTotal*katPrice);
+
     // Chain breakdown
     var chains=d.chains||{};
-    var chainHtml='';
-    var chainNames=[];
-    var chainKeys=['katana','solana'];
-    for(var i=0;i<chainKeys.length;i++){
-      var key=chainKeys[i];
-      if(!chains[key])continue;
+    var chainHtml='';var chainNames=[];
+    ['katana','solana'].forEach(function(key){
+      if(!chains[key])return;
       var ch=chains[key];
       chainNames.push(ch.name);
       var dotColor=ch.color||'#f59e0b';
       chainHtml+='<div class="chain-row">';
       chainHtml+='<div class="chain-dot" style="background:'+dotColor+'"></div>';
       chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+'</div>';
-      chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain + '+fmt(ch.lp_total_usd||0)+' LP | '+((ch.lp_positions||[]).length+(ch.defi_positions||[]).length)+' positions</div></div>';
-      chainHtml+='<div class="chain-amt">'+fmt(ch.total_usd)+'</div></div>';
-    }
+      chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain &nbsp;+&nbsp; '+fmt(ch.lp_total_usd||0)+' LP &nbsp;|&nbsp; '+((ch.lp_positions||[]).length+(ch.defi_positions||[]).length)+' positions</div></div>';
+      chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(ch.total_usd)+'</div></div>';
+    });
     document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
     document.getElementById('chainNames').textContent=chainNames.join(' + ');
 
-    // DeFi positions - iterate chains in order
+    // DeFi positions — with 6. Morpho health indicator
     var dl='';
-    for(var i=0;i<chainKeys.length;i++){
-      var key=chainKeys[i];
-      if(!chains[key])continue;
+    ['katana','solana'].forEach(function(key){
+      if(!chains[key])return;
       var ch=chains[key];
       var badgeClass=key==='katana'?'chain-katana':'chain-solana';
       var badgeColor=key==='katana'?'var(--accent)':'var(--sol)';
-      // LP positions
-      var lpPos=ch.lp_positions||[];
-      for(var j=0;j<lpPos.length;j++){
-        var p=lpPos[j];
-        dl+='<div class="pos-card"><div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
+
+      (ch.lp_positions||[]).forEach(function(p){
+        dl+='<div class="pos-card">';
+        dl+='<div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
         dl+='<span><span class="hf gold">LP</span><span class="chain-badge '+badgeClass+'">'+ch.name+'</span></span></div>';
-        dl+='<div class="pos-row"><span class="pos-label">Pair</span><span class="pos-val" style="font-size:13px">'+p.pair+'</span></div>';
-        if(p.pool_fee)dl+='<div class="pos-row"><span class="pos-label">Fee</span><span class="pos-val">'+p.pool_fee+'</span></div>';
-        dl+='<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">$'+Number(p.value_usd).toFixed(2)+'</span></div>';
-        if(p.apr)dl+='<div class="pos-row"><span class="pos-label">APR</span><span class="pos-val green" style="font-size:13px">'+Number(p.apr).toFixed(1)+'%</span></div>';
-        if(p.note)dl+='<div style="font-size:12px;color:var(--dim);margin-top:6px">'+p.note+'</div>';
+        dl+='<div class="pos-row"><span class="pos-label">Pair</span><span class="pos-val">'+p.pair+'</span></div>';
+        if(p.pool_fee)dl+='<div class="pos-row"><span class="pos-label">Fee Tier</span><span class="pos-val">'+p.pool_fee+'</span></div>';
+        dl+='<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
+        if(p.apr)dl+='<div class="pos-row"><span class="pos-label">APR</span><span class="pos-val" style="color:var(--green)">'+Number(p.apr).toFixed(1)+'%</span></div>';
+        if(p.note)dl+='<div style="font-size:12px;color:var(--dim);margin-top:8px">'+p.note+'</div>';
         dl+='</div>';
-      }
-      // Lending positions
-      var defiPos=ch.defi_positions||[];
-      for(var j=0;j<defiPos.length;j++){
-        var p=defiPos[j];
-        dl+='<div class="pos-card"><div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
+      });
+
+      (ch.defi_positions||[]).forEach(function(p){
+        dl+='<div class="pos-card">';
+        dl+='<div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
         dl+='<span><span class="hf blue">'+p.type+'</span><span class="chain-badge '+badgeClass+'">'+ch.name+'</span></span></div>';
-        dl+='<div class="pos-row"><span class="pos-label">Market</span><span class="pos-val" style="font-size:13px">'+(p.market||'')+'</span></div>';
-        if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val" style="font-size:13px">'+Number(p.collateral.amount).toLocaleString()+' '+p.collateral.token+'</span></div>';
-        if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red);font-size:13px">'+Number(p.debt.amount).toLocaleString()+' '+p.debt.token+'</span></div>';
-        if(p.lltv)dl+='<div class="pos-row"><span class="pos-label">LLTV</span><span class="pos-val" style="font-size:13px">'+p.lltv+'</span></div>';
-        if(p.note)dl+='<div style="font-size:12px;color:var(--dim);margin-top:6px">'+p.note+'</div>';
+        dl+='<div class="pos-row"><span class="pos-label">Market</span><span class="pos-val">'+(p.market||'')+'</span></div>';
+        if(p.lltv)dl+='<div class="pos-row"><span class="pos-label">LLTV</span><span class="pos-val">'+p.lltv+'</span></div>';
+        if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+'</span></div>';
+        if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+'</span></div>';
+
+        // 6. Morpho health indicator
+        if(p.collateral&&p.debt&&p.lltv){
+          var lltv=parseFloat(p.lltv)/100;
+          var col=p.collateral.amount;
+          var debt=p.debt.amount;
+          var bufferPct=((col/debt)-1)*100;
+          // Approximate health: (col * lltv) / debt assuming avKAT ≈ KAT price
+          // Real HF > this because avKAT > KAT in value
+          var hfApprox=(col*lltv)/debt;
+          // avKAT is an auto-compounding vault — always worth more than KAT.
+          // hfApprox is the FLOOR (avKAT = 1 KAT assumption). Real HF is higher.
+          // Min safe avKAT/KAT ratio = debt / (collateral * lltv)
+          var minSafeRatio=(debt/(col*lltv));
+          var hColor=hfApprox>=1.05?'var(--green)':'var(--gold)';
+          var hLabel=hfApprox>=1.05?'HEALTHY':'ORACLE DEPENDENT';
+          var barW=Math.min(100,Math.max(0,((hfApprox-0.7)/0.5)*100));
+          dl+='<div class="health-wrap">';
+          dl+='<div class="health-row">';
+          dl+='<span style="color:var(--dim);font-size:12px">Health (floor estimate)</span>';
+          dl+='<span style="color:'+hColor+';font-size:12px;font-weight:700">'+hLabel+' &nbsp;≥&nbsp;'+hfApprox.toFixed(3)+'×</span>';
+          dl+='</div>';
+          dl+='<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+barW.toFixed(1)+'%;background:'+hColor+'"></div></div>';
+          dl+='<div class="health-note">Buffer: +'+bufferPct.toFixed(1)+'% col/debt &nbsp;·&nbsp; Safe if avKAT ≥ '+minSafeRatio.toFixed(3)+'× KAT &nbsp;·&nbsp; Verify on Morpho UI</div>';
+          dl+='</div>';
+        }
+
+        if(p.note)dl+='<div style="font-size:12px;color:var(--accent);margin-top:8px;font-weight:600">'+p.note+'</div>';
         dl+='</div>';
-      }
-    }
-    document.getElementById('defiList').innerHTML=dl||'<p style="color:var(--dim);font-size:14px;padding:12px">No active DeFi positions</p>';
+      });
+    });
+    document.getElementById('defiList').innerHTML=dl||'<p style="color:var(--dim);font-size:14px;padding:12px">No active positions</p>';
 
     // Top pools
     var pl='';
-    var pools=d.top_pools||[];
-    for(var i=0;i<pools.length;i++){
-      var p=pools[i];
-      pl+='<div class="c" style="text-align:center"><div class="cl" style="font-size:12px">Rank #'+p.rank+'</div>';
-      pl+='<div style="font-size:16px;font-weight:700;margin:8px 0">'+p.pair+'</div>';
+    (d.top_pools||[]).forEach(function(p){
+      pl+='<div class="c" style="text-align:center">';
+      pl+='<div class="cl">Rank #'+p.rank+'</div>';
+      pl+='<div style="font-size:15px;font-weight:700;margin:8px 0;color:var(--text)">'+p.pair+'</div>';
       pl+='<div style="font-size:12px;color:var(--dim)">'+p.protocol+'</div>';
-      pl+='<div class="cv gold" style="font-size:24px;margin:10px 0">'+Number(p.daily_kat).toFixed(0)+' KAT</div>';
-      pl+='<div style="font-size:13px;color:var(--green)">'+p.apr.toFixed(1)+'% APR</div>';
-      pl+='<div style="font-size:11px;color:var(--dim);margin-top:4px">TVL '+fmt(p.tvl)+'</div></div>';
-    }
+      pl+='<div class="cv gold" style="font-size:22px;margin:10px 0">'+Number(p.daily_kat).toFixed(0)+' KAT</div>';
+      pl+='<div style="font-size:12px;color:var(--dim);margin-bottom:4px">Daily emission</div>';
+      pl+='<div style="font-size:13px;color:var(--green);font-weight:600">'+Number(p.apr).toFixed(1)+'% APR</div>';
+      pl+='<div style="font-size:11px;color:var(--dim);margin-top:4px">TVL '+fmt(p.tvl)+'</div>';
+      pl+='</div>';
+    });
     document.getElementById('poolCards').innerHTML=pl;
-  }).catch(function(){document.getElementById('totalBreakdown').textContent='Failed to load data'});
 
-  // History chart
-  fetch('/history.json').then(function(r){return r.json()}).then(function(h){
+  }).catch(function(e){
+    document.getElementById('totalBreakdown').textContent='Failed to load data';
+    console.error(e);
+  });
+
+  // History chart — stacked area + peak/drawdown
+  fetch('/history.json?t='+Date.now()).then(function(r){return r.json();}).then(function(h){
     var data=(h&&h.data)?h.data:[];
     if(data.length===0){
       document.getElementById('historyChart').parentElement.innerHTML='<p style="color:var(--dim);text-align:center;padding:40px">No historical data yet.</p>';
       return;
     }
-    var labels=data.map(function(x){return x.date?x.date.slice(5):''});
-    var totals=data.map(function(x){return x.total_usd||0});
+    var labels=data.map(function(x){return x.date?x.date.slice(5):'';});
+    var totals=data.map(function(x){return x.total_usd||0;});
+    var lpData=data.map(function(x){return x.lp_usd||0;});
+var onchainData=data.map(function(x){return x.onchain_usd||0;});
+
+    // 7. Peak and drawdown (computed from history)
+    var peak=0;var peakIdx=0;
+    totals.forEach(function(v,i){if(v>peak){peak=v;peakIdx=i;}});
+    var current=totals[totals.length-1]||0;
+    var drawdown=peak>0?((peak-current)/peak*100):0;
+    document.getElementById('peakVal').textContent=fmt(peak);
+    document.getElementById('peakDate').textContent='on '+data[peakIdx].date;
+
+    // 2. Stacked area chart
     new Chart(document.getElementById('historyChart').getContext('2d'),{
       type:'line',
-      data:{labels:labels,datasets:[{label:'Total Value',data:totals,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.08)',borderWidth:2.5,fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#f59e0b',pointBorderColor:'#080c14',pointBorderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
-        plugins:{legend:{labels:{color:'#5a6a8a',font:{size:11},boxWidth:12,padding:16}},tooltip:{backgroundColor:'#1a2540',titleColor:'#e8edf5',bodyColor:'#e8edf5',borderColor:'#f59e0b',borderWidth:1,callbacks:{label:function(ctx){return ctx.dataset.label+': $'+Number(ctx.raw).toFixed(2)}}}},
-        scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a8a',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return '$'+v.toFixed(0)}}}}
+      data:{
+        labels:labels,
+        datasets:[
+          {
+            label:'LP Positions',
+            data:lpData,
+            borderColor:'rgba(245,158,11,0.9)',
+            backgroundColor:'rgba(245,158,11,0.22)',
+            borderWidth:2,fill:true,tension:0.3,
+            pointRadius:0,pointHoverRadius:4,
+            stack:'portfolio'
+          },
+{
+            label:'On-Chain',
+            data:onchainData,
+            borderColor:'rgba(59,130,246,0.9)',
+            backgroundColor:'rgba(59,130,246,0.22)',
+            borderWidth:1.5,fill:true,tension:0.3,
+            pointRadius:0,pointHoverRadius:4,
+            stack:'portfolio'
+          }
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{intersect:false,mode:'index'},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'rgba(15,22,35,0.96)',
+            titleColor:'#e8edf5',bodyColor:'#e8edf5',
+            borderColor:'#f59e0b',borderWidth:1,padding:10,
+            callbacks:{
+              label:function(ctx){return' '+ctx.dataset.label+': '+fmt(ctx.raw);},
+              afterBody:function(ctxArr){
+                var t=ctxArr.reduce(function(s,c){return s+(c.raw||0);},0);
+                return['──────────',' Total: '+fmt(t)];
+              }
+            }
+          }
+        },
+        scales:{
+          x:{
+            stacked:true,
+            grid:{color:'rgba(255,255,255,.03)'},
+            ticks:{color:'#5a6a8a',font:{size:10},maxTicksLimit:12}
+          },
+          y:{
+            stacked:true,
+            grid:{color:'rgba(255,255,255,.03)'},
+            ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return'$'+v.toFixed(0);}}
+          }
+        }
       }
     });
   });
 }
+
 document.addEventListener('DOMContentLoaded',load);
 </script>
 </body>
