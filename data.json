@@ -4,8 +4,8 @@
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 406.29,
-    "value_gain_usd": -96.0,
+    "current_value_usd": 383.32,
+    "value_gain_usd": -118.97,
     "kat_price": 0.005984602024018214,
     "kat_tokens_claimed": 84937,
     "monthly_roi_pct": -19.1,
@@ -131,25 +131,34 @@
           "type": "LP",
           "protocol": "Meteora",
           "pair": "SOL / USDC",
-          "pool_fee": "Variable",
-          "value_usd": 335.41,
+          "pool_fee": "1.00%",
+          "value_usd": 160.44,
           "apr": null,
-          "note": "Concentrated liquidity"
+          "note": "Inactive #ezZM71 — range 0.0112-0.01199 SOL/USDC"
+        },
+        {
+          "type": "LP",
+          "protocol": "Meteora",
+          "pair": "SOL / USDC",
+          "pool_fee": "1.00%",
+          "value_usd": 151.99,
+          "apr": null,
+          "note": "Inactive #f3EHgW — range 0.01084-0.01114 SOL/USDC"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 335.41,
-      "total_usd": 343.63,
+      "lp_total_usd": 312.44,
+      "total_usd": 320.66,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 1039.43,
+    "grand_total_usd": 1016.46,
     "katana_usd": 695.8,
-    "solana_usd": 343.63,
+    "solana_usd": 320.66,
     "onchain_usd": 16.15,
-    "lp_usd": 968.55,
+    "lp_usd": 945.58,
     "merkl_usd": 32.09,
     "total_defi_positions": 1,
     "chains_count": 2
@@ -226,10 +235,19 @@
       "type": "LP",
       "protocol": "Meteora",
       "pair": "SOL / USDC",
-      "pool_fee": "Variable",
-      "value_usd": 335.41,
+      "pool_fee": "1.00%",
+      "value_usd": 160.44,
       "apr": null,
-      "note": "Concentrated liquidity"
+      "note": "Inactive #ezZM71 — range 0.0112-0.01199 SOL/USDC"
+    },
+    {
+      "type": "LP",
+      "protocol": "Meteora",
+      "pair": "SOL / USDC",
+      "pool_fee": "1.00%",
+      "value_usd": 151.99,
+      "apr": null,
+      "note": "Inactive #f3EHgW — range 0.01084-0.01114 SOL/USDC"
     }
   ],
   "defi_positions": [
@@ -278,5 +296,5 @@
       "daily_usd": 75.42
     }
   ],
-  "total_usd": 1039.43
+  "total_usd": 1016.46
 }
