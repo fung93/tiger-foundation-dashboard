@@ -164,12 +164,6 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
     <div id="defiList"></div>
   </div>
 
-  <!-- Top pools -->
-  <div class="sec">
-    <div class="sec-title">Top 3 LP Merkl Campaigns</div>
-    <div class="grid3" id="poolCards"></div>
-  </div>
-
   <!-- History chart -->
   <div class="sec">
     <div class="sec-title">Total Asset Value History</div>
@@ -350,21 +344,6 @@ function load(){
       });
     });
     document.getElementById('defiList').innerHTML=dl||'<p style="color:var(--dim);font-size:14px;padding:12px">No active positions</p>';
-
-    // Top pools
-    var pl='';
-    (d.top_pools||[]).forEach(function(p){
-      pl+='<div class="c" style="text-align:center">';
-      pl+='<div class="cl">Rank #'+p.rank+'</div>';
-      pl+='<div style="font-size:15px;font-weight:700;margin:8px 0;color:var(--text)">'+p.pair+'</div>';
-      pl+='<div style="font-size:12px;color:var(--dim)">'+p.protocol+'</div>';
-      pl+='<div class="cv gold" style="font-size:22px;margin:10px 0">'+Number(p.daily_kat).toFixed(0)+' KAT</div>';
-      pl+='<div style="font-size:12px;color:var(--dim);margin-bottom:4px">Daily emission</div>';
-      pl+='<div style="font-size:13px;color:var(--green);font-weight:600">'+Number(p.apr).toFixed(1)+'% APR</div>';
-      pl+='<div style="font-size:11px;color:var(--dim);margin-top:4px">TVL '+fmt(p.tvl)+'</div>';
-      pl+='</div>';
-    });
-    document.getElementById('poolCards').innerHTML=pl;
 
   }).catch(function(e){
     document.getElementById('totalBreakdown').textContent='Failed to load data';

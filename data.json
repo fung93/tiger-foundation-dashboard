@@ -228,34 +228,5 @@
       "note": "Net 6967.00 KAT = $34.34"
     }
   ],
-  "top_pools": [
-    {
-      "rank": 1,
-      "pair": "vbUSDC-vbETH",
-      "protocol": "SushiSwap V3",
-      "tvl": 631469,
-      "apr": 103.03,
-      "daily_kat": 1782,
-      "daily_usd": 1782.41
-    },
-    {
-      "rank": 2,
-      "pair": "vbWBTC-vbUSDC",
-      "protocol": "SushiSwap V3",
-      "tvl": 277320,
-      "apr": 97.13,
-      "daily_kat": 738,
-      "daily_usd": 737.94
-    },
-    {
-      "rank": 3,
-      "pair": "vbUSDC-KAT",
-      "protocol": "SushiSwap V3",
-      "tvl": 42627,
-      "apr": 64.58,
-      "daily_kat": 75,
-      "daily_usd": 75.42
-    }
-  ],
   "total_usd": 1830.40
 }
