@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-07-10T08:00:00.000000+00:00",
+  "last_updated": "2026-07-10T08:30:00.000000+00:00",
   "wealth_target_usdc": 8000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 1825.84,
-    "value_gain_usd": 1323.55,
+    "current_value_usd": 1830.40,
+    "value_gain_usd": 1328.11,
     "kat_price": 0.004928644134733596,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 263.50,
+    "monthly_roi_pct": 264.41,
     "days_elapsed": 69
   },
   "chains": {
@@ -73,17 +73,7 @@
         "total_usd": 0.0,
         "rewards": []
       },
-      "lp_positions": [
-        {
-          "type": "LP",
-          "protocol": "SushiSwap V3",
-          "pair": "vbUSDC / KAT",
-          "pool_fee": "0.05%",
-          "value_usd": 574.78,
-          "apr": 64.58,
-          "note": "Estimated via geometric mean (KAT price change)"
-        }
-      ],
+      "lp_positions": [],
       "defi_positions": [
         {
           "type": "Lending",
@@ -101,8 +91,8 @@
           "note": "Net 6967.00 KAT = $34.34"
         }
       ],
-      "lp_total_usd": 574.78,
-      "total_usd": 2060.49,
+      "lp_total_usd": 0.0,
+      "total_usd": 1485.71,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -128,36 +118,27 @@
       "lp_positions": [
         {
           "type": "LP",
-          "protocol": "Meteora",
+          "protocol": "Meteora DLMM",
           "pair": "SOL / USDC",
-          "pool_fee": "1.00%",
-          "value_usd": 170.25,
+          "pool_fee": "0.10% bin step",
+          "value_usd": 336.05,
           "apr": null,
-          "note": "Inactive #ezZM71 — range 0.0112-0.01199 SOL/USDC"
-        },
-        {
-          "type": "LP",
-          "protocol": "Meteora",
-          "pair": "SOL / USDC",
-          "pool_fee": "1.00%",
-          "value_usd": 161.24,
-          "apr": null,
-          "note": "Inactive #f3EHgW — range 0.01084-0.01114 SOL/USDC"
+          "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.456 SOL + 63.75 USDC (decoded on-chain)"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 331.49,
-      "total_usd": 340.13,
+      "lp_total_usd": 336.05,
+      "total_usd": 344.69,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 2400.62,
-    "katana_usd": 2060.49,
-    "solana_usd": 340.13,
+    "grand_total_usd": 1830.40,
+    "katana_usd": 1485.71,
+    "solana_usd": 344.69,
     "onchain_usd": 1460.01,
-    "lp_usd": 906.27,
+    "lp_usd": 336.05,
     "merkl_usd": 0.0,
     "total_defi_positions": 1,
     "chains_count": 2
@@ -222,30 +203,12 @@
   "lp_positions": [
     {
       "type": "LP",
-      "protocol": "SushiSwap V3",
-      "pair": "vbUSDC / KAT",
-      "pool_fee": "0.05%",
-      "value_usd": 574.78,
-      "apr": 64.58,
-      "note": "Estimated via geometric mean (KAT price change)"
-    },
-    {
-      "type": "LP",
-      "protocol": "Meteora",
+      "protocol": "Meteora DLMM",
       "pair": "SOL / USDC",
-      "pool_fee": "1.00%",
-      "value_usd": 170.25,
+      "pool_fee": "0.10% bin step",
+      "value_usd": 336.05,
       "apr": null,
-      "note": "Inactive #ezZM71 — range 0.0112-0.01199 SOL/USDC"
-    },
-    {
-      "type": "LP",
-      "protocol": "Meteora",
-      "pair": "SOL / USDC",
-      "pool_fee": "1.00%",
-      "value_usd": 161.24,
-      "apr": null,
-      "note": "Inactive #f3EHgW — range 0.01084-0.01114 SOL/USDC"
+      "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.456 SOL + 63.75 USDC (decoded on-chain)"
     }
   ],
   "defi_positions": [
@@ -294,5 +257,5 @@
       "daily_usd": 75.42
     }
   ],
-  "total_usd": 2400.62
+  "total_usd": 1830.40
 }
