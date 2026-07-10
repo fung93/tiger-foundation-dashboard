@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-07-10T08:30:00.000000+00:00",
+  "last_updated": "2026-07-10T10:00:00.000000+00:00",
   "wealth_target_usdc": 8000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 1830.40,
-    "value_gain_usd": 1328.11,
-    "kat_price": 0.004928644134733596,
+    "current_value_usd": 1660.12,
+    "value_gain_usd": 1157.83,
+    "kat_price": 0.005058630353822871,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 264.41,
+    "monthly_roi_pct": 230.51,
     "days_elapsed": 69
   },
   "chains": {
@@ -20,19 +20,19 @@
         "balances": {
           "tokens": {
             "ETH": {
-              "balance": 0.006222677870524927,
-              "priceUSD": 1769.0977009465469,
-              "valueUSD": 11.01
+              "balance": 0.006217601503765846,
+              "priceUSD": 1776.7499245482406,
+              "valueUSD": 11.05
             },
             "KAT": {
-              "balance": 37970.2972117033692147,
-              "priceUSD": 0.004928644134733596,
-              "valueUSD": 187.15
+              "balance": 0.000000000011224311,
+              "priceUSD": 0.005058630353822871,
+              "valueUSD": 0.0
             },
             "WETH": {
               "balance": 0.058499844000207019,
-              "priceUSD": 1769.0977009465469,
-              "valueUSD": 103.49
+              "priceUSD": 1776.7499245482406,
+              "valueUSD": 103.94
             },
             "USDC": {
               "balance": 589.288976,
@@ -41,8 +41,8 @@
             },
             "avKAT": {
               "balance": 113709.00762471413,
-              "priceUSD": 0.004928644134733596,
-              "valueUSD": 560.43
+              "priceUSD": 0.005058630353822871,
+              "valueUSD": 575.21
             },
             "WBTC": {
               "balance": 0,
@@ -65,10 +65,10 @@
               "valueUSD": 0
             }
           },
-          "total_usd": 1451.37
+          "total_usd": 1279.49
         }
       },
-      "onchain_usd": 1451.37,
+      "onchain_usd": 1279.49,
       "merkl_rewards": {
         "total_usd": 0.0,
         "rewards": []
@@ -88,11 +88,11 @@
             "token": "KAT"
           },
           "lltv": "77%",
-          "note": "Net 6967.00 KAT = $34.34"
+          "note": "Net 6967.00 KAT = $35.24"
         }
       ],
       "lp_total_usd": 0.0,
-      "total_usd": 1485.71,
+      "total_usd": 1314.73,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -104,8 +104,8 @@
       "balances": {
         "SOL": {
           "balance": 0.105621682,
-          "priceUSD": 78.8,
-          "valueUSD": 8.32
+          "priceUSD": 79.0,
+          "valueUSD": 8.34
         },
         "USDC": {
           "balance": 0.32474,
@@ -113,32 +113,32 @@
           "valueUSD": 0.32
         }
       },
-      "wallet_total_usd": 8.64,
-      "onchain_usd": 8.64,
+      "wallet_total_usd": 8.66,
+      "onchain_usd": 8.66,
       "lp_positions": [
         {
           "type": "LP",
           "protocol": "Meteora DLMM",
           "pair": "SOL / USDC",
           "pool_fee": "0.10% bin step",
-          "value_usd": 336.05,
+          "value_usd": 336.73,
           "apr": null,
-          "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.456 SOL + 63.75 USDC (decoded on-chain)"
+          "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.393 SOL + 68.72 USDC (decoded on-chain)"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 336.05,
-      "total_usd": 344.69,
+      "lp_total_usd": 336.73,
+      "total_usd": 345.39,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 1830.40,
-    "katana_usd": 1485.71,
-    "solana_usd": 344.69,
-    "onchain_usd": 1460.01,
-    "lp_usd": 336.05,
+    "grand_total_usd": 1660.12,
+    "katana_usd": 1314.73,
+    "solana_usd": 345.39,
+    "onchain_usd": 1288.15,
+    "lp_usd": 336.73,
     "merkl_usd": 0.0,
     "total_defi_positions": 1,
     "chains_count": 2
@@ -147,19 +147,19 @@
     "balances": {
       "tokens": {
         "ETH": {
-          "balance": 0.006222677870524927,
-          "priceUSD": 1769.0977009465469,
-          "valueUSD": 11.01
+          "balance": 0.006217601503765846,
+          "priceUSD": 1776.7499245482406,
+          "valueUSD": 11.05
         },
         "KAT": {
-          "balance": 37970.2972117033692147,
-          "priceUSD": 0.004928644134733596,
-          "valueUSD": 187.15
+          "balance": 0.000000000011224311,
+          "priceUSD": 0.005058630353822871,
+          "valueUSD": 0.0
         },
         "WETH": {
           "balance": 0.058499844000207019,
-          "priceUSD": 1769.0977009465469,
-          "valueUSD": 103.49
+          "priceUSD": 1776.7499245482406,
+          "valueUSD": 103.94
         },
         "USDC": {
           "balance": 589.288976,
@@ -168,8 +168,8 @@
         },
         "avKAT": {
           "balance": 113709.00762471413,
-          "priceUSD": 0.004928644134733596,
-          "valueUSD": 560.43
+          "priceUSD": 0.005058630353822871,
+          "valueUSD": 575.21
         },
         "WBTC": {
           "balance": 0,
@@ -192,10 +192,10 @@
           "valueUSD": 0
         }
       },
-      "total_usd": 1451.37
+      "total_usd": 1279.49
     }
   },
-  "onchain_usd": 1460.01,
+  "onchain_usd": 1288.15,
   "merkl_rewards": {
     "total_usd": 0.0,
     "rewards": []
@@ -206,9 +206,9 @@
       "protocol": "Meteora DLMM",
       "pair": "SOL / USDC",
       "pool_fee": "0.10% bin step",
-      "value_usd": 336.05,
+      "value_usd": 336.73,
       "apr": null,
-      "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.456 SOL + 63.75 USDC (decoded on-chain)"
+      "note": "Active #CLY9xG — range $77.9-$83.3, holds 3.393 SOL + 68.72 USDC (decoded on-chain)"
     }
   ],
   "defi_positions": [
@@ -225,8 +225,8 @@
         "token": "KAT"
       },
       "lltv": "77%",
-      "note": "Net 6967.00 KAT = $34.34"
+      "note": "Net 6967.00 KAT = $35.24"
     }
   ],
-  "total_usd": 1830.40
+  "total_usd": 1660.12
 }
