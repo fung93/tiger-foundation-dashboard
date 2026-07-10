@@ -63,8 +63,8 @@
       "timestamp": "2026-05-10T00:00:00Z",
       "onchain_usd": 44.91,
       "pending_usd": 75.09,
-      "lp_usd": 449.0,
-      "total_usd": 569.0
+      "lp_usd": 449,
+      "total_usd": 569
     },
     {
       "date": "2026-05-11",
@@ -119,7 +119,7 @@
       "timestamp": "2026-05-17T00:00:00Z",
       "onchain_usd": 43.57,
       "pending_usd": 80.01,
-      "lp_usd": 495.0,
+      "lp_usd": 495,
       "total_usd": 618.58
     },
     {
@@ -230,9 +230,9 @@
       "date": "2026-05-31",
       "timestamp": "2026-05-31T16:07:41.970105+00:00",
       "onchain_usd": 130.24,
-      "pending_usd": 0.0,
+      "pending_usd": 0,
       "total_usd": 715.24,
-      "lp_usd": 585.0
+      "lp_usd": 585
     },
     {
       "date": "2026-06-01",
@@ -274,7 +274,7 @@
       "date": "2026-06-05",
       "timestamp": "2026-06-05T08:00:00.000000+00:00",
       "onchain_usd": 17.69,
-      "pending_usd": 0.0,
+      "pending_usd": 0,
       "lp_usd": 895.87,
       "solana_usd": 309.05,
       "total_usd": 933.53
@@ -292,19 +292,19 @@
       "date": "2026-07-05",
       "timestamp": "2026-07-05T08:00:00.000000+00:00",
       "onchain_usd": 818.62,
-      "pending_usd": 0.0,
+      "pending_usd": 0,
       "lp_usd": 915.99,
       "solana_usd": 338.36,
-      "total_usd": 1769.60
+      "total_usd": 1769.6
     },
     {
       "date": "2026-07-10",
-      "timestamp": "2026-07-10T10:15:00.000000+00:00",
-      "onchain_usd": 1288.15,
-      "pending_usd": 0.0,
-      "lp_usd": 528.82,
-      "solana_usd": 345.39,
-      "total_usd": 1852.21
+      "timestamp": "2026-07-10T05:59:32.071Z",
+      "onchain_usd": 1483.49,
+      "pending_usd": 0,
+      "lp_usd": 540.03,
+      "solana_usd": 345.82,
+      "total_usd": 2194.33
     }
   ]
 }
