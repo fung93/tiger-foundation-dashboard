@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiger Foundation Dashboard</title>
+<meta name="theme-color" content="#0f1623">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tiger Fund">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='13' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='51' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='13' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='51' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='32' cy='36' r='26' fill='%23f59e0b'/%3E%3Crect x='30.4' y='11' width='3.2' height='9' rx='1.6' fill='%237c2d12'/%3E%3Crect x='23.2' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(-10 24.7 16)'/%3E%3Crect x='37.8' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(10 39.3 16)'/%3E%3Crect x='7' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='8' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Cellipse cx='32' cy='47' rx='12' ry='9.5' fill='%23fff7ed'/%3E%3Ccircle cx='22.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='41.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='21.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Ccircle cx='40.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Cpath d='M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z' fill='%239a3412'/%3E%3Cpath d='M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1' stroke='%239a3412' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='15.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3Cellipse cx='48.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -981,6 +988,41 @@ function load(){
 }
 
 document.addEventListener('DOMContentLoaded',load);
+
+/* ============ PWA: service worker + offline indicator ============ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      /* when a new SW takes over, reload once to pick up the fresh shell */
+      var refreshed=false;
+      navigator.serviceWorker.addEventListener('controllerchange',function(){
+        if(refreshed)return;refreshed=true;location.reload();
+      });
+      reg.addEventListener('updatefound',function(){
+        var nw=reg.installing;
+        if(!nw)return;
+        nw.addEventListener('statechange',function(){
+          if(nw.state==='installed'&&navigator.serviceWorker.controller)
+            console.log('New dashboard version installed — will activate on next visit.');
+        });
+      });
+    }).catch(function(e){console.warn('SW registration failed',e);});
+  });
+}
+function setOffline(off){
+  var el=document.getElementById('offlineBanner');
+  if(!el){
+    el=document.createElement('div');
+    el.id='offlineBanner';
+    el.textContent='⚡ Offline — showing cached data';
+    el.style.cssText='display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(239,68,68,.15);border:1px solid var(--red);color:var(--red);padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:99;backdrop-filter:blur(6px)';
+    document.body.appendChild(el);
+  }
+  el.style.display=off?'block':'none';
+}
+window.addEventListener('offline',function(){setOffline(true);});
+window.addEventListener('online',function(){setOffline(false);load();});
+if(navigator.onLine===false)document.addEventListener('DOMContentLoaded',function(){setOffline(true);});
 </script>
 </body>
 </html>
