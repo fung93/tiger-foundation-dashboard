@@ -146,8 +146,8 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
   <div class="sec">
     <div class="sec-title">Performance Breakdown</div>
     <div class="grid3">
-      <div class="c">
-        <div class="cl">Average Daily Earning</div>
+      <div class="c" id="earnCard" style="cursor:pointer" title="Click to change period">
+        <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
       </div>
@@ -660,15 +660,20 @@ function loadLive(refs,snap){
 /* ============ rendering ============ */
 var liveRendered=false;
 
-/* Average Daily Earning = (current total − first history total) ÷ days since history start */
+/* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
 var HIST_START=null,LAST_TOTAL=null,HIST=null;
+var EARN_MODES=[{k:'Daily',mult:1,u:'/day'},{k:'Weekly',mult:7,u:'/wk'},{k:'Monthly',mult:30,u:'/mo'},{k:'Yearly',mult:365,u:'/yr'}];
+var EARN_IDX=0;
+try{EARN_IDX=parseInt(localStorage.getItem('earnIdx'),10)||0;}catch(e){}
 function updateAvgDaily(){
   if(!HIST_START||LAST_TOTAL===null)return;
   var days=(Date.now()-HIST_START.time)/86400000;
   if(days<=0)return;
-  var avg=(LAST_TOTAL-HIST_START.total)/days;
+  var m=EARN_MODES[EARN_IDX];
+  var avg=(LAST_TOTAL-HIST_START.total)/days*m.mult;
+  document.getElementById('earnLabel').innerHTML='Average '+m.k+' Earning <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
   var el=document.getElementById('dailyEarnings');
-  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2)+'/day';
+  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2)+m.u;
   el.style.color=avg>=0?'var(--green)':'var(--red)';
   document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
 }
@@ -927,6 +932,11 @@ function load(){
       ROI_IDX=(ROI_IDX+1)%ROI_MODES.length;
       try{localStorage.setItem('roiIdx',ROI_IDX);}catch(e){}
       updateRoiToggle();
+    };
+    document.getElementById('earnCard').onclick=function(){
+      EARN_IDX=(EARN_IDX+1)%EARN_MODES.length;
+      try{localStorage.setItem('earnIdx',EARN_IDX);}catch(e){}
+      updateAvgDaily();
     };
 
     new Chart(document.getElementById('historyChart').getContext('2d'),{
