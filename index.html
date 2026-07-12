@@ -662,7 +662,7 @@ var liveRendered=false;
 
 /* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
 var HIST_START=null,LAST_TOTAL=null,HIST=null;
-var EARN_MODES=[{k:'Daily',mult:1,u:'/day'},{k:'Weekly',mult:7,u:'/wk'},{k:'Monthly',mult:30,u:'/mo'},{k:'Yearly',mult:365,u:'/yr'}];
+var EARN_MODES=[{k:'Daily',mult:1},{k:'Weekly',mult:7},{k:'Monthly',mult:30},{k:'Yearly',mult:365}];
 var EARN_IDX=0;
 try{EARN_IDX=parseInt(localStorage.getItem('earnIdx'),10)||0;}catch(e){}
 function updateAvgDaily(){
@@ -673,36 +673,35 @@ function updateAvgDaily(){
   var avg=(LAST_TOTAL-HIST_START.total)/days*m.mult;
   document.getElementById('earnLabel').innerHTML='Average '+m.k+' Earning <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
   var el=document.getElementById('dailyEarnings');
-  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2)+m.u;
+  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2);
   el.style.color=avg>=0?'var(--green)':'var(--red)';
   document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
 }
 
-/* 24h / 7d change chip — click to toggle between the two; choice remembered */
-var CHIP_MODE='24H';
-try{CHIP_MODE=localStorage.getItem('chipMode')||'24H';}catch(e){}
+/* change chip — click to cycle 24H → 7D → 14D → 30D; choice remembered */
+var CHIP_MODES=[{l:'24H',d:1},{l:'7D',d:7},{l:'14D',d:14},{l:'30D',d:30}];
+var CHIP_IDX=0;
+try{CHIP_IDX=parseInt(localStorage.getItem('chipIdx'),10)||0;}catch(e){}
 function updateChangeChips(){
   if(!HIST||LAST_TOTAL===null)return;
-  function baseline(daysAgo){
-    var cutoff=new Date(Date.now()-daysAgo*86400000).toISOString().slice(0,10);
-    var best=null;
-    for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)best=HIST[i];}
-    return best;
-  }
-  var cfg=CHIP_MODE==='7D'?{l:'7D',d:7,next:'24H'}:{l:'24H',d:1,next:'7D'};
+  var m=CHIP_MODES[CHIP_IDX];
+  var cutoff=new Date(Date.now()-m.d*86400000).toISOString().slice(0,10);
+  var b=null;
+  for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)b=HIST[i];}
+  if(!b)b=HIST[0]; /* lookback longer than history → since inception */
   var el=document.getElementById('chgChips');
-  var b=baseline(cfg.d);
   if(!b||!b.total_usd){el.innerHTML='';return;}
+  var next=CHIP_MODES[(CHIP_IDX+1)%CHIP_MODES.length];
   var delta=LAST_TOTAL-b.total_usd;
   var pct=delta/b.total_usd*100;
   var cls=delta>=0?'chg-up':'chg-down';
   var sign=delta>=0?'+':'-';
   el.innerHTML='<span class="chg-chip '+cls+'" style="cursor:pointer;user-select:none" '
-    +'title="vs '+b.date+' ($'+b.total_usd.toFixed(2)+') — click to switch to '+cfg.next+'">'
-    +'<span class="lbl">'+cfg.l+' &#8644;</span>'+sign+'$'+Math.abs(delta).toFixed(2)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
+    +'title="vs '+b.date+' ($'+b.total_usd.toFixed(2)+') — click to switch to '+next.l+'">'
+    +'<span class="lbl">'+m.l+' &#8644;</span>'+sign+'$'+Math.abs(delta).toFixed(2)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
   el.firstChild.onclick=function(){
-    CHIP_MODE=cfg.next;
-    try{localStorage.setItem('chipMode',CHIP_MODE);}catch(e){}
+    CHIP_IDX=(CHIP_IDX+1)%CHIP_MODES.length;
+    try{localStorage.setItem('chipIdx',CHIP_IDX);}catch(e){}
     updateChangeChips();
   };
 }
