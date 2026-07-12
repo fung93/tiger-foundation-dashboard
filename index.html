@@ -85,6 +85,22 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .health-bar-fill{height:100%;border-radius:4px;transition:width .8s}
 .health-note{font-size:11px;color:var(--dim);margin-top:5px}
 
+/* Change chips */
+.chg-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chg-chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;white-space:nowrap}
+.chg-chip .lbl{font-size:9px;opacity:.7;margin-right:5px}
+.chg-up{background:rgba(16,185,129,.12);color:var(--green)}
+.chg-down{background:rgba(239,68,68,.12);color:var(--red)}
+
+/* Tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:1px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+.tbl td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .num{text-align:right}
+.btn{background:rgba(245,158,11,.12);color:var(--accent);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{background:rgba(245,158,11,.22)}
+
 /* Chart legend */
 .chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--dim)}
 .chart-legend span{display:flex;align-items:center;gap:5px}
@@ -111,39 +127,51 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
   <!-- HERO -->
   <div class="hero">
     <h2>WEALTH OVERVIEW</h2>
-    <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div></div>
-    <div class="wealth-sub" id="totalBreakdown">Loading...</div>
-    <div class="hero-meta">
-      <div class="hero-meta-item"><span class="lbl">Monthly ROI</span><span id="monthlyRoi">---</span></div>
+    <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div><div class="chg-chips" id="chgChips"></div></div>
+    <div class="hero-meta" style="margin-top:16px">
       <div class="hero-meta-item"><span class="lbl">Target ETA</span><span id="targetEta" style="color:var(--gold)">---</span></div>
       <div class="hero-meta-item"><span class="lbl">Days Elapsed</span><span id="daysElapsed" style="color:var(--text)">---</span></div>
     </div>
     <div class="progress-section">
       <div class="progress-label">
-        <span>PROGRESS TO TARGET: <span style="color:var(--text)">$8,000 USDC</span></span>
+        <span>PROGRESS TO TARGET: <span style="color:var(--text)">$10,000 USDC</span></span>
         <span class="pct" id="pctVal">0%</span>
       </div>
       <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
-      <div class="progress-markers"><span>$0</span><span>$2K</span><span>$4K</span><span>$6K</span><span>$8K</span></div>
+      <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
     </div>
   </div>
 
-  <!-- Metrics row -->
-  <div class="grid3">
-    <div class="c">
-      <div class="cl">Average Daily Earning</div>
-      <div class="cv green" id="dailyEarnings">$---</div>
-      <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
+  <!-- (a) PERFORMANCE BREAKDOWN -->
+  <div class="sec">
+    <div class="sec-title">Performance Breakdown</div>
+    <div class="grid3">
+      <div class="c">
+        <div class="cl">Average Daily Earning</div>
+        <div class="cv green" id="dailyEarnings">$---</div>
+        <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
+      </div>
+      <div class="c" id="roiCard" style="cursor:pointer" title="Click to change period">
+        <div class="cl" id="roiToggleLabel">Daily ROI &#8644;</div>
+        <div class="cv" id="roiToggleVal">---</div>
+        <div class="cs" id="roiToggleSub">---</div>
+      </div>
+      <div class="c">
+        <div class="cl">All-Time Peak</div>
+        <div class="cv accent" id="peakVal">$---</div>
+        <div class="cs" id="peakDate">---</div>
+      </div>
     </div>
-    <div class="c">
-      <div class="cl">KAT Total Earned</div>
-      <div class="cv gold" id="katTotalAmt">---</div>
-      <div class="cs" id="katTotalUsd">--- USD</div>
-    </div>
-    <div class="c">
-      <div class="cl">All-Time Peak</div>
-      <div class="cv accent" id="peakVal">$---</div>
-      <div class="cs" id="peakDate">---</div>
+  </div>
+
+  <!-- (b) ASSET BREAKDOWN -->
+  <div class="sec">
+    <div class="sec-title">Asset Breakdown</div>
+    <div class="grid4">
+      <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
+      <div class="c"><div class="cl">DeFi Positions</div><div class="cv accent" id="defiVal">$---</div><div class="cs">LP + lending</div></div>
+      <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs">Cold wallet</div></div>
+      <div class="c"><div class="cl">Active Chains</div><div class="cv blue" id="chainCount">-</div><div class="cs"><span style="color:var(--green)">&#9679;</span> <span id="chainNames">-</span></div></div>
     </div>
   </div>
 
@@ -151,14 +179,6 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
   <div class="sec">
     <div class="sec-title">Chain Breakdown</div>
     <div id="chainRows"></div>
-  </div>
-
-  <!-- Stats -->
-  <div class="grid4">
-    <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
-    <div class="c"><div class="cl">Pending Rewards</div><div class="cv gold" id="rewardsVal">$---</div><div class="cs" id="rewardsSub">Unclaimed KAT</div></div>
-    <div class="c"><div class="cl">LP Positions</div><div class="cv accent" id="lpVal">$---</div><div class="cs">All chains</div></div>
-    <div class="c"><div class="cl">Active Chains</div><div class="cv blue" id="chainCount">-</div><div class="cs"><span style="color:var(--green)">&#9679;</span> <span id="chainNames">-</span></div></div>
   </div>
 
   <!-- DeFi positions -->
@@ -177,6 +197,12 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
       </div>
       <div class="chart-h"><canvas id="historyChart"></canvas></div>
     </div>
+  </div>
+
+  <!-- Monthly summary -->
+  <div class="sec">
+    <div class="sec-title">Monthly Summary <button class="btn" id="csvBtn" style="margin-left:auto">&#8681; Download CSV</button></div>
+    <div class="c" style="padding:10px 8px"><table class="tbl" id="monthlyTable"><tr><td style="color:var(--dim)">Loading...</td></tr></table></div>
   </div>
 
 </div>
@@ -240,7 +266,8 @@ var CFG={
   startValue:502.29,
   startDate:'2026-05-02',
   katClaimed:84937,
-  target:8000
+  coldVault:2048, /* TIGER VAULT — cold wallet, added to overview total & peak only */
+  target:10000
 };
 
 /* ============ evm helpers ============ */
@@ -634,7 +661,7 @@ function loadLive(refs,snap){
 var liveRendered=false;
 
 /* Average Daily Earning = (current total − first history total) ÷ days since history start */
-var HIST_START=null,LAST_TOTAL=null;
+var HIST_START=null,LAST_TOTAL=null,HIST=null;
 function updateAvgDaily(){
   if(!HIST_START||LAST_TOTAL===null)return;
   var days=(Date.now()-HIST_START.time)/86400000;
@@ -646,24 +673,114 @@ function updateAvgDaily(){
   document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
 }
 
+/* 24h / 7d change chip — click to toggle between the two; choice remembered */
+var CHIP_MODE='24H';
+try{CHIP_MODE=localStorage.getItem('chipMode')||'24H';}catch(e){}
+function updateChangeChips(){
+  if(!HIST||LAST_TOTAL===null)return;
+  function baseline(daysAgo){
+    var cutoff=new Date(Date.now()-daysAgo*86400000).toISOString().slice(0,10);
+    var best=null;
+    for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)best=HIST[i];}
+    return best;
+  }
+  var cfg=CHIP_MODE==='7D'?{l:'7D',d:7,next:'24H'}:{l:'24H',d:1,next:'7D'};
+  var el=document.getElementById('chgChips');
+  var b=baseline(cfg.d);
+  if(!b||!b.total_usd){el.innerHTML='';return;}
+  var delta=LAST_TOTAL-b.total_usd;
+  var pct=delta/b.total_usd*100;
+  var cls=delta>=0?'chg-up':'chg-down';
+  var sign=delta>=0?'+':'-';
+  el.innerHTML='<span class="chg-chip '+cls+'" style="cursor:pointer;user-select:none" '
+    +'title="vs '+b.date+' ($'+b.total_usd.toFixed(2)+') — click to switch to '+cfg.next+'">'
+    +'<span class="lbl">'+cfg.l+' &#8644;</span>'+sign+'$'+Math.abs(delta).toFixed(2)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
+  el.firstChild.onclick=function(){
+    CHIP_MODE=cfg.next;
+    try{localStorage.setItem('chipMode',CHIP_MODE);}catch(e){}
+    updateChangeChips();
+  };
+}
+
+/* ROI toggle — trailing return over Daily / Weekly / Monthly / Yearly lookback */
+var ROI_MODES=[{k:'Daily',d:1},{k:'Weekly',d:7},{k:'Monthly',d:30},{k:'Yearly',d:365}];
+var ROI_IDX=0;
+try{ROI_IDX=parseInt(localStorage.getItem('roiIdx'),10)||0;}catch(e){}
+function updateRoiToggle(){
+  if(!HIST||LAST_TOTAL===null)return;
+  var m=ROI_MODES[ROI_IDX];
+  var cutoff=new Date(Date.now()-m.d*86400000).toISOString().slice(0,10);
+  var b=null;
+  for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)b=HIST[i];}
+  if(!b)b=HIST[0]; /* lookback longer than history → since inception */
+  document.getElementById('roiToggleLabel').innerHTML=m.k+' ROI <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
+  var el=document.getElementById('roiToggleVal');
+  var sub=document.getElementById('roiToggleSub');
+  if(!b||!b.total_usd){el.textContent='---';sub.textContent='no data';return;}
+  var pct=(LAST_TOTAL-b.total_usd)/b.total_usd*100;
+  el.textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
+  el.style.color=pct>=0?'var(--green)':'var(--red)';
+  sub.textContent='since '+b.date;
+}
+
+/* Monthly summary + CSV export */
+function buildMonthly(){
+  if(!HIST)return;
+  var months={},order=[];
+  HIST.forEach(function(e){
+    var m=e.date.slice(0,7);
+    if(!months[m]){months[m]={first:e,last:e};order.push(m);}
+    else months[m].last=e;
+  });
+  var rows='<tr><th>Month</th><th class="num">Start</th><th class="num">End</th><th class="num">Change</th><th class="num">%</th></tr>';
+  var prevEnd=null;
+  order.forEach(function(m,i){
+    var mo=months[m];
+    var base=prevEnd!==null?prevEnd:mo.first.total_usd;
+    var end=mo.last.total_usd;
+    var delta=end-base,pct=base>0?delta/base*100:0;
+    var color=delta>=0?'var(--green)':'var(--red)';
+    var sign=delta>=0?'+':'-';
+    var ongoing=(i===order.length-1)?' <span style="color:var(--dim);font-size:10px">(ongoing)</span>':'';
+    rows+='<tr><td>'+m+ongoing+'</td><td class="num">'+fmt(base)+'</td><td class="num">'+fmt(end)+'</td>'
+      +'<td class="num" style="color:'+color+'">'+sign+fmt(Math.abs(delta))+'</td>'
+      +'<td class="num" style="color:'+color+'">'+sign+Math.abs(pct).toFixed(1)+'%</td></tr>';
+    prevEnd=end;
+  });
+  document.getElementById('monthlyTable').innerHTML=rows;
+}
+function downloadCsv(){
+  if(!HIST)return;
+  var lines=['date,onchain_usd,pending_usd,lp_usd,solana_usd,total_usd'];
+  HIST.forEach(function(e){
+    lines.push([e.date,e.onchain_usd||0,e.pending_usd||0,e.lp_usd||0,e.solana_usd!==undefined?e.solana_usd:'',e.total_usd||0].join(','));
+  });
+  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tiger-foundation-history.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
   var s=d.summary||{};
-  var total=s.grand_total_usd||d.total_usd||0;
+  var total=s.grand_total_usd||d.total_usd||0;   /* portfolio only — metrics use this */
   var onchain=s.onchain_usd||d.onchain_usd||0;
   var pending=(d.merkl_rewards&&d.merkl_rewards.total_usd)||0;
-  var lp=s.lp_usd||0;
-  var target=d.wealth_target_usdc||8000;
-  var pct=Math.min(100,(total/target)*100);
+  var defiValue=total-onchain-pending;           /* LP positions + lending (Morpho net) */
+  var target=CFG.target;
+  var displayTotal=total+CFG.coldVault;          /* overview includes the cold vault */
+  var pct=Math.min(100,(displayTotal/target)*100);
 
-  document.getElementById('totalVal').textContent=fmt(total);
-  document.getElementById('totalBreakdown').textContent=fmt(onchain)+' on-chain + '+fmt(lp)+' LP + '+fmt(pending)+' pending';
+  document.getElementById('totalVal').textContent=fmt(displayTotal);
+  document.getElementById('vaultVal').textContent='$'+fmtN(CFG.coldVault);
   document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
   document.getElementById('onchainVal').textContent=fmt(onchain);
-  document.getElementById('rewardsVal').textContent=fmt(pending);
-  document.getElementById('lpVal').textContent=fmt(lp);
+  document.getElementById('defiVal').textContent=fmt(defiValue);
   document.getElementById('chainCount').textContent=s.chains_count||1;
 
   var lu=document.getElementById('lastUpdated');
@@ -676,23 +793,15 @@ function render(d,isLive){
   if(d.tracking){
     var t=d.tracking;
     var roiPct=t.monthly_roi_pct||0;
-    var roiEl=document.getElementById('monthlyRoi');
-    roiEl.textContent=(roiPct>0?'+':'')+roiPct+'%';
-    roiEl.style.color=roiPct>=0?'var(--green)':'var(--red)';
     document.getElementById('daysElapsed').textContent=(t.days_elapsed||0)+' days';
-    document.getElementById('targetEta').innerHTML=calcEta(total,target,roiPct);
-
-    var katPending=0;
-    if(d.merkl_rewards&&d.merkl_rewards.rewards)
-      d.merkl_rewards.rewards.forEach(function(r){if(r.symbol==='KAT')katPending+=r.amount;});
-    var katTotal=(t.kat_tokens_claimed||0)+katPending;
-    document.getElementById('katTotalAmt').textContent=fmtN(Math.round(katTotal))+' KAT';
-    document.getElementById('katTotalUsd').textContent=fmt(katTotal*(t.kat_price||0));
+    document.getElementById('targetEta').innerHTML=calcEta(displayTotal,target,roiPct);
   }
 
-  /* average daily earning (needs history start — see updateAvgDaily) */
+  /* metrics that depend on the current total */
   LAST_TOTAL=total;
   updateAvgDaily();
+  updateChangeChips();
+  updateRoiToggle();
 
   /* chains */
   var chains=d.chains||{};
@@ -802,13 +911,23 @@ function load(){
 
     var peak=0,peakIdx=0;
     totals.forEach(function(v,i){if(v>peak){peak=v;peakIdx=i;}});
-    document.getElementById('peakVal').textContent=fmt(peak);
-    document.getElementById('peakDate').textContent='on '+data[peakIdx].date;
+    document.getElementById('peakVal').textContent=fmt(peak+CFG.coldVault);
+    document.getElementById('peakDate').textContent='on '+data[peakIdx].date+' (incl vault)';
 
     /* average daily earning starts where the history chart starts */
     var first=data[0];
     HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
+    HIST=data;
     updateAvgDaily();
+    updateChangeChips();
+    updateRoiToggle();
+    buildMonthly();
+    document.getElementById('csvBtn').onclick=downloadCsv;
+    document.getElementById('roiCard').onclick=function(){
+      ROI_IDX=(ROI_IDX+1)%ROI_MODES.length;
+      try{localStorage.setItem('roiIdx',ROI_IDX);}catch(e){}
+      updateRoiToggle();
+    };
 
     new Chart(document.getElementById('historyChart').getContext('2d'),{
       type:'line',

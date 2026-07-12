@@ -36,7 +36,7 @@ const CFG = {
   startValue: 502.29,
   startDate: '2026-05-02',
   katClaimed: 84937,
-  target: 8000,
+  target: 10000,
 };
 
 /* ---------- evm helpers ---------- */
