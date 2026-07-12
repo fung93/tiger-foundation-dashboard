@@ -115,7 +115,13 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .chart-h{position:relative;height:300px}
 
 @media(max-width:768px){.grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}}
-@media(max-width:480px){.grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}}
+@media(max-width:480px){
+  .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
+  /* Monthly Summary: tighten + drop redundant Start column (= prior month's End) */
+  .tbl{font-size:12px}
+  .tbl th,.tbl td{padding:7px 5px}
+  .tbl th:nth-child(2),.tbl td:nth-child(2){display:none}
+}
 </style>
 </head>
 <body>
@@ -208,8 +214,8 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 
   <!-- Monthly summary -->
   <div class="sec">
-    <div class="sec-title">Monthly Summary <button class="btn" id="csvBtn" style="margin-left:auto">&#8681; Download CSV</button></div>
-    <div class="c" style="padding:10px 8px"><table class="tbl" id="monthlyTable"><tr><td style="color:var(--dim)">Loading...</td></tr></table></div>
+    <div class="sec-title">Monthly Summary <button class="btn" id="csvBtn" style="margin-left:auto">&#8681; CSV</button></div>
+    <div class="c" style="padding:10px 8px"><div style="overflow-x:auto"><table class="tbl" id="monthlyTable"><tr><td style="color:var(--dim)">Loading...</td></tr></table></div></div>
   </div>
 
 </div>
@@ -743,6 +749,7 @@ function buildMonthly(){
     if(!months[m]){months[m]={first:e,last:e};order.push(m);}
     else months[m].last=e;
   });
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var rows='<tr><th>Month</th><th class="num">Start</th><th class="num">End</th><th class="num">Change</th><th class="num">%</th></tr>';
   var prevEnd=null;
   order.forEach(function(m,i){
@@ -752,8 +759,9 @@ function buildMonthly(){
     var delta=end-base,pct=base>0?delta/base*100:0;
     var color=delta>=0?'var(--green)':'var(--red)';
     var sign=delta>=0?'+':'-';
-    var ongoing=(i===order.length-1)?' <span style="color:var(--dim);font-size:10px">(ongoing)</span>':'';
-    rows+='<tr><td>'+m+ongoing+'</td><td class="num">'+fmt(base)+'</td><td class="num">'+fmt(end)+'</td>'
+    var mLabel=MON[parseInt(m.slice(5,7),10)-1]+" '"+m.slice(2,4);
+    var ongoing=(i===order.length-1)?' <span style="color:var(--dim);font-size:9px">•now</span>':'';
+    rows+='<tr><td style="white-space:nowrap">'+mLabel+ongoing+'</td><td class="num">'+fmt(base)+'</td><td class="num">'+fmt(end)+'</td>'
       +'<td class="num" style="color:'+color+'">'+sign+fmt(Math.abs(delta))+'</td>'
       +'<td class="num" style="color:'+color+'">'+sign+Math.abs(pct).toFixed(1)+'%</td></tr>';
     prevEnd=end;
