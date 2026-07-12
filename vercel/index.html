@@ -131,9 +131,9 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
   <!-- Metrics row -->
   <div class="grid3">
     <div class="c">
-      <div class="cl">Daily Earnings</div>
+      <div class="cl">Average Daily Earning</div>
       <div class="cv green" id="dailyEarnings">$---</div>
-      <div class="cs" id="dailyEarningsSub">From LP APR</div>
+      <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
     </div>
     <div class="c">
       <div class="cl">KAT Total Earned</div>
@@ -633,6 +633,19 @@ function loadLive(refs,snap){
 /* ============ rendering ============ */
 var liveRendered=false;
 
+/* Average Daily Earning = (current total − first history total) ÷ days since history start */
+var HIST_START=null,LAST_TOTAL=null;
+function updateAvgDaily(){
+  if(!HIST_START||LAST_TOTAL===null)return;
+  var days=(Date.now()-HIST_START.time)/86400000;
+  if(days<=0)return;
+  var avg=(LAST_TOTAL-HIST_START.total)/days;
+  var el=document.getElementById('dailyEarnings');
+  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2)+'/day';
+  el.style.color=avg>=0?'var(--green)':'var(--red)';
+  document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
+}
+
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
@@ -677,19 +690,9 @@ function render(d,isLive){
     document.getElementById('katTotalUsd').textContent=fmt(katTotal*(t.kat_price||0));
   }
 
-  /* daily earnings */
-  var dailyEarnings=0,earningsBreakdown=[];
-  (d.lp_positions||[]).forEach(function(lpp){
-    if(lpp.apr&&lpp.value_usd){
-      var daily=(lpp.apr/100)*lpp.value_usd/365;
-      dailyEarnings+=daily;
-      earningsBreakdown.push(lpp.pair.split('/')[0].trim()+': $'+daily.toFixed(2));
-    }
-  });
-  if(dailyEarnings>0){
-    document.getElementById('dailyEarnings').textContent='~$'+dailyEarnings.toFixed(2)+'/day';
-    document.getElementById('dailyEarningsSub').innerHTML='<span style="color:var(--dim);font-size:11px">'+earningsBreakdown.join(' &nbsp;·&nbsp; ')+'</span>';
-  }
+  /* average daily earning (needs history start — see updateAvgDaily) */
+  LAST_TOTAL=total;
+  updateAvgDaily();
 
   /* chains */
   var chains=d.chains||{};
@@ -801,6 +804,11 @@ function load(){
     totals.forEach(function(v,i){if(v>peak){peak=v;peakIdx=i;}});
     document.getElementById('peakVal').textContent=fmt(peak);
     document.getElementById('peakDate').textContent='on '+data[peakIdx].date;
+
+    /* average daily earning starts where the history chart starts */
+    var first=data[0];
+    HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
+    updateAvgDaily();
 
     new Chart(document.getElementById('historyChart').getContext('2d'),{
       type:'line',
