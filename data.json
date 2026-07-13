@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-07-13T01:51:49.501Z",
+  "last_updated": "2026-07-13T08:49:44.913Z",
   "wealth_target_usdc": 10000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 1939.23,
-    "value_gain_usd": 1436.94,
-    "kat_price": 0.004997243010249766,
+    "current_value_usd": 1949.31,
+    "value_gain_usd": 1447.02,
+    "kat_price": 0.005068097187699864,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 286.08,
+    "monthly_roi_pct": 288.08,
     "days_elapsed": 72
   },
   "chains": {
@@ -21,18 +21,18 @@
           "tokens": {
             "ETH": {
               "balance": 0.006194382255296387,
-              "priceUSD": 1813.0378232396754,
-              "valueUSD": 11.23
+              "priceUSD": 1790.027485835933,
+              "valueUSD": 11.09
             },
             "KAT": {
               "balance": 3088.141376400085,
-              "priceUSD": 0.004997243010249766,
-              "valueUSD": 15.43
+              "priceUSD": 0.005068097187699864,
+              "valueUSD": 15.65
             },
             "WETH": {
               "balance": 0.05849984400020702,
-              "priceUSD": 1813.0378232396754,
-              "valueUSD": 106.06
+              "priceUSD": 1790.027485835933,
+              "valueUSD": 104.72
             },
             "USDC": {
               "balance": 589.437379,
@@ -46,14 +46,14 @@
             },
             "avKAT": {
               "balance": 113709.00762471413,
-              "priceUSD": 0.006336413017466095,
-              "valueUSD": 720.51
+              "priceUSD": 0.006426254822520562,
+              "valueUSD": 730.72
             }
           },
-          "total_usd": 1442.67
+          "total_usd": 1451.62
         }
       },
-      "onchain_usd": 1442.67,
+      "onchain_usd": 1451.62,
       "merkl_rewards": {
         "total_usd": 0,
         "rewards": []
@@ -64,9 +64,9 @@
           "protocol": "SushiSwap V3",
           "pair": "vbUSDC / KAT",
           "pool_fee": "0.05%",
-          "value_usd": 189.75,
+          "value_usd": 192.43,
           "apr": 9.26,
-          "note": "NFT #415547 — 0.00 vbUSDC + 37,970 KAT (auto-detected on-chain)"
+          "note": "NFT #415547 — 0.91 vbUSDC + 37,790 KAT (auto-detected on-chain)"
         }
       ],
       "defi_positions": [
@@ -84,11 +84,11 @@
           },
           "lltv": "77%",
           "avkat_rate": 1.2679817660397101,
-          "note": "Net 32,023 KAT = $160.02 · avKAT rate 1.2680"
+          "note": "Net 32,023 KAT = $162.29 · avKAT rate 1.2680"
         }
       ],
-      "lp_total_usd": 189.75,
-      "total_usd": 1792.44,
+      "lp_total_usd": 192.43,
+      "total_usd": 1806.34,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -100,8 +100,8 @@
       "balances": {
         "SOL": {
           "balance": 0.110184384,
-          "priceUSD": 76.81,
-          "valueUSD": 8.46
+          "priceUSD": 76.55,
+          "valueUSD": 8.43
         },
         "USDC": {
           "balance": 0.214425,
@@ -109,32 +109,32 @@
           "valueUSD": 0.21
         }
       },
-      "wallet_total_usd": 8.68,
-      "onchain_usd": 8.68,
+      "wallet_total_usd": 8.65,
+      "onchain_usd": 8.65,
       "lp_positions": [
         {
           "type": "LP",
           "protocol": "Meteora DLMM",
           "pair": "SOL / USDC",
           "pool_fee": "DLMM",
-          "value_usd": 327.86,
+          "value_usd": 326.75,
           "apr": null,
           "note": "#CLY9xG — range $77.9-$83.4, 4.269 SOL + 0.00 USDC (auto-detected on-chain)"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 327.86,
-      "total_usd": 336.54,
+      "lp_total_usd": 326.75,
+      "total_usd": 335.4,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 2128.98,
-    "katana_usd": 1792.44,
-    "solana_usd": 336.54,
-    "onchain_usd": 1451.35,
-    "lp_usd": 517.61,
+    "grand_total_usd": 2141.74,
+    "katana_usd": 1806.34,
+    "solana_usd": 335.4,
+    "onchain_usd": 1460.27,
+    "lp_usd": 519.18,
     "merkl_usd": 0,
     "total_defi_positions": 1,
     "chains_count": 2
@@ -149,16 +149,16 @@
       "protocol": "SushiSwap V3",
       "pair": "vbUSDC / KAT",
       "pool_fee": "0.05%",
-      "value_usd": 189.75,
+      "value_usd": 192.43,
       "apr": 9.26,
-      "note": "NFT #415547 — 0.00 vbUSDC + 37,970 KAT (auto-detected on-chain)"
+      "note": "NFT #415547 — 0.91 vbUSDC + 37,790 KAT (auto-detected on-chain)"
     },
     {
       "type": "LP",
       "protocol": "Meteora DLMM",
       "pair": "SOL / USDC",
       "pool_fee": "DLMM",
-      "value_usd": 327.86,
+      "value_usd": 326.75,
       "apr": null,
       "note": "#CLY9xG — range $77.9-$83.4, 4.269 SOL + 0.00 USDC (auto-detected on-chain)"
     }
@@ -178,7 +178,7 @@
       },
       "lltv": "77%",
       "avkat_rate": 1.2679817660397101,
-      "note": "Net 32,023 KAT = $160.02 · avKAT rate 1.2680"
+      "note": "Net 32,023 KAT = $162.29 · avKAT rate 1.2680"
     }
   ],
   "meteora_refs": [
@@ -191,6 +191,6 @@
       ]
     }
   ],
-  "onchain_usd": 1451.35,
-  "total_usd": 2128.98
+  "onchain_usd": 1460.27,
+  "total_usd": 2141.74
 }
