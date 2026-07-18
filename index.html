@@ -46,13 +46,31 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 /* Walking trail — the explorers march toward the target */
 .trail{position:relative;padding-top:60px}
 .walkers{position:absolute;bottom:22px;left:0;transform:translateX(-50%);display:flex;align-items:flex-end;gap:0;transition:transform 1.2s cubic-bezier(.4,0,.2,1);will-change:transform;pointer-events:none}
-.walker{height:56px;width:auto;display:block;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
-.w-girl{animation:walkBob .8s ease-in-out infinite}
-.w-boy{animation:walkBob .8s ease-in-out infinite;animation-delay:-.4s;margin-left:-6px}
-@keyframes walkBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
+.walk-unit{position:relative;display:block;line-height:0}
+.walk-unit+.walk-unit{margin-left:-6px}
+/* contact shadow stays on the ground so the step reads as planted, not airborne */
+.walk-unit::after{content:'';position:absolute;left:50%;bottom:1px;width:62%;height:4px;border-radius:50%;
+  background:rgba(0,0,0,.55);filter:blur(2px);z-index:0;
+  transform:translateX(-50%);animation:stepShadow .6s ease-in-out infinite}
+.u-boy::after{animation-delay:-.3s}
+.walker{height:56px;width:auto;display:block;position:relative;z-index:1;
+  transform-origin:50% 100%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.w-girl{animation:walkStep .6s ease-in-out infinite}
+.w-boy{animation:walkStep .6s ease-in-out infinite;animation-delay:-.3s}
+/* weight rocks foot to foot; body only lifts at the passing beat, feet stay down on contact */
+@keyframes walkStep{
+  0%,100%{transform:rotate(-3.5deg) translateY(0)}
+  25%{transform:rotate(0deg) translateY(-2px)}
+  50%{transform:rotate(3.5deg) translateY(0)}
+  75%{transform:rotate(0deg) translateY(-2px)}
+}
+@keyframes stepShadow{
+  0%,50%,100%{transform:translateX(-50%) scaleX(1);opacity:.55}
+  25%,75%{transform:translateX(-50%) scaleX(.8);opacity:.33}
+}
 .goal{position:absolute;right:0;bottom:20px;font-size:20px;line-height:1;transform-origin:bottom left;animation:flagWave 2.2s ease-in-out infinite}
 @keyframes flagWave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
-@media(prefers-reduced-motion:reduce){.w-girl,.w-boy,.goal{animation:none}}
+@media(prefers-reduced-motion:reduce){.w-girl,.w-boy,.goal,.walk-unit::after{animation:none}}
 
 /* Cards */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
@@ -167,8 +185,8 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
       </div>
       <div class="trail">
         <div class="walkers" id="walkers">
-          <img class="walker w-girl" src="/img/hiker-girl.png" alt="" draggable="false">
-          <img class="walker w-boy" src="/img/hiker-boy.png" alt="" draggable="false">
+          <span class="walk-unit u-girl"><img class="walker w-girl" src="/img/hiker-girl.png" alt="" draggable="false"></span>
+          <span class="walk-unit u-boy"><img class="walker w-boy" src="/img/hiker-boy.png" alt="" draggable="false"></span>
         </div>
         <div class="goal" id="goalFlag">&#128681;</div>
         <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
