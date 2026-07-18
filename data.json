@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-07-18T12:52:52.046Z",
+  "last_updated": "2026-07-18T18:47:46.660Z",
   "wealth_target_usdc": 10000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 1440.56,
-    "value_gain_usd": 938.27,
-    "kat_price": 0.004730985420223153,
+    "current_value_usd": 1441.82,
+    "value_gain_usd": 939.53,
+    "kat_price": 0.004718974361312864,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 186.8,
+    "monthly_roi_pct": 187.05,
     "days_elapsed": 77
   },
   "chains": {
@@ -21,18 +21,18 @@
           "tokens": {
             "ETH": {
               "balance": 0.006141397229577929,
-              "priceUSD": 1845.2260792364314,
-              "valueUSD": 11.33
+              "priceUSD": 1854.6588959140981,
+              "valueUSD": 11.39
             },
             "KAT": {
               "balance": 39216.30143411016,
-              "priceUSD": 0.004730985420223153,
-              "valueUSD": 185.53
+              "priceUSD": 0.004718974361312864,
+              "valueUSD": 185.06
             },
             "WETH": {
               "balance": 0.05849984400020702,
-              "priceUSD": 1845.2260792364314,
-              "valueUSD": 107.95
+              "priceUSD": 1854.6588959140981,
+              "valueUSD": 108.5
             },
             "USDC": {
               "balance": 640.306559,
@@ -46,21 +46,21 @@
             },
             "avKAT": {
               "balance": 0,
-              "priceUSD": 0.006063929659623362,
+              "priceUSD": 0.006048534512545071,
               "valueUSD": 0
             }
           },
-          "total_usd": 945.12
+          "total_usd": 945.25
         }
       },
-      "onchain_usd": 945.12,
+      "onchain_usd": 945.25,
       "merkl_rewards": {
-        "total_usd": 8.51,
+        "total_usd": 9.35,
         "rewards": [
           {
             "symbol": "vbUSDC",
-            "amount": 8.511155,
-            "usd": 8.51
+            "amount": 9.345154,
+            "usd": 9.35
           }
         ]
       },
@@ -75,16 +75,16 @@
             "token": "avKAT"
           },
           "debt": {
-            "amount": 87755.34298097923,
+            "amount": 87757.02975719683,
             "token": "KAT"
           },
           "lltv": "77%",
           "avkat_rate": 1.2817476954594664,
-          "note": "Net 32,195 KAT = $152.31 · avKAT rate 1.2817"
+          "note": "Net 32,193 KAT = $151.92 · avKAT rate 1.2817"
         }
       ],
       "lp_total_usd": 0,
-      "total_usd": 1105.94,
+      "total_usd": 1106.52,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -96,7 +96,7 @@
       "balances": {
         "SOL": {
           "balance": 0.01720894,
-          "priceUSD": 74.96,
+          "priceUSD": 75.18,
           "valueUSD": 1.29
         },
         "USDC": {
@@ -113,35 +113,35 @@
           "protocol": "Meteora DLMM",
           "pair": "SOL / USDC",
           "pool_fee": "DLMM",
-          "value_usd": 322.03,
+          "value_usd": 322.71,
           "apr": null,
-          "note": "#5VgN9B — range $74.0-$77.9, 3.144 SOL + 86.33 USDC (auto-detected on-chain)"
+          "note": "#5VgN9B — range $74.0-$77.9, 2.898 SOL + 104.82 USDC (auto-detected on-chain)"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 322.03,
-      "total_usd": 334.62,
+      "lp_total_usd": 322.71,
+      "total_usd": 335.3,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 1440.56,
-    "katana_usd": 1105.94,
-    "solana_usd": 334.62,
-    "onchain_usd": 957.71,
-    "lp_usd": 322.03,
-    "merkl_usd": 8.51,
+    "grand_total_usd": 1441.82,
+    "katana_usd": 1106.52,
+    "solana_usd": 335.3,
+    "onchain_usd": 957.84,
+    "lp_usd": 322.71,
+    "merkl_usd": 9.35,
     "total_defi_positions": 1,
     "chains_count": 2
   },
   "merkl_rewards": {
-    "total_usd": 8.51,
+    "total_usd": 9.35,
     "rewards": [
       {
         "symbol": "vbUSDC",
-        "amount": 8.511155,
-        "usd": 8.51
+        "amount": 9.345154,
+        "usd": 9.35
       }
     ]
   },
@@ -151,9 +151,9 @@
       "protocol": "Meteora DLMM",
       "pair": "SOL / USDC",
       "pool_fee": "DLMM",
-      "value_usd": 322.03,
+      "value_usd": 322.71,
       "apr": null,
-      "note": "#5VgN9B — range $74.0-$77.9, 3.144 SOL + 86.33 USDC (auto-detected on-chain)"
+      "note": "#5VgN9B — range $74.0-$77.9, 2.898 SOL + 104.82 USDC (auto-detected on-chain)"
     }
   ],
   "defi_positions": [
@@ -166,12 +166,12 @@
         "token": "avKAT"
       },
       "debt": {
-        "amount": 87755.34298097923,
+        "amount": 87757.02975719683,
         "token": "KAT"
       },
       "lltv": "77%",
       "avkat_rate": 1.2817476954594664,
-      "note": "Net 32,195 KAT = $152.31 · avKAT rate 1.2817"
+      "note": "Net 32,193 KAT = $151.92 · avKAT rate 1.2817"
     }
   ],
   "meteora_refs": [
@@ -184,6 +184,6 @@
       ]
     }
   ],
-  "onchain_usd": 957.71,
-  "total_usd": 1440.56
+  "onchain_usd": 957.84,
+  "total_usd": 1441.82
 }
