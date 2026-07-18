@@ -43,6 +43,17 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .progress-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .6s}
 .progress-markers{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
 
+/* Walking trail — the explorers march toward the target */
+.trail{position:relative;padding-top:60px}
+.walkers{position:absolute;bottom:22px;left:0;transform:translateX(-50%);display:flex;align-items:flex-end;gap:0;transition:transform 1.2s cubic-bezier(.4,0,.2,1);will-change:transform;pointer-events:none}
+.walker{height:56px;width:auto;display:block;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+.w-girl{animation:walkBob .8s ease-in-out infinite}
+.w-boy{animation:walkBob .8s ease-in-out infinite;animation-delay:-.4s;margin-left:-6px}
+@keyframes walkBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
+.goal{position:absolute;right:0;bottom:20px;font-size:20px;line-height:1;transform-origin:bottom left;animation:flagWave 2.2s ease-in-out infinite}
+@keyframes flagWave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@media(prefers-reduced-motion:reduce){.w-girl,.w-boy,.goal{animation:none}}
+
 /* Cards */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
@@ -117,6 +128,10 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 @media(max-width:768px){.grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}}
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
+  /* Walking trail: smaller explorers so they don't dwarf the bar on phones */
+  .trail{padding-top:46px}
+  .walker{height:42px}
+  .goal{font-size:17px}
   /* Monthly Summary: tighten + drop redundant Start column (= prior month's End) */
   .tbl{font-size:12px}
   .tbl th,.tbl td{padding:7px 5px}
@@ -150,7 +165,14 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
         <span>PROGRESS TO TARGET: <span style="color:var(--text)">$10,000 USDC</span></span>
         <span class="pct" id="pctVal">0%</span>
       </div>
-      <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      <div class="trail">
+        <div class="walkers" id="walkers">
+          <img class="walker w-girl" src="/img/hiker-girl.png" alt="" draggable="false">
+          <img class="walker w-boy" src="/img/hiker-boy.png" alt="" draggable="false">
+        </div>
+        <div class="goal" id="goalFlag">&#128681;</div>
+        <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      </div>
       <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
     </div>
   </div>
@@ -673,6 +695,18 @@ function loadLive(refs,snap){
 /* ============ rendering ============ */
 var liveRendered=false;
 
+/* Position the walking explorers along the trail. Uses transform (not left) so the
+   move is GPU-composited and re-resolves correctly on resize. */
+var WALK_PCT=0;
+function placeWalkers(pct){
+  if(pct!==undefined&&isFinite(pct))WALK_PCT=Math.max(6,Math.min(93,pct));
+  var wk=document.getElementById('walkers'),tr=document.querySelector('.trail');
+  if(!wk||!tr)return;
+  var px=tr.clientWidth*WALK_PCT/100;
+  wk.style.transform='translateX(calc('+px.toFixed(1)+'px - 50%))';
+}
+window.addEventListener('resize',function(){placeWalkers();});
+
 /* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
 var HIST_START=null,LAST_TOTAL=null,HIST=null;
 var EARN_MODES=[{k:'Daily',mult:1},{k:'Weekly',mult:7},{k:'Monthly',mult:30},{k:'Yearly',mult:365}];
@@ -798,6 +832,10 @@ function render(d,isLive){
   document.getElementById('vaultVal').textContent='$'+fmtN(CFG.coldVault);
   document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
+  /* walk the explorers to the leading edge of the trail */
+  placeWalkers(pct);
+  var gf=document.getElementById('goalFlag');
+  if(gf&&pct>=100)gf.innerHTML='&#127881;';
   document.getElementById('onchainVal').textContent=fmt(onchain);
   document.getElementById('defiVal').textContent=fmt(defiValue);
   document.getElementById('chainCount').textContent=s.chains_count||1;
