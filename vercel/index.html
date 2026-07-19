@@ -254,6 +254,8 @@ var CFG={
   solWallet:'GSMtKVYnxLbhfGQUBkdYW5npnu1LWP58ruBxVya5VM4B',
   multicall:'0xcA11bde05977b3631167028862bE2a173976CA11',
   npm:'0x2659C6085D26144117D904C46B48B6d180393d27',
+  vkatNft:'0x106F7D67Ea25Cb9eFf5064CF604ebf6259Ff296d',      /* vKAT lock NFT (ERC-721) */
+  votingEscrow:'0x4d6fC15Ca6258b168225D283262743C623c13Ead', /* locked(tokenId) lives here */
   factory:'0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho:'0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
   marketId:'0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
@@ -444,7 +446,8 @@ function getKatanaLive(){
     {to:CFG.poolWethUsdc,data:'0x3850c7bd'},                 /* 7 slot0 WETH/USDC */
     {to:CFG.morpho,data:'0x93c52062'+CFG.marketId.slice(2)+pad(W)}, /* 8 position(id,user) */
     {to:CFG.morpho,data:'0x5c60e39a'+CFG.marketId.slice(2)},        /* 9 market(id) */
-    {to:CFG.npm,  data:'0x70a08231'+pad(W)}                  /* 10 NFT count */
+    {to:CFG.npm,  data:'0x70a08231'+pad(W)},                 /* 10 NFT count */
+    {to:CFG.vkatNft,data:'0x70a08231'+pad(W)}                /* 11 vKAT lock count */
   ];
   return Promise.all([rpc('eth_getBalance',[CFG.wallet,'latest']),multicall(calls)])
   .then(function(rr){
@@ -471,6 +474,25 @@ function getKatanaLive(){
     var debt=totBorrowShares>0n?Number(borrowShares*totBorrowAssets/totBorrowShares)/1e18:0;
     var nftCount=Number(toBig(w(r[10].data,0)));
     if(nftCount>200)nftCount=200;
+    /* vKAT staking locks: enumerate lock NFTs, then read locked() amounts from the escrow */
+    var lockCount=Number(toBig(w(r[11].data,0)));
+    if(lockCount>20)lockCount=20;
+    var lockP=Promise.resolve({totalKat:0,ids:[]});
+    if(lockCount>0){
+      var lidCalls=[];
+      for(var li=0;li<lockCount;li++)
+        lidCalls.push({to:CFG.vkatNft,data:'0x2f745c59'+pad(W)+pad(li.toString(16))});
+      lockP=multicall(lidCalls).then(function(lr){
+        var lids=lr.filter(function(x){return x.ok;}).map(function(x){return toBig(w(x.data,0));});
+        if(!lids.length)return{totalKat:0,ids:[]};
+        return multicall(lids.map(function(id){return{to:CFG.votingEscrow,data:'0xb45a3c0e'+pad(id.toString(16))};}))
+          .then(function(la){
+            var tot=0;
+            for(var q=0;q<la.length;q++)if(la[q].ok)tot+=Number(toBig(w(la[q].data,0)))/1e18;
+            return{totalKat:tot,ids:lids.map(function(x){return Number(x);})};
+          });
+      }).catch(function(){return{totalKat:0,ids:[]};});
+    }
     /* enumerate NFTs */
     var idCalls=[];
     for(var i=0;i<nftCount;i++)
@@ -534,8 +556,10 @@ function getKatanaLive(){
                 note:'NFT #'+p.tokenId+' — '+h0.toFixed(2)+' '+(symOf[t0]||'?')+' + '+fmtN(h1,0)+' '+(symOf[t1]||'?')+' (live on-chain)'
               });
             }
-            return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,
-              morpho:{collateral:collateral,debt:debt},lps:lps};
+            return lockP.then(function(vkat){
+              return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,
+                morpho:{collateral:collateral,debt:debt},lps:lps,vkat:vkat};
+            });
           });
         });
       });
@@ -627,7 +651,9 @@ function loadLive(refs,snap){
       var colKat=kat.morpho.collateral*kat.avkatRate;
       var morphoNet=(colKat-kat.morpho.debt)*kat.katPrice;
       if(morphoNet<0)morphoNet=0;
-      var katTotal=katWalletUsd+katLpUsd+morphoNet+merkl.total_usd;
+      var vkatKat=(kat.vkat&&kat.vkat.totalKat)||0;
+      var vkatUsd=vkatKat*kat.katPrice;
+      var katTotal=katWalletUsd+katLpUsd+morphoNet+vkatUsd+merkl.total_usd;
       var solWalletUsd=sol.sol*sol.solPrice+sol.usdc;
       var solLpUsd=0;sol.lps.forEach(function(l){solLpUsd+=l.value_usd;});
       var solTotal=solWalletUsd+solLpUsd;
@@ -648,11 +674,18 @@ function loadLive(refs,snap){
         chains:{
           katana:{name:'Katana',onchain_usd:katWalletUsd,
             merkl_rewards:merkl,lp_positions:kat.lps,
-            defi_positions:[{type:'Lending',protocol:'Morpho Blue',market:'KAT / avKAT',
-              collateral:{amount:kat.morpho.collateral,token:'avKAT'},
-              debt:{amount:kat.morpho.debt,token:'KAT'},
-              lltv:'77%',avkat_rate:kat.avkatRate,
-              note:'Net '+fmtN(colKat-kat.morpho.debt,0)+' KAT = '+fmt(morphoNet)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)'}],
+            defi_positions:(function(){
+              var arr=[{type:'Lending',protocol:'Morpho Blue',market:'KAT / avKAT',
+                collateral:{amount:kat.morpho.collateral,token:'avKAT'},
+                debt:{amount:kat.morpho.debt,token:'KAT'},
+                lltv:'77%',avkat_rate:kat.avkatRate,
+                note:'Net '+fmtN(colKat-kat.morpho.debt,0)+' KAT = '+fmt(morphoNet)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)'}];
+              if(vkatKat>0)arr.push({type:'Staking',protocol:'Katana vKAT',
+                market:'KAT voting escrow'+(kat.vkat.ids.length?' · veNFT #'+kat.vkat.ids.join(', #'):''),
+                locked:{amount:vkatKat,token:'KAT'},value_usd:vkatUsd,
+                note:fmtN(vkatKat,0)+' KAT staked = '+fmt(vkatUsd)+' · 60d cooldown to exit (live on-chain)'});
+              return arr;
+            })(),
             lp_total_usd:katLpUsd,total_usd:katTotal,color:'#f59e0b'},
           solana:{name:'Solana',onchain_usd:solWalletUsd,
             lp_positions:sol.lps,defi_positions:[],
@@ -867,6 +900,8 @@ function render(d,isLive){
       if(p.lltv)dl+='<div class="pos-row"><span class="pos-label">LLTV</span><span class="pos-val">'+p.lltv+'</span></div>';
       if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+'</span></div>';
       if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+'</span></div>';
+      if(p.locked)dl+='<div class="pos-row"><span class="pos-label">Locked</span><span class="pos-val">'+fmtN(p.locked.amount,2)+' '+p.locked.token+'</span></div>';
+      if(p.locked&&p.value_usd)dl+='<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
 
       if(p.collateral&&p.debt&&p.lltv){
         var lltv=parseFloat(p.lltv)/100;

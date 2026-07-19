@@ -16,6 +16,8 @@ const CFG = {
   solWallet: 'GSMtKVYnxLbhfGQUBkdYW5npnu1LWP58ruBxVya5VM4B',
   multicall: '0xcA11bde05977b3631167028862bE2a173976CA11',
   npm: '0x2659C6085D26144117D904C46B48B6d180393d27',
+  vkatNft: '0x106F7D67Ea25Cb9eFf5064CF604ebf6259Ff296d',      // vKAT lock NFT (ERC-721)
+  votingEscrow: '0x4d6fC15Ca6258b168225D283262743C623c13Ead', // locked(tokenId) lives here
   factory: '0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho: '0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
   marketId: '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
@@ -151,6 +153,7 @@ async function getKatana() {
     { to: CFG.morpho, data: '0x93c52062' + CFG.marketId.slice(2) + pad(W) }, // position
     { to: CFG.morpho, data: '0x5c60e39a' + CFG.marketId.slice(2) },          // market
     { to: CFG.npm, data: '0x70a08231' + pad(W) }, // NFT count
+    { to: CFG.vkatNft, data: '0x70a08231' + pad(W) }, // vKAT lock count
   ];
   const [ethHex, r] = await Promise.all([rpc('eth_getBalance', [CFG.wallet, 'latest']), multicall(calls)]);
   const ethBal = Number(BigInt(ethHex)) / 1e18;
@@ -170,6 +173,25 @@ async function getKatana() {
   const debt = totBS > 0n ? Number(borrowShares * totBA / totBS) / 1e18 : 0;
   let nftCount = Number(toBig(w(r[10].data, 0)));
   if (nftCount > 200) nftCount = 200;
+
+  // vKAT staking locks: enumerate lock NFTs, read locked() amounts from the escrow
+  let vkat = { totalKat: 0, ids: [] };
+  let lockCount = Number(toBig(w(r[11].data, 0)));
+  if (lockCount > 20) lockCount = 20;
+  if (lockCount > 0) {
+    try {
+      const lidCalls = [];
+      for (let li = 0; li < lockCount; li++)
+        lidCalls.push({ to: CFG.vkatNft, data: '0x2f745c59' + pad(W) + pad(li.toString(16)) });
+      const lids = (await multicall(lidCalls)).filter((x) => x.ok).map((x) => toBig(w(x.data, 0)));
+      if (lids.length) {
+        const la = await multicall(lids.map((id) => ({ to: CFG.votingEscrow, data: '0xb45a3c0e' + pad(id.toString(16)) })));
+        let tot = 0;
+        for (const res of la) if (res.ok) tot += Number(toBig(w(res.data, 0))) / 1e18;
+        vkat = { totalKat: tot, ids: lids.map((x) => Number(x)) };
+      }
+    } catch { /* leave vkat empty on RPC failure */ }
+  }
 
   // enumerate position NFTs, keep active ones
   const idCalls = [];
@@ -219,7 +241,7 @@ async function getKatana() {
     });
   });
 
-  return { ethBal, bal, avkatRate, katPrice, ethPrice, morpho: { collateral, debt }, lps };
+  return { ethBal, bal, avkatRate, katPrice, ethPrice, morpho: { collateral, debt }, lps, vkat };
 }
 
 /* ---------- solana ---------- */
@@ -364,7 +386,9 @@ const katWalletUsd = round2(
 const katLpUsd = round2(kat.lps.reduce((s, l) => s + l.value_usd, 0));
 const colKat = kat.morpho.collateral * kat.avkatRate;
 const morphoNet = round2(Math.max(0, (colKat - kat.morpho.debt) * kat.katPrice));
-const katTotal = round2(katWalletUsd + katLpUsd + morphoNet + merkl.total_usd);
+const vkatKat = kat.vkat.totalKat;
+const vkatUsd = round2(vkatKat * kat.katPrice);
+const katTotal = round2(katWalletUsd + katLpUsd + morphoNet + vkatUsd + merkl.total_usd);
 const solWalletUsd = round2(sol.sol * sol.solPrice + sol.usdc);
 const solLpUsd = round2(sol.lps.reduce((s, l) => s + l.value_usd, 0));
 const solTotal = round2(solWalletUsd + solLpUsd);
@@ -377,13 +401,20 @@ const current = round2(grand - katLpUsd);
 const gain = round2(current - CFG.startValue);
 
 const tok = (balance, priceUSD, valueUSD) => ({ balance, priceUSD, valueUSD: round2(valueUSD) });
-const defiPos = {
+const defiPositions = [{
   type: 'Lending', protocol: 'Morpho Blue', market: 'KAT / avKAT',
   collateral: { amount: kat.morpho.collateral, token: 'avKAT' },
   debt: { amount: kat.morpho.debt, token: 'KAT' },
   lltv: '77%', avkat_rate: kat.avkatRate,
   note: `Net ${Math.round(colKat - kat.morpho.debt).toLocaleString('en-US')} KAT = $${morphoNet} · avKAT rate ${kat.avkatRate.toFixed(4)}`,
-};
+}];
+if (vkatKat > 0) defiPositions.push({
+  type: 'Staking', protocol: 'Katana vKAT',
+  market: 'KAT voting escrow' + (kat.vkat.ids.length ? ' · veNFT #' + kat.vkat.ids.join(', #') : ''),
+  locked: { amount: vkatKat, token: 'KAT' },
+  value_usd: vkatUsd,
+  note: `${Math.round(vkatKat).toLocaleString('en-US')} KAT staked = $${vkatUsd} · 60d cooldown to exit (auto-detected on-chain)`,
+});
 
 const data = {
   last_updated: now.toISOString(),
@@ -412,7 +443,7 @@ const data = {
       onchain_usd: katWalletUsd,
       merkl_rewards: merkl,
       lp_positions: kat.lps,
-      defi_positions: [defiPos],
+      defi_positions: defiPositions,
       lp_total_usd: katLpUsd,
       total_usd: katTotal,
       native_token: 'KAT', color: '#f59e0b',
@@ -436,11 +467,11 @@ const data = {
   summary: {
     grand_total_usd: grand, katana_usd: katTotal, solana_usd: solTotal,
     onchain_usd: onchainUsd, lp_usd: lpUsd, merkl_usd: merkl.total_usd,
-    total_defi_positions: 1, chains_count: 2,
+    total_defi_positions: defiPositions.length, chains_count: 2,
   },
   merkl_rewards: merkl,
   lp_positions: [...kat.lps, ...sol.lps],
-  defi_positions: [defiPos],
+  defi_positions: defiPositions,
   meteora_refs: sol.refs,
   onchain_usd: onchainUsd,
   total_usd: grand,
