@@ -204,10 +204,6 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
   <div class="sec">
     <div class="sec-title">Total Asset Value History</div>
     <div class="c">
-      <div class="chart-legend">
-        <span><span class="legend-dot" style="background:rgba(245,158,11,.7)"></span>LP Positions</span>
-        <span><span class="legend-dot" style="background:rgba(59,130,246,.7)"></span>On-Chain</span>
-      </div>
       <div class="chart-h"><canvas id="historyChart"></canvas></div>
     </div>
   </div>
@@ -960,8 +956,6 @@ function load(){
     }
     var labels=data.map(function(x){return x.date?x.date.slice(5):'';});
     var totals=data.map(function(x){return x.total_usd||0;});
-    var lpData=data.map(function(x){return x.lp_usd||0;});
-    var onchainData=data.map(function(x){return x.onchain_usd||0;});
 
     var peak=0,peakIdx=0;
     totals.forEach(function(v,i){if(v>peak){peak=v;peakIdx=i;}});
@@ -993,12 +987,9 @@ function load(){
       data:{
         labels:labels,
         datasets:[
-          {label:'LP Positions',data:lpData,
-            borderColor:'rgba(245,158,11,0.9)',backgroundColor:'rgba(245,158,11,0.22)',
-            borderWidth:2,fill:true,tension:0.3,pointRadius:0,pointHoverRadius:4,stack:'portfolio'},
-          {label:'On-Chain',data:onchainData,
-            borderColor:'rgba(59,130,246,0.9)',backgroundColor:'rgba(59,130,246,0.22)',
-            borderWidth:1.5,fill:true,tension:0.3,pointRadius:0,pointHoverRadius:4,stack:'portfolio'}
+          {label:'Total',data:totals,
+            borderColor:'rgba(245,158,11,0.9)',backgroundColor:'rgba(245,158,11,0.14)',
+            borderWidth:2,fill:true,tension:0.3,pointRadius:0,pointHoverRadius:4}
         ]
       },
       options:{
@@ -1011,18 +1002,14 @@ function load(){
             titleColor:'#e8edf5',bodyColor:'#e8edf5',
             borderColor:'#f59e0b',borderWidth:1,padding:10,
             callbacks:{
-              label:function(ctx){return' '+ctx.dataset.label+': '+fmt(ctx.raw);},
-              afterBody:function(ctxArr){
-                var t=ctxArr.reduce(function(s,c){return s+(c.raw||0);},0);
-                return['──────────',' Total: '+fmt(t)];
-              }
+              label:function(ctx){return' Total: '+fmt(ctx.raw);}
             }
           }
         },
         scales:{
-          x:{stacked:true,grid:{color:'rgba(255,255,255,.03)'},
+          x:{grid:{color:'rgba(255,255,255,.03)'},
             ticks:{color:'#5a6a8a',font:{size:10},maxTicksLimit:12}},
-          y:{stacked:true,grid:{color:'rgba(255,255,255,.03)'},
+          y:{grid:{color:'rgba(255,255,255,.03)'},
             ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return'$'+v.toFixed(0);}}}
         }
       }
