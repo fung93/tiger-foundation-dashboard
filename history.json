@@ -413,6 +413,15 @@
       "lp_usd": 332.5,
       "solana_usd": 344.92,
       "total_usd": 2178.94
+    },
+    {
+      "date": "2026-07-23",
+      "timestamp": "2026-07-23T01:53:28.070Z",
+      "onchain_usd": 988.29,
+      "pending_usd": 3.81,
+      "lp_usd": 333,
+      "solana_usd": 346.59,
+      "total_usd": 2175.22
     }
   ]
 }
