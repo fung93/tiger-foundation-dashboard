@@ -265,7 +265,9 @@ var CFG={
   },
   poolKatUsdc:'0x10045367E619Caae6f60CC80046c43c6cD55f629',
   poolWethUsdc:'0x2A2C512beAA8eB15495726C235472D82EFFB7A6B',
-  solRpcs:['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com'],
+  /* publicnode listed twice: it's the only browser-friendly endpoint, so a transient
+     stall gets a second chance after mainnet-beta rejects browser origins instantly */
+  solRpcs:['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'],
   dlmmProgram:'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
   solMint:'So11111111111111111111111111111111111111112',
   usdcMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -282,10 +284,20 @@ var CFG={
 };
 
 /* ============ evm helpers ============ */
+/* fetch with a hard timeout — one stalled connection must never freeze the live overlay */
+function fT(url,opts,ms){
+  var c=new AbortController();
+  var t=setTimeout(function(){c.abort();},ms||10000);
+  opts=opts||{};opts.signal=c.signal;
+  return fetch(url,opts).then(
+    function(r){clearTimeout(t);return r;},
+    function(e){clearTimeout(t);throw e;}
+  );
+}
 var rpcIdx=0;
 function rpc(method,params){
   var url=CFG.rpcs[rpcIdx%CFG.rpcs.length];
-  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+  return fT(url,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})})
     .then(function(r){return r.json();})
     .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;})
@@ -355,7 +367,7 @@ var solIdx=0;
 function solRpc(method,params,attempt){
   attempt=attempt||0;
   var url=CFG.solRpcs[(solIdx+attempt)%CFG.solRpcs.length];
-  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+  return fT(url,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})})
     .then(function(r){return r.json();})
     .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;})
@@ -567,7 +579,7 @@ function getSolanaLive(refs){
   return Promise.all([
     solRpc('getBalance',[CFG.solWallet]),
     solRpc('getTokenAccountsByOwner',[CFG.solWallet,{mint:CFG.usdcMint},{encoding:'jsonParsed'}]),
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+    fT('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
       .then(function(r){return r.json();}).then(function(j){return j.solana.usd;})
   ]).then(function(rr){
     var sol=rr[0].value/1e9;
@@ -591,7 +603,7 @@ function getSolanaLive(refs){
 }
 
 function getMerklLive(katPrice,fallback){
-  return fetch(CFG.merklApi+'/users/'+CFG.wallet+'/rewards?chainId=747474')
+  return fT(CFG.merklApi+'/users/'+CFG.wallet+'/rewards?chainId=747474')
     .then(function(r){return r.json();})
     .then(function(arr){
       var totalUsd=0,rewards=[];
@@ -613,7 +625,7 @@ function getMerklLive(katPrice,fallback){
 }
 
 function getSushiAprs(){
-  return fetch(CFG.merklApi+'/opportunities?chainId=747474&action=POOL&items=50')
+  return fT(CFG.merklApi+'/opportunities?chainId=747474&action=POOL&items=50')
     .then(function(r){return r.json();})
     .then(function(arr){
       var map={};
@@ -626,7 +638,13 @@ function getSushiAprs(){
 }
 
 function loadLive(refs,snap){
-  return Promise.all([getKatanaLive(),getSolanaLive(refs),getSushiAprs()]).then(function(rr){
+  /* a Solana outage must not kill the whole overlay — degrade to snapshot values for that chain */
+  var solP=getSolanaLive(refs).catch(function(e){
+    console.warn('solana live failed, using snapshot values',e);
+    var ss=(snap&&snap.chains&&snap.chains.solana)||{};
+    return{sol:0,usdc:ss.onchain_usd||0,solPrice:0,lps:ss.lp_positions||[],fromSnapshot:true};
+  });
+  return Promise.all([getKatanaLive(),solP,getSushiAprs()]).then(function(rr){
     var kat=rr[0],sol=rr[1],aprMap=rr[2];
     var merklFallback=(snap&&snap.merkl_rewards)||null;
     /* snapshot APRs as fallback when Merkl is unreachable (e.g. local http) */
