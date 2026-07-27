@@ -410,10 +410,10 @@ const defiPositions = [{
 }];
 if (vkatKat > 0) defiPositions.push({
   type: 'Staking', protocol: 'Katana vKAT',
-  market: 'KAT voting escrow' + (kat.vkat.ids.length ? ' · veNFT #' + kat.vkat.ids.join(', #') : ''),
-  locked: { amount: vkatKat, token: 'KAT' },
+  market: 'Voting escrow' + (kat.vkat.ids.length ? ' · veNFT #' + kat.vkat.ids.join(', #') : ''),
+  locked: { amount: vkatKat, token: 'vKAT' },
   value_usd: vkatUsd,
-  note: `${Math.round(vkatKat).toLocaleString('en-US')} KAT staked = $${vkatUsd} · 60d cooldown to exit (auto-detected on-chain)`,
+  note: `${Math.round(vkatKat).toLocaleString('en-US')} vKAT = $${vkatUsd} · backed 1:1 by locked KAT · 60d cooldown to exit (auto-detected on-chain)`,
 });
 
 const data = {

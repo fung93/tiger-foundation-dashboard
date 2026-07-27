@@ -695,9 +695,9 @@ function loadLive(refs,snap){
                 lltv:'77%',avkat_rate:kat.avkatRate,
                 note:'Net '+fmtN(colKat-kat.morpho.debt,0)+' KAT = '+fmt(morphoNet)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)'}];
               if(vkatKat>0)arr.push({type:'Staking',protocol:'Katana vKAT',
-                market:'KAT voting escrow'+(kat.vkat.ids.length?' · veNFT #'+kat.vkat.ids.join(', #'):''),
-                locked:{amount:vkatKat,token:'KAT'},value_usd:vkatUsd,
-                note:fmtN(vkatKat,0)+' KAT staked = '+fmt(vkatUsd)+' · 60d cooldown to exit (live on-chain)'});
+                market:'Voting escrow'+(kat.vkat.ids.length?' · veNFT #'+kat.vkat.ids.join(', #'):''),
+                locked:{amount:vkatKat,token:'vKAT'},value_usd:vkatUsd,
+                note:fmtN(vkatKat,0)+' vKAT = '+fmt(vkatUsd)+' · backed 1:1 by locked KAT · 60d cooldown to exit (live on-chain)'});
               return arr;
             })(),
             lp_total_usd:katLpUsd,total_usd:katTotal,color:'#f59e0b'},
