@@ -24,8 +24,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 body::after{content:'';position:fixed;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
 .hdr,.wrap{position:relative;z-index:1}
-/* tuned to the night-sky indigo sampled from the background art (rgb 43,46,82) */
-.hdr{background:linear-gradient(135deg,rgba(40,44,80,.90) 0%,rgba(58,52,104,.90) 55%,rgba(72,58,110,.90) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:24px 32px;border-bottom:2px solid var(--accent)}
+.hdr{background:linear-gradient(135deg,rgba(15,22,35,.88) 0%,rgba(26,26,62,.88) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:24px 32px;border-bottom:2px solid var(--accent)}
 .hdr-inner{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto}
 .hdr-brand{display:flex;align-items:center;gap:14px}
 .hdr h1{font-size:26px;font-weight:800;letter-spacing:2px}
@@ -37,13 +36,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .wrap{max-width:1200px;margin:0 auto;padding:28px}
 
 /* Hero */
-.hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:26px;background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
-.hero-main{flex:1;min-width:0}
-/* The photo gets its own column, so nothing can overlap it: the whole picture shows at
-   full strength and only its inner edge is feathered to blend into the card. */
-.hero-photo{flex:none;width:212px;height:auto;display:block;border-radius:14px;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 13%,#000 32%);
-          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 13%,#000 32%)}
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;padding-right:326px;margin-bottom:28px}
+.hero-main{position:relative;z-index:1}
+/* Background panel bleeding to the card's top, right and bottom edges. `contain` keeps
+   the whole picture in frame while it still meets those edges; padding-right above
+   reserves the space so no figure is ever laid over it. */
+.hero::before{content:'';position:absolute;right:0;top:0;bottom:0;width:310px;z-index:0;pointer-events:none;
+  background:url('/img/hero-art.jpg') right center/contain no-repeat;filter:brightness(1.1);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 14%,rgba(0,0,0,.82) 34%,#000 52%);
+          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 14%,rgba(0,0,0,.82) 34%,#000 52%)}
+/* light tint so the panel settles into the card colour without dulling the art */
+.hero::after{content:'';position:absolute;right:0;top:0;bottom:0;width:310px;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(15,22,35,.72) 0%,rgba(15,22,35,.26) 38%,rgba(15,22,35,.06) 100%)}
 .hero h2{font-size:18px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -146,18 +150,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 
 @media(max-width:768px){
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
-  /* too narrow for two columns — stack, and feather the photo's top edge instead */
-  .hero{flex-direction:column;align-items:stretch;gap:20px}
-  .hero-photo{width:100%;max-width:270px;margin:4px auto 0;
-    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.5) 11%,#000 28%);
-            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.5) 11%,#000 28%)}
+  /* no room for a side panel — run it full width along the bottom edge instead */
+  .hero{padding-right:32px;padding-bottom:196px}
+  .hero::before,.hero::after{left:0;right:0;top:auto;bottom:0;width:auto;height:186px}
+  .hero::before{background:url('/img/hero-art.jpg') center 42%/cover no-repeat;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.3) 12%,rgba(0,0,0,.85) 32%,#000 48%);
+            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.3) 12%,rgba(0,0,0,.85) 32%,#000 48%)}
+  .hero::after{background:linear-gradient(180deg,rgba(15,22,35,.72) 0%,rgba(15,22,35,.24) 36%,rgba(15,22,35,.05) 100%)}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   body::before{background-image:url('/img/bg-mobile.jpg')}
 }
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
-  .hero{padding:24px 18px}
+  .hero{padding:24px 18px;padding-bottom:186px}
   .wealth-row{flex-wrap:wrap;gap:4px 10px}
   .chg-chips{width:100%}
   .chg-chip{font-size:11px;padding:3px 9px}
@@ -199,7 +205,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
       <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
     </div>
    </div>
-   <img class="hero-photo" src="/img/hero-art.jpg" alt="" draggable="false">
   </div>
 
   <!-- (a) PERFORMANCE BREAKDOWN -->
