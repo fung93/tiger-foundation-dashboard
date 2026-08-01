@@ -497,12 +497,12 @@
     },
     {
       "date": "2026-08-01",
-      "timestamp": "2026-08-01T12:57:04.382Z",
-      "onchain_usd": 406.26,
-      "pending_usd": 18.16,
-      "lp_usd": 857.63,
+      "timestamp": "2026-08-01T14:01:07.819Z",
+      "onchain_usd": 7.25,
+      "pending_usd": 18.81,
+      "lp_usd": 1917.4,
       "solana_usd": 2.5,
-      "total_usd": 2074.36
+      "total_usd": 2729.94
     }
   ]
 }
