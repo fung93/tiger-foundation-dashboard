@@ -708,7 +708,7 @@ function loadLive(refs,snap){
               var arr=[{type:'Lending',protocol:'Morpho Blue',market:'KAT / avKAT',
                 collateral:{amount:kat.morpho.collateral,token:'avKAT'},
                 debt:{amount:kat.morpho.debt,token:'KAT'},
-                lltv:'77%',avkat_rate:kat.avkatRate,
+                lltv:'77%',avkat_rate:kat.avkatRate,value_usd:morphoNet,
                 note:'Net '+fmtN(colKat-kat.morpho.debt,0)+' KAT = '+fmt(morphoNet)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)'}];
               if(vkatKat>0)arr.push({type:'Staking',protocol:'Katana vKAT',
                 market:'Voting escrow'+(kat.vkat.ids.length?' · veNFT #'+kat.vkat.ids.join(', #'):''),
@@ -957,7 +957,7 @@ function render(d,isLive){
       if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+'</span></div>';
       if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+'</span></div>';
       if(p.locked)dl+='<div class="pos-row"><span class="pos-label">Locked</span><span class="pos-val">'+fmtN(p.locked.amount,2)+' '+p.locked.token+'</span></div>';
-      if(p.locked&&p.value_usd)dl+='<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
+      if(p.value_usd)dl+='<div class="pos-row"><span class="pos-label">'+(p.debt?'Net Value':'Value')+'</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
 
       if(p.collateral&&p.debt&&p.lltv){
         var lltv=parseFloat(p.lltv)/100;
@@ -986,7 +986,6 @@ function render(d,isLive){
         dl+='</div>';
       }
 
-      if(p.note)dl+='<div style="font-size:12px;color:var(--accent);margin-top:8px;font-weight:600">'+p.note+'</div>';
       dl+='</div>';
     });
   });

@@ -455,7 +455,7 @@ const defiPositions = [{
   type: 'Lending', protocol: 'Morpho Blue', market: 'KAT / avKAT',
   collateral: { amount: kat.morpho.collateral, token: 'avKAT' },
   debt: { amount: kat.morpho.debt, token: 'KAT' },
-  lltv: '77%', avkat_rate: kat.avkatRate,
+  lltv: '77%', avkat_rate: kat.avkatRate, value_usd: morphoNet,
   note: `Net ${Math.round(colKat - kat.morpho.debt).toLocaleString('en-US')} KAT = $${morphoNet} · avKAT rate ${kat.avkatRate.toFixed(4)}`,
 }];
 if (vkatKat > 0) defiPositions.push({
