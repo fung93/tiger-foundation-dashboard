@@ -17,7 +17,14 @@
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
-.hdr{background:linear-gradient(135deg,#0f1623 0%,#1a1a3e 100%);padding:24px 32px;border-bottom:2px solid var(--accent)}
+/* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
+   background-attachment:fixed, which iOS Safari renders badly. */
+body::before{content:'';position:fixed;inset:0;z-index:0;
+  background:url('/img/bg.jpg') center center/cover no-repeat}
+body::after{content:'';position:fixed;inset:0;z-index:0;
+  background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
+.hdr,.wrap{position:relative;z-index:1}
+.hdr{background:linear-gradient(135deg,rgba(15,22,35,.88) 0%,rgba(26,26,62,.88) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:24px 32px;border-bottom:2px solid var(--accent)}
 .hdr-inner{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto}
 .hdr-brand{display:flex;align-items:center;gap:14px}
 .hdr h1{font-size:26px;font-weight:800;letter-spacing:2px}
@@ -29,7 +36,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .wrap{max-width:1200px;margin:0 auto;padding:28px}
 
 /* Hero */
-.hero{background:linear-gradient(135deg,rgba(245,158,11,.08) 0%,rgba(59,130,246,.05) 100%);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
+.hero{background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
 .hero h2{font-size:18px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -46,7 +53,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 /* Cards */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
-.c{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative}
+.c{background:rgba(15,22,35,.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative}
 
 /* Record icon + popup */
 .rec-btn{position:absolute;top:10px;right:10px;width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;
@@ -55,7 +62,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .modal-back{position:fixed;inset:0;z-index:200;padding:16px;background:rgba(4,8,15,.72);
   display:none;align-items:center;justify-content:center}
 .modal-back.open{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:440px;max-height:82vh;
+.modal{background:rgba(15,22,35,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:14px;width:100%;max-width:440px;max-height:82vh;
   display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.6)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid var(--border)}
 .modal-title{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase}
@@ -93,7 +100,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .pos-label{color:var(--dim)}.pos-val{font-weight:600}
 
 /* Chain rows */
-.chain-row{display:flex;align-items:center;gap:14px;padding:14px;margin-bottom:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px}
+.chain-row{display:flex;align-items:center;gap:14px;padding:14px;margin-bottom:10px;background:rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:10px}
 .chain-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 .chain-info{flex:1}
 .chain-name{font-size:15px;font-weight:600}
@@ -129,7 +136,11 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 .legend-dot{display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .chart-h{position:relative;height:300px}
 
-@media(max-width:768px){.grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}}
+@media(max-width:768px){
+  .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
+  /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
+  body::before{background-image:url('/img/bg-mobile.jpg')}
+}
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
