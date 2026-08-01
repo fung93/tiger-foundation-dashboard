@@ -5,7 +5,7 @@
    - Other GET requests (price/reward APIs): network-first with cache fallback
    - POST (RPC calls): passed through untouched
    Bump CACHE_VERSION whenever the shell changes. */
-var CACHE_VERSION = 'tiger-v3';
+var CACHE_VERSION = 'tiger-v4';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -59,7 +59,7 @@ self.addEventListener('fetch', function (e) {
 
   /* Data + third-party APIs → network-first, cache fallback.
      Strip the cache-buster ?t= so offline lookups hit. */
-  var isData = url.pathname === '/data.json' || url.pathname === '/history.json';
+  var isData = url.pathname === '/data.json' || url.pathname === '/history.json' || url.pathname === '/claims.json';
   var isCrossOrigin = url.origin !== self.location.origin;
   if (isData || (isCrossOrigin && url.href.indexOf('cdn.jsdelivr.net') === -1)) {
     var cacheKey = isData ? url.origin + url.pathname : req.url;

@@ -39,6 +39,8 @@ const CFG = {
   solMint: 'So11111111111111111111111111111111111111112',
   usdcMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   merklApi: 'https://api.merkl.xyz/v4',
+  merklDistributor: '0x3Ef3D8bA38EBe18DB133cEc108f4D14CE00Dd9Ae', // emits Claimed(user, token, amount)
+  tzOffsetSec: 8 * 3600,                                          // a "day" runs 00:00–23:59 UTC+8
   startValue: 502.29,
   startDate: '2026-05-02',
   katClaimed: 84937,
@@ -170,6 +172,53 @@ async function discoverStakedLp(W, prevIds) {
   const owners = await multicall(idsArr.map((id) => ({ to: CFG.npm, data: '0x6352211e' + pad(id.toString(16)) })));
   return idsArr.filter((id, i) =>
     owners[i].ok && toAddr(w(owners[i].data, 0)).toLowerCase() === CFG.lpStaker.toLowerCase());
+}
+
+/* ---------- KAT claim record ----------
+   Daily log of KAT claimed from Merkl, bucketed by UTC+8 calendar day.
+   Claimed events carry exact amounts and timestamps, so day boundaries are exact.
+   Only days with claims are stored; the dashboard fills the gaps with "-". */
+const CLAIMED_TOPIC = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
+const dayKey = (tsSec) => new Date((tsSec + CFG.tzOffsetSec) * 1000).toISOString().slice(0, 10);
+
+async function updateClaims(W, katPrice) {
+  const path = join(ROOT, 'claims.json');
+  const today = dayKey(Math.floor(Date.now() / 1000));
+  let c;
+  try { c = JSON.parse(readFileSync(path, 'utf8')); } catch { c = null; }
+  if (!c || !c.days) c = { tz: 'UTC+8', start_date: today, last_block: 0, days: {} };
+
+  try {
+    const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
+    /* first run: look back far enough to cover start_date; later runs resume from last_block */
+    let from = c.last_block ? c.last_block + 1 : Math.max(0, latest - CFG.logWindow);
+    const startSec = Math.floor(Date.parse(c.start_date + 'T00:00:00Z') / 1000) - CFG.tzOffsetSec;
+    for (; from <= latest; from += CFG.logChunk) {
+      const to = Math.min(from + CFG.logChunk - 1, latest);
+      const logs = await rpc('eth_getLogs', [{
+        fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
+        address: CFG.merklDistributor,
+        topics: [CLAIMED_TOPIC, '0x' + pad(W), '0x' + pad(CFG.tokens.KAT.a.replace(/^0x/, ''))],
+      }]);
+      for (const l of logs) {
+        const ts = l.blockTimestamp
+          ? Number(BigInt(l.blockTimestamp))
+          : Number(BigInt((await rpc('eth_getBlockByNumber', [l.blockNumber, false])).timestamp));
+        if (ts < startSec) continue; /* record begins at start_date */
+        const k = dayKey(ts);
+        const amt = Number(BigInt(l.data)) / 1e18;
+        const d = c.days[k] || (c.days[k] = { kat: 0, kat_price: katPrice, value_usd: 0 });
+        d.kat = round2(d.kat + amt);
+        d.kat_price = katPrice;                    /* that day's price, as seen when recorded */
+        d.value_usd = round2(d.kat * d.kat_price);
+      }
+    }
+    c.last_block = latest;
+  } catch (e) {
+    console.warn('claim scan failed, keeping existing record:', e.message);
+  }
+  writeFileSync(path, JSON.stringify(c, null, 2) + '\n');
+  return c;
 }
 
 /* ---------- katana ---------- */
@@ -424,6 +473,7 @@ try {
 
 const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
+const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
 
 for (const lp of kat.lps) {
   const key = `${lp.pair}|${lp.pool_fee}`;
@@ -550,3 +600,4 @@ writeFileSync(histPath, JSON.stringify(hist, null, 2) + '\n');
 console.log(`Updated: total $${grand} | Katana $${katTotal} (wallet $${katWalletUsd}, LP $${katLpUsd}, Morpho $${morphoNet}, Merkl $${merkl.total_usd}) | Solana $${solTotal}`);
 console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} | SOL $${sol.solPrice} | avKAT rate ${kat.avkatRate.toFixed(4)}`);
 console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length}`);
+console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);
