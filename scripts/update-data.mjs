@@ -18,6 +18,10 @@ const CFG = {
   npm: '0x2659C6085D26144117D904C46B48B6d180393d27',
   vkatNft: '0x106F7D67Ea25Cb9eFf5064CF604ebf6259Ff296d',      // vKAT lock NFT (ERC-721)
   votingEscrow: '0x4d6fC15Ca6258b168225D283262743C623c13Ead', // locked(tokenId) lives here
+  lpStaker: '0xbe12e1b5c4859a3d141412748279b67458f729e9',     // Sushi V3 LP NFTs are held here when staked
+  logWindow: 150000,                                          // ~3d of blocks; >> the 6h run cadence
+  logBootstrapWindow: 1500000,                                // ~1 month, only when nothing is persisted yet
+  logChunk: 100000,                                           // keep each eth_getLogs request small enough for public RPCs
   factory: '0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho: '0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
   marketId: '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
@@ -137,8 +141,39 @@ const dv = (u) => new DataView(u.buffer, u.byteOffset, u.byteLength);
 const dvU64 = (d, off) => d.getBigUint64(off, true);
 const dvU128 = (d, off) => dvU64(d, off) + (dvU64(d, off + 8) << 64n);
 
+/* ---------- staked LP discovery ----------
+   The staker holds the position NFTs, so the wallet's balanceOf can't see them and
+   the proxy exposes no per-user enumeration. Union previously-known ids with ids seen
+   moving wallet->staker in recent logs, then keep only those the staker still owns. */
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+async function discoverStakedLp(W, prevIds) {
+  const known = new Set((prevIds || []).map(String));
+  try {
+    const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
+    /* First run has nothing persisted, so sweep far enough back to catch older stakes;
+       afterwards the rolling window only needs to cover the gap between runs. */
+    const span = known.size ? CFG.logWindow : CFG.logBootstrapWindow;
+    const start = Math.max(0, latest - span);
+    for (let from = start; from <= latest; from += CFG.logChunk) {
+      const to = Math.min(from + CFG.logChunk - 1, latest);
+      const logs = await rpc('eth_getLogs', [{
+        fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16), address: CFG.npm,
+        topics: [TRANSFER_TOPIC, '0x' + pad(W), '0x' + pad(CFG.lpStaker.replace(/^0x/, ''))],
+      }]);
+      for (const l of logs) known.add(String(BigInt(l.topics[3])));
+    }
+  } catch (e) {
+    console.warn('staked-LP log scan failed, using known ids only:', e.message);
+  }
+  const idsArr = [...known].map((s) => BigInt(s));
+  if (!idsArr.length) return [];
+  const owners = await multicall(idsArr.map((id) => ({ to: CFG.npm, data: '0x6352211e' + pad(id.toString(16)) })));
+  return idsArr.filter((id, i) =>
+    owners[i].ok && toAddr(w(owners[i].data, 0)).toLowerCase() === CFG.lpStaker.toLowerCase());
+}
+
 /* ---------- katana ---------- */
-async function getKatana() {
+async function getKatana(prevStakedIds) {
   const W = CFG.wallet.replace(/^0x/, '');
   const T = CFG.tokens;
   const calls = [
@@ -198,7 +233,15 @@ async function getKatana() {
   for (let i = 0; i < nftCount; i++)
     idCalls.push({ to: CFG.npm, data: '0x2f745c59' + pad(W) + pad(i.toString(16)) });
   const idRes = nftCount ? await multicall(idCalls) : [];
-  const ids = idRes.filter((x) => x.ok).map((x) => toBig(w(x.data, 0)));
+  const ownedIds = idRes.filter((x) => x.ok).map((x) => toBig(w(x.data, 0)));
+
+  // staked LP NFTs live in the staker contract, so balanceOf(wallet) misses them.
+  // Discover via Transfer logs, union with previously-known ids, then keep only
+  // those the staker still holds (unstaked ones drop out automatically).
+  const stakedIds = await discoverStakedLp(W, prevStakedIds);
+  const stakedSet = new Set(stakedIds.map(String));
+  const ids = [...ownedIds, ...stakedIds];
+
   const posRes = ids.length ? await multicall(ids.map((id) => ({ to: CFG.npm, data: '0x99fbab88' + pad(id.toString(16)) }))) : [];
   const active = [];
   posRes.forEach((res, i) => {
@@ -209,7 +252,7 @@ async function getKatana() {
     active.push({
       tokenId: ids[i], token0: toAddr(w(d, 2)), token1: toAddr(w(d, 3)),
       fee: Number(toBig(w(d, 4))), tickLo: Number(toSigned(w(d, 5))), tickHi: Number(toSigned(w(d, 6))),
-      liq, owed0, owed1,
+      liq, owed0, owed1, staked: stakedSet.has(String(ids[i])),
     });
   });
   const poolRes = active.length ? await multicall(active.map((p) => ({
@@ -236,12 +279,13 @@ async function getKatana() {
     lps.push({
       type: 'LP', protocol: 'SushiSwap V3',
       pair: `${symOf[t0]} / ${symOf[t1]}`, pool_fee: `${p.fee / 10000}%`,
-      value_usd: round2(val), apr: null,
-      note: `NFT #${p.tokenId} — ${h0.toFixed(2)} ${symOf[t0]} + ${Math.round(h1).toLocaleString('en-US')} ${symOf[t1]} (auto-detected on-chain)`,
+      value_usd: round2(val), apr: null, staked: p.staked,
+      note: `NFT #${p.tokenId}${p.staked ? ' · STAKED' : ''} — ${h0.toFixed(2)} ${symOf[t0]} + ${Math.round(h1).toLocaleString('en-US')} ${symOf[t1]} (auto-detected on-chain)`,
     });
   });
 
-  return { ethBal, bal, avkatRate, katPrice, ethPrice, morpho: { collateral, debt }, lps, vkat };
+  return { ethBal, bal, avkatRate, katPrice, ethPrice, morpho: { collateral, debt }, lps, vkat,
+    stakedLpIds: stakedIds.map((x) => String(x)) };
 }
 
 /* ---------- solana ---------- */
@@ -372,7 +416,13 @@ async function getAprs() {
 /* ---------- compose ---------- */
 const round2 = (v) => Math.round(v * 100) / 100;
 
-const [kat, sol] = await Promise.all([getKatana(), getSolana()]);
+/* carry forward previously-discovered staked LP ids so detection survives a log-scan hiccup */
+let prevStakedIds = [];
+try {
+  prevStakedIds = JSON.parse(readFileSync(join(ROOT, 'data.json'), 'utf8')).staked_lp_ids || [];
+} catch { /* first run or unreadable snapshot */ }
+
+const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
 
 for (const lp of kat.lps) {
@@ -473,6 +523,7 @@ const data = {
   lp_positions: [...kat.lps, ...sol.lps],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
+  staked_lp_ids: kat.stakedLpIds,
   onchain_usd: onchainUsd,
   total_usd: grand,
 };
