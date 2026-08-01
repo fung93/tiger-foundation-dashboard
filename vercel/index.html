@@ -20,7 +20,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
    background-attachment:fixed, which iOS Safari renders badly. */
 body::before{content:'';position:fixed;inset:0;z-index:0;
-  background:url('/img/bg.jpg') center center/cover no-repeat}
+  background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(1.15)}
 body::after{content:'';position:fixed;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
 .hdr,.wrap{position:relative;z-index:1}
@@ -92,7 +92,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .chain-solana{background:rgba(153,69,255,.15);color:var(--sol)}
 
 /* Position cards */
-.pos-card{background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.15);border-radius:10px;padding:14px;margin-bottom:8px}
+/* opaque: these sit directly on the page, so the art must not show through the text */
+.pos-card{background:#111a2b;border:1px solid rgba(59,130,246,.15);border-radius:10px;padding:14px;margin-bottom:8px}
 .pos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .pos-proto{font-size:14px;font-weight:600}
 .pos-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.03)}
