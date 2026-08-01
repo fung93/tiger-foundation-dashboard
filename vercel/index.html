@@ -902,25 +902,51 @@ function render(d,isLive){
   document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
   document.getElementById('chainNames').textContent=chainNames.join(' + ');
 
-  /* positions */
+  /* positions — one card per DeFi type; every LP is rolled into a single combined card */
   var dl='';
+
+  var allLp=[];
+  ['katana','solana'].forEach(function(key){
+    if(!chains[key])return;
+    (chains[key].lp_positions||[]).forEach(function(p){
+      allLp.push({p:p,chain:chains[key].name,badge:key==='katana'?'chain-katana':'chain-solana'});
+    });
+  });
+  if(allLp.length){
+    var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];
+    allLp.forEach(function(x){
+      var v=x.p.value_usd||0;
+      lpTotal+=v;
+      if(x.p.apr){aprW+=x.p.apr*v;aprV+=v;}
+      if(x.p.staked)stakedCount++;
+      var k=x.p.protocol+'|'+x.p.pair;
+      if(!groups[k]){groups[k]={protocol:x.p.protocol,pair:x.p.pair,chain:x.chain,badge:x.badge,n:0,value:0,staked:0,apr:null};order.push(k);}
+      var g=groups[k];
+      g.n++;g.value+=v;
+      if(x.p.staked)g.staked++;
+      if(x.p.apr)g.apr=x.p.apr;
+    });
+    dl+='<div class="pos-card">';
+    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools</span>';
+    dl+='<span>'+(stakedCount===allLp.length?'<span class="hf green">STAKED</span>':'')+'<span class="hf gold">LP</span></span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Total Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(lpTotal)+'</span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Positions</span><span class="pos-val">'+allLp.length+(stakedCount?' ('+stakedCount+' staked)':'')+'</span></div>';
+    if(aprV>0)dl+='<div class="pos-row"><span class="pos-label">Avg APR</span><span class="pos-val" style="color:var(--green)">'+(aprW/aprV).toFixed(1)+'%</span></div>';
+    order.forEach(function(k){
+      var g=groups[k];
+      dl+='<div class="pos-row"><span class="pos-label">'+g.pair
+        +'<span class="chain-badge '+g.badge+'">'+g.chain+'</span>'
+        +'<br><span style="font-size:11px;opacity:.75">'+g.protocol+' ×'+g.n+(g.staked===g.n?' · staked':(g.staked?' · '+g.staked+' staked':''))+(g.apr?' · '+Number(g.apr).toFixed(1)+'% APR':'')+'</span></span>'
+        +'<span class="pos-val">'+fmt(g.value)+'</span></div>';
+    });
+    dl+='</div>';
+  }
+
   ['katana','solana'].forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
     var badgeClass=key==='katana'?'chain-katana':'chain-solana';
     var badgeColor=key==='katana'?'var(--accent)':'var(--sol)';
-
-    (ch.lp_positions||[]).forEach(function(p){
-      dl+='<div class="pos-card">';
-      dl+='<div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
-      dl+='<span>'+(p.staked?'<span class="hf green">STAKED</span>':'')+'<span class="hf gold">LP</span><span class="chain-badge '+badgeClass+'">'+ch.name+'</span></span></div>';
-      dl+='<div class="pos-row"><span class="pos-label">Pair</span><span class="pos-val">'+p.pair+'</span></div>';
-      if(p.pool_fee)dl+='<div class="pos-row"><span class="pos-label">Fee Tier</span><span class="pos-val">'+p.pool_fee+'</span></div>';
-      dl+='<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
-      if(p.apr)dl+='<div class="pos-row"><span class="pos-label">APR</span><span class="pos-val" style="color:var(--green)">'+Number(p.apr).toFixed(1)+'%</span></div>';
-      if(p.note)dl+='<div style="font-size:12px;color:var(--dim);margin-top:8px">'+p.note+'</div>';
-      dl+='</div>';
-    });
 
     (ch.defi_positions||[]).forEach(function(p){
       dl+='<div class="pos-card">';
