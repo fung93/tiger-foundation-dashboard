@@ -44,9 +44,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Whole picture, uncropped: the box is square (aspect-ratio 1 at full card height) so
    `contain` fills it exactly, meeting the card's top, right and bottom edges. */
 .hero::before{content:'';position:absolute;right:0;top:0;height:100%;width:auto;aspect-ratio:1;z-index:0;pointer-events:none;
-  background:url('/img/hero-art.jpg') center center/contain no-repeat;filter:brightness(.78) saturate(.95);opacity:.62;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 20%,rgba(0,0,0,.8) 52%,#000 78%);
-          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 20%,rgba(0,0,0,.8) 52%,#000 78%)}
+  background:url('/img/hero-art.jpg') center center/contain no-repeat;filter:brightness(.9) saturate(.95);opacity:.62;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 8%,rgba(0,0,0,.88) 26%,#000 46%);
+          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.5) 8%,rgba(0,0,0,.88) 26%,#000 46%)}
 /* gentle scrim to bed the art into the card colour */
 .hero::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(90deg,rgba(15,22,35,.50) 0%,rgba(15,22,35,.24) 55%,rgba(15,22,35,.14) 100%)}
@@ -154,9 +154,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
-  .hero{min-height:0;padding-bottom:186px;display:block}
+  .hero{min-height:0;display:block;padding-bottom:min(calc(100vw - 44px),362px)}
   .hero-main{flex:none;max-width:100%}
-  .hero::before{top:auto;bottom:0;left:0;right:0;height:200px;width:auto;aspect-ratio:auto;
+  /* square band across the full card width: `contain` then fills it exactly, so the
+     picture reaches both side edges and the bottom with nothing cropped */
+  .hero::before{top:auto;bottom:0;left:0;right:0;width:auto;height:auto;aspect-ratio:1;max-height:350px;
     background-position:center bottom;opacity:.5;
     -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%);
             mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%)}
@@ -167,9 +169,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
-  /* keep the bottom reservation from the 768px rule — a plain `padding` shorthand here
-     would reset it and drop the markers onto the artwork */
-  .hero{padding:24px 18px 204px}
+  /* set sides only — a `padding` shorthand here would reset the bottom reservation from
+     the 768px rule and drop the progress markers onto the artwork */
+  .hero{padding-top:24px;padding-left:18px;padding-right:18px}
   .wealth-row{flex-wrap:wrap;gap:4px 10px}
   .chg-chips{width:100%}
   .chg-chip{font-size:11px;padding:3px 9px}
