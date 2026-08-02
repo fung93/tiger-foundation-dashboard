@@ -5,7 +5,7 @@
    - Other GET requests (price/reward APIs): network-first with cache fallback
    - POST (RPC calls): passed through untouched
    Bump CACHE_VERSION whenever the shell changes. */
-var CACHE_VERSION = 'tiger-v8';
+var CACHE_VERSION = 'tiger-v9';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
