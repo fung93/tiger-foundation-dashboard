@@ -36,18 +36,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .wrap{max-width:1200px;margin:0 auto;padding:28px}
 
 /* Hero */
-.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;padding-right:326px;margin-bottom:28px}
-.hero-main{position:relative;z-index:1}
-/* Background panel bleeding to the card's top, right and bottom edges. `contain` keeps
-   the whole picture in frame while it still meets those edges; padding-right above
-   reserves the space so no figure is ever laid over it. */
-.hero::before{content:'';position:absolute;right:0;top:0;bottom:0;width:310px;z-index:0;pointer-events:none;
-  background:url('/img/hero-art.jpg') right center/contain no-repeat;filter:brightness(1.1);
-  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 14%,rgba(0,0,0,.82) 34%,#000 52%);
-          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 14%,rgba(0,0,0,.82) 34%,#000 52%)}
-/* light tint so the panel settles into the card colour without dulling the art */
-.hero::after{content:'';position:absolute;right:0;top:0;bottom:0;width:310px;z-index:0;pointer-events:none;
-  background:linear-gradient(90deg,rgba(15,22,35,.72) 0%,rgba(15,22,35,.26) 38%,rgba(15,22,35,.06) 100%)}
+/* taller card so the (uncropped) square artwork renders large enough to read */
+.hero{position:relative;overflow:hidden;min-height:330px;display:flex;align-items:center;background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
+/* text column kept clear of the artwork's readable part; the fade still runs beneath it
+   so there's no seam between the two halves */
+.hero-main{position:relative;z-index:1;flex:0 0 62%;max-width:62%;min-width:0}
+/* Whole picture, uncropped: the box is square (aspect-ratio 1 at full card height) so
+   `contain` fills it exactly, meeting the card's top, right and bottom edges. */
+.hero::before{content:'';position:absolute;right:0;top:0;height:100%;width:auto;aspect-ratio:1;z-index:0;pointer-events:none;
+  background:url('/img/hero-art.jpg') center center/contain no-repeat;filter:brightness(.78) saturate(.95);opacity:.62;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 20%,rgba(0,0,0,.8) 52%,#000 78%);
+          mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.3) 20%,rgba(0,0,0,.8) 52%,#000 78%)}
+/* gentle scrim to bed the art into the card colour */
+.hero::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(15,22,35,.50) 0%,rgba(15,22,35,.24) 55%,rgba(15,22,35,.14) 100%)}
 .hero h2{font-size:18px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -150,20 +152,24 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 
 @media(max-width:768px){
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
-  /* no room for a side panel — run it full width along the bottom edge instead */
-  .hero{padding-right:32px;padding-bottom:196px}
-  .hero::before,.hero::after{left:0;right:0;top:auto;bottom:0;width:auto;height:186px}
-  .hero::before{background:url('/img/hero-art.jpg') center 42%/cover no-repeat;
-    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.3) 12%,rgba(0,0,0,.85) 32%,#000 48%);
-            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.3) 12%,rgba(0,0,0,.85) 32%,#000 48%)}
-  .hero::after{background:linear-gradient(180deg,rgba(15,22,35,.72) 0%,rgba(15,22,35,.24) 36%,rgba(15,22,35,.05) 100%)}
+  /* too narrow for a side-by-side split: art sits across the lower half of the card,
+     still uncropped, with the text overlapping its faded upper edge */
+  .hero{min-height:0;padding-bottom:186px;display:block}
+  .hero-main{flex:none;max-width:100%}
+  .hero::before{top:auto;bottom:0;left:0;right:0;height:200px;width:auto;aspect-ratio:auto;
+    background-position:center bottom;opacity:.5;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%);
+            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%)}
+  .hero::after{background:linear-gradient(180deg,rgba(15,22,35,.52) 0%,rgba(15,22,35,.30) 60%,rgba(15,22,35,.18) 100%)}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   body::before{background-image:url('/img/bg-mobile.jpg')}
 }
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
-  .hero{padding:24px 18px;padding-bottom:186px}
+  /* keep the bottom reservation from the 768px rule — a plain `padding` shorthand here
+     would reset it and drop the markers onto the artwork */
+  .hero{padding:24px 18px 204px}
   .wealth-row{flex-wrap:wrap;gap:4px 10px}
   .chg-chips{width:100%}
   .chg-chip{font-size:11px;padding:3px 9px}
