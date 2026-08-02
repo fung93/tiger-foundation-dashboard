@@ -44,7 +44,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Whole picture, uncropped: the box is square (aspect-ratio 1 at full card height) so
    `contain` fills it exactly, meeting the card's top, right and bottom edges. */
 .hero::before{content:'';position:absolute;right:0;top:0;height:100%;width:auto;aspect-ratio:1;z-index:0;pointer-events:none;
-  background:url('/img/hero-art.jpg') center center/contain no-repeat;filter:brightness(.9) saturate(.95);opacity:.62;
+  background:url('/img/hero-art.jpg') center center/contain no-repeat;filter:brightness(1.35) saturate(.95);opacity:.62;
   /* same short profile as the mobile fade, rotated to the horizontal */
   -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.32) 0%,rgba(0,0,0,.8) 7%,rgba(0,0,0,.95) 17%,#000 27%);
           mask-image:linear-gradient(90deg,rgba(0,0,0,.32) 0%,rgba(0,0,0,.8) 7%,rgba(0,0,0,.95) 17%,#000 27%)}
@@ -155,19 +155,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
-  .hero{min-height:0;display:block;padding-bottom:min(calc(100vw - 44px),362px)}
+  .hero{min-height:0;display:block;padding-bottom:min(calc(100vw + 76px),494px)}
   .hero-main{flex:none;max-width:100%}
-  /* square band across the full card width: `contain` then fills it exactly, so the
-     picture reaches both side edges and the bottom with nothing cropped */
-  .hero::before{top:auto;bottom:0;left:0;right:0;width:auto;height:auto;aspect-ratio:1;max-height:350px;
-    background-position:center bottom;opacity:.6;
-    /* short fade: the MALAYSIA/CHINA flags sit in the top ~10% of the picture, so the
-       mask has to be near-solid by then or they wash out */
-    -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.32) 0%,rgba(0,0,0,.8) 7%,rgba(0,0,0,.95) 17%,#000 27%);
-            mask-image:linear-gradient(180deg,rgba(0,0,0,.32) 0%,rgba(0,0,0,.8) 7%,rgba(0,0,0,.95) 17%,#000 27%)}
-  /* drops away where the artwork starts (~47% down) — above that it only covers card,
-     so lightening it here costs nothing in text contrast */
-  .hero::after{background:linear-gradient(180deg,rgba(15,22,35,.50) 0%,rgba(15,22,35,.38) 44%,rgba(15,22,35,.07) 52%,rgba(15,22,35,.05) 100%)}
+  /* Band is taller than the picture and the picture is bottom-aligned, so the artwork
+     sits lower: the fade's transparent zone lands on empty space above it and the
+     MALAYSIA/CHINA flags fall in the solid part. `contain` keeps it uncropped and
+     full-width, meeting both side edges and the bottom. */
+  .hero::before{top:auto;bottom:0;left:0;right:0;width:auto;aspect-ratio:auto;
+    height:min(calc(100vw + 62px),480px);
+    background-position:center bottom;opacity:.5;filter:brightness(1.04) saturate(.95);
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%);
+            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 60%)}
+  .hero::after{background:linear-gradient(180deg,rgba(15,22,35,.52) 0%,rgba(15,22,35,.30) 60%,rgba(15,22,35,.18) 100%)}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   body::before{background-image:url('/img/bg-mobile.jpg')}
 }
