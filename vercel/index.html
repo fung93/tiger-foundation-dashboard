@@ -20,7 +20,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
    background-attachment:fixed, which iOS Safari renders badly. */
 body::before{content:'';position:fixed;inset:0;z-index:0;
-  background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(1.32)}
+  background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(1.72)}
 body::after{content:'';position:fixed;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
 .hdr,.wrap{position:relative;z-index:1}
@@ -40,12 +40,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .hero-main{flex:1;min-width:0}
 /* An add-on image, not a background: sits in the flow at the card's right, shown at the
    source's own brightness (no filter, no opacity) and merged only by fading its inner
-   edge. Bled into the padding so it meets the card's top/right/bottom. */
-.hero-photo{flex:none;width:300px;height:auto;display:block;align-self:stretch;object-fit:contain;
-  margin:-32px -32px -32px 0;
+   edge. Bled into the padding so it meets the card's top/right/bottom. The wrapper
+   carries the fade and the clipping so the picture itself can be offset on mobile. */
+.hero-photo-wrap{flex:none;width:300px;margin:-32px -32px -32px 0;overflow:hidden;line-height:0;
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%);
           mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
-.hero h2{font-size:18px;color:var(--accent);margin-bottom:18px;letter-spacing:1px}
+.hero-photo{width:100%;height:auto;display:block}
+/* matched to .wealth-total below it */
+.hero h2{font-size:48px;font-weight:800;color:var(--accent);margin-bottom:14px;letter-spacing:1px;line-height:1.05}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .wealth-sub{font-size:15px;color:var(--dim)}
@@ -153,21 +155,24 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
      dead space under the progress bar */
   .hero{flex-direction:column;align-items:stretch;gap:0;padding-bottom:0}
   .hero-main{flex:none;max-width:100%}
-  /* Short top fade only — the flags sit at ~5% of the picture, so a long fade would
-     wash them out. Full width, uncropped, flush to the card's bottom and sides. */
-  .hero-photo{width:calc(100% + 64px);margin:18px -32px 0;align-self:auto;
-    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.55) 2.5%,rgba(0,0,0,.9) 6%,#000 11%);
-            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.55) 2.5%,rgba(0,0,0,.9) 6%,#000 11%)}
+  /* Same soft gradient as desktop, rotated. The picture is pushed down inside a fixed
+     square box (card size unchanged) and its bottom is clipped, so the fade spends
+     itself above the MALAYSIA/CHINA flags instead of over them. */
+  .hero-photo-wrap{width:calc(100% + 64px);margin:18px -32px 0;aspect-ratio:1;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.2) 10%,rgba(0,0,0,.5) 16%,rgba(0,0,0,.9) 20%,#000 24%);
+            mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.2) 10%,rgba(0,0,0,.5) 16%,rgba(0,0,0,.9) 20%,#000 24%)}
+  .hero-photo{margin-top:50px}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   body::before{background-image:url('/img/bg-mobile.jpg')}
 }
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
+  .hero h2{font-size:34px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
   /* sides only — a `padding` shorthand would reset the 768px rule's padding-bottom:0
      and reintroduce dead space under the image */
   .hero{padding-top:24px;padding-left:18px;padding-right:18px}
-  .hero-photo{width:calc(100% + 36px);margin:16px -18px 0}
+  .hero-photo-wrap{width:calc(100% + 36px);margin:16px -18px 0}
   .wealth-row{flex-wrap:wrap;gap:4px 10px}
   .chg-chips{width:100%}
   .chg-chip{font-size:11px;padding:3px 9px}
@@ -209,7 +214,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
       <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
     </div>
    </div>
-   <img class="hero-photo" src="/img/hero-art.jpg" alt="" draggable="false">
+   <div class="hero-photo-wrap"><img class="hero-photo" src="/img/hero-art.jpg" alt="" draggable="false"></div>
   </div>
 
   <!-- (a) PERFORMANCE BREAKDOWN -->
