@@ -161,7 +161,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
     -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%);
             mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
-  body::before{background-image:url('/img/bg-mobile.jpg')}
+  /* mobile only: +15% on top of the shared 1.72 */
+  body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
 }
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
