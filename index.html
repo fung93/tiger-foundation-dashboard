@@ -150,6 +150,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .tbl td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl .num{text-align:right}
+/* four evenly-spaced columns — fixed layout stops the content re-weighting them */
+#posTable{table-layout:fixed}
+#posTable th,#posTable td{width:25%}
 .btn{background:rgba(245,158,11,.12);color:var(--accent);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn:hover{background:rgba(245,158,11,.22)}
 
