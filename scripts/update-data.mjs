@@ -221,6 +221,128 @@ async function updateClaims(W, katPrice) {
   return c;
 }
 
+/* ---------- closed LP position ledger ----------
+   A V3 position's whole life is on chain: IncreaseLiquidity puts principal in, Collect
+   takes principal AND fees back out. Valuing each leg at the pool price of its own block
+   gives true realised USD PnL — the Katana RPCs serve archive state, so these are exact
+   figures, not estimates. A position is closed once its liquidity reaches 0. */
+const INC_TOPIC = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+const DEC_TOPIC = '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4';
+const COL_TOPIC = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
+
+const pxCache = new Map();
+async function katPriceAtBlock(block) {
+  if (pxCache.has(block)) return pxCache.get(block);
+  const r = await rpc('eth_call', [{ to: CFG.poolKatUsdc, data: '0x3850c7bd' }, block]);
+  const raw = Number(toBig(w(r, 0))) ** 2 / 2 ** 192;               // token1/token0 in raw units
+  const p = 1 / (raw * 10 ** (CFG.tokens.USDC.d - CFG.tokens.KAT.d));
+  pxCache.set(block, p);
+  return p;
+}
+
+/* Replay one position's events into USD in / USD out. */
+async function lifecycle(tokenId, fromBlock) {
+  const logs = await rpc('eth_getLogs', [{
+    fromBlock: '0x' + fromBlock.toString(16), toBlock: 'latest', address: CFG.npm,
+    topics: [null, '0x' + pad(tokenId.toString(16))],
+  }]);
+  let inUsd = 0, outUsd = 0, openTs = null, closeTs = null;
+  for (const l of logs) {
+    const t = l.topics[0];
+    if (t !== INC_TOPIC && t !== DEC_TOPIC && t !== COL_TOPIC) continue;
+    /* all three carry (_, amount0, amount1) — word0 is liquidity or recipient */
+    const a0 = Number(toBig(w(l.data, 1))) / 10 ** CFG.tokens.USDC.d;
+    const a1 = Number(toBig(w(l.data, 2))) / 10 ** CFG.tokens.KAT.d;
+    if (!a0 && !a1) continue;
+    const ts = Number(BigInt(l.blockTimestamp));
+    const usd = a0 + a1 * (await katPriceAtBlock(l.blockNumber));
+    if (t === INC_TOPIC) { inUsd += usd; if (openTs === null) openTs = ts; }
+    else if (t === COL_TOPIC) outUsd += usd;   // principal and fees both exit via Collect
+    else closeTs = ts;                          // DecreaseLiquidity — the last one closes it
+  }
+  return { inUsd, outUsd, openTs, closeTs };
+}
+
+const symOf = (addr) => {
+  const a = addr.toLowerCase();
+  for (const [s, t] of Object.entries(CFG.tokens)) if (t.a.toLowerCase() === a) return s;
+  return null;
+};
+
+async function updatePositions(W) {
+  const path = join(ROOT, 'positions.json');
+  let p;
+  try { p = JSON.parse(readFileSync(path, 'utf8')); } catch { p = null; }
+  if (!p || !p.closed) p = { start_date: null, last_block: 0, open: {}, closed: [] };
+
+  try {
+    const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
+    const done = new Set(p.closed.map((c) => String(c.id)));
+    /* candidate id -> earliest block we've seen it at (where its event replay starts) */
+    const cand = new Map();
+    for (const [id, o] of Object.entries(p.open || {})) cand.set(id, o.opened_block);
+
+    /* every position NFT the wallet has received — minted, or returned by the staker */
+    const from = p.last_block ? Math.max(0, p.last_block - 1000)
+                              : Math.max(0, latest - CFG.logBootstrapWindow);
+    for (let f = from; f <= latest; f += CFG.logChunk) {
+      const to = Math.min(f + CFG.logChunk - 1, latest);
+      const logs = await rpc('eth_getLogs', [{
+        fromBlock: '0x' + f.toString(16), toBlock: '0x' + to.toString(16), address: CFG.npm,
+        topics: [TRANSFER_TOPIC, null, '0x' + pad(W)],
+      }]);
+      for (const l of logs) {
+        const k = String(BigInt(l.topics[3]));
+        if (done.has(k)) continue;
+        const b = Number(BigInt(l.blockNumber));
+        if (!cand.has(k) || b < cand.get(k)) cand.set(k, b);
+      }
+    }
+
+    const ids = [...cand.keys()].map(BigInt);
+    if (ids.length) {
+      const res = await multicall(ids.map((id) => ({ to: CFG.npm, data: '0x99fbab88' + pad(id.toString(16)) })));
+      for (let i = 0; i < ids.length; i++) {
+        if (!res[i].ok) continue;
+        const k = String(ids[i]);
+        const d = res[i].data;
+        const sym0 = symOf(toAddr(w(d, 2))), sym1 = symOf(toAddr(w(d, 3)));
+        /* only the vbUSDC/KAT pool can be priced from poolKatUsdc — skip anything else
+           rather than book a wrong number */
+        if (sym0 !== 'USDC' || sym1 !== 'KAT') { console.warn(`position #${k}: unpriceable pair, skipped`); continue; }
+        const pair = 'vbUSDC / KAT';
+        const poolFee = parseInt(w(d, 4), 16) / 10000 + '%';
+        const liq = toBig(w(d, 7));
+        if (liq === 0n) {
+          const lc = await lifecycle(ids[i], cand.get(k));
+          if (lc.openTs === null) { console.warn(`position #${k}: opened before scan window, skipped`); continue; }
+          p.closed.push({
+            id: k, pair, pool_fee: poolFee,
+            opened: dayKey(lc.openTs), opened_ts: lc.openTs,
+            closed: dayKey(lc.closeTs || lc.openTs), closed_ts: lc.closeTs || lc.openTs,
+            open_value_usd: round2(lc.inUsd), close_value_usd: round2(lc.outUsd),
+            pnl_usd: round2(lc.outUsd - lc.inUsd),
+            pnl_pct: lc.inUsd > 0 ? round2((lc.outUsd - lc.inUsd) / lc.inUsd * 100) : 0,
+          });
+          delete p.open[k];
+        } else {
+          p.open[k] = { pair, pool_fee: poolFee, opened_block: cand.get(k) };
+        }
+      }
+    }
+    p.closed.sort((a, b) => b.closed_ts - a.closed_ts);   // newest first
+    p.last_block = latest;
+    if (!p.start_date) {
+      p.start_date = p.closed.length ? p.closed[p.closed.length - 1].opened
+                                     : dayKey(Math.floor(Date.now() / 1000));
+    }
+  } catch (e) {
+    console.warn('position ledger scan failed, keeping existing record:', e.message);
+  }
+  writeFileSync(path, JSON.stringify(p, null, 2) + '\n');
+  return p;
+}
+
 /* ---------- katana ---------- */
 async function getKatana(prevStakedIds) {
   const W = CFG.wallet.replace(/^0x/, '');
@@ -474,6 +596,7 @@ try {
 const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
+const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
 
 for (const lp of kat.lps) {
   const key = `${lp.pair}|${lp.pool_fee}`;
@@ -601,3 +724,4 @@ console.log(`Updated: total $${grand} | Katana $${katTotal} (wallet $${katWallet
 console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} | SOL $${sol.solPrice} | avKAT rate ${kat.avkatRate.toFixed(4)}`);
 console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length}`);
 console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);
+console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open`);
