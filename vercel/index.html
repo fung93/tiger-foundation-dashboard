@@ -267,7 +267,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   <!-- DeFi positions -->
   <div class="sec">
     <div class="sec-title">DeFi Positions
-      <button class="rec-btn inline" id="posBtn" title="Closed LP position record" aria-label="Closed LP position record">
+      <button class="rec-btn inline" id="posBtn" title="LP position record" aria-label="LP position record">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
       </button>
     </div>
@@ -301,11 +301,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   </div>
 </div>
 
-<!-- Closed LP position record -->
-<div class="modal-back" id="posModal" role="dialog" aria-modal="true" aria-label="Closed LP position record">
+<!-- LP position record -->
+<div class="modal-back" id="posModal" role="dialog" aria-modal="true" aria-label="LP position record">
   <div class="modal" style="max-width:640px">
     <div class="modal-head">
-      <span class="modal-title">Closed LP Positions</span>
+      <span class="modal-title">LP Positions</span>
       <button class="modal-x" id="posClose" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
@@ -1024,7 +1024,7 @@ function buildClaims(){
 function openClaims(){buildClaims();document.getElementById('claimsModal').classList.add('open');}
 function closeClaims(){document.getElementById('claimsModal').classList.remove('open');}
 
-/* ---- Closed LP position record ----
+/* ---- LP position record ----
    A V3 position's whole life is on chain: IncreaseLiquidity puts principal in, Collect
    takes principal AND fees back out. Valuing each leg at the pool price of its own block
    gives realised USD PnL — the Katana RPCs serve archive state, so these are exact.
@@ -1092,10 +1092,10 @@ function scanLivePositions(known){
       if(cand[k]===undefined||b<cand[k])cand[k]=b;
     });
     var ids=Object.keys(cand);
-    if(!ids.length)return[];
+    if(!ids.length)return{closed:[],open:[]};
     return multicall(ids.map(function(k){return{to:CFG.npm,data:'0x99fbab88'+pad(BigInt(k).toString(16))};}))
       .then(function(res){
-        var shut=[];
+        var shut=[],live=[];
         ids.forEach(function(k,i){
           if(!res[i].ok)return;
           var d=res[i].data;
@@ -1103,56 +1103,97 @@ function scanLivePositions(known){
              rather than show a wrong number */
           if(toAddr(w(d,2)).toLowerCase()!==CFG.tokens.USDC.a.toLowerCase())return;
           if(toAddr(w(d,3)).toLowerCase()!==CFG.tokens.KAT.a.toLowerCase())return;
-          if(toBig(w(d,7))!==BigInt(0))return;   /* still has liquidity — still open */
-          shut.push({id:k,fee:parseInt(w(d,4),16)/10000+'%'});
+          var e={id:k,fee:parseInt(w(d,4),16)/10000+'%'};
+          if(toBig(w(d,7))===BigInt(0))shut.push(e);
+          else if(!om[k])live.push(e);  /* already-known open ones keep the Action's figures */
         });
-        return Promise.all(shut.map(function(c){
+        function replay(c,isOpen){
           return posLifecycle(BigInt(c.id),cand[c.id]).then(function(lc){
-            if(lc.openTs===null)return null;   /* opened before the window — the Action books it */
-            var pnl=lc.outUsd-lc.inUsd;
-            return{id:c.id,pair:'vbUSDC / KAT',pool_fee:c.fee,
+            if(lc.openTs===null)return null;  /* opened before the window — the Action books it */
+            var base={id:c.id,pair:'vbUSDC / KAT',pool_fee:c.fee,
               opened:utc8Date(lc.openTs*1000),opened_ts:lc.openTs,
-              closed:utc8Date((lc.closeTs||lc.openTs)*1000),closed_ts:lc.closeTs||lc.openTs,
-              open_value_usd:Math.round(lc.inUsd*100)/100,
-              close_value_usd:Math.round(lc.outUsd*100)/100,
-              pnl_usd:Math.round(pnl*100)/100,
-              pnl_pct:lc.inUsd>0?Math.round(pnl/lc.inUsd*10000)/100:0};
+              open_value_usd:Math.round(lc.inUsd*100)/100};
+            if(isOpen)return base;
+            var pnl=lc.outUsd-lc.inUsd;
+            base.closed=utc8Date((lc.closeTs||lc.openTs)*1000);
+            base.closed_ts=lc.closeTs||lc.openTs;
+            base.close_value_usd=Math.round(lc.outUsd*100)/100;
+            base.pnl_usd=Math.round(pnl*100)/100;
+            base.pnl_pct=lc.inUsd>0?Math.round(pnl/lc.inUsd*10000)/100:0;
+            return base;
           });
-        })).then(function(a){return a.filter(function(x){return x;});});
+        }
+        var keep=function(a){return a.filter(function(x){return x;});};
+        return Promise.all([
+          Promise.all(shut.map(function(c){return replay(c,false);})).then(keep),
+          Promise.all(live.map(function(c){return replay(c,true);})).then(keep)
+        ]).then(function(r){return{closed:r[0],open:r[1]};});
       });
   });
 }
 
-/* stored ledger with live-detected closures layered on top (stored wins on id collision) */
+/* stored ledger with live-detected changes layered on top (stored wins on id collision) */
 function closedPositions(){
   var out=[],seen={};
   ((POSITIONS&&POSITIONS.closed)||[]).forEach(function(c){seen[String(c.id)]=1;out.push(c);});
-  (LIVE_POSITIONS||[]).forEach(function(c){if(!seen[String(c.id)])out.push(c);});
+  ((LIVE_POSITIONS&&LIVE_POSITIONS.closed)||[]).forEach(function(c){if(!seen[String(c.id)])out.push(c);});
   out.sort(function(a,b){return (b.closed_ts||0)-(a.closed_ts||0);});
+  return out;
+}
+
+/* Currently-open positions, newest first. Anything already closed is excluded, so a
+   position that shut since the last snapshot leaves this list on the same refresh.
+   (Not `openPositions` — that name already belongs to the modal opener.) */
+function currentPositions(){
+  var out=[],seen={},shut={};
+  closedPositions().forEach(function(c){shut[String(c.id)]=1;});
+  var om=(POSITIONS&&POSITIONS.open)||{};
+  Object.keys(om).forEach(function(k){
+    if(shut[k])return;
+    var o=om[k];seen[k]=1;
+    out.push({id:k,pair:o.pair,pool_fee:o.pool_fee,opened:o.opened,
+      opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
+  });
+  ((LIVE_POSITIONS&&LIVE_POSITIONS.open)||[]).forEach(function(o){
+    if(!seen[String(o.id)]&&!shut[String(o.id)])out.push(o);
+  });
+  out.sort(function(a,b){return (b.opened_ts||0)-(a.opened_ts||0);});
   return out;
 }
 
 function buildPositions(){
   var t=document.getElementById('posTable');
   if(!t)return;
-  var list=closedPositions(),lpPnl=0;
+  var list=closedPositions(),open=currentPositions(),lpPnl=0;
+  var dash='<span style="color:var(--dim)">-</span>';
   var rows='<tr><th>Position</th><th>Opened</th><th class="num">Open $</th><th>Closed</th><th class="num">Close $</th><th class="num">P&amp;L</th></tr>';
-  if(!list.length){
-    rows+='<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">No closed positions yet.</td></tr>';
-  }else{
-    list.forEach(function(c){
-      var p=c.pnl_usd||0;
-      lpPnl+=p;
-      var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
-      rows+='<tr><td style="white-space:nowrap">#'+c.id
-        +'<br><span style="color:var(--dim);font-size:9px">'+c.pair+'</span></td>'
-        +'<td style="white-space:nowrap">'+c.opened+'</td>'
-        +'<td class="num">'+usd(c.open_value_usd)+'</td>'
-        +'<td style="white-space:nowrap">'+c.closed+'</td>'
-        +'<td class="num">'+usd(c.close_value_usd)+'</td>'
-        +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+usd(Math.abs(p))
-        +'<br><span style="font-size:9px">'+sg+Math.abs(c.pnl_pct||0).toFixed(2)+'%</span></td></tr>';
-    });
+
+  /* open first — these are what's live right now; anything not yet knowable reads "-" */
+  open.forEach(function(o){
+    rows+='<tr><td style="white-space:nowrap">#'+o.id
+      +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'
+      +'<br><span style="color:var(--dim);font-size:9px">'+(o.pair||'')+'</span></td>'
+      +'<td style="white-space:nowrap">'+(o.opened||dash)+'</td>'
+      +'<td class="num">'+(o.open_value_usd!==null&&o.open_value_usd!==undefined?usd(o.open_value_usd):dash)+'</td>'
+      +'<td>'+dash+'</td><td class="num">'+dash+'</td><td class="num">'+dash+'</td></tr>';
+  });
+
+  list.forEach(function(c){
+    var p=c.pnl_usd||0;
+    lpPnl+=p;
+    var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
+    rows+='<tr><td style="white-space:nowrap">#'+c.id
+      +'<br><span style="color:var(--dim);font-size:9px">'+c.pair+'</span></td>'
+      +'<td style="white-space:nowrap">'+c.opened+'</td>'
+      +'<td class="num">'+usd(c.open_value_usd)+'</td>'
+      +'<td style="white-space:nowrap">'+c.closed+'</td>'
+      +'<td class="num">'+usd(c.close_value_usd)+'</td>'
+      +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+usd(Math.abs(p))
+      +'<br><span style="font-size:9px">'+sg+Math.abs(c.pnl_pct||0).toFixed(2)+'%</span></td></tr>';
+  });
+
+  if(!list.length&&!open.length){
+    rows+='<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:20px">No positions yet.</td></tr>';
   }
   t.innerHTML=rows;
 

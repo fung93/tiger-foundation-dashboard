@@ -326,7 +326,15 @@ async function updatePositions(W) {
           });
           delete p.open[k];
         } else {
-          p.open[k] = { pair, pool_fee: poolFee, opened_block: cand.get(k) };
+          /* still open: replay the deposit side so the dashboard can list it alongside the
+             closed ones. Recomputed each run, so topping a position up is picked up. */
+          const lc = await lifecycle(ids[i], cand.get(k));
+          p.open[k] = {
+            pair, pool_fee: poolFee, opened_block: cand.get(k),
+            opened: lc.openTs ? dayKey(lc.openTs) : null,
+            opened_ts: lc.openTs || null,
+            open_value_usd: lc.openTs ? round2(lc.inUsd) : null,
+          };
         }
       }
     }
@@ -724,4 +732,4 @@ console.log(`Updated: total $${grand} | Katana $${katTotal} (wallet $${katWallet
 console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} | SOL $${sol.solPrice} | avKAT rate ${kat.avkatRate.toFixed(4)}`);
 console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length}`);
 console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);
-console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open`);
+console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open (${Object.values(positions.open).map((o) => '#' + (o.opened || '?') + ' $' + (o.open_value_usd ?? '-')).join(', ')})`);
