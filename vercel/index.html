@@ -69,6 +69,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .rec-btn{position:absolute;top:10px;right:10px;width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;color:var(--dim);cursor:pointer}
 .rec-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
+/* no filled square on touch; focus ring and text selection left at UA defaults */
+.rec-btn{-webkit-tap-highlight-color:transparent}
 /* in a section heading there's nothing to anchor to — sit inline at the end of the row */
 .rec-btn.inline{position:static;margin-left:auto}
 .modal-back{position:fixed;inset:0;z-index:200;padding:16px;background:rgba(4,8,15,.72);
