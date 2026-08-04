@@ -479,6 +479,9 @@ async function getSolana() {
   ]);
   const sol = balRes.value / 1e9;
   const usdc = usdcRes.value.length ? Number(usdcRes.value[0].account.data.parsed.info.tokenAmount.uiAmount) : 0;
+  /* Publish the token account address. getTokenAccountsByOwner hangs on the only
+     browser-reachable Solana endpoint, so the dashboard reads this account directly. */
+  const usdcAta = usdcRes.value.length ? usdcRes.value[0].pubkey : null;
 
   const lps = [], refs = [];
   let poolSolPrice = null;
@@ -554,7 +557,7 @@ async function getSolana() {
     value_usd: round2(p._sol * solPrice + p._usdc), apr: null,
     note: `#${p._pubkey.slice(0, 6)} — range $${p._rangeLow.toFixed(1)}-$${p._rangeHigh.toFixed(1)}, ${p._sol.toFixed(3)} SOL + ${p._usdc.toFixed(2)} USDC (auto-detected on-chain)`,
   }));
-  return { sol, usdc, solPrice, lps: lpPositions, refs };
+  return { sol, usdc, solPrice, lps: lpPositions, refs, usdcAta };
 }
 
 /* ---------- merkl ---------- */
@@ -704,6 +707,7 @@ const data = {
   lp_positions: [...kat.lps, ...sol.lps],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
+  usdc_ata: sol.usdcAta,
   staked_lp_ids: kat.stakedLpIds,
   onchain_usd: onchainUsd,
   total_usd: grand,

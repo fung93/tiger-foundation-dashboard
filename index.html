@@ -401,6 +401,13 @@ var CFG={
   dlmmProgram:'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
   solMint:'So11111111111111111111111111111111111111112',
   usdcMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  /* The USDC token account, read directly. getTokenAccountsByOwner hangs indefinitely on
+     publicnode — the only Solana endpoint that serves browser origins — and used to cost
+     two 10s timeouts per load. The Action republishes this as usdc_ata every run. */
+  usdcAta:'ED4qHSWBm2qUauEez1DejEzShkwEKA8a66aZdtFPjMpS',
+  /* Solana calls that work land in 15-470ms, so this is ~5x headroom. publicnode stalls
+     intermittently; a low cap plus the dead-endpoint skip keeps that cheap. */
+  solTimeout:2500,
   /* fallback refs — the GitHub Action rediscovers these every run and stores them in data.json */
   meteoraRefs:[{position:'CLY9xG4G75MrJ2KWTUPcJeCnbvq7XWgGTsE77vrB7CJo',
     lbPair:'BGm1tav58oGcsQJehL9WXBFXF7D27vZsKefj4xJKD5Y',
@@ -494,17 +501,22 @@ function poolPrice(sqrtPX96,dec0,dec1){
 
 /* ============ solana helpers ============ */
 var solIdx=0;
+/* Endpoints that fail once are skipped for the rest of the page load, so a dead one is
+   paid for at most once instead of on every Solana call. */
+var SOL_DEAD={};
 function solRpc(method,params,attempt){
   attempt=attempt||0;
   var url=CFG.solRpcs[(solIdx+attempt)%CFG.solRpcs.length];
+  var next=function(e){
+    if(attempt+1>=CFG.solRpcs.length)throw e;
+    return solRpc(method,params,attempt+1);
+  };
+  if(SOL_DEAD[url])return Promise.resolve().then(function(){return next(new Error('skipped '+url));});
   return fT(url,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})})
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},CFG.solTimeout)
     .then(function(r){return r.json();})
     .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;})
-    .catch(function(e){
-      if(attempt+1>=CFG.solRpcs.length)throw e;
-      return solRpc(method,params,attempt+1);
-    });
+    .catch(function(e){SOL_DEAD[url]=1;return next(e);});
 }
 function b64bytes(b64){
   var bin=atob(b64),u=new Uint8Array(bin.length);
@@ -737,16 +749,15 @@ function getKatanaLive(stakedLpIds){
   });
 }
 
-function getSolanaLive(refs){
+function getSolanaLive(refs,ata){
   return Promise.all([
     solRpc('getBalance',[CFG.solWallet]),
-    solRpc('getTokenAccountsByOwner',[CFG.solWallet,{mint:CFG.usdcMint},{encoding:'jsonParsed'}]),
-    fT('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+    solRpc('getTokenAccountBalance',[ata||CFG.usdcAta]),
+    fT('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',null,CFG.solTimeout)
       .then(function(r){return r.json();}).then(function(j){return j.solana.usd;})
   ]).then(function(rr){
     var sol=rr[0].value/1e9;
-    var usdc=0;
-    if(rr[1].value.length)usdc=Number(rr[1].value[0].account.data.parsed.info.tokenAmount.uiAmount);
+    var usdc=Number((rr[1]&&rr[1].value&&rr[1].value.uiAmount)||0);
     var solPrice=rr[2];
     var posPs=(refs||[]).map(function(ref){return meteoraPosition(ref);});
     return Promise.all(posPs).then(function(positions){
@@ -801,7 +812,7 @@ function getSushiAprs(){
 
 function loadLive(refs,snap){
   /* a Solana outage must not kill the whole overlay — degrade to snapshot values for that chain */
-  var solP=getSolanaLive(refs).catch(function(e){
+  var solP=getSolanaLive(refs,snap&&snap.usdc_ata).catch(function(e){
     console.warn('solana live failed, using snapshot values',e);
     var ss=(snap&&snap.chains&&snap.chains.solana)||{};
     return{sol:0,usdc:ss.onchain_usd||0,solPrice:0,lps:ss.lp_positions||[],fromSnapshot:true};
@@ -1548,6 +1559,12 @@ function load(){
     .catch(function(){/* not generated yet — live scan still finds recent closures */})
     .then(buildPositions);
 
+  /* The position scan reads the chain directly and needs nothing from the overlay, so it
+     runs alongside it rather than queueing behind it. */
+  posReady.then(function(){return scanLivePositions(POSITIONS);})
+    .then(function(res){LIVE_POSITIONS=res;buildPositions();})
+    .catch(function(e){console.warn('live position scan failed, using positions.json',e);});
+
   /* 1. instant snapshot, then 2. live on-chain overlay (position refs come from snapshot) */
   fetch('/data.json?t='+Date.now()).then(function(r){return r.json();})
     .then(function(d){render(d,false);return d;})
@@ -1556,14 +1573,11 @@ function load(){
       var refs=(snap&&snap.meteora_refs)||CFG.meteoraRefs;
       return loadLive(refs,snap).then(function(d){
         render(d,true);
-        /* log scans run off live data and must never take the overlay down */
-        var c=scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
+        /* claims need the live KAT price, so this one does wait — and must never take
+           the overlay down if it fails */
+        return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
           .then(function(res){LIVE_CLAIMS=res;buildClaims();buildPositions();})
           .catch(function(e){console.warn('live claim scan failed, using claims.json',e);});
-        var p=posReady.then(function(){return scanLivePositions(POSITIONS);})
-          .then(function(res){LIVE_POSITIONS=res;buildPositions();})
-          .catch(function(e){console.warn('live position scan failed, using positions.json',e);});
-        return Promise.all([c,p]);
       });
     })
     .catch(function(e){console.warn('live fetch failed, showing snapshot',e);});
