@@ -459,6 +459,7 @@ async function getKatana(prevStakedIds) {
       type: 'LP', protocol: 'SushiSwap V3',
       pair: `${symOf[t0]} / ${symOf[t1]}`, pool_fee: `${p.fee / 10000}%`,
       value_usd: round2(val), apr: null, staked: p.staked,
+      token_id: String(p.tokenId),   // lets the position ledger price an open position
       note: `NFT #${p.tokenId}${p.staked ? ' · STAKED' : ''} — ${h0.toFixed(2)} ${symOf[t0]} + ${Math.round(h1).toLocaleString('en-US')} ${symOf[t1]} (auto-detected on-chain)`,
     });
   });

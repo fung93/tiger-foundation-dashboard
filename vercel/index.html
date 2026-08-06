@@ -759,6 +759,7 @@ function getKatanaLive(stakedLpIds){
                 pair:(symOf[t0]||'?')+' / '+(symOf[t1]||'?'),
                 pool_fee:(p.fee/10000)+'%',
                 value_usd:val,apr:null,staked:p.staked,
+                token_id:String(p.tokenId),   /* lets the ledger price an open position */
                 note:'NFT #'+p.tokenId+(p.staked?' · STAKED':'')+' — '+h0.toFixed(2)+' '+(symOf[t0]||'?')+' + '+fmtN(h1,0)+' '+(symOf[t1]||'?')+' (live on-chain)'
               });
             }
@@ -1110,6 +1111,8 @@ function closeClaims(){document.getElementById('claimsModal').classList.remove('
    positions.json is written by the 6h Action; the live scan below catches anything closed
    since, so a position closed minutes ago shows up on this refresh. */
 var POSITIONS=null,LIVE_POSITIONS=null,BLK_CACHE={};
+/* current market value per open LP token id, refreshed by render() every load */
+var LP_VALUE={};
 
 /* KAT price and timestamp at a historical block, memoised per block */
 function blockInfo(block){
@@ -1312,15 +1315,30 @@ function buildPositions(){
 
   /* Dates dropped from the table to keep it readable at this width — still carried on the
      row's title so hovering reveals them, and untouched in positions.json. */
-  var rows='<tr><th>Position</th><th class="num">Open $</th><th class="num">Close $</th><th class="num">P&amp;L</th></tr>';
+  /* second value column is the close price for closed rows, the live price for open ones */
+  var rows='<tr><th>Position</th><th class="num">Open $</th><th class="num">Now / Close $</th><th class="num">P&amp;L</th></tr>';
   page.forEach(function(row){
     var d=row.d;
     if(row.isOpen){
-      rows+='<tr title="Opened '+(d.opened||'?')+'"><td style="white-space:nowrap">#'+d.id
+      /* mark to market: what it's worth now, against what went in */
+      var now=LP_VALUE[String(d.id)];
+      var hasOpen=d.open_value_usd!==null&&d.open_value_usd!==undefined;
+      var live=now!==undefined&&hasOpen;
+      var up=live?now-d.open_value_usd:0;
+      var ucol=up>=0?'var(--green)':'var(--red)',usg=up>=0?'+':'-';
+      var upct=live&&d.open_value_usd>0?up/d.open_value_usd*100:0;
+      rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+usd(now):'')+'">'
+        +'<td style="white-space:nowrap">#'+d.id
         +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'
         +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span></td>'
-        +'<td class="num">'+(d.open_value_usd!==null&&d.open_value_usd!==undefined?usd(d.open_value_usd):dash)+'</td>'
-        +'<td class="num">'+dash+'</td><td class="num">'+dash+'</td></tr>';
+        +'<td class="num">'+(hasOpen?usd(d.open_value_usd):dash)+'</td>'
+        +'<td class="num">'+(live?usd(now):dash)+'</td>'
+        +'<td class="num" style="white-space:nowrap'+(live?';color:'+ucol:'')+'">'
+        +(live?usg+usd(Math.abs(up))
+              +'<br><span style="font-size:9px">'+usg+Math.abs(upct).toFixed(2)+'%</span>'
+              +'<br><span style="font-size:8px;color:var(--dim)">(unrealised)</span>'
+           :dash)
+        +'</td></tr>';
       return;
     }
     var p=d.pnl_usd||0;
@@ -1512,12 +1530,16 @@ function render(d,isLive){
   var dl='';
 
   var allLp=[];
+  LP_VALUE={};
   ['katana','solana'].forEach(function(key){
     if(!chains[key])return;
     (chains[key].lp_positions||[]).forEach(function(p){
       allLp.push({p:p,chain:chains[key].name,badge:key==='katana'?'chain-katana':'chain-solana'});
+      /* what each open position is worth right now — the ledger marks them to market */
+      if(p.token_id)LP_VALUE[String(p.token_id)]=p.value_usd||0;
     });
   });
+  buildPositions();   /* refresh unrealised P&L against the values just computed */
   if(allLp.length){
     var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];
     allLp.forEach(function(x){
