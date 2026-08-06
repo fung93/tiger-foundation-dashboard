@@ -53,11 +53,29 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .wealth-sub{font-size:15px;color:var(--dim)}
 .hero-meta{display:flex;gap:28px;margin-top:12px;flex-wrap:wrap}
 .hero-meta-item{font-size:13px}.hero-meta-item .lbl{color:var(--dim);margin-right:6px}
-.progress-section{margin-top:22px}
+/* the rocket's own clearance now provides the separation this margin used to */
+.progress-section{margin-top:8px}
 .progress-label{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:6px}
 .progress-label .pct{color:var(--gold);font-weight:700}
-.progress-bg{background:rgba(255,255,255,.06);border-radius:10px;height:22px;overflow:hidden}
-.progress-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .6s}
+/* thinner than it was, so the rocket sits on the bar rather than being buried in it */
+.progress-bg{background:rgba(255,255,255,.06);border-radius:7px;height:14px;overflow:hidden}
+/* same duration and easing as .rocket, so the bar and its rocket head move as one piece */
+.progress-fill{height:100%;border-radius:7px;background:linear-gradient(90deg,var(--accent),var(--gold));
+  transition:width .8s cubic-bezier(.34,.8,.4,1)}
+/* Rocket marker — flies to wherever we are on the way to target. Two nested elements on
+   purpose: the outer owns horizontal position, the inner owns the bob, so the two
+   transforms never fight. Position is a transform in px, never `left`: transitioning
+   `left` to a percentage pins it at the start value in some engines. */
+/* The bar runs through the middle of the rocket so the two read as one object. The
+   artwork's hull centres ~58% down, so the rocket hangs below the bar by that much —
+   padding-bottom reserves the room, keeping the markers clear. */
+.prog-track{position:relative;padding-top:30px;padding-bottom:15px}
+.rocket{position:absolute;left:0;bottom:0;width:64px;
+  transition:transform .8s cubic-bezier(.34,.8,.4,1);pointer-events:none;z-index:2}
+.rocket img{display:block;width:100%;height:auto;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
+.rocket-bob{animation:rocketBob 3s ease-in-out infinite;transform-origin:50% 80%}
+@keyframes rocketBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-7px) rotate(2.5deg)}}
+@media(prefers-reduced-motion:reduce){.rocket-bob{animation:none}}
 .progress-markers{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
 
 /* Cards */
@@ -180,6 +198,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   /* mobile only: +15% on top of the shared 1.72 */
   body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
+  .rocket{width:54px;bottom:0}.prog-track{padding-top:26px;padding-bottom:11px}
   /* 26px is too small to tap reliably on a phone */
   .pg{min-width:34px;height:34px;font-size:13px}
   .modal-foot{gap:6px;padding:10px 12px}
@@ -230,7 +249,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
         <span>PROGRESS TO TARGET: <span style="color:var(--text)">$10,000 USDC</span></span>
         <span class="pct" id="pctVal">0%</span>
       </div>
-      <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-track">
+        <div class="rocket" id="rocket"><div class="rocket-bob">
+          <img src="/img/rocket.png" alt="" draggable="false">
+        </div></div>
+        <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0"></div></div>
+      </div>
       <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
     </div>
    </div>
@@ -960,6 +984,31 @@ function updateRoiToggle(){
   sub.textContent='since '+b.date;
 }
 
+/* Rocket marker. Kept in px because `left` can't be transitioned to a percentage
+   reliably; re-placed on resize since the offset depends on the track's width. */
+var ROCKET_PCT=0;
+var ROCKET_NOSE=0.997;   /* the red nose tip sits this far across the artwork */
+function placeRocket(pct){
+  if(pct!==undefined)ROCKET_PCT=pct;
+  var rk=document.getElementById('rocket');
+  if(!rk)return;
+  var track=rk.parentElement.getBoundingClientRect().width;
+  if(!track)return;
+  /* the nose — not the middle — marks the value, so it points at the fill edge */
+  var w=rk.offsetWidth,slack=14;
+  var x=track*ROCKET_PCT/100-w*ROCKET_NOSE;
+  /* keep it on the card; only bites at very low percentages, where the whole rocket
+     would otherwise hang off the left edge */
+  x=Math.max(-slack,Math.min(track-w+slack,x));
+  rk.style.transform='translateX('+x.toFixed(1)+'px)';
+  /* The bar is the rocket's tail: the fill runs on under the rocket to its midpoint, so
+     gold and exhaust meet instead of butting up as two separate objects. The nose still
+     marks the true value. Set in px, never a percentage — the units don't interpolate. */
+  var fill=document.getElementById('progFill');
+  if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*0.5)).toFixed(1)+'px';
+}
+window.addEventListener('resize',function(){placeRocket();});
+
 /* KAT claim record — days run 00:00–23:59 UTC+8, so shift by 8h and read the UTC date */
 var CLAIMS=null,LIVE_CLAIMS=null;
 function utc8Date(ms){return new Date(ms+8*3600000).toISOString().slice(0,10);}
@@ -1413,8 +1462,8 @@ function render(d,isLive){
 
   document.getElementById('totalVal').textContent=fmt(displayTotal);
   document.getElementById('vaultVal').textContent='$'+fmtN(CFG.coldVault);
-  document.getElementById('progFill').style.width=pct.toFixed(1)+'%';
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
+  placeRocket(pct);   /* owns the fill width too — it ends where the rocket begins */
   document.getElementById('onchainVal').textContent=fmt(onchain);
   document.getElementById('defiVal').textContent=fmt(defiValue);
   document.getElementById('chainCount').textContent=s.chains_count||1;
