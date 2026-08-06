@@ -202,7 +202,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   /* mobile only: +15% on top of the shared 1.72 */
   body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
   .rocket{width:54px;bottom:0}.prog-track{padding-top:26px;padding-bottom:11px}
-  /* id + OPEN + OFR won't fit one line in a quarter of a phone screen — let it wrap */
+  /* id + OPEN + OOR won't fit one line in a quarter of a phone screen — let it wrap */
   #posTable td.pos-cell{white-space:normal}
   /* 26px is too small to tap reliably on a phone */
   .pg{min-width:34px;height:34px;font-size:13px}
@@ -1344,16 +1344,16 @@ function buildPositions(){
       var upct=live&&d.open_value_usd>0?up/d.open_value_usd*100:0;
       /* out of range: red when price fell through the floor, green when it ran past
          the ceiling (the position is sitting in stables) */
-      var rng=LP_RANGE[String(d.id)],ofr='';
+      var rng=LP_RANGE[String(d.id)],oor='';
       if(rng==='below'||rng==='above'){
         var rc=rng==='below'?'var(--red)':'var(--green)';
-        ofr=' <span title="Price '+rng+' this position\'s range" style="color:'+rc
-          +';font-size:8px;border:1px solid '+rc+';border-radius:3px;padding:1px 3px;vertical-align:1px">OFR</span>';
+        oor=' <span title="Price '+rng+' this position\'s range" style="color:'+rc
+          +';font-size:8px;border:1px solid '+rc+';border-radius:3px;padding:1px 3px;vertical-align:1px">OOR</span>';
       }
       rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+usd(now):'')
         +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
         +'<td class="pos-cell">#'+d.id
-        +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+ofr
+        +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+oor
         +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span></td>'
         +'<td class="num">'+(hasOpen?usd(d.open_value_usd):dash)+'</td>'
         +'<td class="num">'+(live?usd(now):dash)+'</td>'
