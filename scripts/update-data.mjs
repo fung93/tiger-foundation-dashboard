@@ -455,11 +455,20 @@ async function getKatana(prevStakedIds) {
     const h1 = a1 / 10 ** decOf[t1] + Number(p.owed1) / 10 ** decOf[t1];
     const val = h0 * (priceOf[t0] || 0) + h1 * (priceOf[t1] || 0);
     if (val < 0.5) return;
+    /* Out of range? Below tickLower the position is entirely token0, above tickUpper
+       entirely token1. Judged via whichever side is the stable coin so it holds whichever
+       way the pair is ordered: holding stables means price ran up, volatile means it fell. */
+    const curTick = Number(toSigned(w(slotRes[i].data, 1)));
+    const isStable = (a) => a === lc(T.USDC.a) || a === lc(T.USDT.a);
+    let range = 'in';
+    if (curTick < p.tickLo) range = isStable(t0) ? 'above' : 'below';
+    else if (curTick > p.tickHi) range = isStable(t1) ? 'above' : 'below';
     lps.push({
       type: 'LP', protocol: 'SushiSwap V3',
       pair: `${symOf[t0]} / ${symOf[t1]}`, pool_fee: `${p.fee / 10000}%`,
       value_usd: round2(val), apr: null, staked: p.staked,
       token_id: String(p.tokenId),   // lets the position ledger price an open position
+      range_status: range,
       note: `NFT #${p.tokenId}${p.staked ? ' · STAKED' : ''} — ${h0.toFixed(2)} ${symOf[t0]} + ${Math.round(h1).toLocaleString('en-US')} ${symOf[t1]} (auto-detected on-chain)`,
     });
   });

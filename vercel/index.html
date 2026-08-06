@@ -51,10 +51,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .wealth-sub{font-size:15px;color:var(--dim)}
-.hero-meta{display:flex;gap:28px;margin-top:12px;flex-wrap:wrap}
+/* stacked, and the gap is shared with .progress-section's margin-top so the three
+   rows — Days Elapsed, Target ETA, PROGRESS TO TARGET — sit evenly apart */
+.hero-meta{display:flex;flex-direction:column;gap:9px;margin-top:12px}
 .hero-meta-item{font-size:13px}.hero-meta-item .lbl{color:var(--dim);margin-right:6px}
-/* the rocket's own clearance now provides the separation this margin used to */
-.progress-section{margin-top:8px}
+/* matches .hero-meta's gap so all three rows are evenly spaced */
+.progress-section{margin-top:9px}
 .progress-label{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-bottom:6px}
 .progress-label .pct{color:var(--gold);font-weight:700}
 /* thinner than it was, so the rocket sits on the bar rather than being buried in it */
@@ -173,6 +175,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* four evenly-spaced columns — fixed layout stops the content re-weighting them */
 #posTable{table-layout:fixed}
 #posTable th,#posTable td{width:25%}
+#posTable td.pos-cell{white-space:nowrap}
 .btn{background:rgba(245,158,11,.12);color:var(--accent);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn:hover{background:rgba(245,158,11,.22)}
 
@@ -183,7 +186,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .chart-h{position:relative;height:300px}
 
 @media(max-width:768px){
-  .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}.hero-meta{gap:14px}
+  .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
   /* stack, and let the image close the card: padding-bottom 0 + a bled photo means no
@@ -199,6 +202,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   /* mobile only: +15% on top of the shared 1.72 */
   body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
   .rocket{width:54px;bottom:0}.prog-track{padding-top:26px;padding-bottom:11px}
+  /* id + OPEN + OFR won't fit one line in a quarter of a phone screen — let it wrap */
+  #posTable td.pos-cell{white-space:normal}
   /* 26px is too small to tap reliably on a phone */
   .pg{min-width:34px;height:34px;font-size:13px}
   .modal-foot{gap:6px;padding:10px 12px}
@@ -241,8 +246,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
     <h2>WEALTH OVERVIEW</h2>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div><div class="chg-chips" id="chgChips"></div></div>
     <div class="hero-meta" style="margin-top:16px">
-      <div class="hero-meta-item"><span class="lbl">Target ETA</span><span id="targetEta" style="color:var(--gold)">---</span></div>
       <div class="hero-meta-item"><span class="lbl">Days Elapsed</span><span id="daysElapsed" style="color:var(--text)">---</span></div>
+      <div class="hero-meta-item"><span class="lbl">Target ETA</span><span id="targetEta" style="color:var(--gold)">---</span></div>
     </div>
     <div class="progress-section">
       <div class="progress-label">
@@ -748,6 +753,15 @@ function getKatanaLive(stakedLpIds){
               var sqrtP=toBig(w(slotRes[i].data,0));
               var amts=v3Amounts(p.liq,p.tickLo,p.tickHi,sqrtP);
               var t0=p.token0.toLowerCase(),t1=p.token1.toLowerCase();
+              /* Out of range? Below tickLower the position is entirely token0, above
+                 tickUpper entirely token1. Read it through whichever side is the stable
+                 coin, so the verdict holds whichever way the pair is ordered: holding the
+                 stable means price ran up, holding the volatile means it fell. */
+              var curTick=Number(toSigned(w(slotRes[i].data,1)));
+              var isStable=function(a){return a===T.USDC.a.toLowerCase()||a===T.USDT.a.toLowerCase();};
+              var range='in';
+              if(curTick<p.tickLo)range=isStable(t0)?'above':'below';
+              else if(curTick>p.tickHi)range=isStable(t1)?'above':'below';
               var d0=decOf[t0],d1=decOf[t1];
               if(d0===undefined||d1===undefined)continue; /* unknown token */
               var h0=amts[0]/Math.pow(10,d0)+Number(p.owed0)/Math.pow(10,d0);
@@ -760,6 +774,7 @@ function getKatanaLive(stakedLpIds){
                 pool_fee:(p.fee/10000)+'%',
                 value_usd:val,apr:null,staked:p.staked,
                 token_id:String(p.tokenId),   /* lets the ledger price an open position */
+                range_status:range,
                 note:'NFT #'+p.tokenId+(p.staked?' · STAKED':'')+' — '+h0.toFixed(2)+' '+(symOf[t0]||'?')+' + '+fmtN(h1,0)+' '+(symOf[t1]||'?')+' (live on-chain)'
               });
             }
@@ -1111,8 +1126,8 @@ function closeClaims(){document.getElementById('claimsModal').classList.remove('
    positions.json is written by the 6h Action; the live scan below catches anything closed
    since, so a position closed minutes ago shows up on this refresh. */
 var POSITIONS=null,LIVE_POSITIONS=null,BLK_CACHE={};
-/* current market value per open LP token id, refreshed by render() every load */
-var LP_VALUE={};
+/* current market value and range status per open LP token id, refreshed every load */
+var LP_VALUE={},LP_RANGE={};
 
 /* KAT price and timestamp at a historical block, memoised per block */
 function blockInfo(block){
@@ -1327,9 +1342,18 @@ function buildPositions(){
       var up=live?now-d.open_value_usd:0;
       var ucol=up>=0?'var(--green)':'var(--red)',usg=up>=0?'+':'-';
       var upct=live&&d.open_value_usd>0?up/d.open_value_usd*100:0;
-      rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+usd(now):'')+'">'
-        +'<td style="white-space:nowrap">#'+d.id
-        +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'
+      /* out of range: red when price fell through the floor, green when it ran past
+         the ceiling (the position is sitting in stables) */
+      var rng=LP_RANGE[String(d.id)],ofr='';
+      if(rng==='below'||rng==='above'){
+        var rc=rng==='below'?'var(--red)':'var(--green)';
+        ofr=' <span title="Price '+rng+' this position\'s range" style="color:'+rc
+          +';font-size:8px;border:1px solid '+rc+';border-radius:3px;padding:1px 3px;vertical-align:1px">OFR</span>';
+      }
+      rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+usd(now):'')
+        +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
+        +'<td class="pos-cell">#'+d.id
+        +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+ofr
         +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span></td>'
         +'<td class="num">'+(hasOpen?usd(d.open_value_usd):dash)+'</td>'
         +'<td class="num">'+(live?usd(now):dash)+'</td>'
@@ -1343,7 +1367,7 @@ function buildPositions(){
     }
     var p=d.pnl_usd||0;
     var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
-    rows+='<tr title="Opened '+d.opened+' · closed '+d.closed+'"><td style="white-space:nowrap">#'+d.id
+    rows+='<tr title="Opened '+d.opened+' · closed '+d.closed+'"><td class="pos-cell">#'+d.id
       +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+'</span></td>'
       +'<td class="num">'+usd(d.open_value_usd)+'</td>'
       +'<td class="num">'+usd(d.close_value_usd)+'</td>'
@@ -1530,13 +1554,16 @@ function render(d,isLive){
   var dl='';
 
   var allLp=[];
-  LP_VALUE={};
+  LP_VALUE={};LP_RANGE={};
   ['katana','solana'].forEach(function(key){
     if(!chains[key])return;
     (chains[key].lp_positions||[]).forEach(function(p){
       allLp.push({p:p,chain:chains[key].name,badge:key==='katana'?'chain-katana':'chain-solana'});
       /* what each open position is worth right now — the ledger marks them to market */
-      if(p.token_id)LP_VALUE[String(p.token_id)]=p.value_usd||0;
+      if(p.token_id){
+        LP_VALUE[String(p.token_id)]=p.value_usd||0;
+        if(p.range_status)LP_RANGE[String(p.token_id)]=p.range_status;
+      }
     });
   });
   buildPositions();   /* refresh unrealised P&L against the values just computed */
