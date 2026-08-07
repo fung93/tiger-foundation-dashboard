@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-08-07T02:08:23.577Z",
+  "last_updated": "2026-08-07T07:00:12.965Z",
   "wealth_target_usdc": 10000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 1690.89,
-    "value_gain_usd": 1188.6,
-    "kat_price": 0.00460487516781356,
+    "current_value_usd": 832.32,
+    "value_gain_usd": 330.03,
+    "kat_price": 0.0045030448628551045,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 236.64,
+    "monthly_roi_pct": 65.71,
     "days_elapsed": 97
   },
   "chains": {
@@ -20,24 +20,24 @@
         "balances": {
           "tokens": {
             "ETH": {
-              "balance": 0.003446174178658708,
-              "priceUSD": 1904.739484899689,
+              "balance": 0.003436114312950401,
+              "priceUSD": 1908.6292595183268,
               "valueUSD": 6.56
             },
             "KAT": {
-              "balance": 63138.997716764105,
-              "priceUSD": 0.00460487516781356,
-              "valueUSD": 290.75
+              "balance": 0.000063074802218327,
+              "priceUSD": 0.0045030448628551045,
+              "valueUSD": 0
             },
             "WETH": {
               "balance": 0,
-              "priceUSD": 1904.739484899689,
+              "priceUSD": 1908.6292595183268,
               "valueUSD": 0
             },
             "USDC": {
-              "balance": 541.644408,
+              "balance": 2.099756,
               "priceUSD": 1,
-              "valueUSD": 541.64
+              "valueUSD": 2.1
             },
             "USDT": {
               "balance": 0,
@@ -46,31 +46,21 @@
             },
             "avKAT": {
               "balance": 114433.04515102302,
-              "priceUSD": 0.005975581250919894,
-              "valueUSD": 683.8
+              "priceUSD": 0.005843439718541694,
+              "valueUSD": 668.68
             }
           },
-          "total_usd": 1522.76
+          "total_usd": 677.34
         }
       },
-      "onchain_usd": 1522.76,
+      "onchain_usd": 677.34,
       "merkl_rewards": {
-        "total_usd": 14.72,
+        "total_usd": 4.9,
         "rewards": [
           {
             "symbol": "KAT",
-            "amount": 3180.8920384435205,
-            "usd": 14.46
-          },
-          {
-            "symbol": "vbUSDC",
-            "amount": 0.128183,
-            "usd": 0.13
-          },
-          {
-            "symbol": "vbWBTC",
-            "amount": 0.00000207,
-            "usd": 0.13
+            "amount": 1085.5589402349358,
+            "usd": 4.9
           }
         ]
       },
@@ -80,12 +70,24 @@
           "protocol": "SushiSwap V3",
           "pair": "vbUSDC / KAT",
           "pool_fee": "0.05%",
-          "value_usd": 1200.14,
-          "apr": 417.03,
+          "value_usd": 1190.16,
+          "apr": 246.27,
           "staked": true,
           "token_id": "424319",
           "range_status": "in",
-          "note": "NFT #424319 · STAKED — 995.42 vbUSDC + 44,457 KAT (auto-detected on-chain)"
+          "note": "NFT #424319 · STAKED — 505.36 vbUSDC + 152,076 KAT (auto-detected on-chain)"
+        },
+        {
+          "type": "LP",
+          "protocol": "SushiSwap V3",
+          "pair": "vbUSDC / KAT",
+          "pool_fee": "0.05%",
+          "value_usd": 822.4,
+          "apr": 246.27,
+          "staked": true,
+          "token_id": "424335",
+          "range_status": "in",
+          "note": "NFT #424335 · STAKED — 298.95 vbUSDC + 116,243 KAT (auto-detected on-chain)"
         }
       ],
       "defi_positions": [
@@ -103,12 +105,12 @@
           },
           "lltv": "77%",
           "avkat_rate": 1.2976641131744637,
-          "value_usd": 150.92,
-          "note": "Net 32,773 KAT = $150.92 · avKAT rate 1.2977"
+          "value_usd": 147.58,
+          "note": "Net 32,773 KAT = $147.58 · avKAT rate 1.2977"
         }
       ],
-      "lp_total_usd": 1200.14,
-      "total_usd": 2888.54,
+      "lp_total_usd": 2012.56,
+      "total_usd": 2842.38,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -120,8 +122,8 @@
       "balances": {
         "SOL": {
           "balance": 0.025883482,
-          "priceUSD": 72.65,
-          "valueUSD": 1.88
+          "priceUSD": 72.83,
+          "valueUSD": 1.89
         },
         "USDC": {
           "balance": 0.614345,
@@ -129,43 +131,33 @@
           "valueUSD": 0.61
         }
       },
-      "wallet_total_usd": 2.49,
-      "onchain_usd": 2.49,
+      "wallet_total_usd": 2.5,
+      "onchain_usd": 2.5,
       "lp_positions": [],
       "defi_positions": [],
       "lp_total_usd": 0,
-      "total_usd": 2.49,
+      "total_usd": 2.5,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 2891.03,
-    "katana_usd": 2888.54,
-    "solana_usd": 2.49,
-    "onchain_usd": 1525.25,
-    "lp_usd": 1200.14,
-    "merkl_usd": 14.72,
+    "grand_total_usd": 2844.88,
+    "katana_usd": 2842.38,
+    "solana_usd": 2.5,
+    "onchain_usd": 679.84,
+    "lp_usd": 2012.56,
+    "merkl_usd": 4.9,
     "total_defi_positions": 1,
     "chains_count": 2
   },
   "merkl_rewards": {
-    "total_usd": 14.72,
+    "total_usd": 4.9,
     "rewards": [
       {
         "symbol": "KAT",
-        "amount": 3180.8920384435205,
-        "usd": 14.46
-      },
-      {
-        "symbol": "vbUSDC",
-        "amount": 0.128183,
-        "usd": 0.13
-      },
-      {
-        "symbol": "vbWBTC",
-        "amount": 0.00000207,
-        "usd": 0.13
+        "amount": 1085.5589402349358,
+        "usd": 4.9
       }
     ]
   },
@@ -175,12 +167,24 @@
       "protocol": "SushiSwap V3",
       "pair": "vbUSDC / KAT",
       "pool_fee": "0.05%",
-      "value_usd": 1200.14,
-      "apr": 417.03,
+      "value_usd": 1190.16,
+      "apr": 246.27,
       "staked": true,
       "token_id": "424319",
       "range_status": "in",
-      "note": "NFT #424319 · STAKED — 995.42 vbUSDC + 44,457 KAT (auto-detected on-chain)"
+      "note": "NFT #424319 · STAKED — 505.36 vbUSDC + 152,076 KAT (auto-detected on-chain)"
+    },
+    {
+      "type": "LP",
+      "protocol": "SushiSwap V3",
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "value_usd": 822.4,
+      "apr": 246.27,
+      "staked": true,
+      "token_id": "424335",
+      "range_status": "in",
+      "note": "NFT #424335 · STAKED — 298.95 vbUSDC + 116,243 KAT (auto-detected on-chain)"
     }
   ],
   "defi_positions": [
@@ -198,15 +202,16 @@
       },
       "lltv": "77%",
       "avkat_rate": 1.2976641131744637,
-      "value_usd": 150.92,
-      "note": "Net 32,773 KAT = $150.92 · avKAT rate 1.2977"
+      "value_usd": 147.58,
+      "note": "Net 32,773 KAT = $147.58 · avKAT rate 1.2977"
     }
   ],
   "meteora_refs": [],
   "usdc_ata": "ED4qHSWBm2qUauEez1DejEzShkwEKA8a66aZdtFPjMpS",
   "staked_lp_ids": [
-    "424319"
+    "424319",
+    "424335"
   ],
-  "onchain_usd": 1525.25,
-  "total_usd": 2891.03
+  "onchain_usd": 679.84,
+  "total_usd": 2844.88
 }

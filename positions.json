@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 39325691,
+  "last_block": 39343201,
   "open": {
     "424319": {
       "pair": "vbUSDC / KAT",
@@ -9,6 +9,14 @@
       "opened": "2026-08-07",
       "opened_ts": 1786065227,
       "open_value_usd": 1199.2
+    },
+    "424335": {
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "opened_block": 39327487,
+      "opened": "2026-08-07",
+      "opened_ts": 1786070298,
+      "open_value_usd": 828.61
     }
   },
   "closed": [
