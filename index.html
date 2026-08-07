@@ -42,7 +42,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    source's own brightness (no filter, no opacity) and merged only by fading its inner
    edge. Bled into the padding so it meets the card's top/right/bottom. The wrapper
    carries the fade and the clipping so the picture itself can be offset on mobile. */
-.hero-photo-wrap{flex:none;width:300px;margin:-32px -32px -32px 0;overflow:hidden;line-height:0;
+/* The art is square, so to meet the card's top and bottom edges its width must equal the
+   card's height. --art is that number: keep it equal to the hero's height (currently 330px)
+   and the image fills edge to edge with no crop. Don't use aspect-ratio + align-self:stretch
+   here — the wrap then sizes from the image's natural 720px and drags the card with it. */
+.hero-photo-wrap{flex:none;width:var(--art,330px);margin:-32px -32px -32px 0;
+  overflow:hidden;line-height:0;
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%);
           mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
 .hero-photo{width:100%;height:auto;display:block}
@@ -75,6 +80,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .rocket{position:absolute;left:0;bottom:0;width:64px;
   transition:transform .8s cubic-bezier(.34,.8,.4,1);pointer-events:none;z-index:2}
 .rocket img{display:block;width:100%;height:auto;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
+/* The destination. Centred on the bar's 100% mark and on its centre line, so the rocket
+   flies at it and passes in front on arrival (rocket is z-index 2). */
+/* The disc is 31 of the 44px box (the rest is glow falloff), so the box is nudged out by
+   half that margin to put the disc's edge exactly on the bar's end — the rounded tip sits
+   under the moon rather than poking past it. Only transparent glow overhangs. */
+.moon{position:absolute;right:-6.5px;bottom:0;width:44px;height:44px;
+  pointer-events:none;z-index:1}
+.moon svg{display:block;width:100%;height:100%}
 .rocket-bob{animation:rocketBob 3s ease-in-out infinite;transform-origin:50% 80%}
 @keyframes rocketBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-7px) rotate(2.5deg)}}
 @media(prefers-reduced-motion:reduce){.rocket-bob{animation:none}}
@@ -202,6 +215,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   /* mobile only: +15% on top of the shared 1.72 */
   body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
   .rocket{width:54px;bottom:0}.prog-track{padding-top:26px;padding-bottom:11px}
+  .moon{width:38px;height:38px;bottom:-1px;right:-5.6px}
   /* id + OPEN + OOR won't fit one line in a quarter of a phone screen — let it wrap */
   #posTable td.pos-cell{white-space:normal}
   /* 26px is too small to tap reliably on a phone */
@@ -251,10 +265,29 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
     </div>
     <div class="progress-section">
       <div class="progress-label">
-        <span>PROGRESS TO TARGET: <span style="color:var(--text)">$10,000 USDC</span></span>
-        <span class="pct" id="pctVal">0%</span>
+        <span>PROGRESS TO TARGET: <span class="pct" id="pctVal">0%</span></span>
       </div>
       <div class="prog-track">
+        <div class="moon" aria-hidden="true">
+          <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="42%" stop-color="#fbbf24" stop-opacity=".30"/>
+                <stop offset="72%" stop-color="#fbbf24" stop-opacity=".10"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="moonBody" cx="36%" cy="32%" r="74%">
+                <stop offset="0" stop-color="#fdf8e9"/>
+                <stop offset="1" stop-color="#e2d4ae"/>
+              </radialGradient>
+            </defs>
+            <circle cx="22" cy="22" r="21" fill="url(#moonGlow)"/>
+            <circle cx="22" cy="22" r="15.5" fill="url(#moonBody)"/>
+            <ellipse cx="16.6" cy="17.2" rx="4" ry="3.5" fill="#d3c298" opacity=".7"/>
+            <ellipse cx="26.8" cy="27" rx="3" ry="2.6" fill="#d3c298" opacity=".62"/>
+            <ellipse cx="28" cy="15.8" rx="2" ry="1.8" fill="#d3c298" opacity=".55"/>
+          </svg>
+        </div>
         <div class="rocket" id="rocket"><div class="rocket-bob">
           <img src="/img/rocket.png" alt="" draggable="false">
         </div></div>
