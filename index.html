@@ -1176,8 +1176,29 @@ function buildClaims(){
         +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td></tr></table>'
       : '';
   }
+  capClaimsHeight();   /* re-cap when a live scan adds a day while the window is open */
 }
-function openClaims(){buildClaims();document.getElementById('claimsModal').classList.add('open');}
+/* Show a fixed number of days and scroll the rest, so the window stays the same size as
+   the record grows — 5 on a phone, 10 on desktop. Measured from the rendered rows rather
+   than hardcoded, since row height differs between the two layouts. */
+function capClaimsHeight(){
+  var modal=document.getElementById('claimsModal');
+  if(!modal||!modal.classList.contains('open'))return;   /* zero-sized while hidden */
+  var body=modal.querySelector('.modal-body'),tbl=document.getElementById('claimsTable');
+  if(!body||!tbl||tbl.rows.length<2)return;
+  var visible=POS_MQ.matches?5:10;
+  if(tbl.rows.length-1<=visible){body.style.maxHeight='';return;}
+  var head=tbl.rows[0].getBoundingClientRect().height,
+      row=tbl.rows[1].getBoundingClientRect().height,
+      cs=getComputedStyle(body),
+      pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  body.style.maxHeight=Math.round(head+row*visible+pad)+'px';
+}
+function openClaims(){
+  buildClaims();
+  document.getElementById('claimsModal').classList.add('open');
+  capClaimsHeight();   /* after .open, or everything measures zero */
+}
 function closeClaims(){document.getElementById('claimsModal').classList.remove('open');}
 
 /* ---- LP position record ----
@@ -1328,7 +1349,10 @@ function posPerPage(){return POS_MQ.matches?POS_PER_PAGE_MOBILE:POS_PER_PAGE_DES
 /* Rotating the phone changes the page size — rebuild so the pager matches. Listens on both
    matchMedia and resize because the media 'change' event doesn't fire everywhere; the guard
    means resize only costs a rebuild when the breakpoint is actually crossed. */
-function posPerPageWatch(){if(POS_LAST_PER&&posPerPage()!==POS_LAST_PER)buildPositions();}
+function posPerPageWatch(){
+  if(POS_LAST_PER&&posPerPage()!==POS_LAST_PER)buildPositions();
+  capClaimsHeight();   /* the visible-day count differs per layout too */
+}
 if(POS_MQ.addEventListener)POS_MQ.addEventListener('change',posPerPageWatch);
 else if(POS_MQ.addListener)POS_MQ.addListener(posPerPageWatch);
 window.addEventListener('resize',posPerPageWatch);
