@@ -1188,11 +1188,13 @@ function capClaimsHeight(){
   if(!body||!tbl||tbl.rows.length<2)return;
   var visible=POS_MQ.matches?5:10;
   if(tbl.rows.length-1<=visible){body.style.maxHeight='';return;}
-  var head=tbl.rows[0].getBoundingClientRect().height,
-      row=tbl.rows[1].getBoundingClientRect().height,
-      cs=getComputedStyle(body),
-      pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
-  body.style.maxHeight=Math.round(head+row*visible+pad)+'px';
+  /* Cut exactly where the first hidden row begins. Don't compute this from row heights
+     plus padding: a scroll container's bottom padding sits at the end of the content, not
+     at the fold, so counting it just reveals that much of the next row. */
+  body.style.maxHeight='';
+  body.scrollTop=0;
+  var cut=tbl.rows[visible+1].getBoundingClientRect().top-body.getBoundingClientRect().top;
+  body.style.maxHeight=Math.floor(cut)+'px';
 }
 function openClaims(){
   buildClaims();
