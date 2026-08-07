@@ -109,7 +109,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .modal-back{position:fixed;inset:0;z-index:200;padding:16px;background:rgba(4,8,15,.72);
   display:none;align-items:center;justify-content:center}
 .modal-back.open{display:flex}
-.modal{background:rgba(15,22,35,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:14px;width:100%;max-width:440px;max-height:82vh;
+/* 88vh, not 82: a full page of 10 positions needs ~755px and 82vh capped it 2px short,
+   putting a scrollbar on the window for nothing */
+.modal{background:rgba(15,22,35,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:14px;width:100%;max-width:440px;max-height:88vh;
   display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.6)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid var(--border)}
 .modal-title{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase}
@@ -160,6 +162,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Chain rows */
 .chain-row{display:flex;align-items:center;gap:14px;padding:14px;margin-bottom:10px;background:rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:10px}
 .chain-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+/* chain mark: sized to the name beside it, on a faint disc so both logos sit on the
+   same footprint despite different aspect ratios */
+.chain-logo{width:26px;height:26px;flex-shrink:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.05);border:1px solid var(--border)}
+/* contain, so the two marks keep their own proportions inside a shared footprint */
+.chain-logo svg,.chain-logo img{width:15px;height:15px;display:block;object-fit:contain}
 .chain-info{flex:1}
 .chain-name{font-size:15px;font-weight:600}
 .chain-detail{font-size:12px;color:var(--dim);margin-top:3px}
@@ -189,6 +198,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 #posTable{table-layout:fixed}
 #posTable th,#posTable td{width:25%}
 #posTable td.pos-cell{white-space:nowrap}
+/* tighter rows so a full page of 10 clears the modal's height cap without scrolling */
+#posTable td{padding-top:8px;padding-bottom:8px}
+/* Claims: fixed columns on both tables so the pinned TOTAL lines up with the rows that
+   scroll above it. The footer carries the table's own horizontal padding. */
+#claimsTable,.claims-total table{table-layout:fixed;width:100%}
+#claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:42%}
+#claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:29%}
+#claimsTable th:nth-child(3),#claimsTable td:nth-child(3),.claims-total td:nth-child(3){width:29%}
+.claims-total{display:block;padding:0 8px}
+.claims-total:empty{display:none}
+.claims-total td{border-bottom:none}
 .btn{background:rgba(245,158,11,.12);color:var(--accent);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn:hover{background:rgba(245,158,11,.22)}
 
@@ -378,6 +398,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
       <button class="modal-x" id="claimsClose" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body"><table class="tbl" id="claimsTable"></table></div>
+    <div class="modal-foot claims-total" id="claimsTotal"></div>
   </div>
 </div>
 
@@ -1144,10 +1165,17 @@ function buildClaims(){
       +'<td class="num">'+(e?fmtN(e.kat,2):'<span style="color:var(--dim)">-</span>')+'</td>'
       +'<td class="num" style="color:'+(e?'var(--gold)':'var(--dim)')+'">'+(e?fmt(e.value_usd):'-')+'</td></tr>';
   });
-  if(totKat>0)rows+='<tr><td style="font-weight:700">TOTAL</td>'
-    +'<td class="num" style="font-weight:700">'+fmtN(totKat,2)+'</td>'
-    +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td></tr>';
   t.innerHTML=rows;
+  /* TOTAL lives in the pinned footer, not the table, so it stays visible while the days
+     scroll. Same fixed column widths as the table above, so the figures line up. */
+  var tot=document.getElementById('claimsTotal');
+  if(tot){
+    tot.innerHTML=totKat>0
+      ? '<table class="tbl"><tr><td style="font-weight:700">TOTAL</td>'
+        +'<td class="num" style="font-weight:700">'+fmtN(totKat,2)+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td></tr></table>'
+      : '';
+  }
 }
 function openClaims(){buildClaims();document.getElementById('claimsModal').classList.add('open');}
 function closeClaims(){document.getElementById('claimsModal').classList.remove('open');}
@@ -1339,6 +1367,21 @@ function renderPosPager(pages){
   });
 }
 
+/* The window must not resize as you page through. Lock the body to the tallest page seen,
+   so a short last page leaves empty space instead of shrinking the window. Reset whenever
+   the page size changes, since that changes how tall a full page is. */
+var POS_BODY_H=0,POS_BODY_PER=0;
+function lockPosBodyHeight(){
+  var modal=document.getElementById('posModal');
+  if(!modal||!modal.classList.contains('open'))return;   /* nothing to measure while hidden */
+  var body=modal.querySelector('.modal-body');
+  if(!body)return;
+  if(POS_BODY_PER!==posPerPage()){POS_BODY_PER=posPerPage();POS_BODY_H=0;}
+  body.style.height='auto';
+  if(body.scrollHeight>POS_BODY_H)POS_BODY_H=body.scrollHeight;
+  body.style.height=POS_BODY_H+'px';
+}
+
 function buildPositions(){
   var t=document.getElementById('posTable');
   if(!t)return;
@@ -1413,6 +1456,7 @@ function buildPositions(){
   }
   t.innerHTML=rows;
   renderPosPager(pages);
+  lockPosBodyHeight();
 
   /* PnL = value of every KAT claimed + realised PnL on every closed position */
   var days=claimDays(),katVal=0;
@@ -1523,6 +1567,21 @@ function syncTodayPoint(){
   buildMonthly();
 }
 
+/* Chain marks. Katana's is the official spark logomark, cropped to its bounds and scaled
+   for retina; Solana's is the standard three-bar mark in its brand gradient, inline so it
+   costs no request. Both are local assets — nothing is fetched from a third party. */
+var CHAIN_LOGO={
+  katana:'<img src="/img/katana.png" alt="" draggable="false">',
+  solana:'<svg viewBox="0 0 398 312" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<defs><linearGradient id="solMark" x1="360" y1="-37" x2="141" y2="383" gradientUnits="userSpaceOnUse">'
+    +'<stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs>'
+    +'<g fill="url(#solMark)">'
+    +'<path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/>'
+    +'<path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/>'
+    +'<path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>'
+    +'</g></svg>'
+};
+
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
@@ -1575,7 +1634,9 @@ function render(d,isLive){
     chainNames.push(ch.name);
     var dotColor=ch.color||'#f59e0b';
     chainHtml+='<div class="chain-row">';
-    chainHtml+='<div class="chain-dot" style="background:'+dotColor+'"></div>';
+    chainHtml+=CHAIN_LOGO[key]
+      ? '<div class="chain-logo">'+CHAIN_LOGO[key]+'</div>'
+      : '<div class="chain-dot" style="background:'+dotColor+'"></div>';
     chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+'</div>';
     chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain &nbsp;+&nbsp; '+fmt(ch.lp_total_usd||0)+' LP &nbsp;|&nbsp; '+((ch.lp_positions||[]).length+(ch.defi_positions||[]).length)+' positions</div></div>';
     chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(ch.total_usd)+'</div></div>';

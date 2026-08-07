@@ -5,7 +5,7 @@
    - Other GET requests (price/reward APIs): network-first with cache fallback
    - POST (RPC calls): passed through untouched
    Bump CACHE_VERSION whenever the shell changes. */
-var CACHE_VERSION = 'tiger-v11';
+var CACHE_VERSION = 'tiger-v12';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -22,6 +22,7 @@ var SHELL_ASSETS = [
   '/img/hero-art.jpg',
   '/img/hero-art-mobile.jpg',
   '/img/rocket.png',
+  '/img/katana.png',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js'
 ];
 
