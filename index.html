@@ -58,7 +58,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
           mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
 .hero-photo{width:100%;height:auto;display:block}
 /* deliberately smaller than .wealth-total below it, so the figure stays dominant */
-.hero h2{font-size:32px;font-weight:800;color:var(--accent);margin-bottom:12px;letter-spacing:1px;line-height:1.1}
+.hero h2{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:1px;line-height:1.1}
+/* The card's title bar. The currency switch belongs here rather than beside the total:
+   it governs every figure on the page, and this is the page's top-level heading — the same
+   place the LP record button sits on its own card. The margin lives on the row, not the
+   h2, so the button stays centred against the heading instead of riding 12px high. */
+.hero-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.cur-btn{flex:none;font:inherit;font-size:12px;font-weight:700;letter-spacing:.5px;
+  padding:5px 11px;border-radius:7px;cursor:pointer;
+  color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
+  transition:color .15s,border-color .15s,background .15s;
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.cur-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .wealth-sub{font-size:15px;color:var(--dim)}
@@ -83,9 +94,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    artwork's hull centres ~58% down, so the rocket hangs below the bar by that much —
    padding-bottom reserves the room, keeping the markers clear. */
 .prog-track{position:relative;padding-top:30px;padding-bottom:15px}
+/* user-select off: repeated taps otherwise start a text selection that paints a blue
+   highlight box over the artwork */
 .rocket{position:absolute;left:0;bottom:0;width:64px;
   transition:transform .8s cubic-bezier(.34,.8,.4,1);z-index:2;
-  cursor:pointer;-webkit-tap-highlight-color:transparent}
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none}
+.rocket img{-webkit-user-drag:none;user-drag:none}
 .rocket img{display:block;width:100%;height:auto;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
 /* The destination. Centred on the bar's 100% mark and on its centre line, so the rocket
    flies at it and passes in front on arrival (rocket is z-index 2). */
@@ -93,7 +108,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    half that margin to put the disc's edge exactly on the bar's end — the rounded tip sits
    under the moon rather than poking past it. Only transparent glow overhangs. */
 .moon{position:absolute;right:-6.5px;bottom:0;width:44px;height:44px;z-index:1;
-  cursor:pointer;-webkit-tap-highlight-color:transparent}
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none}
 .moon svg{display:block;width:100%;height:100%}
 
 /* Tap-to-talk bubbles for the rocket and the moon. Sit outside .rocket-bob so they don't
@@ -116,6 +132,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .moon .bubble.show{transform:translate(0,0) scale(1)}
 .moon .bubble::before,.moon .bubble::after{right:13px}
 @media(prefers-reduced-motion:reduce){.bubble{transition:opacity .18s ease,visibility .18s}}
+
+/* Impact: debris burst at the moon, and the moon takes the hit */
+.boom{position:absolute;width:0;height:0;pointer-events:none;z-index:4}
+.boom i{position:absolute;left:0;top:0;display:block;border-radius:50%}
+.boom i.flash{width:56px;height:56px;background:radial-gradient(circle,
+  rgba(255,252,240,.98) 0%,rgba(255,214,102,.75) 30%,rgba(249,193,50,.45) 52%,rgba(239,95,44,0) 74%)}
+.boom i.shard{border-radius:1px}
+.moon.moon-hit{animation:moonHit .5s ease-out}
+@keyframes moonHit{
+  0%{transform:translate(0,0)}22%{transform:translate(3px,-2px)}
+  48%{transform:translate(-2px,2px)}72%{transform:translate(2px,1px)}
+  100%{transform:translate(0,0)}}
 .rocket-bob{animation:rocketBob 3s ease-in-out infinite;transform-origin:50% 80%}
 @keyframes rocketBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-7px) rotate(2.5deg)}}
 @media(prefers-reduced-motion:reduce){.rocket-bob{animation:none}}
@@ -241,6 +269,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    not the row — a sticky <tr> is ignored in several engines. Needs an opaque background
    or the rows would show through as they pass beneath. */
 #claimsTable th{position:sticky;top:0;z-index:1;background:var(--card)}
+/* no top padding on this body: the sticky header pins to the scrollport's top edge, so
+   any padding above it becomes a strip that rows scroll through in plain sight */
+#claimsModal .modal-body{padding-top:0}
 .claims-total{display:block;padding:0 8px}
 .claims-total:empty{display:none}
 .claims-total td{border-bottom:none}
@@ -255,6 +286,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 
 @media(max-width:768px){
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}
+  /* Header, compacted. At desktop's 26px "TIGER FOUNDATION" broke over two lines and the
+     tagline over two more, so the band ran 146px tall on a phone. Both are now nowrap and
+     sized in vw so they stay on one line at any phone width instead of at one tested one;
+     the clamps keep the heading well clear of the tagline at every step. Side padding
+     drops to 16px, which is where most of the width for the two lines comes from. */
+  .hdr{padding:16px}
+  .hdr-brand{gap:8px;flex:0 0 auto}
+  .hdr h1{font-size:clamp(16px,5.1vw,21px);letter-spacing:1.2px;white-space:nowrap}
+  .hdr .sub{font-size:clamp(9px,2.85vw,12px);letter-spacing:.6px;white-space:nowrap;margin-top:3px}
+  /* The headline can't wrap any more, so the timestamp has to be the side that yields:
+     flex-basis 0 hands it only what the brand leaves over, and it wraps inside that. Sized
+     to its own content instead, the long "Snapshot: …" state claims width the headline
+     needs and pushes it off the card. */
+  .hdr .ts{font-size:11px;flex:1 1 0;min-width:0}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
   /* stack, and let the image close the card: padding-bottom 0 + a bled photo means no
@@ -288,8 +333,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 }
 @media(max-width:480px){
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
-  /* sized to keep "WEALTH OVERVIEW" on one line in the narrow column */
-  .hero h2{font-size:25px;white-space:nowrap}
+  /* sized to keep "WEALTH OVERVIEW" on one line in the narrow column — in vw, because it
+     now shares that line with the currency button and 25px overruns the card below 375px */
+  .hero h2{font-size:clamp(16px,5.7vw,25px);white-space:nowrap}
+  .cur-btn{font-size:11px;padding:4px 9px}
   /* the change chip can't sit beside the total on a phone — give it its own line */
   /* sides only — a `padding` shorthand would reset the 768px rule's padding-bottom:0
      and reintroduce dead space under the image */
@@ -321,7 +368,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   <!-- HERO -->
   <div class="hero">
    <div class="hero-main">
-    <h2>WEALTH OVERVIEW</h2>
+    <div class="hero-head">
+      <h2>WEALTH OVERVIEW</h2>
+      <button class="cur-btn" id="curBtn" type="button" title="Showing USD — tap to switch currency">USD</button>
+    </div>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div><div class="chg-chips" id="chgChips"></div></div>
     <div class="hero-meta" style="margin-top:16px">
       <div class="hero-meta-item"><span class="lbl">Days Elapsed</span><span id="daysElapsed" style="color:var(--text)">---</span></div>
@@ -462,18 +512,124 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 </div>
 
 <script>
+/* ============ currency ============ */
+/* Display layer only. Everything upstream — the JSON files, the chain reads, the ledgers,
+   the chart's dataset — stays in USD; the rate is applied at format time. So nothing has
+   to be re-fetched or re-derived to switch, and a stale rate can never corrupt stored
+   values. Abbreviation thresholds are applied *after* converting, or $4.95K would read
+   RM23,265 in one place and RM23.27K in another. */
+var CUR_LIST=[{c:'USD',s:'$'},{c:'MYR',s:'RM'},{c:'CNY',s:'¥'}];
+var CUR='USD',WANT_CUR='USD',RATES={USD:1};
+try{
+  var _sr=JSON.parse(localStorage.getItem('tf_rates')||'null');
+  if(_sr&&_sr.USD)RATES=_sr;
+  var _sc=localStorage.getItem('tf_cur');
+  if(_sc&&CUR_LIST.some(function(x){return x.c===_sc;})){
+    WANT_CUR=_sc;
+    /* Only enter the saved currency if its rate is already in hand. Without the guard, a
+       cold start with no cached rate paints "RM" against dollar figures for as long as the
+       fetch takes — a wrong number on screen, which is worse than a late-arriving right one.
+       load() switches once the rate lands. */
+    if(RATES[_sc])CUR=_sc;
+  }
+}catch(e){}
+function curSym(){
+  for(var i=0;i<CUR_LIST.length;i++)if(CUR_LIST[i].c===CUR)return CUR_LIST[i].s;
+  return '$';
+}
+function cv(v){return Number(v)*(RATES[CUR]||1);}
+
+/* ECB reference rates — no key, CORS-open. The second source covers the days the first
+   has no fix for. Rates are cached in localStorage so a cold offline start still shows
+   the chosen currency rather than silently reverting to dollars. */
+function loadRates(force){
+  if(!force&&RATES.MYR&&RATES.CNY&&Date.now()-(RATES._at||0)<216e5)return Promise.resolve(RATES);
+  var take=function(r){
+    if(!r||!r.MYR||!r.CNY)throw new Error('incomplete rates');
+    RATES={USD:1,MYR:r.MYR,CNY:r.CNY,_at:Date.now()};
+    try{localStorage.setItem('tf_rates',JSON.stringify(RATES));}catch(e){}
+    return RATES;
+  };
+  return fetch('https://api.frankfurter.app/latest?from=USD&to=MYR,CNY')
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(function(j){return take(j.rates);})
+    .catch(function(){
+      return fetch('https://open.er-api.com/v6/latest/USD')
+        .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+        .then(function(j){return take(j.rates&&{MYR:j.rates.MYR,CNY:j.rates.CNY});});
+    });
+}
+
+function paintCurBtn(busy){
+  var b=document.getElementById('curBtn');
+  if(b){b.textContent=busy?'…':CUR;b.title='Showing '+CUR+' — tap to switch currency';}
+}
+function setCurrency(code){
+  WANT_CUR=code;
+  var apply=function(){
+    if(!RATES[code])return;    /* no rate: stay put rather than show a converted-by-1 figure */
+    CUR=code;
+    try{localStorage.setItem('tf_cur',code);}catch(e){}
+    paintCurBtn();reprice();
+  };
+  if(RATES[code])return apply();
+  paintCurBtn(true);
+  loadRates().then(apply).catch(function(e){console.warn('fx rates unavailable',e);})
+    .then(function(){paintCurBtn();});
+}
+function cycleCurrency(){
+  var i=0;
+  /* step from what was asked for, not from what's on screen — otherwise a tap during a
+     rate fetch steps off the old currency and the order jumps */
+  for(var k=0;k<CUR_LIST.length;k++)if(CUR_LIST[k].c===WANT_CUR)i=k;
+  setCurrency(CUR_LIST[(i+1)%CUR_LIST.length].c);
+}
+/* Redraw every figure on screen from the data already in hand — no network, no re-scan. */
+function reprice(){
+  paintMarkers();
+  if(LAST_DATA)render(LAST_DATA,liveRendered);
+  buildClaims();buildPositions();
+  updatePeak();buildMonthly();updateAvgDaily();updateChangeChips();
+  if(CHART)CHART.update('none');   /* dataset is USD; the tick and tooltip callbacks convert */
+}
+/* Quarter marks under the progress bar. Written from the target rather than hard-coded so
+   they follow the currency; the tick shapes match what the static markup used to show. */
+function paintMarkers(){
+  var el=document.querySelector('.progress-markers');
+  if(!el)return;
+  var h='';
+  for(var i=0;i<=4;i++)h+='<span>'+fmtAxis(CFG.target*i/4)+'</span>';
+  el.innerHTML=h;
+}
+
 /* ============ formatting ============ */
-/* exact dollars — a PnL ledger shouldn't abbreviate $1,065.89 to $1.07K */
-function usd(v){return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+/* exact amounts — a PnL ledger shouldn't abbreviate $1,065.89 to $1.07K */
+function money(v){return curSym()+Number(cv(v)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmt(v,d){
   d=d===undefined?2:d;
   if(v===null||v===undefined)return'---';
-  if(v===0)return'$0.00';
-  if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';
-  if(v>=1e3)return'$'+(v/1e3).toFixed(2)+'K';
-  if(v<0.01)return'$'+v.toFixed(6);
-  if(v<1)return'$'+v.toFixed(4);
-  return'$'+v.toFixed(d);
+  var S=curSym();
+  v=cv(v);
+  if(v===0)return S+'0.00';
+  if(v>=1e6)return S+(v/1e6).toFixed(2)+'M';
+  if(v>=1e3)return S+(v/1e3).toFixed(2)+'K';
+  if(v<0.01)return S+v.toFixed(6);
+  if(v<1)return S+v.toFixed(4);
+  return S+v.toFixed(d);
+}
+/* axis labels: no decimals once the number is large, so a rate change can't turn $10K into
+   a nine-character tick that collides with its neighbour */
+function fmtAxis(v){
+  var S=curSym();
+  v=cv(v);
+  if(v===0)return S+'0';
+  if(v>=1e6)return S+(v/1e6).toFixed(v>=1e7?0:1).replace(/\.0$/,'')+'M';
+  if(v>=1e3)return S+(v/1e3).toFixed(v>=1e4?0:1).replace(/\.0$/,'')+'K';
+  return S+Math.round(v);
+}
+/* signed amount with the sign outside the symbol: -$12.34, not $-12.34 */
+function fmtSigned(v,d){
+  return (v>=0?'+':'-')+curSym()+Math.abs(cv(v)).toFixed(d===undefined?2:d);
 }
 function fmtN(v,d){return Number(v).toLocaleString('en-US',{maximumFractionDigits:d===undefined?0:d});}
 
@@ -905,7 +1061,7 @@ function getSolanaLive(refs,ata){
         lps.push({
           type:'LP',protocol:'Meteora DLMM',pair:'SOL / USDC',pool_fee:'DLMM',
           value_usd:p.sol*solPrice+p.usdc,apr:null,
-          note:'#'+p.pubkey.slice(0,6)+' — range $'+p.rangeLow.toFixed(1)+'-$'+p.rangeHigh.toFixed(1)+', '+p.sol.toFixed(3)+' SOL + '+p.usdc.toFixed(2)+' USDC (live on-chain)'
+          note:'#'+p.pubkey.slice(0,6)+' — range '+curSym()+cv(p.rangeLow).toFixed(1)+'-'+curSym()+cv(p.rangeHigh).toFixed(1)+', '+p.sol.toFixed(3)+' SOL + '+p.usdc.toFixed(2)+' USDC (live on-chain)'
         });
       });
       return{sol:sol,usdc:usdc,solPrice:solPrice,lps:lps};
@@ -1029,7 +1185,7 @@ function loadLive(refs,snap){
 }
 
 /* ============ rendering ============ */
-var liveRendered=false;
+var liveRendered=false,LAST_DATA=null;
 
 /* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
 var HIST_START=null,LAST_TOTAL=null,HIST=null,CHART=null,LAST_BREAKDOWN=null;
@@ -1044,7 +1200,7 @@ function updateAvgDaily(){
   var avg=(LAST_TOTAL-HIST_START.total)/days*m.mult;
   document.getElementById('earnLabel').innerHTML='Average '+m.k+' Earning <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
   var el=document.getElementById('dailyEarnings');
-  el.textContent=(avg>=0?'+$':'-$')+Math.abs(avg).toFixed(2);
+  el.textContent=fmtSigned(avg);
   el.style.color=avg>=0?'var(--green)':'var(--red)';
   document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
 }
@@ -1068,8 +1224,8 @@ function updateChangeChips(){
   var cls=delta>=0?'chg-up':'chg-down';
   var sign=delta>=0?'+':'-';
   el.innerHTML='<span class="chg-chip '+cls+'" style="cursor:pointer;user-select:none" '
-    +'title="vs '+b.date+' ($'+b.total_usd.toFixed(2)+') — click to switch to '+next.l+'">'
-    +'<span class="lbl">'+m.l+' &#8644;</span>'+sign+'$'+Math.abs(delta).toFixed(2)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
+    +'title="vs '+b.date+' ('+money(b.total_usd)+') — click to switch to '+next.l+'">'
+    +'<span class="lbl">'+m.l+' &#8644;</span>'+fmtSigned(delta)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
   el.firstChild.onclick=function(){
     CHIP_IDX=(CHIP_IDX+1)%CHIP_MODES.length;
     try{localStorage.setItem('chipIdx',CHIP_IDX);}catch(e){}
@@ -1136,31 +1292,153 @@ function say(who,host){
   }else{
     b.classList.remove('show');   /* the fourth tap closes it */
     SAY_STEP[who]=0;
+    if(who==='rocket')launchRocket();
   }
+}
+
+/* Fourth tap on the rocket: it makes a run at the moon, hits it, and is put back where
+   the real progress says it belongs. LAUNCHING gates re-entry and also stops placeRocket
+   (called by every render) from yanking the rocket back mid-flight. */
+var LAUNCHING=false,LAUNCH_MS=780;
+function launchRocket(){
+  var rk=document.getElementById('rocket');
+  if(!rk||LAUNCHING)return;
+  var track=rk.parentElement,moon=track.querySelector('.moon'),fill=document.getElementById('progFill');
+  var tb=track.getBoundingClientRect(),tw=tb.width;
+  if(!tw||!moon)return;
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  LAUNCHING=true;
+
+  var w=rk.offsetWidth;
+  var mb=moon.getBoundingClientRect();
+  var discCx=(mb.left-tb.left)+mb.width/2;            /* disc is centred in the moon's box */
+  var targetX=discCx-w*ROCKET_NOSE;                   /* nose meets the moon */
+  var ease='cubic-bezier(.55,.06,.85,.36)';           /* accelerates into the hit */
+  rk.style.transition='transform '+LAUNCH_MS+'ms '+ease;
+  if(fill)fill.style.transition='width '+LAUNCH_MS+'ms '+ease;
+  rk.style.transform='translateX('+targetX.toFixed(1)+'px)';
+  /* Same duration and easing, so the bar travels with the rocket. It runs the full track
+     rather than stopping at the rocket's midpoint as it does at rest — that left a gap
+     short of the moon; now the bar's tip finishes under the disc, touching it. */
+  if(fill)fill.style.width=tw.toFixed(1)+'px';
+
+  setTimeout(function(){impact(track,moon,rk,fill,discCx);},LAUNCH_MS);
+}
+
+function impact(track,moon,rk,fill,cx){
+  var tb=track.getBoundingClientRect(),rb=rk.getBoundingClientRect();
+  var cy=(rb.top+rb.height*0.575)-tb.top;             /* hull centre line */
+  rk.style.visibility='hidden';
+  moon.classList.add('moon-hit');
+
+  var layer=document.createElement('div');
+  layer.className='boom';
+  layer.style.left=cx+'px';layer.style.top=cy+'px';
+  track.appendChild(layer);
+
+  var hot=['#fff3d4','#ffd166','#f9c132','#ef5f2c','#e0503f','#ffffff'];
+  var hull=['#e0503f','#c8402f','#f4f1ea','#d9d2c4','#a9a294'];   /* bits of the rocket */
+  var anims=[],i,el,ang,dist,size,dur,spin;
+
+  var flash=document.createElement('i');flash.className='flash';
+  layer.appendChild(flash);
+  anims.push(flash.animate(
+    [{transform:'translate(-50%,-50%) scale(.25)',opacity:1},
+     {transform:'translate(-50%,-50%) scale(3.4)',opacity:0}],
+    {duration:600,easing:'ease-out',fill:'forwards'}));
+
+  /* sparks: many, small, fast */
+  for(i=0;i<38;i++){
+    el=document.createElement('i');
+    size=3+Math.random()*7;
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=hot[(Math.random()*hot.length)|0];
+    layer.appendChild(el);
+    ang=Math.random()*Math.PI*2;dist=24+Math.random()*90;dur=520+Math.random()*520;
+    anims.push(el.animate(
+      [{transform:'translate(-50%,-50%) translate(0,0) scale(1)',opacity:1},
+       {transform:'translate(-50%,-50%) translate('+(Math.cos(ang)*dist).toFixed(1)+'px,'
+         +(Math.sin(ang)*dist).toFixed(1)+'px) scale(.12)',opacity:0}],
+      {duration:dur,easing:'cubic-bezier(.12,.72,.28,1)',fill:'forwards'}));
+  }
+  /* hull debris: fewer, chunkier, tumbling and thrown further */
+  for(i=0;i<10;i++){
+    el=document.createElement('i');el.className='shard';
+    size=7+Math.random()*9;
+    el.style.width=size+'px';el.style.height=(size*(.45+Math.random()*.5))+'px';
+    el.style.background=hull[(Math.random()*hull.length)|0];
+    layer.appendChild(el);
+    ang=Math.random()*Math.PI*2;dist=38+Math.random()*95;
+    dur=680+Math.random()*520;spin=((Math.random()*720)|0)-360;
+    anims.push(el.animate(
+      [{transform:'translate(-50%,-50%) translate(0,0) scale(1) rotate(0deg)',opacity:1},
+       {transform:'translate(-50%,-50%) translate('+(Math.cos(ang)*dist).toFixed(1)+'px,'
+         +(Math.sin(ang)*dist+22).toFixed(1)+'px) scale(.3) rotate('+spin+'deg)',opacity:0}],
+      {duration:dur,easing:'cubic-bezier(.15,.6,.35,1)',fill:'forwards'}));
+  }
+
+  var done=anims.map(function(a){return a.finished.catch(function(){});});
+  Promise.all(done).then(function(){endLaunch(layer,moon,rk,fill);});
+  /* belt and braces: if the animations never settle (background tab), still clean up */
+  setTimeout(function(){if(LAUNCHING)endLaunch(layer,moon,rk,fill);},2400);
+}
+
+function endLaunch(layer,moon,rk,fill){
+  if(!LAUNCHING)return;                               /* already cleaned up */
+  if(layer&&layer.parentNode)layer.parentNode.removeChild(layer);
+  moon.classList.remove('moon-hit');
+  LAUNCHING=false;
+  /* Come home the way a page load does — lifting off from the start of the bar — rather
+     than reappearing halfway along it. Clearing ROCKET_PRIMED replays exactly that path,
+     so the transitions have to be back in CSS's hands first: leave the launch's 780ms
+     easing on and the run-up inherits it. */
+  rk.style.transition='';
+  if(fill)fill.style.transition='';
+  ROCKET_PRIMED=false;
+  /* placeRocket snaps to 0% behind a layout flush, never a paint, so the rocket is already
+     back at the start by the time anything is drawn — no flash at the moon */
+  rk.style.visibility='';
+  placeRocket();
 }
 
 /* Rocket marker. Kept in px because `left` can't be transitioned to a percentage
    reliably; re-placed on resize since the offset depends on the track's width. */
 var ROCKET_PCT=0;
 var ROCKET_NOSE=0.997;   /* the red nose tip sits this far across the artwork */
+var ROCKET_PRIMED=false;
 function placeRocket(pct){
   if(pct!==undefined)ROCKET_PCT=pct;
+  if(LAUNCHING)return;   /* a render mid-flight must not drag the rocket back */
   var rk=document.getElementById('rocket');
   if(!rk)return;
   var track=rk.parentElement.getBoundingClientRect().width;
   if(!track)return;
-  /* the nose — not the middle — marks the value, so it points at the fill edge */
-  var w=rk.offsetWidth,slack=14;
-  var x=track*ROCKET_PCT/100-w*ROCKET_NOSE;
-  /* keep it on the card; only bites at very low percentages, where the whole rocket
-     would otherwise hang off the left edge */
-  x=Math.max(-slack,Math.min(track-w+slack,x));
-  rk.style.transform='translateX('+x.toFixed(1)+'px)';
-  /* The bar is the rocket's tail: the fill runs on under the rocket to its midpoint, so
-     gold and exhaust meet instead of butting up as two separate objects. The nose still
-     marks the true value. Set in px, never a percentage — the units don't interpolate. */
-  var fill=document.getElementById('progFill');
-  if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*0.5)).toFixed(1)+'px';
+  var w=rk.offsetWidth,slack=14,fill=document.getElementById('progFill');
+  var set=function(p){
+    /* the nose — not the middle — marks the value, so it points at the fill edge */
+    var x=track*p/100-w*ROCKET_NOSE;
+    /* keep it on the card; only bites at very low percentages, where the whole rocket
+       would otherwise hang off the left edge */
+    x=Math.max(-slack,Math.min(track-w+slack,x));
+    rk.style.transform='translateX('+x.toFixed(1)+'px)';
+    /* The bar is the rocket's tail: the fill runs on under the rocket to its midpoint, so
+       gold and exhaust meet instead of butting up as two separate objects. The nose still
+       marks the true value. Set in px, never a percentage — the units don't interpolate. */
+    if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*0.5)).toFixed(1)+'px';
+  };
+  /* The markup opens with the bar at width:0 and the rocket at translateX(0) — two
+     different points on the scale, half a rocket apart. Animating from there, the bar
+     trails the rocket and closes the gap on the way, so they read as two loose objects.
+     Snap both to a true 0% first; one transition then carries them across locked together. */
+  if(!ROCKET_PRIMED){
+    ROCKET_PRIMED=true;
+    var rt=rk.style.transition,ft=fill?fill.style.transition:'';
+    rk.style.transition='none';if(fill)fill.style.transition='none';
+    set(0);
+    void rk.offsetWidth;   /* flush, or the restored transition never sees the start value */
+    rk.style.transition=rt;if(fill)fill.style.transition=ft;
+  }
+  set(ROCKET_PCT);
 }
 window.addEventListener('resize',function(){placeRocket();});
 
@@ -1518,7 +1796,7 @@ function buildPositions(){
   /* Dates dropped from the table to keep it readable at this width — still carried on the
      row's title so hovering reveals them, and untouched in positions.json. */
   /* second value column is the close price for closed rows, the live price for open ones */
-  var rows='<tr><th>Position</th><th class="num">Open $</th><th class="num">Now / Close $</th><th class="num">P&amp;L</th></tr>';
+  var rows='<tr><th>Position</th><th class="num">Open '+curSym()+'</th><th class="num">Now / Close '+curSym()+'</th><th class="num">P&amp;L</th></tr>';
   page.forEach(function(row){
     var d=row.d;
     if(row.isOpen){
@@ -1537,15 +1815,15 @@ function buildPositions(){
         oor=' <span title="Price '+rng+' this position\'s range" style="color:'+rc
           +';font-size:8px;border:1px solid '+rc+';border-radius:3px;padding:1px 3px;vertical-align:1px">OOR</span>';
       }
-      rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+usd(now):'')
+      rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+money(now):'')
         +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
         +'<td class="pos-cell">#'+d.id
         +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+oor
         +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span></td>'
-        +'<td class="num">'+(hasOpen?usd(d.open_value_usd):dash)+'</td>'
-        +'<td class="num">'+(live?usd(now):dash)+'</td>'
+        +'<td class="num">'+(hasOpen?money(d.open_value_usd):dash)+'</td>'
+        +'<td class="num">'+(live?money(now):dash)+'</td>'
         +'<td class="num" style="white-space:nowrap'+(live?';color:'+ucol:'')+'">'
-        +(live?usg+usd(Math.abs(up))
+        +(live?usg+money(Math.abs(up))
               +'<br><span style="font-size:9px">'+usg+Math.abs(upct).toFixed(2)+'%</span>'
               +'<br><span style="font-size:8px;color:var(--dim)">(unrealised)</span>'
            :dash)
@@ -1556,9 +1834,9 @@ function buildPositions(){
     var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
     rows+='<tr title="Opened '+d.opened+' · closed '+d.closed+'"><td class="pos-cell">#'+d.id
       +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+'</span></td>'
-      +'<td class="num">'+usd(d.open_value_usd)+'</td>'
-      +'<td class="num">'+usd(d.close_value_usd)+'</td>'
-      +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+usd(Math.abs(p))
+      +'<td class="num">'+money(d.open_value_usd)+'</td>'
+      +'<td class="num">'+money(d.close_value_usd)+'</td>'
+      +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(p))
       +'<br><span style="font-size:9px">'+sg+Math.abs(d.pnl_pct||0).toFixed(2)+'%</span></td></tr>';
   });
 
@@ -1581,7 +1859,7 @@ function buildPositions(){
       +(bold?';margin-top:7px;padding-top:9px;border-top:1px solid var(--border);font-weight:700':'')+'">'
       +'<span'+(bold?'':' style="color:var(--dim)"')+'>'+label
       +(sub?'<span style="color:var(--dim);font-size:9px;font-weight:400"> · '+sub+'</span>':'')+'</span>'
-      +'<span style="color:'+col+';white-space:nowrap">'+sg+usd(Math.abs(val))+'</span></div>';
+      +'<span style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(val))+'</span></div>';
   }
   document.getElementById('posSummary').innerHTML=
     '<div style="padding:6px 10px 12px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:12px">'
@@ -1590,7 +1868,14 @@ function buildPositions(){
     +line('Total P&L',total,'',true)
     +'</div>';
 }
-function openPositions(){POS_PAGE=1;buildPositions();document.getElementById('posModal').classList.add('open');}
+function openPositions(){
+  POS_PAGE=1;buildPositions();
+  document.getElementById('posModal').classList.add('open');
+  /* must re-lock after .open: the build above ran while the window was still hidden, so
+     it measured zero and skipped. Without this the first page never sets the height and
+     the window shrinks to fit page 2 the moment you page forward. */
+  lockPosBodyHeight();
+}
 function closePositions(){document.getElementById('posModal').classList.remove('open');}
 
 /* Monthly summary + CSV export */
@@ -1696,6 +1981,7 @@ var CHAIN_LOGO={
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
+  LAST_DATA=d;                     /* kept so a currency switch can repaint without refetching */
   var s=d.summary||{};
   var total=s.grand_total_usd||d.total_usd||0;   /* portfolio only — metrics use this */
   var onchain=s.onchain_usd||d.onchain_usd||0;
@@ -1706,7 +1992,7 @@ function render(d,isLive){
   var pct=Math.min(100,(displayTotal/target)*100);
 
   document.getElementById('totalVal').textContent=fmt(displayTotal);
-  document.getElementById('vaultVal').textContent='$'+fmtN(CFG.coldVault);
+  document.getElementById('vaultVal').textContent=curSym()+fmtN(cv(CFG.coldVault));
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
   placeRocket(pct);   /* owns the fill width too — it ends where the rocket begins */
   document.getElementById('onchainVal').textContent=fmt(onchain);
@@ -1715,7 +2001,7 @@ function render(d,isLive){
 
   var lu=document.getElementById('lastUpdated');
   if(isLive){
-    lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE ON-CHAIN</span><br>'+new Date().toTimeString().slice(0,8);
+    lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br>'+new Date().toTimeString().slice(0,8);
   }else if(d.last_updated){
     lu.textContent='Snapshot: '+d.last_updated.replace('T',' ').slice(0,19)+' UTC';
   }
@@ -1860,6 +2146,16 @@ function render(d,isLive){
 
 /* ============ boot ============ */
 function load(){
+  /* Currency first, and off to one side: the page renders in whatever was last chosen using
+     the cached rate, and refreshes the rate in the background. A failed fetch costs nothing
+     — the cached rate stands, and only a first-ever run without one falls back to USD. */
+  paintCurBtn();paintMarkers();
+  document.getElementById('curBtn').addEventListener('click',cycleCurrency);
+  loadRates().then(function(){
+    if(CUR!==WANT_CUR)setCurrency(WANT_CUR);   /* saved choice we couldn't honour cold */
+    else if(CUR!=='USD')reprice();             /* fresher rate than the cached one */
+  }).catch(function(e){console.warn('fx rates unavailable, staying in '+CUR,e);});
+
   /* closed-position ledger — fetched first so the live scan knows what's already booked */
   var posReady=fetch('/positions.json?t='+Date.now()).then(function(r){return r.json();})
     .then(function(p){POSITIONS=p;})
@@ -1896,7 +2192,11 @@ function load(){
     .then(buildClaims);
   /* both are static in the DOM, so a direct listener is safe here */
   var rkEl=document.getElementById('rocket'),mnEl=document.querySelector('.moon');
-  if(rkEl)rkEl.addEventListener('click',function(ev){ev.stopPropagation();say('rocket',rkEl);});
+  if(rkEl)rkEl.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    if(LAUNCHING)return;          /* ignore taps while it's mid-flight */
+    say('rocket',rkEl);
+  });
   if(mnEl)mnEl.addEventListener('click',function(ev){ev.stopPropagation();say('moon',mnEl);});
 
   document.getElementById('claimsBtn').onclick=function(ev){ev.stopPropagation();openClaims();};
@@ -1971,7 +2271,7 @@ function load(){
           x:{grid:{color:'rgba(255,255,255,.03)'},
             ticks:{color:'#5a6a8a',font:{size:10},maxTicksLimit:12}},
           y:{grid:{color:'rgba(255,255,255,.03)'},
-            ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return'$'+v.toFixed(0);}}}
+            ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return fmtAxis(v);}}}
         }
       }
     });
