@@ -26,7 +26,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .hdr,.wrap{position:relative;z-index:1}
 .hdr{background:linear-gradient(135deg,rgba(15,22,35,.88) 0%,rgba(26,26,62,.88) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:24px 32px;border-bottom:2px solid var(--accent)}
 .hdr-inner{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto}
-.hdr-brand{display:flex;align-items:center;gap:14px}
+/* Nothing in the brand is selectable. A second tap on the tiger lands as a double-click,
+   and the browser answers that by selecting the nearest word — which is "TIGER" right
+   beside it, so toggling the mood used to leave the wordmark highlighted. */
+.hdr-brand{display:flex;align-items:center;gap:14px;-webkit-user-select:none;user-select:none}
+.brand-mark{display:block;padding:0;border:0;background:none;line-height:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+/* clicks land on the button, never on a path inside the artwork */
+.brand-mark svg{display:block;pointer-events:none}
+.brand-mark .tiger-angry{display:none}
+.brand-mark.angry .tiger-calm{display:none}
+.brand-mark.angry .tiger-angry{display:block}
+/* no ring for a mouse tap, but keyboard focus still has to be visible */
+.brand-mark:focus{outline:none}
+.brand-mark:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px}
 .hdr h1{font-size:26px;font-weight:800;letter-spacing:2px}
 .hdr h1 .t{color:var(--gold)}.hdr h1 .f{color:var(--accent)}
 .hdr .sub{font-size:13px;color:var(--dim);margin-top:4px;letter-spacing:1px}
@@ -356,7 +369,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 <div class="hdr">
   <div class="hdr-inner">
     <div class="hdr-brand">
-      <svg width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg>
+      <button class="brand-mark" id="brandMark" type="button" aria-label="Tap the tiger to change its mood" title="Tap the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
       <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
     <div class="ts" id="lastUpdated">Loading...</div>
@@ -1187,6 +1200,17 @@ function loadLive(refs,snap){
 /* ============ rendering ============ */
 var liveRendered=false,LAST_DATA=null;
 
+/* The clock under the LIVE badge runs rather than showing the moment of the last fetch.
+   With the overlay re-reading the chain every REFRESH_MS the two are never far apart, and
+   a frozen readout beside a green "LIVE" dot looks like something has died. */
+var LIVE_ON=false;
+function clockNow(){return new Date().toTimeString().slice(0,8);}
+setInterval(function(){
+  if(!LIVE_ON)return;
+  var el=document.getElementById('liveClock');
+  if(el)el.textContent=clockNow();
+},1000);
+
 /* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
 var HIST_START=null,LAST_TOTAL=null,HIST=null,CHART=null,LAST_BREAKDOWN=null;
 var EARN_MODES=[{k:'Daily',mult:1},{k:'Weekly',mult:7},{k:'Monthly',mult:30},{k:'Yearly',mult:365}];
@@ -2001,7 +2025,9 @@ function render(d,isLive){
 
   var lu=document.getElementById('lastUpdated');
   if(isLive){
-    lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br>'+new Date().toTimeString().slice(0,8);
+    LIVE_ON=true;
+    lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br>'
+      +'<span id="liveClock">'+clockNow()+'</span>';
   }else if(d.last_updated){
     lu.textContent='Snapshot: '+d.last_updated.replace('T',' ').slice(0,19)+' UTC';
   }
@@ -2144,6 +2170,60 @@ function render(d,isLive){
   if(isLive)liveRendered=true;
 }
 
+/* ============ live refresh ============ */
+/* Re-reads the chain on a timer so the figures move without a page reload.
+   15s, not the "few seconds" it feels like it should be: one pass costs a CoinGecko price
+   call, and their free tier starts returning 429 in the low tens per minute. At 15s that's
+   4/min with room to spare; at 3s it's 20/min and the price — which every value on the page
+   is derived from — would start failing. The chain RPCs would take the faster rate happily;
+   the price is the ceiling. One number to change if that ever stops being true. */
+var REFRESH_MS=15000,REFRESH_TIMER=null,REFRESHING=false,LAST_SNAP=null;
+
+/* An auto-refresh must not yank an open ledger back to the top under the reader's finger.
+   The page number survives on its own — POS_PAGE outlives the rebuild — but scroll doesn't. */
+function keepingScroll(fn){
+  var cb=document.querySelector('#claimsModal .modal-body');
+  var pb=document.querySelector('#posModal .modal-body');
+  var cs=cb?cb.scrollTop:0,ps=pb?pb.scrollTop:0;
+  fn();
+  if(cb)cb.scrollTop=cs;
+  if(pb)pb.scrollTop=ps;
+}
+
+function refreshLive(){
+  if(REFRESHING)return Promise.resolve();          /* a slow pass must not stack on itself */
+  REFRESHING=true;
+  var refs=(LAST_SNAP&&LAST_SNAP.meteora_refs)||CFG.meteoraRefs;
+  return loadLive(refs,LAST_SNAP).then(function(d){
+    render(d,true);
+    return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
+      .then(function(res){LIVE_CLAIMS=res;keepingScroll(function(){buildClaims();buildPositions();});})
+      .catch(function(e){console.warn('live claim scan failed',e);});
+  }).then(function(){
+    /* sequential here, unlike boot: no reason to burst the RPC every 15s */
+    return scanLivePositions(POSITIONS)
+      .then(function(res){LIVE_POSITIONS=res;keepingScroll(buildPositions);})
+      .catch(function(e){console.warn('live position scan failed',e);});
+  }).catch(function(e){
+    /* a failed pass leaves the last good values on screen and waits for the next one */
+    console.warn('live refresh failed, keeping the last good values',e);
+  }).then(function(){REFRESHING=false;});
+}
+
+function startAutoRefresh(){
+  stopAutoRefresh();
+  REFRESH_TIMER=setInterval(refreshLive,REFRESH_MS);
+}
+function stopAutoRefresh(){
+  if(REFRESH_TIMER){clearInterval(REFRESH_TIMER);REFRESH_TIMER=null;}
+}
+/* Nothing to read while the tab is in the background, and phones throttle the timer there
+   anyway — so stop, and catch up the moment it comes back rather than after another 15s. */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){refreshLive();startAutoRefresh();}
+  else stopAutoRefresh();
+});
+
 /* ============ boot ============ */
 function load(){
   /* Currency first, and off to one side: the page renders in whatever was last chosen using
@@ -2173,6 +2253,7 @@ function load(){
     .then(function(d){render(d,false);return d;})
     .catch(function(e){console.error('snapshot failed',e);return null;})
     .then(function(snap){
+      LAST_SNAP=snap;                              /* refreshLive reads its refs from here */
       var refs=(snap&&snap.meteora_refs)||CFG.meteoraRefs;
       return loadLive(refs,snap).then(function(d){
         render(d,true);
@@ -2183,13 +2264,24 @@ function load(){
           .catch(function(e){console.warn('live claim scan failed, using claims.json',e);});
       });
     })
-    .catch(function(e){console.warn('live fetch failed, showing snapshot',e);});
+    .catch(function(e){console.warn('live fetch failed, showing snapshot',e);})
+    /* start the timer once the first pass is done either way, so a slow or failed boot
+       can't leave two overlays reading the chain at the same time */
+    .then(startAutoRefresh);
 
   /* KAT claim record */
   fetch('/claims.json?t='+Date.now()).then(function(r){return r.json();})
     .then(function(c){CLAIMS=c;})
     .catch(function(){/* not generated yet — table falls back to today only */})
     .then(buildClaims);
+  /* the tiger's mood — remembered, like the other toggles on the page */
+  var mark=document.getElementById('brandMark');
+  try{if(localStorage.getItem('tf_mood')==='angry')mark.classList.add('angry');}catch(e){}
+  mark.addEventListener('click',function(){
+    var angry=mark.classList.toggle('angry');
+    try{localStorage.setItem('tf_mood',angry?'angry':'calm');}catch(e){}
+  });
+
   /* both are static in the DOM, so a direct listener is safe here */
   var rkEl=document.getElementById('rocket'),mnEl=document.querySelector('.moon');
   if(rkEl)rkEl.addEventListener('click',function(ev){
