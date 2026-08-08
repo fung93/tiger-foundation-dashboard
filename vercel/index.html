@@ -20,7 +20,7 @@ body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--tex
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
    background-attachment:fixed, which iOS Safari renders badly. */
 body::before{content:'';position:fixed;inset:0;z-index:0;
-  background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(1.72)}
+  background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(2.06)}
 body::after{content:'';position:fixed;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
 .hdr,.wrap{position:relative;z-index:1}
@@ -37,7 +37,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 
 /* Hero */
 .hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:22px;background:linear-gradient(135deg,rgba(245,158,11,.10) 0%,rgba(59,130,246,.06) 100%),rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:28px}
-.hero-main{flex:1;min-width:0}
+/* Starfield behind the left half of the card. Its own layer under the content, faded out
+   well before the artwork so the photo and its gradient are untouched. */
+.hero::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:url('/img/space.jpg') left center/cover no-repeat;opacity:.62;
+  -webkit-mask-image:linear-gradient(90deg,#000 0%,#000 38%,rgba(0,0,0,.35) 58%,transparent 72%);
+          mask-image:linear-gradient(90deg,#000 0%,#000 38%,rgba(0,0,0,.35) 58%,transparent 72%)}
+.hero-main{flex:1;min-width:0;position:relative;z-index:1}
 /* An add-on image, not a background: sits in the flow at the card's right, shown at the
    source's own brightness (no filter, no opacity) and merged only by fading its inner
    edge. Bled into the padding so it meets the card's top/right/bottom. The wrapper
@@ -47,7 +53,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    and the image fills edge to edge with no crop. Don't use aspect-ratio + align-self:stretch
    here — the wrap then sizes from the image's natural 720px and drags the card with it. */
 .hero-photo-wrap{flex:none;width:var(--art,330px);margin:-32px -32px -32px 0;
-  overflow:hidden;line-height:0;
+  position:relative;z-index:1;overflow:hidden;line-height:0;
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%);
           mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
 .hero-photo{width:100%;height:auto;display:block}
@@ -106,6 +112,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .rec-btn{-webkit-tap-highlight-color:transparent}
 /* in a section heading there's nothing to anchor to — sit inline at the end of the row */
 .rec-btn.inline{position:static;margin-left:auto}
+/* a flex child of .pos-proto: gap handles the spacing, so cancel .inline's auto margin
+   (which would otherwise shove it to the far edge) */
+.rec-btn.lp-rec{margin-left:0}
 .modal-back{position:fixed;inset:0;z-index:200;padding:16px;background:rgba(4,8,15,.72);
   display:none;align-items:center;justify-content:center}
 .modal-back.open{display:flex}
@@ -154,7 +163,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* opaque: these sit directly on the page, so the art must not show through the text */
 .pos-card{background:#111a2b;border:1px solid rgba(59,130,246,.15);border-radius:10px;padding:14px;margin-bottom:8px}
 .pos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.pos-proto{font-size:14px;font-weight:600}
+/* flex so the title text and any button beside it centre on each other, rather than
+   relying on a hand-tuned vertical-align that drifts with font or button size */
+.pos-proto{font-size:14px;font-weight:600;display:flex;align-items:center;gap:9px}
 .pos-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.03)}
 .pos-row:last-of-type{border-bottom:none}
 .pos-label{color:var(--dim)}.pos-val{font-weight:600}
@@ -162,13 +173,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Chain rows */
 .chain-row{display:flex;align-items:center;gap:14px;padding:14px;margin-bottom:10px;background:rgba(15,22,35,.70);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:10px}
 .chain-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-/* chain mark: sized to the name beside it, on a faint disc so both logos sit on the
-   same footprint despite different aspect ratios */
-.chain-logo{width:26px;height:26px;flex-shrink:0;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.05);border:1px solid var(--border)}
-/* contain, so the two marks keep their own proportions inside a shared footprint */
-.chain-logo svg,.chain-logo img{width:15px;height:15px;display:block;object-fit:contain}
+/* bare marks, no disc — sized to a shared box so the two keep a common footprint
+   despite very different proportions */
+.chain-logo{width:24px;height:24px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center}
+.chain-logo svg,.chain-logo img{width:22px;height:22px;display:block;object-fit:contain}
 .chain-info{flex:1}
 .chain-name{font-size:15px;font-weight:600}
 .chain-detail{font-size:12px;color:var(--dim);margin-top:3px}
@@ -206,6 +215,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 #claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:42%}
 #claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:29%}
 #claimsTable th:nth-child(3),#claimsTable td:nth-child(3),.claims-total td:nth-child(3){width:29%}
+/* column headings stay put while the days scroll under them. Sticky goes on the cells,
+   not the row — a sticky <tr> is ignored in several engines. Needs an opaque background
+   or the rows would show through as they pass beneath. */
+#claimsTable th{position:sticky;top:0;z-index:1;background:var(--card)}
 .claims-total{display:block;padding:0 8px}
 .claims-total:empty{display:none}
 .claims-total td{border-bottom:none}
@@ -233,7 +246,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
             mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
   /* portrait-framed crop (keeps the explorers in shot) + lighter file for mobile data */
   /* mobile only: +15% on top of the shared 1.72 */
-  body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(1.98)}
+  body::before{background-image:url('/img/bg-mobile.jpg');filter:brightness(2.38)}
+  /* Stacked layout: the desktop mask fades left-to-right, which split this card into a
+     navy half and a grey half. Fade downward instead — full-width space across the text.
+     The taper runs on *through* the artwork's own fade-in rather than stopping above it:
+     ending at 47% left a 24px band where the space had gone but the image had not yet
+     arrived, so bare card showed between them and read as a hard edge. The two now
+     cross-fade, and the image's own gradient is untouched. */
+  .hero::before{
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 42%,rgba(0,0,0,.62) 52%,rgba(0,0,0,.33) 60%,transparent 70%);
+            mask-image:linear-gradient(180deg,#000 0%,#000 42%,rgba(0,0,0,.62) 52%,rgba(0,0,0,.33) 60%,transparent 70%)}
   .rocket{width:54px;bottom:0}.prog-track{padding-top:26px;padding-bottom:11px}
   .moon{width:38px;height:38px;bottom:-1px;right:-5.6px}
   /* id + OPEN + OOR won't fit one line in a quarter of a phone screen — let it wrap */
@@ -366,11 +388,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 
   <!-- DeFi positions -->
   <div class="sec">
-    <div class="sec-title">DeFi Positions
-      <button class="rec-btn inline" id="posBtn" title="LP position record" aria-label="LP position record">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
-      </button>
-    </div>
+    <div class="sec-title">DeFi Positions</div>
     <div id="defiList"></div>
   </div>
 
@@ -1702,7 +1720,11 @@ function render(d,isLive){
       if(x.p.apr)g.apr=x.p.apr;
     });
     dl+='<div class="pos-card">';
-    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools</span>';
+    /* the record is about LP, so its button lives on this card rather than the section heading */
+    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools'
+      +'<button class="rec-btn inline lp-rec" id="posBtn" title="LP position record" aria-label="LP position record">'
+      +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      +'<path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></span>';
     dl+='<span>'+(stakedCount===allLp.length?'<span class="hf green">STAKED</span>':'')+'<span class="hf gold">LP</span></span></div>';
     dl+='<div class="pos-row"><span class="pos-label">Total Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(lpTotal)+'</span></div>';
     dl+='<div class="pos-row"><span class="pos-label">Positions</span><span class="pos-val">'+allLp.length+(stakedCount?' ('+stakedCount+' staked)':'')+'</span></div>';
@@ -1808,7 +1830,12 @@ function load(){
   document.getElementById('claimsBtn').onclick=function(ev){ev.stopPropagation();openClaims();};
   document.getElementById('claimsClose').onclick=closeClaims;
   document.getElementById('claimsModal').onclick=function(ev){if(ev.target===this)closeClaims();};
-  document.getElementById('posBtn').onclick=function(ev){ev.stopPropagation();openPositions();};
+  /* delegated: the LP card is rebuilt on every render, so the button is a new element each
+     time and a direct handler would be lost */
+  document.addEventListener('click',function(ev){
+    var b=ev.target.closest&&ev.target.closest('#posBtn');
+    if(b){ev.stopPropagation();openPositions();}
+  });
   document.getElementById('posClose').onclick=closePositions;
   document.getElementById('posModal').onclick=function(ev){if(ev.target===this)closePositions();};
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){closeClaims();closePositions();}});
