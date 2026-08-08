@@ -84,16 +84,38 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    padding-bottom reserves the room, keeping the markers clear. */
 .prog-track{position:relative;padding-top:30px;padding-bottom:15px}
 .rocket{position:absolute;left:0;bottom:0;width:64px;
-  transition:transform .8s cubic-bezier(.34,.8,.4,1);pointer-events:none;z-index:2}
+  transition:transform .8s cubic-bezier(.34,.8,.4,1);z-index:2;
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
 .rocket img{display:block;width:100%;height:auto;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
 /* The destination. Centred on the bar's 100% mark and on its centre line, so the rocket
    flies at it and passes in front on arrival (rocket is z-index 2). */
 /* The disc is 31 of the 44px box (the rest is glow falloff), so the box is nudged out by
    half that margin to put the disc's edge exactly on the bar's end — the rounded tip sits
    under the moon rather than poking past it. Only transparent glow overhangs. */
-.moon{position:absolute;right:-6.5px;bottom:0;width:44px;height:44px;
-  pointer-events:none;z-index:1}
+.moon{position:absolute;right:-6.5px;bottom:0;width:44px;height:44px;z-index:1;
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
 .moon svg{display:block;width:100%;height:100%}
+
+/* Tap-to-talk bubbles for the rocket and the moon. Sit outside .rocket-bob so they don't
+   ride the bob animation, and stay pointer-transparent so the tap reaches the host. */
+.bubble{position:absolute;bottom:100%;margin-bottom:9px;z-index:6;
+  background:rgba(15,22,35,.97);border:1px solid var(--border);border-radius:9px;
+  padding:6px 10px;font-size:11px;line-height:1.35;color:var(--text);white-space:nowrap;
+  box-shadow:0 6px 16px rgba(0,0,0,.45);pointer-events:none;
+  opacity:0;visibility:hidden;transition:opacity .18s ease,transform .18s ease,visibility .18s}
+.bubble.show{opacity:1;visibility:visible}
+.bubble::before,.bubble::after{content:'';position:absolute;top:100%;
+  border:6px solid transparent}
+.bubble::after{border-top-color:var(--border)}
+.bubble::before{margin-top:-1.5px;border-top-color:rgba(15,22,35,.97);z-index:1}
+/* rocket speaks from its centre, moon from its right edge so it can't overflow the card */
+.rocket .bubble{left:50%;transform:translate(-50%,5px) scale(.96)}
+.rocket .bubble.show{transform:translate(-50%,0) scale(1)}
+.rocket .bubble::before,.rocket .bubble::after{left:50%;margin-left:-6px}
+.moon .bubble{right:0;transform:translate(0,5px) scale(.96)}
+.moon .bubble.show{transform:translate(0,0) scale(1)}
+.moon .bubble::before,.moon .bubble::after{right:13px}
+@media(prefers-reduced-motion:reduce){.bubble{transition:opacity .18s ease,visibility .18s}}
 .rocket-bob{animation:rocketBob 3s ease-in-out infinite;transform-origin:50% 80%}
 @keyframes rocketBob{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-7px) rotate(2.5deg)}}
 @media(prefers-reduced-motion:reduce){.rocket-bob{animation:none}}
@@ -311,6 +333,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
       </div>
       <div class="prog-track">
         <div class="moon" aria-hidden="true">
+          <div class="bubble" id="moonBubble"></div>
           <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
@@ -330,9 +353,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
             <ellipse cx="28" cy="15.8" rx="2" ry="1.8" fill="#d3c298" opacity=".55"/>
           </svg>
         </div>
-        <div class="rocket" id="rocket"><div class="rocket-bob">
-          <img src="/img/rocket.png" alt="" draggable="false">
-        </div></div>
+        <div class="rocket" id="rocket">
+          <div class="bubble" id="rocketBubble"></div>
+          <div class="rocket-bob">
+            <img src="/img/rocket.png" alt="" draggable="false">
+          </div>
+        </div>
         <div class="progress-bg"><div class="progress-fill" id="progFill" style="width:0"></div></div>
       </div>
       <div class="progress-markers"><span>$0</span><span>$2.5K</span><span>$5K</span><span>$7.5K</span><span>$10K</span></div>
@@ -1070,6 +1096,47 @@ function updateRoiToggle(){
   el.textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
   el.style.color=pct>=0?'var(--green)':'var(--red)';
   sub.textContent='since '+b.date;
+}
+
+/* Tap the rocket or the moon and it says something. Each tap advances a 4-step cycle:
+   three lines, then the fourth closes the bubble and the next tap starts over. */
+var SAYINGS={
+  rocket:['Flying hard!','Flying really hard!','Slow is fast!'],
+  moon:['Still waiting.','I feel so lonely...','When will someone come to see me?']
+};
+var SAY_STEP={rocket:0,moon:0},SAY_TIMER={rocket:0,moon:0};
+var SAY_HOLD=4000;   /* left alone, a bubble fades out after this */
+
+function hush(who){
+  clearTimeout(SAY_TIMER[who]);
+  var b=document.getElementById(who+'Bubble');
+  if(b)b.classList.remove('show');
+}
+
+function say(who,host){
+  var b=host.querySelector('.bubble');
+  if(!b)return;
+  /* only one speaks at a time: on a phone both bubbles together are wider than the card
+     and overlap. The other one closes and restarts from its first line. */
+  Object.keys(SAYINGS).forEach(function(k){
+    if(k===who)return;
+    if(document.getElementById(k+'Bubble')&&SAY_STEP[k]!==0){hush(k);SAY_STEP[k]=0;}
+  });
+  clearTimeout(SAY_TIMER[who]);
+
+  var step=SAY_STEP[who],lines=SAYINGS[who];
+  /* if the timer already closed it, don't spend a tap closing it again */
+  if(step>=lines.length&&!b.classList.contains('show'))step=0;
+
+  if(step<lines.length){
+    b.textContent=lines[step];
+    b.classList.add('show');
+    SAY_TIMER[who]=setTimeout(function(){b.classList.remove('show');},SAY_HOLD);
+    SAY_STEP[who]=step+1;
+  }else{
+    b.classList.remove('show');   /* the fourth tap closes it */
+    SAY_STEP[who]=0;
+  }
 }
 
 /* Rocket marker. Kept in px because `left` can't be transitioned to a percentage
@@ -1827,6 +1894,11 @@ function load(){
     .then(function(c){CLAIMS=c;})
     .catch(function(){/* not generated yet — table falls back to today only */})
     .then(buildClaims);
+  /* both are static in the DOM, so a direct listener is safe here */
+  var rkEl=document.getElementById('rocket'),mnEl=document.querySelector('.moon');
+  if(rkEl)rkEl.addEventListener('click',function(ev){ev.stopPropagation();say('rocket',rkEl);});
+  if(mnEl)mnEl.addEventListener('click',function(ev){ev.stopPropagation();say('moon',mnEl);});
+
   document.getElementById('claimsBtn').onclick=function(ev){ev.stopPropagation();openClaims();};
   document.getElementById('claimsClose').onclick=closeClaims;
   document.getElementById('claimsModal').onclick=function(ev){if(ev.target===this)closeClaims();};
