@@ -2311,10 +2311,16 @@ function askFacts(){
       f.openValue+=now;
       if(o.open_value_usd!==null&&o.open_value_usd!==undefined)f.unrealised+=now-o.open_value_usd;
     }
-    /* count the ones we have a reading for, not just the bad ones — "0 out of range" and
-       "no data yet" are different answers and must not collapse into each other */
+    /* Count the ones we have a reading for, not just the bad ones — "0 out of range" and
+       "no data yet" are different answers and must not collapse into each other.
+       Test for the two out-of-range values rather than "not in": the producer emits
+       'in' / 'above' / 'below', and anything else — a new status, a blank — should not
+       be reported as a problem on the strength of not matching one string. */
     var r=LP_RANGE[String(o.id)];
-    if(r){f.ranged++;if(r!=='IN')f.oor.push(o);}
+    if(r){
+      f.ranged++;
+      if(r==='below'||r==='above'){o.rangeDir=r;f.oor.push(o);}
+    }
   });
   f.combined=f.claimVal+f.realised;
   return f;
@@ -2411,9 +2417,16 @@ var ASK={
 
   range:function(f){
     if(!f.ranged)return "No range data for the open positions yet.";
-    if(!f.oor.length)return "<span class=\"up\">All "+f.ranged+" open position"+(f.ranged===1?'':'s')+" in range</span> — all of it earning fees.";
+    if(!f.oor.length)
+      return "<span class=\"up\">All "+f.ranged+" open position"+(f.ranged===1?'':'s')+" in range.</span>\n\n"
+        +"Price is inside the band on "+(f.ranged===1?'it':'both')+", so "+fmt(f.openValue)+" is earning fees.";
+    /* same reading as the ledger's badge: through the floor is the bad one, past the
+       ceiling means the position is sitting in stables */
     return "<span class=\"down\">"+f.oor.length+" of "+f.ranged+" out of range</span> — earning nothing until price comes back.\n\n"
-      +f.oor.map(function(o){return "· #"+o.id+" "+(o.pair||'');}).join('\n')
+      +f.oor.map(function(o){
+         return "· #"+o.id+" "+(o.pair||'')+" — price "+(o.rangeDir||'outside')+" the band"
+              +(o.rangeDir==='above'?' (sitting in stables)':o.rangeDir==='below'?' (holding the volatile side)':'');
+       }).join('\n')
       +"\n<span class=\"hint\">Out of range means the pool price has moved past the band you set.</span>";},
 
   progress:function(f){
