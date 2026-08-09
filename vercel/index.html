@@ -194,6 +194,61 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .modal-foot{flex:none;padding:9px 12px;border-top:1px solid var(--border);
   display:flex;justify-content:center;align-items:center;gap:5px;flex-wrap:wrap}
 .modal-foot:empty{display:none}
+
+/* ---- Ask the Tiger -------------------------------------------------------
+   Scripted, not a language model: every answer is composed from the same
+   numbers the cards are drawn from, so the two can never disagree. The chips
+   carry the discoverability — a scripted bot has to show its range, or the
+   reader spends their first three questions finding the edges of it. */
+.chat-modal{max-width:460px;height:min(88vh,620px)}
+.chat-log{flex:1;display:flex;flex-direction:column;gap:10px;padding:14px 14px 6px}
+.chat-row{display:flex;gap:9px;align-items:flex-end;max-width:100%}
+.chat-row.me{flex-direction:row-reverse}
+.chat-face{flex:none;width:26px;height:26px;border-radius:50%;overflow:hidden;
+  background:rgba(245,158,11,.12);display:flex;align-items:center;justify-content:center}
+.chat-face svg{width:24px;height:24px;display:block}
+.chat-row.me .chat-face{background:rgba(59,130,246,.14);color:var(--blue);
+  font-size:10px;font-weight:700;letter-spacing:.5px}
+.bub{font-size:12.5px;line-height:1.55;padding:9px 12px;border-radius:12px;
+  max-width:78%;white-space:pre-wrap;word-break:break-word}
+.chat-row.tiger .bub{background:rgba(255,255,255,.055);border:1px solid var(--border);
+  border-bottom-left-radius:4px;color:var(--text)}
+.chat-row.me .bub{background:rgba(59,130,246,.16);border:1px solid rgba(59,130,246,.32);
+  border-bottom-right-radius:4px;color:var(--text)}
+.bub b{color:var(--gold);font-weight:700}
+.bub .up{color:var(--green)}.bub .down{color:var(--red)}
+.bub .hint{color:var(--dim);font-size:11px}
+/* The chips are the whole input now, so they wrap into a tray rather than scrolling
+   sideways — a horizontal rail hides most of the range behind a swipe, which is the one
+   thing a tap-only bot cannot afford. Capped so the transcript keeps the larger share. */
+.chat-chips{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 12px;
+  border-top:1px solid var(--border);max-height:190px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.chat-chips::-webkit-scrollbar{width:5px}
+.chat-chips::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* controls aren't selectable; bubble text is, so a figure can still be copied out */
+.ask-chip{flex:none;font-family:inherit;font-size:11px;padding:5px 11px;border-radius:14px;
+  border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--dim);
+  cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none}
+/* hover:hover, or a touch device leaves the highlight stuck on the last chip tapped —
+   which reads as one option being special when they are all the same */
+@media(hover:hover){
+  .ask-chip:hover{color:var(--accent);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.10)}
+}
+.ask-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* the tiger's own face toggles its mood, so tapping the header mark can open the chat
+   without the mood toggle losing its home */
+#chatMood{border:0;background:none;padding:0;cursor:pointer;line-height:0;
+  -webkit-tap-highlight-color:transparent}
+#chatMood svg{display:block;pointer-events:none}
+@media(max-width:480px){
+  .chat-modal{height:88vh;max-width:none}
+  .bub{max-width:84%}
+  /* the chips wrap into far more rows in a narrow card, so the tray scrolls here rather
+     than eating the transcript */
+  .chat-chips{max-height:146px}
+}
 .pg{min-width:26px;height:26px;padding:0 7px;border-radius:6px;border:1px solid var(--border);
   background:rgba(255,255,255,.05);color:var(--dim);font-family:inherit;font-size:12px;cursor:pointer}
 .pg:hover:not(:disabled){color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
@@ -369,7 +424,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 <div class="hdr">
   <div class="hdr-inner">
     <div class="hdr-brand">
-      <button class="brand-mark" id="brandMark" type="button" aria-label="Tap the tiger to change its mood" title="Tap the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
+      <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
       <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
     <div class="ts" id="lastUpdated">Loading...</div>
@@ -498,6 +553,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 </div>
 
 <!-- KAT claim record -->
+<div class="modal-back" id="chatModal" role="dialog" aria-modal="true" aria-label="Ask the tiger">
+  <div class="modal chat-modal">
+    <div class="modal-head">
+      <span class="modal-title" style="display:flex;align-items:center;gap:9px">
+        <button id="chatMood" type="button" aria-label="Change the tiger's mood" title="Tap the tiger"></button>
+        Ask the Tiger
+      </span>
+      <button class="modal-x" id="chatClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body chat-log" id="chatLog"></div>
+    <div class="chat-chips" id="chatChips" aria-label="Things you can ask"></div>
+  </div>
+</div>
+
 <div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="KAT claim record">
   <div class="modal">
     <div class="modal-head">
@@ -2170,6 +2239,318 @@ function render(d,isLive){
   if(isLive)liveRendered=true;
 }
 
+/* ============ Ask the Tiger ============ */
+/* Scripted, not a language model. Every answer is composed from the same globals the cards
+   are drawn from and passed through the same formatters, so the chat can never contradict
+   the page and it follows the currency toggle for free. No key, no cost, works offline.
+   The cost is that it only knows what it was taught — so it says so plainly when it doesn't
+   understand, and the chips advertise its range instead of making you guess at it. */
+
+/* One snapshot of everything answerable, derived once per question. Nothing here recomputes
+   a figure the page already knows — it reads the same source and reuses the same helpers. */
+function askFacts(){
+  var f={},d=LAST_DATA,s=(d&&d.summary)||{};
+  f.have=LAST_TOTAL!==null;
+  f.portfolio=LAST_TOTAL||0;
+  f.vault=CFG.coldVault;
+  f.total=f.portfolio+f.vault;
+  f.target=CFG.target;
+  f.pct=f.target?Math.min(100,f.total/f.target*100):0;
+  f.left=Math.max(0,f.target-f.total);
+  f.onchain=(LAST_BREAKDOWN&&LAST_BREAKDOWN.onchain_usd)||0;
+  f.katana=s.katana_usd||0; f.solana=s.solana_usd||0;
+  f.defi=f.portfolio-f.onchain-((d&&d.merkl_rewards&&d.merkl_rewards.total_usd)||0);
+  f.pending=(d&&d.merkl_rewards&&d.merkl_rewards.total_usd)||0;
+  f.roi=(d&&d.tracking&&d.tracking.monthly_roi_pct)||0;
+  f.startDate=CFG.startDate; f.startValue=CFG.startValue;
+  f.days=HIST_START?Math.floor((Date.now()-HIST_START.time)/86400000):0;
+  f.gain=f.total-f.startValue;
+
+  /* peak: same series and the same vault adjustment the card uses */
+  f.peak=0;f.peakDate='—';
+  (HIST||[]).forEach(function(e){var v=e.total_usd||0;if(v>f.peak){f.peak=v;f.peakDate=e.date;}});
+  f.peak+=CFG.coldVault;
+
+  /* change over a lookback, read off the history series exactly as the chip does */
+  f.since=function(days){
+    if(!HIST||!HIST.length||LAST_TOTAL===null)return null;
+    var cut=new Date(Date.now()-days*86400000).toISOString().slice(0,10),b=null;
+    for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cut)b=HIST[i];}
+    if(!b)b=HIST[0];
+    if(!b||!b.total_usd)return null;
+    return {from:b.date,base:b.total_usd,delta:LAST_TOTAL-b.total_usd,
+            pct:(LAST_TOTAL-b.total_usd)/b.total_usd*100};
+  };
+  f.avgDaily=(HIST_START&&f.days>0)?(LAST_TOTAL-HIST_START.total)/((Date.now()-HIST_START.time)/86400000):0;
+
+  /* claims */
+  var days=claimDays(),keys=Object.keys(days).sort();
+  f.claimDays=keys.length; f.claimKat=0; f.claimVal=0; f.claimBest=null;
+  keys.forEach(function(k){
+    var v=days[k];f.claimKat+=v.kat||0;f.claimVal+=v.value_usd||0;
+    if(!f.claimBest||(v.value_usd||0)>f.claimBest.value_usd)f.claimBest={date:k,value_usd:v.value_usd||0,kat:v.kat||0};
+  });
+  f.claimToday=days[utc8Date(Date.now())]||null;
+  f.claimFrom=(CLAIMS&&CLAIMS.start_date)||(keys[0]||'—');
+  f.claimWeek=0;
+  keys.forEach(function(k){if(utc8DayStartSec(k)>=Date.now()/1000-7*86400)f.claimWeek+=days[k].value_usd||0;});
+
+  /* positions */
+  var closed=closedPositions(),open=currentPositions();
+  f.closedCount=closed.length; f.openCount=open.length;
+  f.realised=0; f.best=null; f.worst=null;
+  closed.forEach(function(c){
+    var p=c.pnl_usd||0;f.realised+=p;
+    if(!f.best||p>f.best.pnl_usd)f.best=c;
+    if(!f.worst||p<f.worst.pnl_usd)f.worst=c;
+  });
+  f.unrealised=0; f.openValue=0; f.oor=[]; f.ranged=0;
+  open.forEach(function(o){
+    var now=LP_VALUE[String(o.id)];
+    if(now!==undefined){
+      f.openValue+=now;
+      if(o.open_value_usd!==null&&o.open_value_usd!==undefined)f.unrealised+=now-o.open_value_usd;
+    }
+    /* count the ones we have a reading for, not just the bad ones — "0 out of range" and
+       "no data yet" are different answers and must not collapse into each other */
+    var r=LP_RANGE[String(o.id)];
+    if(r){f.ranged++;if(r!=='IN')f.oor.push(o);}
+  });
+  f.combined=f.claimVal+f.realised;
+  return f;
+}
+
+/* Signed amount with a colour class, so gains and losses read at a glance in the bubble.
+   money(), not fmt(): a P&L figure under a dollar comes back as $0.9535 from the
+   abbreviating formatter. */
+function askSigned(v){
+  return '<span class="'+(v>=0?'up':'down')+'">'+(v>=0?'+':'-')+money(Math.abs(v))+'</span>';
+}
+function askPct(v){
+  return '<span class="'+(v>=0?'up':'down')+'">'+(v>=0?'+':'')+v.toFixed(1)+'%</span>';
+}
+/* same, but abbreviated — a raw "+$4451.04" beside "$4.95K" reads as two different units */
+function askSignedBig(v){
+  return '<span class="'+(v>=0?'up':'down')+'">'+(v>=0?'+':'-')+fmt(Math.abs(v))+'</span>';
+}
+
+/* Cold jokes, kept short. Random rather than sequential, but never the same one twice in a
+   row — a repeat straight after the last is the one outcome that reads as broken. */
+var JOKES=[
+  "Why did the investor bring a ladder?\nHe heard stocks were going up.",
+  "What do you call a tiger that invests?\nA bull in stripes.",
+  "Why are liquidity pools never lonely?\nThey come in pairs.",
+  "My LP went out of range.\nNow it's just a P.",
+  "I told my portfolio a joke.\nNo returns.",
+  "Why was the token so calm?\nStrong support.",
+  "I asked the blockchain for a loan.\nIt gave me a block.",
+  "What's a bear market in Antarctica?\nTuesday.",
+  "I bought the dip.\nThe dip bought a dip.",
+  "Why did the candle see a therapist?\nToo many red flags.",
+  "My coins are in cold storage.\nSo are my jokes.",
+  "Why did the trader sit on the floor?\nWaiting for support.",
+  "What music do whales like?\nAnything with volume.",
+  "Gas fees walked into a bar.\nThe bar cost forty dollars.",
+  "I told my pool a secret.\nIt leaked. Impermanently.",
+  "Why don't validators tell jokes?\nToo much slashing.",
+  "What did the flat chart say?\nNothing.",
+  "How does a tiger check its portfolio?\nOne paw at a time.",
+  "My stop loss triggered.\nOn this joke.",
+  "Why is compound interest a good storyteller?\nIt builds on itself.",
+  "Why did the stablecoin stay home?\nIt didn't want to move.",
+  "What's an auditor's favourite drink?\nSomething with proof.",
+  "I diversified.\nNow I lose money in four places.",
+  "Why was the wallet cold?\nIt left itself offline."
+];
+var JOKE_LAST=-1;
+function pickJoke(){
+  var i=JOKE_LAST;
+  while(i===JOKE_LAST&&JOKES.length>1)i=(Math.random()*JOKES.length)|0;
+  JOKE_LAST=i;
+  return JOKES[i];
+}
+
+/* Answers, keyed by id. There is no free-text box any more, so every one of these is
+   reached by a chip and nothing has to be guessed from a phrasing. */
+var ASK={
+  total:function(f){
+    var c=f.since(1);
+    return "<b>"+fmt(f.total)+"</b> all in.\n\n"
+      +"Portfolio "+fmt(f.portfolio)+" + vault "+fmt(f.vault)+"\n"
+      +(c?"Last 24h "+askSigned(c.delta)+" ("+askPct(c.pct)+")\n":"")
+      +f.pct.toFixed(1)+"% of the "+fmt(f.target)+" target.";},
+
+  pnl:function(f){
+    return "Total P&L: "+askSigned(f.combined)+"\n\n"
+      +"· KAT claimed: "+askSigned(f.claimVal)+"\n"
+      +"· Realised on "+f.closedCount+" closed: "+askSigned(f.realised)+"\n"
+      +"· Unrealised on "+f.openCount+" open: "+askSigned(f.unrealised)+"\n"
+      +"<span class=\"hint\">Closed positions are priced at the block they opened and closed, not today.</span>";},
+
+  claims:function(f){
+    if(!f.claimDays)return "No claims recorded yet.";
+    var t=f.claimToday;
+    return "Claimed since "+f.claimFrom+": <b>"+fmtN(f.claimKat)+" KAT</b> = <b>"+money(f.claimVal)+"</b>\n\n"
+      +"Today: "+(t?"<b>"+fmtN(t.kat)+" KAT</b> ("+money(t.value_usd)+")":"nothing yet")
+      +"\nLast 7 days: <b>"+money(f.claimWeek)+"</b>"
+      +"\n<span class=\"hint\">Each day is valued at the KAT price it was booked at.</span>";},
+
+  bestclaim:function(f){
+    if(!f.claimBest)return "No claims recorded yet.";
+    var avg=f.claimDays?f.claimVal/f.claimDays:0;
+    return "Best day: <b>"+f.claimBest.date+"</b> — "+money(f.claimBest.value_usd)
+      +" ("+fmtN(f.claimBest.kat)+" KAT)\n\n"
+      +"Average across "+f.claimDays+" days: "+money(avg)+"/day.";},
+
+  position:function(f){
+    var s="<b>"+f.openCount+" open</b>, worth "+fmt(f.openValue)+" — unrealised "+askSigned(f.unrealised)+"\n"
+         +"<b>"+f.closedCount+" closed</b> — realised "+askSigned(f.realised);
+    if(f.best&&f.closedCount)s+="\n\nBest close: #"+f.best.id+" "+askSigned(f.best.pnl_usd)
+      +"\nWorst close: #"+f.worst.id+" "+askSigned(f.worst.pnl_usd);
+    return s;},
+
+  range:function(f){
+    if(!f.ranged)return "No range data for the open positions yet.";
+    if(!f.oor.length)return "<span class=\"up\">All "+f.ranged+" open position"+(f.ranged===1?'':'s')+" in range</span> — all of it earning fees.";
+    return "<span class=\"down\">"+f.oor.length+" of "+f.ranged+" out of range</span> — earning nothing until price comes back.\n\n"
+      +f.oor.map(function(o){return "· #"+o.id+" "+(o.pair||'');}).join('\n')
+      +"\n<span class=\"hint\">Out of range means the pool price has moved past the band you set.</span>";},
+
+  progress:function(f){
+    return "<b>"+f.pct.toFixed(1)+"%</b> of the way there.\n\n"
+      +"Now: "+fmt(f.total)+"\nTarget: "+fmt(f.target)+"\nStill to find: <b>"+fmt(f.left)+"</b>";},
+
+  eta:function(f){
+    if(f.avgDaily<=0)return "Can't project — the average daily change isn't positive right now.";
+    var d=Math.ceil(f.left/f.avgDaily);
+    return "About <b>"+d+" days</b> at "+money(f.avgDaily)+"/day, so roughly "
+      +new Date(Date.now()+d*86400000).toISOString().slice(0,10)+".\n"
+      +"<span class=\"hint\">Straight line from the average since "+f.startDate+". It assumes nothing changes, which it will.</span>";},
+
+  daily:function(f){
+    return "Average "+askSigned(f.avgDaily)+" a day since "+f.startDate+" ("+f.days+" days).\n\n"
+      +"Started at "+money(f.startValue)+", now "+fmt(f.total)+"\n"
+      +askSignedBig(f.gain)+" overall, "+askPct(f.startValue?f.gain/f.startValue*100:0)+".";},
+
+  /* one implementation, three chips — the lookback is the only thing that differs */
+  change:function(f,n){
+    var c=f.since(n);
+    if(!c)return "Not enough history for that yet.";
+    return (n===1?'Last 24h':'Last '+n+' days')+": "+askSigned(c.delta)+" ("+askPct(c.pct)+")\n\n"
+      +"From "+money(c.base)+" on "+c.from+" to "+money(LAST_TOTAL)+" now.\n"
+      +"<span class=\"hint\">Portfolio only — the vault doesn't move.</span>";},
+
+  peak:function(f){
+    if(!f.peak)return "No history recorded yet.";
+    var off=f.peak-f.total;
+    return "All-time peak: <b>"+fmt(f.peak)+"</b> on "+f.peakDate+".\n\n"
+      +(off>0.5?"That's "+money(off)+" above where we are now."
+              :"<span class=\"up\">That's today — we're at the peak.</span>");},
+
+  chains:function(f){
+    var tot=f.total||1;
+    return "Katana: <b>"+fmt(f.katana)+"</b> ("+(f.katana/tot*100).toFixed(0)+"%)\n"
+      +"Solana: <b>"+fmt(f.solana)+"</b> ("+(f.solana/tot*100).toFixed(1)+"%)\n"
+      +"Vault: <b>"+fmt(f.vault)+"</b> ("+(f.vault/tot*100).toFixed(0)+"%, cold)";},
+
+  split:function(f){
+    return "Liquid on-chain: <b>"+fmt(f.onchain)+"</b>\n"
+      +"Working in DeFi: <b>"+fmt(f.defi)+"</b>\n"
+      +"Claimable rewards: <b>"+fmt(f.pending)+"</b>\n"
+      +"Cold vault: <b>"+fmt(f.vault)+"</b>\n"
+      +"<span class=\"hint\">Only the DeFi share is earning. The vault is deliberately idle.</span>";},
+
+  vault:function(f){
+    return "The vault holds <b>"+fmt(f.vault)+"</b>, cold.\n\n"
+      +"It counts toward the overview total and the peak, and it never moves — so it never shows up in the daily change.";},
+
+  days:function(f){
+    return "Running <b>"+f.days+" days</b>, since "+f.startDate+".\n\n"
+      +"Started at "+money(f.startValue)+", now "+fmt(f.total)+" — "+askSignedBig(f.gain)+".";},
+
+  who:function(){
+    return "I'm the tiger on your header.\n\nScripted, not a language model — every number I give you is read straight off this dashboard, so I can't be confidently wrong about one. Tap a chip and I'll answer it.";},
+
+  joke:function(){return pickJoke();}
+};
+
+/* The chips are the interface. Ordered money → pace → movement → holdings → fun, which is
+   roughly the order you'd want them in. */
+var ASK_CHIPS=[
+  {t:'Total',           f:function(x){return ASK.total(x);}},
+  {t:'P&L',             f:function(x){return ASK.pnl(x);}},
+  {t:'KAT claimed',     f:function(x){return ASK.claims(x);}},
+  {t:'Best claim day',  f:function(x){return ASK.bestclaim(x);}},
+  {t:'Progress',        f:function(x){return ASK.progress(x);}},
+  {t:'Days to target',  f:function(x){return ASK.eta(x);}},
+  {t:'Daily earning',   f:function(x){return ASK.daily(x);}},
+  {t:'Today',           f:function(x){return ASK.change(x,1);}},
+  {t:'This week',       f:function(x){return ASK.change(x,7);}},
+  {t:'This month',      f:function(x){return ASK.change(x,30);}},
+  {t:'All-time peak',   f:function(x){return ASK.peak(x);}},
+  {t:'Positions',       f:function(x){return ASK.position(x);}},
+  {t:'In range?',       f:function(x){return ASK.range(x);}},
+  {t:'Chains',          f:function(x){return ASK.chains(x);}},
+  {t:'Where it sits',   f:function(x){return ASK.split(x);}},
+  {t:'Vault',           f:function(x){return ASK.vault(x);}},
+  {t:'Days running',    f:function(x){return ASK.days(x);}},
+  {t:'Who are you?',    f:function(x){return ASK.who(x);}},
+  {t:'Cold joke',       f:function(x){return ASK.joke(x);}}
+];
+
+var CHAT_READY=false;
+function chatSay(who,html){
+  var log=document.getElementById('chatLog');
+  var row=document.createElement('div');
+  row.className='chat-row '+who;
+  var face=document.createElement('div');
+  face.className='chat-face';
+  face.innerHTML=who==='tiger'?tigerFaceSvg():'YOU';
+  var bub=document.createElement('div');
+  bub.className='bub';
+  bub.innerHTML=html;
+  row.appendChild(face);row.appendChild(bub);
+  log.appendChild(row);
+  log.scrollTop=log.scrollHeight;
+}
+/* the face in the bubble follows the header's mood, so an angry tiger stays angry */
+function tigerFaceSvg(){
+  var mark=document.getElementById('brandMark');
+  var src=mark&&mark.classList.contains('angry')?mark.querySelector('.tiger-angry'):mark&&mark.querySelector('.tiger-calm');
+  return src?src.outerHTML.replace(/width="46" height="46"/,'width="24" height="24"'):'';
+}
+function chatAsk(chip){
+  chatSay('me',String(chip.t).replace(/[<>&]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}));
+  var f=askFacts();
+  var ans=f.have?chip.f(f):"Still reading the chain — give me a second and tap again.";
+  /* a beat before replying: an instant answer reads as a lookup, not a reply */
+  setTimeout(function(){chatSay('tiger',ans);},260);
+}
+function openChat(){
+  var m=document.getElementById('chatModal');
+  m.classList.add('open');
+  if(!CHAT_READY){
+    CHAT_READY=true;
+    var f=askFacts();
+    chatSay('tiger',f.have
+      ? "We're at <b>"+fmt(f.total)+"</b>, "+f.pct.toFixed(1)+"% of the way to "+fmt(f.target)+".\n\nTap anything below — I read the same numbers you're looking at."
+      : "Still reading the chain. Tap something in a moment.");
+    var chips=document.getElementById('chatChips');
+    ASK_CHIPS.forEach(function(c){
+      var b=document.createElement('button');
+      b.type='button';
+      b.className='ask-chip';
+      b.textContent=c.t;
+      b.onclick=function(){chatAsk(c);};
+      chips.appendChild(b);
+    });
+  }
+  /* the tray keeps its scroll between opens, and reopening below the first row hides the
+     chips most people want */
+  document.getElementById('chatChips').scrollTop=0;
+}
+function closeChat(){document.getElementById('chatModal').classList.remove('open');}
+
 /* ============ live refresh ============ */
 /* Re-reads the chain on a timer so the figures move without a page reload.
    15s, not the "few seconds" it feels like it should be: one pass costs a CoinGecko price
@@ -2274,13 +2655,27 @@ function load(){
     .then(function(c){CLAIMS=c;})
     .catch(function(){/* not generated yet — table falls back to today only */})
     .then(buildClaims);
-  /* the tiger's mood — remembered, like the other toggles on the page */
+  /* The header mark opens the chat — talking to the character is the bigger action, so it
+     gets the obvious tap. The mood toggle keeps its home one level in, on the tiger's face
+     in the chat's own header, and is still remembered like the other toggles. */
+  /* Always opens calm. The angry face is a thing you go and get, not the one the dashboard
+     greets you with — and it no longer persists, so a stray tap can't leave the tiger
+     scowling on every visit after. */
   var mark=document.getElementById('brandMark');
-  try{if(localStorage.getItem('tf_mood')==='angry')mark.classList.add('angry');}catch(e){}
-  mark.addEventListener('click',function(){
-    var angry=mark.classList.toggle('angry');
-    try{localStorage.setItem('tf_mood',angry?'angry':'calm');}catch(e){}
+  try{localStorage.removeItem('tf_mood');}catch(e){}
+  mark.classList.remove('angry');
+  mark.addEventListener('click',openChat);
+
+  var mood=document.getElementById('chatMood');
+  var paintMood=function(){mood.innerHTML=tigerFaceSvg().replace(/width="24" height="24"/,'width="22" height="22"');};
+  paintMood();
+  mood.addEventListener('click',function(){
+    mark.classList.toggle('angry');
+    paintMood();
   });
+
+  document.getElementById('chatClose').onclick=closeChat;
+  document.getElementById('chatModal').onclick=function(ev){if(ev.target===this)closeChat();};
 
   /* both are static in the DOM, so a direct listener is safe here */
   var rkEl=document.getElementById('rocket'),mnEl=document.querySelector('.moon');
@@ -2302,7 +2697,7 @@ function load(){
   });
   document.getElementById('posClose').onclick=closePositions;
   document.getElementById('posModal').onclick=function(ev){if(ev.target===this)closePositions();};
-  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){closeClaims();closePositions();}});
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){closeClaims();closePositions();closeChat();}});
 
   /* 3. history chart + peak */
   fetch('/history.json?t='+Date.now()).then(function(r){return r.json();}).then(function(h){
