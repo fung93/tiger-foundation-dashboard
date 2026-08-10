@@ -1,17 +1,56 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 39580770,
+  "last_block": 39603052,
   "open": {
-    "425245": {
+    "425270": {
       "pair": "vbUSDC / KAT",
       "pool_fee": "0.05%",
-      "opened_block": 39579815,
+      "opened_block": 39589628,
       "opened": "2026-08-10",
-      "opened_ts": 1786322626,
-      "open_value_usd": 1243.76
+      "opened_ts": 1786332439,
+      "open_value_usd": 1217.99
     }
   },
   "closed": [
+    {
+      "id": "425257",
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "opened": "2026-08-10",
+      "opened_ts": 1786329889,
+      "closed": "2026-08-10",
+      "closed_ts": 1786330741,
+      "open_value_usd": 806.63,
+      "close_value_usd": 807,
+      "pnl_usd": 0.37,
+      "pnl_pct": 0.05
+    },
+    {
+      "id": "425252",
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "opened": "2026-08-10",
+      "opened_ts": 1786325586,
+      "closed": "2026-08-10",
+      "closed_ts": 1786330706,
+      "open_value_usd": 1206.86,
+      "close_value_usd": 1207.87,
+      "pnl_usd": 1.01,
+      "pnl_pct": 0.08
+    },
+    {
+      "id": "425245",
+      "pair": "vbUSDC / KAT",
+      "pool_fee": "0.05%",
+      "opened": "2026-08-10",
+      "opened_ts": 1786322626,
+      "closed": "2026-08-10",
+      "closed_ts": 1786324720,
+      "open_value_usd": 1243.76,
+      "close_value_usd": 1245.3,
+      "pnl_usd": 1.54,
+      "pnl_pct": 0.12
+    },
     {
       "id": "425076",
       "pair": "vbUSDC / KAT",
