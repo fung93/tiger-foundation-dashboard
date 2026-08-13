@@ -605,12 +605,12 @@
     },
     {
       "date": "2026-08-13",
-      "timestamp": "2026-08-13T12:46:00.216Z",
-      "onchain_usd": 43.43,
-      "pending_usd": 0,
-      "lp_usd": 1963.12,
+      "timestamp": "2026-08-13T18:48:41.091Z",
+      "onchain_usd": 42.93,
+      "pending_usd": 0.9,
+      "lp_usd": 1936.6,
       "solana_usd": 2.58,
-      "total_usd": 2802.63
+      "total_usd": 2765.75
     }
   ]
 }
