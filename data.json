@@ -1,15 +1,15 @@
 {
-  "last_updated": "2026-08-22T18:15:21.059Z",
+  "last_updated": "2026-08-23T00:43:48.302Z",
   "wealth_target_usdc": 10000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 2951.53,
-    "value_gain_usd": 2449.24,
-    "kat_price": 0.004854581041440796,
+    "current_value_usd": 2914.52,
+    "value_gain_usd": 2412.23,
+    "kat_price": 0.004724890375973744,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 487.61,
-    "days_elapsed": 112
+    "monthly_roi_pct": 480.25,
+    "days_elapsed": 113
   },
   "chains": {
     "katana": {
@@ -21,17 +21,17 @@
           "tokens": {
             "ETH": {
               "balance": 0.003138059179601119,
-              "priceUSD": 2426.353719583173,
-              "valueUSD": 7.61
+              "priceUSD": 2427.380522824734,
+              "valueUSD": 7.62
             },
             "KAT": {
               "balance": 98934.82783314347,
-              "priceUSD": 0.004854581041440796,
-              "valueUSD": 480.29
+              "priceUSD": 0.004724890375973744,
+              "valueUSD": 467.46
             },
             "WETH": {
               "balance": 0,
-              "priceUSD": 2426.353719583173,
+              "priceUSD": 2427.380522824734,
               "valueUSD": 0
             },
             "USDC": {
@@ -46,14 +46,14 @@
             },
             "avKAT": {
               "balance": 114433.04515102302,
-              "priceUSD": 0.006358933536330113,
-              "valueUSD": 727.67
+              "priceUSD": 0.00618905392881147,
+              "valueUSD": 708.23
             }
           },
-          "total_usd": 2769.63
+          "total_usd": 2737.36
         }
       },
-      "onchain_usd": 2769.63,
+      "onchain_usd": 2737.36,
       "merkl_rewards": {
         "total_usd": 0,
         "rewards": []
@@ -69,17 +69,17 @@
             "token": "avKAT"
           },
           "debt": {
-            "amount": 89701.07606037325,
+            "amount": 89703.77007069338,
             "token": "KAT"
           },
           "lltv": "77%",
           "avkat_rate": 1.3098830737498284,
-          "value_usd": 178.85,
-          "note": "Net 36,842 KAT = $178.85 · avKAT rate 1.3099"
+          "value_usd": 174.06,
+          "note": "Net 36,840 KAT = $174.06 · avKAT rate 1.3099"
         }
       ],
       "lp_total_usd": 0,
-      "total_usd": 2948.48,
+      "total_usd": 2911.42,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -91,8 +91,8 @@
       "balances": {
         "SOL": {
           "balance": 0.025883482,
-          "priceUSD": 94.09,
-          "valueUSD": 2.44
+          "priceUSD": 95.9,
+          "valueUSD": 2.48
         },
         "USDC": {
           "balance": 0.614345,
@@ -100,21 +100,21 @@
           "valueUSD": 0.61
         }
       },
-      "wallet_total_usd": 3.05,
-      "onchain_usd": 3.05,
+      "wallet_total_usd": 3.1,
+      "onchain_usd": 3.1,
       "lp_positions": [],
       "defi_positions": [],
       "lp_total_usd": 0,
-      "total_usd": 3.05,
+      "total_usd": 3.1,
       "native_token": "SOL",
       "color": "#9945ff"
     }
   },
   "summary": {
-    "grand_total_usd": 2951.53,
-    "katana_usd": 2948.48,
-    "solana_usd": 3.05,
-    "onchain_usd": 2772.68,
+    "grand_total_usd": 2914.52,
+    "katana_usd": 2911.42,
+    "solana_usd": 3.1,
+    "onchain_usd": 2740.46,
     "lp_usd": 0,
     "merkl_usd": 0,
     "total_defi_positions": 1,
@@ -135,18 +135,18 @@
         "token": "avKAT"
       },
       "debt": {
-        "amount": 89701.07606037325,
+        "amount": 89703.77007069338,
         "token": "KAT"
       },
       "lltv": "77%",
       "avkat_rate": 1.3098830737498284,
-      "value_usd": 178.85,
-      "note": "Net 36,842 KAT = $178.85 · avKAT rate 1.3099"
+      "value_usd": 174.06,
+      "note": "Net 36,840 KAT = $174.06 · avKAT rate 1.3099"
     }
   ],
   "meteora_refs": [],
   "usdc_ata": "ED4qHSWBm2qUauEez1DejEzShkwEKA8a66aZdtFPjMpS",
   "staked_lp_ids": [],
-  "onchain_usd": 2772.68,
-  "total_usd": 2951.53
+  "onchain_usd": 2740.46,
+  "total_usd": 2914.52
 }
