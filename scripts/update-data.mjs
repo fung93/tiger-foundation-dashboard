@@ -16,6 +16,7 @@ const CFG = {
      Action reads it in a single multicall exactly as the browser does. */
   rhRpc: 'https://rpc.mainnet.chain.robinhood.com',
   rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
+  rhFactory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
   rhTokens: { USDG: { a: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', d: 6, stable: true } },
   rpcs: ['https://rpc.katanarpc.com', 'https://katana.drpc.org', 'https://747474.rpc.thirdweb.com'],
   wallet: '0xb378207ab46aa2105eb1cb94ae8a5bab57316de1',
@@ -515,10 +516,100 @@ async function getRobinhood(ethPrice) {
       tokens[k] = { balance: amt, priceUSD: t.stable ? 1 : null, valueUSD: round2(usd) };
     });
     const lpCount = out[syms.length + 1].ok ? Number(toBig(w(out[syms.length + 1].data, 0))) : 0;
-    return { eth, tokens, walletUsd, lpCount, lps: [], ok: true };
+    const lps = lpCount ? await rhPositions(lpCount) : [];
+    return { eth, tokens, walletUsd, lpCount, lps, ok: true };
   } catch (e) {
     console.warn('robinhood read failed:', e.message);
     return { eth: 0, tokens: {}, walletUsd: 0, lpCount: 0, lps: [], ok: false };
+  }
+}
+
+/* Values the Uniswap V3 positions held on Robinhood Chain. Same tick maths as Katana's —
+   both are V3 forks — and the same self-contained pricing: one leg of each pool is an
+   allowlisted stable, so the pool's own ratio prices the other. A pool with no stable leg
+   is reported unpriced rather than guessed at, because a tokenised equity is not on any
+   free price feed and a made-up number is worse than an absent one. */
+async function rhPositions(count) {
+  const W = CFG.wallet.replace(/^0x/, '');
+  const stable = {};
+  for (const k of Object.keys(CFG.rhTokens))
+    if (CFG.rhTokens[k].stable) stable[CFG.rhTokens[k].a.toLowerCase()] = 1;
+
+  const rhCall = async (calls) => {
+    const r = await fetch(CFG.rhRpc, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: CFG.multicall, data: encodeAgg3(calls) }, 'latest'] }),
+    }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); });
+    if (r.error) throw new Error(r.error.message);
+    return decodeAgg3(r.result);
+  };
+  const str = (h) => { try {
+    const d = h.replace(/^0x/, ''), l = parseInt(d.slice(64, 128), 16);
+    return Buffer.from(d.slice(128, 128 + l * 2), 'hex').toString('utf8');
+  } catch { return '?'; } };
+
+  try {
+    const n = Math.min(count, 20);
+    const idCalls = [];
+    for (let i = 0; i < n; i++)
+      idCalls.push({ to: CFG.rhNpm, data: '0x2f745c59' + pad(W) + pad(i.toString(16)) });
+    const ids = (await rhCall(idCalls)).filter(r => r.ok).map(r => toBig(w(r.data, 0)));
+    if (!ids.length) return [];
+
+    const posRes = await rhCall(ids.map(id => ({ to: CFG.rhNpm, data: '0x99fbab88' + pad(id.toString(16)) })));
+    const pos = [];
+    posRes.forEach((r, i) => {
+      if (!r.ok) return;
+      const liq = toBig(w(r.data, 7));
+      if (liq <= 0n) return;
+      pos.push({ id: ids[i].toString(), token0: toAddr(w(r.data, 2)), token1: toAddr(w(r.data, 3)),
+        fee: Number(toBig(w(r.data, 4))),
+        tickLo: Number(toSigned(w(r.data, 5))), tickHi: Number(toSigned(w(r.data, 6))),
+        liq, owed0: toBig(w(r.data, 10)), owed1: toBig(w(r.data, 11)) });
+    });
+    if (!pos.length) return [];
+
+    const meta = await rhCall(pos.flatMap(p => [
+      { to: p.token0, data: '0x313ce567' }, { to: p.token0, data: '0x95d89b41' },
+      { to: p.token1, data: '0x313ce567' }, { to: p.token1, data: '0x95d89b41' },
+      { to: CFG.rhFactory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)) },
+    ]));
+    pos.forEach((p, i) => {
+      const b = i * 5;
+      p.d0 = meta[b].ok ? parseInt(meta[b].data, 16) : 18;
+      p.s0 = meta[b + 1].ok ? str(meta[b + 1].data) : '?';
+      p.d1 = meta[b + 2].ok ? parseInt(meta[b + 2].data, 16) : 18;
+      p.s1 = meta[b + 3].ok ? str(meta[b + 3].data) : '?';
+      p.pool = meta[b + 4].ok ? toAddr(w(meta[b + 4].data, 0)) : null;
+    });
+
+    const pools = pos.filter(p => p.pool);
+    if (!pools.length) return [];
+    const slots = await rhCall(pools.map(p => ({ to: p.pool, data: '0x3850c7bd' })));
+    const out = [];
+    pools.forEach((p, i) => {
+      if (!slots[i].ok) return;
+      const sqrtP = toBig(w(slots[i].data, 0));
+      const tick = Number(toSigned(w(slots[i].data, 1)));
+      const [r0, r1] = v3Amounts(p.liq, p.tickLo, p.tickHi, sqrtP);
+      const a0 = r0 / 10 ** p.d0 + Number(p.owed0) / 10 ** p.d0;
+      const a1 = r1 / 10 ** p.d1 + Number(p.owed1) / 10 ** p.d1;
+      const p1per0 = poolPrice(sqrtP, p.d0, p.d1);
+      let usd = null;
+      if (stable[p.token0]) usd = a0 + a1 * (p1per0 ? 1 / p1per0 : 0);
+      else if (stable[p.token1]) usd = a1 + a0 * p1per0;
+      out.push({ type: 'LP', protocol: 'Uniswap V3', chain: 'robinhood',
+        pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`, token_id: p.id,
+        range_status: tick < p.tickLo ? 'below' : tick >= p.tickHi ? 'above' : 'in',
+        staked: false, apr: null, value_usd: usd === null ? null : round2(usd),
+        note: `NFT #${p.id} — ${a0.toFixed(2)} ${p.s0} + ${a1.toFixed(4)} ${p.s1}` +
+              (usd === null ? ' (no stable leg — unpriced)' : '') });
+    });
+    return out;
+  } catch (e) {
+    console.warn('robinhood LP scan failed:', e.message);
+    return [];
   }
 }
 
@@ -662,6 +753,8 @@ const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
 /* after Katana, because it needs the ETH price that read already fetched */
 const rh = await getRobinhood(kat.ethPrice);
+const rhLpUsd = rh.lps.reduce((a, l) => a + (l.value_usd || 0), 0);
+const rhTotal = rh.walletUsd + rhLpUsd;
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
 const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
 
@@ -747,8 +840,8 @@ const data = {
       onchain_usd: rh.walletUsd,
       lp_positions: rh.lps,
       defi_positions: [],
-      lp_total_usd: 0,
-      total_usd: rh.walletUsd,
+      lp_total_usd: rhLpUsd,
+      total_usd: rh.walletUsd + rhLpUsd,
       /* false when the read failed — the browser uses this to tell "no holdings" from
          "could not reach the chain", which look identical in the numbers alone */
       live: rh.ok,
@@ -771,13 +864,13 @@ const data = {
     },
   },
   summary: {
-    grand_total_usd: grand + rh.walletUsd,
-    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: rh.walletUsd,
-    onchain_usd: onchainUsd + rh.walletUsd, lp_usd: lpUsd, merkl_usd: merkl.total_usd,
+    grand_total_usd: grand + rhTotal,
+    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: rhTotal,
+    onchain_usd: onchainUsd + rh.walletUsd, lp_usd: lpUsd + rhLpUsd, merkl_usd: merkl.total_usd,
     total_defi_positions: defiPositions.length, chains_count: 3,
   },
   merkl_rewards: merkl,
-  lp_positions: [...kat.lps, ...sol.lps],
+  lp_positions: [...kat.lps, ...sol.lps, ...rh.lps],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
   usdc_ata: sol.usdcAta,

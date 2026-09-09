@@ -787,8 +787,9 @@ var CFG={
          historical event here cannot be priced at its own block. Realised P&L is therefore
          not derivable the way it is on Katana; see the note in scanRhPositions.
        - The public RPC is tightly rate limited — a full-range eth_getLogs returns 429. So
-         this chain gets exactly ONE multicall per refresh and no log scanning in the
-         browser. */
+         there is no log scanning here at all, and the reads are kept to one multicall when
+         there is no LP, rising to three when there is (ids, positions, pool price). The
+         per-position metadata is fetched once and cached in RH_META rather than re-read. */
   rhRpcs:['https://rpc.mainnet.chain.robinhood.com'],
   rhNpm:'0x73991a25c818bf1f1128deaab1492d45638de0d3',      /* Uniswap V3 Positions NFT-V1 */
   rhFactory:'0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
@@ -1196,49 +1197,132 @@ function getRobinhoodLive(ethPrice){
     });
 }
 
-/* Values open Uniswap V3 positions the same way Katana's are valued — the tick maths is
-   identical because both are V3 forks. Only reached when the NFT count is non-zero, which
-   keeps the common case at a single request. */
+/* Values open Uniswap V3 positions. Reuses v3Amounts/poolPrice — the tick maths is
+   identical to Katana's because both are V3 forks.
+
+   Pricing is self-contained: one side of every pool here is an allowlisted stable, so the
+   pool's own ratio prices the other side. That avoids a price API for this chain entirely,
+   which matters because its RPC rate-limits hard and a tokenised equity like CRCL is not
+   on the free price feeds anyway. A pool with no stable leg is left unpriced rather than
+   guessed at — see the null check below. */
+var RH_META={};   /* token id -> {d0,s0,d1,s1,pool} — fixed for the life of a position */
+/* Last successfully valued positions. The scan makes several calls against a rate-limited
+   RPC and any one of them can 429; returning an empty list on failure made a real position
+   blink out of the dashboard and read as $0, which is worse than showing a value a few
+   seconds old. A failed pass now keeps the last good answer. */
+var RH_LAST_LPS=null;
 function scanRhPositions(base){
   var W=CFG.wallet.replace(/^0x/,''),n=Math.min(base.lpCount,20);
+  var stable={};
+  Object.keys(CFG.rhTokens).forEach(function(k){
+    if(CFG.rhTokens[k].stable)stable[CFG.rhTokens[k].a.toLowerCase()]=1;
+  });
   var idCalls=[];
   for(var i=0;i<n;i++)idCalls.push({to:CFG.rhNpm,data:'0x2f745c59'+pad(W)+pad(i.toString(16))});
+
   return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(idCalls)},'latest'])
     .then(decodeAgg3)
     .then(function(idRes){
-      var ids=idRes.filter(function(r){return r.ok;})
-                   .map(function(r){return toBig(w(r.data,0));});
-      if(!ids.length)return base;
-      return rhRpc('eth_call',[{to:CFG.multicall,
-        data:encodeAgg3(ids.map(function(id){
-          return{to:CFG.rhNpm,data:'0x99fbab88'+pad(id.toString(16))};}))},'latest'])
+      var ids=idRes.filter(function(r){return r.ok;}).map(function(r){return toBig(w(r.data,0));});
+      if(!ids.length){base.lps=RH_LAST_LPS||[];return base;}
+      return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(ids.map(function(id){
+        return{to:CFG.rhNpm,data:'0x99fbab88'+pad(id.toString(16))};}))},'latest'])
         .then(decodeAgg3)
         .then(function(posRes){
-          var open=[];
+          var pos=[];
           posRes.forEach(function(r,i){
             if(!r.ok)return;
             var liq=toBig(w(r.data,7));
-            if(liq<=0n)return;                       /* closed position, NFT still held */
-            open.push({id:ids[i].toString(),
-                       token0:toAddr(w(r.data,2)),token1:toAddr(w(r.data,3)),
-                       fee:Number(toBig(w(r.data,4))),
-                       tickLo:Number(toSigned(w(r.data,5))),tickHi:Number(toSigned(w(r.data,6))),
-                       liquidity:liq});
+            if(liq<=0n)return;                    /* burnt position, NFT still held */
+            pos.push({id:ids[i].toString(),
+              token0:toAddr(w(r.data,2)),token1:toAddr(w(r.data,3)),
+              fee:Number(toBig(w(r.data,4))),
+              tickLo:Number(toSigned(w(r.data,5))),tickHi:Number(toSigned(w(r.data,6))),
+              liq:liq,
+              /* uncollected fees — leaving these out understates every open position */
+              owed0:toBig(w(r.data,10)),owed1:toBig(w(r.data,11))});
           });
-          /* Deliberately not valued in USD yet: this chain serves no archive state and the
-             tokens in any new pool have no price source configured, so a number here would
-             be a guess wearing a dollar sign. The count and the pairs are true; wire a price
-             source and reuse v3Amounts() to finish the valuation. */
-          base.lps=open.map(function(p){
-            return{type:'LP',protocol:'Uniswap V3',chain:'robinhood',
-                   pair:p.token0.slice(0,6)+'…/'+p.token1.slice(0,6)+'…',
-                   pool_fee:(p.fee/10000)+'%',token_id:p.id,value_usd:null,
-                   note:'#'+p.id+' — open on Robinhood Chain, not yet priced'};
-          });
-          return base;
+          /* genuinely no open positions — clear the cache rather than resurrect a closed one */
+          if(!pos.length){RH_LAST_LPS=[];base.lps=[];return base;}
+          /* Decimals, symbols and the pool address never change for a given position, so
+             they are fetched once and remembered. On a rate-limited RPC the call you do
+             not make is worth more than the one you optimise. */
+          var unknown=pos.filter(function(p){return !RH_META[p.id];});
+          var metaStep=unknown.length
+            ? rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(unknown.reduce(function(a,p){
+                return a.concat([{to:p.token0,data:'0x313ce567'},{to:p.token0,data:'0x95d89b41'},
+                  {to:p.token1,data:'0x313ce567'},{to:p.token1,data:'0x95d89b41'},
+                  {to:CFG.rhFactory,data:'0x1698ee82'+padAddr(p.token0)+padAddr(p.token1)
+                    +pad(p.fee.toString(16))}]);},[]))},'latest'])
+                .then(decodeAgg3)
+                .then(function(mRes){
+                  unknown.forEach(function(p,i){
+                    var b=i*5;
+                    RH_META[p.id]={
+                      d0:mRes[b].ok?parseInt(mRes[b].data,16):18,
+                      s0:mRes[b+1].ok?hexStr(mRes[b+1].data):'?',
+                      d1:mRes[b+2].ok?parseInt(mRes[b+2].data,16):18,
+                      s1:mRes[b+3].ok?hexStr(mRes[b+3].data):'?',
+                      pool:mRes[b+4].ok?toAddr(w(mRes[b+4].data,0)):null};
+                  });
+                })
+            : Promise.resolve();
+          return metaStep
+            .then(function(){
+              pos.forEach(function(p){
+                var m=RH_META[p.id]||{};
+                p.d0=m.d0;p.s0=m.s0;p.d1=m.d1;p.s1=m.s1;p.pool=m.pool;
+              });
+              var pools=pos.filter(function(p){return p.pool;});
+              if(!pools.length){base.lps=RH_LAST_LPS||[];return base;}
+              return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(pools.map(function(p){
+                return{to:p.pool,data:'0x3850c7bd'};}))},'latest'])
+                .then(decodeAgg3)
+                .then(function(sRes){
+                  base.lps=[];
+                  pools.forEach(function(p,i){
+                    if(!sRes[i].ok)return;
+                    var sqrtP=toBig(w(sRes[i].data,0));
+                    var tick=Number(toSigned(w(sRes[i].data,1)));
+                    var amts=v3Amounts(p.liq,p.tickLo,p.tickHi,sqrtP);
+                    var a0=amts[0]/Math.pow(10,p.d0)+Number(p.owed0)/Math.pow(10,p.d0);
+                    var a1=amts[1]/Math.pow(10,p.d1)+Number(p.owed1)/Math.pow(10,p.d1);
+                    /* token1 per token0, decimals-adjusted — the raw ratio is off by
+                       10^(d0-d1) and a same-decimals pair would hide the mistake */
+                    var p1per0=poolPrice(sqrtP,p.d0,p.d1);
+                    var usd=null;
+                    if(stable[p.token0]) usd=a0+a1*(p1per0?1/p1per0:0);
+                    else if(stable[p.token1]) usd=a1+a0*p1per0;
+                    var range=tick<p.tickLo?'below':tick>=p.tickHi?'above':'in';
+                    base.lps.push({type:'LP',protocol:'Uniswap V3',chain:'robinhood',
+                      pair:p.s0+' / '+p.s1,pool_fee:(p.fee/10000)+'%',
+                      token_id:p.id,range_status:range,staked:false,apr:null,
+                      value_usd:usd,
+                      note:'NFT #'+p.id+' — '+fmtN(a0,2)+' '+p.s0+' + '+fmtN(a1,4)+' '+p.s1
+                           +(usd===null?' (no stable leg — unpriced)':'')+' (live on-chain)'});
+                  });
+                  /* only overwrite the cache when the pass actually produced values */
+                  if(base.lps.length)RH_LAST_LPS=base.lps;
+                  else base.lps=RH_LAST_LPS||[];
+                  return base;
+                });
+            });
         });
     })
-    .catch(function(e){console.warn('robinhood LP scan failed',e);return base;});
+    .catch(function(e){
+      console.warn('robinhood LP scan failed, keeping last good positions',e);
+      base.lps=RH_LAST_LPS||[];
+      return base;
+    });
+}
+
+/* ABI-encoded string -> text, for symbol() */
+function hexStr(h){
+  try{
+    var d=h.replace(/^0x/,''),len=parseInt(d.slice(64,128),16),out='';
+    for(var i=0;i<len;i++)out+=String.fromCharCode(parseInt(d.substr(128+i*2,2),16));
+    return out;
+  }catch(e){return '?';}
 }
 
 function getSolanaLive(refs,ata){
