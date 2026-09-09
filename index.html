@@ -777,6 +777,27 @@ var CFG={
   meteoraRefs:[{position:'CLY9xG4G75MrJ2KWTUPcJeCnbvq7XWgGTsE77vrB7CJo',
     lbPair:'BGm1tav58oGcsQJehL9WXBFXF7D27vZsKefj4xJKD5Y',
     binArrays:['9tQvQWsuFkd3AqqoEbkG3YF3aSG1Kt1rdPDrTCaxzuhn','D6ervPBg2dK8U77vdj5ptpQx1Ti9MDLjkyTgxKFCH6pm']}],
+  /* ---- Robinhood Chain (4663) — Arbitrum Orbit L2, mainnet since 2026-07-01 ----
+     Everything below was read off the chain, not copied from documentation: the position
+     manager was found by scanning IncreaseLiquidity emitters and calling name() on each
+     (the Uniswap docs page redirect-loops), and the probe reports Multicall3 deployed and
+     blockTimestamp inline on logs.
+     Two properties differ from Katana and constrain what this chain can show:
+       - NO archive state. eth_call at an old block returns "metadata is not found", so a
+         historical event here cannot be priced at its own block. Realised P&L is therefore
+         not derivable the way it is on Katana; see the note in scanRhPositions.
+       - The public RPC is tightly rate limited — a full-range eth_getLogs returns 429. So
+         this chain gets exactly ONE multicall per refresh and no log scanning in the
+         browser. */
+  rhRpcs:['https://rpc.mainnet.chain.robinhood.com'],
+  rhNpm:'0x73991a25c818bf1f1128deaab1492d45638de0d3',      /* Uniswap V3 Positions NFT-V1 */
+  rhFactory:'0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
+  /* Allowlist, deliberately — NOT everything the wallet holds. Unsolicited airdrops are
+     endemic on a new chain (this wallet has two with no market at all), and counting a
+     token nobody will buy inflates net worth with fiction. Add a token here to count it. */
+  rhTokens:{
+    USDG:{a:'0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',d:6,stable:true}
+  },
   merklApi:'https://api.merkl.xyz/v4',
   startValue:502.29,
   startDate:'2026-05-02',
@@ -1125,6 +1146,101 @@ function getKatanaLive(stakedLpIds){
   });
 }
 
+/* ============ Robinhood Chain ============ */
+/* Its own RPC helper rather than reusing rpc(): that one is bound to CFG.rpcs, and mixing
+   two chains through one endpoint list would send Katana calls to Robinhood on failover. */
+function rhRpc(method,params){
+  return fT(CFG.rhRpcs[0],{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},4000)
+    .then(function(r){
+      /* fetch resolves on any status — a 429 would otherwise fail later as a JSON parse
+         error and read as an outage rather than as the rate limit it is */
+      if(!r.ok)throw new Error('HTTP '+r.status+(r.status===429?' (rate limited)':''));
+      return r.json();
+    })
+    .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;});
+}
+
+/* One multicall for the whole chain. Multicall3 sits at the canonical address here, and
+   getEthBalance is part of it — so the native balance rides along in the same request
+   instead of costing a second one against a tight rate limit. */
+function getRobinhoodLive(ethPrice){
+  var W=CFG.wallet.replace(/^0x/,'');
+  var syms=Object.keys(CFG.rhTokens);
+  var calls=[{to:CFG.multicall,data:'0x4d2301cc'+pad(W)}];        /* getEthBalance(address) */
+  syms.forEach(function(k){
+    calls.push({to:CFG.rhTokens[k].a,data:'0x70a08231'+pad(W)});  /* balanceOf */
+  });
+  calls.push({to:CFG.rhNpm,data:'0x70a08231'+pad(W)});            /* LP position count */
+
+  return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(calls)},'latest'])
+    .then(decodeAgg3)
+    .then(function(res){
+      var eth=res[0].ok?Number(toBig(w(res[0].data,0)))/1e18:0;
+      var tokens=[],walletUsd=eth*(ethPrice||0);
+      syms.forEach(function(k,i){
+        var t=CFG.rhTokens[k],r=res[i+1];
+        if(!r||!r.ok)return;
+        var amt=Number(toBig(w(r.data,0)))/Math.pow(10,t.d);
+        /* only stables are priced here; anything else needs a real source before it counts */
+        var usd=t.stable?amt:0;
+        walletUsd+=usd;
+        if(amt>0)tokens.push({symbol:k,amount:amt,usd:usd});
+      });
+      var lpCount=res[syms.length+1].ok?Number(toBig(w(res[syms.length+1].data,0))):0;
+      return {eth:eth,tokens:tokens,walletUsd:walletUsd,lpCount:lpCount,lps:[]};
+    })
+    .then(function(base){
+      if(!base.lpCount)return base;                 /* nothing staked or pooled — done */
+      return scanRhPositions(base);
+    });
+}
+
+/* Values open Uniswap V3 positions the same way Katana's are valued — the tick maths is
+   identical because both are V3 forks. Only reached when the NFT count is non-zero, which
+   keeps the common case at a single request. */
+function scanRhPositions(base){
+  var W=CFG.wallet.replace(/^0x/,''),n=Math.min(base.lpCount,20);
+  var idCalls=[];
+  for(var i=0;i<n;i++)idCalls.push({to:CFG.rhNpm,data:'0x2f745c59'+pad(W)+pad(i.toString(16))});
+  return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(idCalls)},'latest'])
+    .then(decodeAgg3)
+    .then(function(idRes){
+      var ids=idRes.filter(function(r){return r.ok;})
+                   .map(function(r){return toBig(w(r.data,0));});
+      if(!ids.length)return base;
+      return rhRpc('eth_call',[{to:CFG.multicall,
+        data:encodeAgg3(ids.map(function(id){
+          return{to:CFG.rhNpm,data:'0x99fbab88'+pad(id.toString(16))};}))},'latest'])
+        .then(decodeAgg3)
+        .then(function(posRes){
+          var open=[];
+          posRes.forEach(function(r,i){
+            if(!r.ok)return;
+            var liq=toBig(w(r.data,7));
+            if(liq<=0n)return;                       /* closed position, NFT still held */
+            open.push({id:ids[i].toString(),
+                       token0:toAddr(w(r.data,2)),token1:toAddr(w(r.data,3)),
+                       fee:Number(toBig(w(r.data,4))),
+                       tickLo:Number(toSigned(w(r.data,5))),tickHi:Number(toSigned(w(r.data,6))),
+                       liquidity:liq});
+          });
+          /* Deliberately not valued in USD yet: this chain serves no archive state and the
+             tokens in any new pool have no price source configured, so a number here would
+             be a guess wearing a dollar sign. The count and the pairs are true; wire a price
+             source and reuse v3Amounts() to finish the valuation. */
+          base.lps=open.map(function(p){
+            return{type:'LP',protocol:'Uniswap V3',chain:'robinhood',
+                   pair:p.token0.slice(0,6)+'…/'+p.token1.slice(0,6)+'…',
+                   pool_fee:(p.fee/10000)+'%',token_id:p.id,value_usd:null,
+                   note:'#'+p.id+' — open on Robinhood Chain, not yet priced'};
+          });
+          return base;
+        });
+    })
+    .catch(function(e){console.warn('robinhood LP scan failed',e);return base;});
+}
+
 function getSolanaLive(refs,ata){
   return Promise.all([
     solRpc('getBalance',[CFG.solWallet]),
@@ -1208,6 +1324,15 @@ function loadLive(refs,snap){
         if(aprMap[key]!==undefined)lp.apr=aprMap[key];
         else if(snapAprs[key])lp.apr=snapAprs[key];
       });
+      /* Robinhood needs the ETH price, which the Katana read already fetched — so it runs
+         here rather than in the Promise.all above. Its own catch: a rate-limited or dead
+         Robinhood RPC must cost this chain only, never the overlay. */
+      var rhP=getRobinhoodLive(kat.ethPrice).catch(function(e){
+        console.warn('robinhood live failed, using snapshot values',e);
+        var rs=(snap&&snap.chains&&snap.chains.robinhood)||{};
+        return{eth:0,tokens:rs.tokens||[],walletUsd:rs.onchain_usd||0,
+               lpCount:0,lps:rs.lp_positions||[],fromSnapshot:true};
+      });
       var katWalletUsd=kat.ethBal*kat.ethPrice+kat.bal.KAT*kat.katPrice+kat.bal.WETH*kat.ethPrice
         +kat.bal.USDC+kat.bal.USDT+kat.bal.avKAT*kat.katPrice*kat.avkatRate;
       var katLpUsd=0;kat.lps.forEach(function(l){katLpUsd+=l.value_usd;});
@@ -1220,7 +1345,12 @@ function loadLive(refs,snap){
       var solWalletUsd=sol.sol*sol.solPrice+sol.usdc;
       var solLpUsd=0;sol.lps.forEach(function(l){solLpUsd+=l.value_usd;});
       var solTotal=solWalletUsd+solLpUsd;
-      var grand=katTotal+solTotal;
+      return rhP.then(function(rh){
+      var rhLpUsd=0;rh.lps.forEach(function(l){rhLpUsd+=l.value_usd||0;});
+      var rhTotal=rh.walletUsd+rhLpUsd;
+      /* folded in before current/gain are derived, or the tracking figure would quietly
+         exclude this chain while the headline total included it */
+      var grand=katTotal+solTotal+rhTotal;
       var days=Math.floor((Date.now()-new Date(CFG.startDate+'T00:00:00Z').getTime())/86400000);
       var current=grand-katLpUsd;
       var gain=current-CFG.startValue;
@@ -1252,16 +1382,22 @@ function loadLive(refs,snap){
             lp_total_usd:katLpUsd,total_usd:katTotal,color:'#f59e0b'},
           solana:{name:'Solana',onchain_usd:solWalletUsd,
             lp_positions:sol.lps,defi_positions:[],
-            lp_total_usd:solLpUsd,total_usd:solTotal,color:'#9945ff'}
+            lp_total_usd:solLpUsd,total_usd:solTotal,color:'#9945ff'},
+          robinhood:{name:'Robinhood',onchain_usd:rh.walletUsd,
+            tokens:rh.tokens,lp_positions:rh.lps,defi_positions:[],
+            lp_total_usd:rhLpUsd,total_usd:rhTotal,color:'#00c805'}
         },
         summary:{grand_total_usd:grand,katana_usd:katTotal,solana_usd:solTotal,
-          onchain_usd:katWalletUsd+solWalletUsd,lp_usd:katLpUsd+solLpUsd,
-          merkl_usd:merkl.total_usd,chains_count:2},
+          robinhood_usd:rhTotal,
+          onchain_usd:katWalletUsd+solWalletUsd+rh.walletUsd,
+          lp_usd:katLpUsd+solLpUsd+rhLpUsd,
+          merkl_usd:merkl.total_usd,chains_count:3},
         merkl_rewards:merkl,
-        lp_positions:kat.lps.concat(sol.lps),
+        lp_positions:kat.lps.concat(sol.lps).concat(rh.lps),
         total_usd:grand
       };
       return d;
+      });
     });
   });
 }
@@ -2061,6 +2197,9 @@ function syncTodayPoint(){
    costs no request. Both are local assets — nothing is fetched from a third party. */
 var CHAIN_LOGO={
   katana:'<img src="/img/katana.png" alt="" draggable="false">',
+  /* Robinhood's mark is a feather; drawn inline in their green so it costs no request */
+  robinhood:'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<path fill="#00c805" d="M12.9 2.2c-.5 1.9-1.5 3.6-2.9 5-1.9 1.9-3 4.4-3 7.1 0 1.3.3 2.6.8 3.8l-2 2.1a.8.8 0 0 0 1.1 1.1l2-2c1.1.5 2.3.8 3.6.8 4.5 0 8.1-3.6 8.1-8.1 0-3.6-1.9-6.8-4.8-8.6-.9-.5-1.9-1-2.9-1.2zm-.7 3.6c.6.9 1.6 2 3 2.9 2 1.3 3.3 3.5 3.3 6 0 1.1-.3 2.2-.8 3.1-1-2.6-2.9-4.7-5.4-5.9-.9-.4-1.6-1-2.1-1.8.6-1.5 1.3-3 2-4.3z"/></svg>',
   solana:'<svg viewBox="0 0 398 312" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
     +'<defs><linearGradient id="solMark" x1="360" y1="-37" x2="141" y2="383" gradientUnits="userSpaceOnUse">'
     +'<stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs>'
@@ -2120,7 +2259,7 @@ function render(d,isLive){
   /* chains */
   var chains=d.chains||{};
   var chainHtml='',chainNames=[];
-  ['katana','solana'].forEach(function(key){
+  ['katana','solana','robinhood'].forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
     chainNames.push(ch.name);
@@ -2141,7 +2280,7 @@ function render(d,isLive){
 
   var allLp=[];
   LP_VALUE={};LP_RANGE={};
-  ['katana','solana'].forEach(function(key){
+  ['katana','solana','robinhood'].forEach(function(key){
     if(!chains[key])return;
     (chains[key].lp_positions||[]).forEach(function(p){
       allLp.push({p:p,chain:chains[key].name,badge:key==='katana'?'chain-katana':'chain-solana'});
@@ -2187,7 +2326,7 @@ function render(d,isLive){
     dl+='</div>';
   }
 
-  ['katana','solana'].forEach(function(key){
+  ['katana','solana','robinhood'].forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
     var badgeClass=key==='katana'?'chain-katana':'chain-solana';

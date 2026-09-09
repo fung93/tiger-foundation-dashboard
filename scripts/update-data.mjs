@@ -11,6 +11,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CFG = {
+  /* Robinhood Chain (4663). Addresses discovered on-chain, not from docs — see the same
+     note in index.html. No archive state here, and the public RPC rate-limits hard, so the
+     Action reads it in a single multicall exactly as the browser does. */
+  rhRpc: 'https://rpc.mainnet.chain.robinhood.com',
+  rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
+  rhTokens: { USDG: { a: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', d: 6, stable: true } },
   rpcs: ['https://rpc.katanarpc.com', 'https://katana.drpc.org', 'https://747474.rpc.thirdweb.com'],
   wallet: '0xb378207ab46aa2105eb1cb94ae8a5bab57316de1',
   solWallet: 'GSMtKVYnxLbhfGQUBkdYW5npnu1LWP58ruBxVya5VM4B',
@@ -478,6 +484,44 @@ async function getKatana(prevStakedIds) {
 }
 
 /* ---------- solana ---------- */
+/* Robinhood Chain: one multicall for native ETH, the allowlisted tokens, and the count of
+   Uniswap V3 position NFTs. Deliberately an allowlist — this wallet already holds two
+   unsolicited airdrops with no market, and counting them would inflate the total with
+   fiction. A failure here returns zeros rather than throwing: one chain must not take the
+   whole snapshot down. */
+async function getRobinhood(ethPrice) {
+  const W = CFG.wallet.replace(/^0x/, '');
+  const syms = Object.keys(CFG.rhTokens);
+  const calls = [{ to: CFG.multicall, data: '0x4d2301cc' + pad(W) }];
+  for (const k of syms) calls.push({ to: CFG.rhTokens[k].a, data: '0x70a08231' + pad(W) });
+  calls.push({ to: CFG.rhNpm, data: '0x70a08231' + pad(W) });
+
+  try {
+    const res = await fetch(CFG.rhRpc, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: CFG.multicall, data: encodeAgg3(calls) }, 'latest'] }),
+    }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    if (res.error) throw new Error(res.error.message);
+    const out = decodeAgg3(res.result);
+    const eth = out[0].ok ? Number(toBig(w(out[0].data, 0))) / 1e18 : 0;
+    const tokens = {}; let walletUsd = eth * (ethPrice || 0);
+    syms.forEach((k, i) => {
+      const t = CFG.rhTokens[k], r = out[i + 1];
+      if (!r || !r.ok) return;
+      const amt = Number(toBig(w(r.data, 0))) / 10 ** t.d;
+      const usd = t.stable ? amt : 0;
+      walletUsd += usd;
+      tokens[k] = { balance: amt, priceUSD: t.stable ? 1 : null, valueUSD: round2(usd) };
+    });
+    const lpCount = out[syms.length + 1].ok ? Number(toBig(w(out[syms.length + 1].data, 0))) : 0;
+    return { eth, tokens, walletUsd, lpCount, lps: [], ok: true };
+  } catch (e) {
+    console.warn('robinhood read failed:', e.message);
+    return { eth: 0, tokens: {}, walletUsd: 0, lpCount: 0, lps: [], ok: false };
+  }
+}
+
 async function getSolana() {
   const [balRes, usdcRes, posAccounts] = await Promise.all([
     solRpc('getBalance', [CFG.solWallet]),
@@ -616,6 +660,8 @@ try {
 
 const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
+/* after Katana, because it needs the ETH price that read already fetched */
+const rh = await getRobinhood(kat.ethPrice);
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
 const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
 
@@ -692,6 +738,22 @@ const data = {
       total_usd: katTotal,
       native_token: 'KAT', color: '#f59e0b',
     },
+    robinhood: {
+      name: 'Robinhood', chain_id: 4663, explorer: 'https://robinhoodchain.blockscout.com',
+      wallet: { balances: { tokens: {
+        ETH: tok(rh.eth, kat.ethPrice, rh.eth * kat.ethPrice),
+        ...rh.tokens,
+      } }, total_usd: rh.walletUsd },
+      onchain_usd: rh.walletUsd,
+      lp_positions: rh.lps,
+      defi_positions: [],
+      lp_total_usd: 0,
+      total_usd: rh.walletUsd,
+      /* false when the read failed — the browser uses this to tell "no holdings" from
+         "could not reach the chain", which look identical in the numbers alone */
+      live: rh.ok,
+      native_token: 'ETH', color: '#00c805',
+    },
     solana: {
       name: 'Solana', chain_id: 'solana-mainnet', explorer: 'https://solscan.io',
       wallet_address: CFG.solWallet,
@@ -709,9 +771,10 @@ const data = {
     },
   },
   summary: {
-    grand_total_usd: grand, katana_usd: katTotal, solana_usd: solTotal,
-    onchain_usd: onchainUsd, lp_usd: lpUsd, merkl_usd: merkl.total_usd,
-    total_defi_positions: defiPositions.length, chains_count: 2,
+    grand_total_usd: grand + rh.walletUsd,
+    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: rh.walletUsd,
+    onchain_usd: onchainUsd + rh.walletUsd, lp_usd: lpUsd, merkl_usd: merkl.total_usd,
+    total_defi_positions: defiPositions.length, chains_count: 3,
   },
   merkl_rewards: merkl,
   lp_positions: [...kat.lps, ...sol.lps],
