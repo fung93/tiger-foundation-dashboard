@@ -2121,6 +2121,16 @@ function lockPosBodyHeight(){
   body.style.height=POS_BODY_H+'px';
 }
 
+/* Which chain a ledger row belongs to. The window used to list a pair and an id with no
+   hint of origin, so a Robinhood position was indistinguishable from a Katana one — which
+   reads as "my position is missing" rather than "it is the row above". */
+function chainTag(chain){
+  if(!chain||chain==='katana')return '';
+  var c=chain==='robinhood'?'#00c805':chain==='solana'?'#9945ff':'var(--dim)';
+  var label=chain.charAt(0).toUpperCase()+chain.slice(1);
+  return ' <span style="color:'+c+';font-size:8px;border:1px solid '+c
+    +';border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px">'+label+'</span>';
+}
 function buildPositions(){
   var t=document.getElementById('posTable');
   if(!t)return;
@@ -2169,7 +2179,8 @@ function buildPositions(){
         +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
         +'<td class="pos-cell">#'+d.id
         +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+oor
-        +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span></td>'
+        +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span>'
+        +chainTag(d.chain)+'</td>'
         +'<td class="num">'+(hasOpen?money(d.open_value_usd):dash)+'</td>'
         +'<td class="num">'+(live?money(now):dash)+'</td>'
         +'<td class="num" style="white-space:nowrap'+(live?';color:'+ucol:'')+'">'

@@ -5,7 +5,11 @@
    - Other GET requests (price/reward APIs): network-first with cache fallback
    - POST (RPC calls): passed through untouched
    Bump CACHE_VERSION whenever the shell changes. */
-var CACHE_VERSION = 'tiger-v17';
+/* Bumped for: Robinhood Chain tracking, its LP valuation and P&L ledger, the dated cold
+   vault, and the in-range fix. Six shell releases went out on v17 without a bump, so
+   returning visitors kept being served the shell from before any of it — which looks
+   exactly like the feature never shipped. Bump this on EVERY shell change. */
+var CACHE_VERSION = 'tiger-v18';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
