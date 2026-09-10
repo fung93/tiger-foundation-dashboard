@@ -715,6 +715,13 @@ function fmtSigned(v,d){
 }
 function fmtN(v,d){return Number(v).toLocaleString('en-US',{maximumFractionDigits:d===undefined?0:d});}
 
+/* What the vault held on a given day. Rows are in date order, so the last one that has
+   started by `date` is the one in force. */
+function vaultAt(date){
+  var h=CFG.coldVaultHistory||[],v=0;
+  for(var i=0;i<h.length;i++){ if(!date||h[i].from<=date)v=h[i].usd; }
+  return v;
+}
 function calcEta(current,target,monthlyRoiPct){
   if(!monthlyRoiPct||monthlyRoiPct<=0)return'Not on track';
   if(current>=target)return'&#127881; Target reached!';
@@ -805,13 +812,26 @@ var CFG={
   katClaimed:84937,
   /* TIGER VAULT — cold wallet, added to the overview total and the peak only. A manual
      figure, because the holdings sit outside any wallet this dashboard reads.
-     2026-09-10: +$1,000 moved in from the Katana wallet. Verified on-chain before changing
-     this number — the wallet's vbUSDC fell by exactly that much and the funds landed at
-     0x4da1d0d5f7b123364d7580f19b716de2ed4e9770 (an EOA now holding 1000.0000 vbUSDC).
-     Bumping this without confirming the outflow would double-count the money. */
-  coldVault:3048,
+
+     Dated, not a single number. The vault is paired with every historical day to compute
+     the all-time peak, so raising one constant retroactively credits the new money to days
+     it was not held — turning a transfer between your own pockets into an all-time high
+     that never happened. Each entry applies from its date onward; add a row per move.
+
+     2026-09-09: +$1,000 in from the Katana wallet, landing 16:08 UTC. Verified on-chain
+     before the change — the wallet's vbUSDC fell by exactly that much and the funds
+     arrived at 0x4da1d0d5f7b123364d7580f19b716de2ed4e9770, an EOA holding 1000.0000
+     vbUSDC and nothing else. */
+  coldVaultHistory:[
+    {from:'2000-01-01',usd:2048},
+    {from:'2026-09-09',usd:3048}
+  ],
   target:10000
 };
+/* Today's figure, derived rather than duplicated — everything that talks about the
+   vault *now* reads this, so there is one source of truth for the current value.
+   Must come after CFG is assigned: vaultAt() reads CFG.coldVaultHistory. */
+CFG.coldVault=vaultAt(new Date().toISOString().slice(0,10));
 
 /* ============ evm helpers ============ */
 /* fetch with a hard timeout — one stalled connection must never freeze the live overlay */
@@ -2253,9 +2273,15 @@ function downloadCsv(){
 /* All-time peak — recomputed whenever today's datapoint moves */
 function updatePeak(){
   if(!HIST||!HIST.length)return;
+  /* Compare total wealth on each day — that day's portfolio plus the vault as it stood
+     then. Adding today's vault to every past day would credit money to dates it was not
+     held, and a transfer into the vault would invent a new high. */
   var peak=0,peakDate=HIST[0].date;
-  HIST.forEach(function(e){var v=e.total_usd||0;if(v>peak){peak=v;peakDate=e.date;}});
-  document.getElementById('peakVal').textContent=fmt(peak+CFG.coldVault);
+  HIST.forEach(function(e){
+    var v=(e.total_usd||0)+vaultAt(e.date);
+    if(v>peak){peak=v;peakDate=e.date;}
+  });
+  document.getElementById('peakVal').textContent=fmt(peak);
   document.getElementById('peakDate').textContent='on '+peakDate+' (incl vault)';
 }
 
@@ -2508,8 +2534,10 @@ function askFacts(){
 
   /* peak: same series and the same vault adjustment the card uses */
   f.peak=0;f.peakDate='—';
-  (HIST||[]).forEach(function(e){var v=e.total_usd||0;if(v>f.peak){f.peak=v;f.peakDate=e.date;}});
-  f.peak+=CFG.coldVault;
+  (HIST||[]).forEach(function(e){
+    var v=(e.total_usd||0)+vaultAt(e.date);      /* the vault as it stood that day */
+    if(v>f.peak){f.peak=v;f.peakDate=e.date;}
+  });
 
   /* change over a lookback, read off the history series exactly as the chip does */
   f.since=function(days){
