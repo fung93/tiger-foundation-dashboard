@@ -70,10 +70,17 @@ Two ways to get a historical price, in order of preference:
 rpc('eth_call', [{to: pool, data: '0x3850c7bd'}, '0x'+block.toString(16)])   // slot0()
 ```
 
-**2. Index the pool's own `Swap` events** — no archive node required. Each `Swap` log carries the
-post-swap `sqrtPriceX96`, so a scan of the pool's swap history gives you a price series you can
-look up by block, using the `eth_getLogs` tooling you already have. This is the better route when
-your provider prunes state, and it is worth knowing before paying for an archive endpoint.
+**2. Index the pool's own `Swap` events** — no archive node required. Each `Swap` log carries
+the post-swap `sqrtPriceX96`, so the nearest swap at or before a block gives the price at that
+block, using the `eth_getLogs` tooling you already have. This is the route when your provider
+prunes state, and it is worth knowing before paying for an archive endpoint.
+
+Proven in practice: on a chain serving no archive state, the nearest swap 391 blocks before a
+position's open priced it to the cent, and the lookup is a single filtered `eth_getLogs`. Two
+things make it cheap — widen the window until a swap is found rather than assuming one is
+nearby, and note that a *filtered* log query is usually allowed a far wider block range than an
+unfiltered one (8M blocks versus a 429 on the same endpoint), so filter by topic rather than
+chunking blindly.
 
 If neither is available, label the figure approximate rather than quietly shipping it.
 

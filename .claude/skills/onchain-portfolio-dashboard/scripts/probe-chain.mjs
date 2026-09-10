@@ -151,13 +151,23 @@ async function main() {
   } else if (!logs.result.length) {
     out.checks.inlineBlockTimestamp = { supported: null, detail: 'no logs in window — widen --window or pass --contract' };
   } else {
-    const has = Object.prototype.hasOwnProperty.call(logs.result[0], 'blockTimestamp');
+    /* Presence is not support. At least one chain returns the field on every log and
+       leaves it at "0x0", which passes a hasOwnProperty check and then silently dates
+       every ledger entry to 1970. Check the value, not the key. */
+    const raw = logs.result[0].blockTimestamp;
+    const has = raw !== undefined && raw !== null;
+    const val = has ? parseInt(raw, 16) : 0;
+    const real = val > 0;
     out.checks.inlineBlockTimestamp = {
-      supported: has,
+      supported: real,
+      fieldPresent: has,
+      sampleValue: has ? String(raw) : null,
       sampleLogs: logs.result.length,
-      detail: has
-        ? 'blockTimestamp present — no extra eth_getBlockByNumber needed per log'
-        : 'absent — you will need one eth_getBlockByNumber per distinct block'
+      detail: real
+        ? 'blockTimestamp populated — no extra eth_getBlockByNumber needed per log'
+        : has
+          ? 'field present but stubbed at ' + raw + ' — treat as unsupported and fetch the block'
+          : 'absent — you will need one eth_getBlockByNumber per distinct block'
     };
   }
   out.latency.eth_getLogs = logs.ms;

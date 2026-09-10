@@ -600,6 +600,10 @@ async function rhPositions(count) {
       if (stable[p.token0]) usd = a0 + a1 * (p1per0 ? 1 / p1per0 : 0);
       else if (stable[p.token1]) usd = a1 + a0 * p1per0;
       out.push({ type: 'LP', protocol: 'Uniswap V3', chain: 'robinhood',
+        /* internals kept alongside the display fields so the P&L ledger does not have to
+           re-read decimals, symbols and the pool address it already fetched */
+        _id: p.id, _pool: p.pool, _token0: p.token0, _token1: p.token1,
+        _d0: p.d0, _d1: p.d1, _s0: p.s0, _s1: p.s1, _fee: p.fee,
         pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`, token_id: p.id,
         range_status: tick < p.tickLo ? 'below' : tick >= p.tickHi ? 'above' : 'in',
         staked: false, apr: null, value_usd: usd === null ? null : round2(usd),
@@ -611,6 +615,177 @@ async function rhPositions(count) {
     console.warn('robinhood LP scan failed:', e.message);
     return [];
   }
+}
+
+/* ---- Robinhood realised P&L ------------------------------------------------------
+   This chain serves no archive state, so a position's value at the block it opened
+   cannot be read the usual way. The workaround is that the pool records its own price
+   history: every Uniswap V3 Swap log carries the post-swap sqrtPriceX96, so the nearest
+   swap at or before a block gives the price at that block without an archive node.
+
+   The ledger is built from raw token flows rather than from liquidity maths — what went
+   in on IncreaseLiquidity, what came out on Collect (which carries principal AND fees).
+   That closes the books without needing to split the two.
+
+   It accrues forward rather than reconstructing history: each run records the open of any
+   position it has not seen before, and settles any it was watching that has since gone.
+   A burnt NFT can no longer be asked which pool it belonged to, so anything that closed
+   before this code existed is simply not in the ledger — which is the honest outcome. */
+
+const RH_SWAP_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+const RH_INC_TOPIC  = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+const RH_COL_TOPIC  = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
+
+/* the public RPC has a burst limit as well as a range limit, and this ledger makes several
+   calls back to back — a short gap between them is cheaper than a failed run */
+let rhLastCall = 0;
+async function rhLogs(params) {
+  const gap = 250 - (Date.now() - rhLastCall);
+  if (gap > 0) await new Promise((k) => setTimeout(k, gap));
+  rhLastCall = Date.now();
+  const r = await fetch(CFG.rhRpc, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getLogs', params: [params] }),
+  }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); });
+  if (r.error) throw new Error(r.error.message);
+  return r.result;
+}
+
+/* Robinhood's RPC returns a blockTimestamp field on every log but leaves it at "0x0", so
+   the timestamp has to be fetched per block after all. Cached, because a position's open
+   and close each resolve to one block and the ledger is rebuilt every run. */
+const RH_TS = {};
+async function rhBlockTime(block) {
+  if (RH_TS[block] !== undefined) return RH_TS[block];
+  const gap = 250 - (Date.now() - rhLastCall);
+  if (gap > 0) await new Promise((k) => setTimeout(k, gap));
+  rhLastCall = Date.now();
+  try {
+    const r = await fetch(CFG.rhRpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBlockByNumber',
+        params: ['0x' + block.toString(16), false] }) }).then(x => x.json());
+    RH_TS[block] = r.result ? parseInt(r.result.timestamp, 16) : null;
+  } catch { RH_TS[block] = null; }
+  return RH_TS[block];
+}
+
+/* price of token1 in token0 terms at a block, from the pool's own swap history */
+async function rhPriceAt(pool, block, d0, d1) {
+  /* widen until a swap is found — a quiet pool may not trade for a while */
+  for (const span of [50000, 500000, 4000000]) {
+    const logs = await rhLogs({ address: pool, topics: [RH_SWAP_TOPIC],
+      fromBlock: '0x' + Math.max(0, block - span).toString(16), toBlock: '0x' + block.toString(16) });
+    if (logs.length) {
+      const last = logs[logs.length - 1];
+      const sqrtP = toBig(w(last.data, 2));
+      return { p1per0: poolPrice(sqrtP, d0, d1), atBlock: parseInt(last.blockNumber, 16) };
+    }
+  }
+  return null;
+}
+
+/* value a token pair at a block, using the allowlisted stable as the anchor */
+function rhValue(a0, a1, token0, token1, p1per0) {
+  const stable = {};
+  for (const k of Object.keys(CFG.rhTokens))
+    if (CFG.rhTokens[k].stable) stable[CFG.rhTokens[k].a.toLowerCase()] = 1;
+  if (stable[token0.toLowerCase()]) return a0 + a1 * (p1per0 ? 1 / p1per0 : 0);
+  if (stable[token1.toLowerCase()]) return a1 + a0 * p1per0;
+  return null;   /* no stable leg — unpriceable, and a guess would be worse */
+}
+
+async function rhBuildLedger(current, prevLedger) {
+  const latestBlock = await (async () => {
+    const r = await fetch(CFG.rhRpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }) }).then(x => x.json());
+    return parseInt(r.result, 16);
+  })();
+  const led = { last_block: 0, open: {}, closed: [], ...(prevLedger || {}) };
+  led.last_block = latestBlock;
+  led.open = { ...(led.open || {}) };
+  led.closed = [...(led.closed || [])];
+  const held = {};
+  current.forEach(p => { held[p.id] = p; });
+
+  /* 0. repair records written before the timestamp fetch existed. Driven off the ledger
+        rather than off the live positions, or a run where the position read fails would
+        skip the repair entirely — which is exactly how this stayed broken for two runs. */
+  for (const e of Object.values(led.open)) {
+    if (e.opened_ts || !e.opened_block) continue;
+    const ts = await rhBlockTime(e.opened_block);
+    if (ts) {
+      e.opened_ts = ts;
+      e.opened = new Date(ts * 1000).toISOString().slice(0, 10);
+      console.log(`  robinhood ledger: backfilled open date for #${e.id} -> ${e.opened}`);
+    }
+  }
+
+  /* 1. record the open of anything new */
+  for (const p of current) {
+    if (led.open[p.id]) continue;
+    try {
+      /* Bounded, widening. A 0x0->latest scan over 58M blocks is refused with a 429 even
+         with a tight topic filter; 8M blocks (~9 days here) answers in under 300ms. */
+      const topic = '0x' + pad(BigInt(p.id).toString(16));
+      let inc = [];
+      for (const span of [2000000, 8000000, 24000000]) {
+        inc = await rhLogs({ address: CFG.rhNpm, topics: [RH_INC_TOPIC, topic],
+          fromBlock: '0x' + Math.max(0, latestBlock - span).toString(16), toBlock: 'latest' });
+        if (inc.length) break;
+      }
+      if (!inc.length) { console.warn(`  robinhood: no open event found for #${p.id} within 24M blocks`); continue; }
+      const first = inc[0];
+      const blk = parseInt(first.blockNumber, 16);
+      const a0 = Number(toBig(w(first.data, 1))) / 10 ** p.d0;
+      const a1 = Number(toBig(w(first.data, 2))) / 10 ** p.d1;
+      const px = await rhPriceAt(p.pool, blk, p.d0, p.d1);
+      const val = px ? rhValue(a0, a1, p.token0, p.token1, px.p1per0) : null;
+      const openTs = await rhBlockTime(blk);
+      led.open[p.id] = {
+        id: p.id, chain: 'robinhood', pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`,
+        pool: p.pool, token0: p.token0, token1: p.token1, d0: p.d0, d1: p.d1,
+        s0: p.s0, s1: p.s1,
+        opened_block: blk,
+        opened: openTs ? new Date(openTs * 1000).toISOString().slice(0, 10) : null,
+        opened_ts: openTs,
+        in0: a0, in1: a1,
+        open_value_usd: val === null ? null : round2(val),
+      };
+      console.log(`  robinhood ledger: opened #${p.id} ${p.s0}/${p.s1} at block ${blk} = $${val === null ? '?' : val.toFixed(2)}`);
+    } catch (e) { console.warn(`  robinhood open scan failed for #${p.id}:`, e.message); }
+  }
+
+  /* 2. settle anything we were watching that is no longer held */
+  for (const id of Object.keys(led.open)) {
+    if (held[id]) continue;
+    const o = led.open[id];
+    try {
+      const col = await rhLogs({ address: CFG.rhNpm, topics: [RH_COL_TOPIC, '0x' + pad(BigInt(id).toString(16))],
+        fromBlock: '0x' + Math.max(0, o.opened_block).toString(16), toBlock: 'latest' });
+      if (!col.length) continue;   /* gone but nothing collected yet — leave it open */
+      const last = col[col.length - 1];
+      const blk = parseInt(last.blockNumber, 16);
+      const a0 = Number(toBig(w(last.data, 1))) / 10 ** o.d0;
+      const a1 = Number(toBig(w(last.data, 2))) / 10 ** o.d1;
+      const px = await rhPriceAt(o.pool, blk, o.d0, o.d1);
+      const val = px ? rhValue(a0, a1, o.token0, o.token1, px.p1per0) : null;
+      const pnl = (val !== null && o.open_value_usd !== null) ? val - o.open_value_usd : null;
+      const closeTs = await rhBlockTime(blk);
+      led.closed.push({
+        id: o.id, chain: 'robinhood', pair: o.pair, pool_fee: o.pool_fee,
+        opened: o.opened, opened_ts: o.opened_ts,
+        closed: closeTs ? new Date(closeTs * 1000).toISOString().slice(0, 10) : null,
+        closed_ts: closeTs,
+        open_value_usd: o.open_value_usd,
+        close_value_usd: val === null ? null : round2(val),
+        pnl_usd: pnl === null ? null : round2(pnl),
+        pnl_pct: (pnl !== null && o.open_value_usd) ? round2(pnl / o.open_value_usd * 100) : null,
+      });
+      delete led.open[id];
+      console.log(`  robinhood ledger: closed #${id} realised $${pnl === null ? '?' : pnl.toFixed(2)}`);
+    } catch (e) { console.warn(`  robinhood close scan failed for #${id}:`, e.message); }
+  }
+  return led;
 }
 
 async function getSolana() {
@@ -757,6 +932,20 @@ const rhLpUsd = rh.lps.reduce((a, l) => a + (l.value_usd || 0), 0);
 const rhTotal = rh.walletUsd + rhLpUsd;
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
 const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
+/* Robinhood keeps its own section: its positions are priced from swap history rather than
+   archive state, and mixing the two ledgers would hide which method produced a figure. */
+if (rh.lps.length || (positions.robinhood && Object.keys(positions.robinhood.open || {}).length)) {
+  try {
+    const cur = rh.lps.map((l) => ({
+      id: l._id, pool: l._pool, token0: l._token0, token1: l._token1,
+      d0: l._d0, d1: l._d1, s0: l._s0, s1: l._s1, fee: l._fee,
+    }));
+    positions.robinhood = await rhBuildLedger(cur, positions.robinhood);
+    writeFileSync(join(ROOT, 'positions.json'), JSON.stringify(positions, null, 2) + String.fromCharCode(10));
+  } catch (e) {
+    console.warn('robinhood ledger failed, keeping existing record:', e.message);
+  }
+}
 
 for (const lp of kat.lps) {
   const key = `${lp.pair}|${lp.pool_fee}`;
@@ -870,7 +1059,8 @@ const data = {
     total_defi_positions: defiPositions.length, chains_count: 3,
   },
   merkl_rewards: merkl,
-  lp_positions: [...kat.lps, ...sol.lps, ...rh.lps],
+  lp_positions: [...kat.lps, ...sol.lps,
+    ...rh.lps.map((l) => { const c = { ...l }; Object.keys(c).forEach((k) => k[0] === '_' && delete c[k]); return c; })],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
   usdc_ata: sol.usdcAta,
@@ -898,7 +1088,7 @@ const i = hist.data.findIndex((e) => e.date === today);
 if (i >= 0) hist.data[i] = entry; else hist.data.push(entry);
 writeFileSync(histPath, JSON.stringify(hist, null, 2) + '\n');
 
-console.log(`Updated: total $${grand} | Katana $${katTotal} (wallet $${katWalletUsd}, LP $${katLpUsd}, Morpho $${morphoNet}, Merkl $${merkl.total_usd}) | Solana $${solTotal}`);
+console.log(`Updated: total $${round2(grand + rhTotal)} | Katana $${katTotal} (wallet $${katWalletUsd}, LP $${katLpUsd}, Morpho $${morphoNet}, Merkl $${merkl.total_usd}) | Solana $${solTotal} | Robinhood $${round2(rhTotal)} (wallet $${round2(rh.walletUsd)}, LP $${round2(rhLpUsd)})`);
 console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} | SOL $${sol.solPrice} | avKAT rate ${kat.avkatRate.toFixed(4)}`);
 console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length}`);
 console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);

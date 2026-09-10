@@ -803,7 +803,13 @@ var CFG={
   startValue:502.29,
   startDate:'2026-05-02',
   katClaimed:84937,
-  coldVault:2048, /* TIGER VAULT — cold wallet, added to overview total & peak only */
+  /* TIGER VAULT — cold wallet, added to the overview total and the peak only. A manual
+     figure, because the holdings sit outside any wallet this dashboard reads.
+     2026-09-10: +$1,000 moved in from the Katana wallet. Verified on-chain before changing
+     this number — the wallet's vbUSDC fell by exactly that much and the funds landed at
+     0x4da1d0d5f7b123364d7580f19b716de2ed4e9770 (an EOA now holding 1000.0000 vbUSDC).
+     Bumping this without confirming the outflow would double-count the money. */
+  coldVault:3048,
   target:10000
 };
 
@@ -1994,6 +2000,10 @@ function closedPositions(){
   var out=[],seen={};
   ((POSITIONS&&POSITIONS.closed)||[]).forEach(function(c){seen[String(c.id)]=1;out.push(c);});
   ((LIVE_POSITIONS&&LIVE_POSITIONS.closed)||[]).forEach(function(c){if(!seen[String(c.id)])out.push(c);});
+  /* Robinhood keeps its own section — its figures come from swap-history pricing rather
+     than archive state, so they are stored apart, but they belong in the same ledger view */
+  ((POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.closed)||[]).forEach(function(c){
+    if(!seen[String(c.id)])out.push(c);});
   out.sort(function(a,b){return (b.closed_ts||0)-(a.closed_ts||0);});
   return out;
 }
@@ -2004,6 +2014,13 @@ function closedPositions(){
 function currentPositions(){
   var out=[],seen={},shut={};
   closedPositions().forEach(function(c){shut[String(c.id)]=1;});
+  var rhOpen=(POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.open)||{};
+  Object.keys(rhOpen).forEach(function(k){
+    if(shut[k])return;
+    var o=rhOpen[k];seen[k]=1;
+    out.push({id:k,pair:o.pair,pool_fee:o.pool_fee,chain:'robinhood',
+      opened:o.opened,opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
+  });
   var om=(POSITIONS&&POSITIONS.open)||{};
   Object.keys(om).forEach(function(k){
     if(shut[k])return;

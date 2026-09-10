@@ -8,6 +8,8 @@ oddly — the symptom is rarely where the cause is.
 | Symptom | Cause | Fix |
 |---|---|---|
 | Ledger values drift over time | Historical events re-priced at today's price on every load | Price at the event's block; keep stored prices for days already booked |
+| Every ledger date is 1970-01-01 | The RPC returns `blockTimestamp` on each log but leaves it stubbed at `"0x0"` — present, so a `hasOwnProperty` check passes | Check the value, not the key; fall back to `eth_getBlockByNumber` and cache per block |
+| A repair or backfill never runs | It was written inside a loop over *live* data, so a pass where that read fails skips it entirely | Drive repairs off the stored record, not off the live fetch |
 | A ledger is empty but there was definitely activity | Wrong `topics[0]` — a wrong hash matches nothing and raises no error | Discover topics empirically by grouping an unfiltered window |
 | Every healthy item flagged as a problem | Comparing `status !== 'IN'` when the producer emits `'in'` | Test for the specific bad values; let unknown statuses read as fine |
 | Tick maths produces absurd numbers | Signed ints read as unsigned — a negative tick becomes ~2^256 | Sign-extend words before use |
