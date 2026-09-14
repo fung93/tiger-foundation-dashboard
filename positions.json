@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 42663310,
+  "last_block": 42677448,
   "open": {},
   "closed": [
     {
@@ -330,7 +330,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 62977297,
+    "last_block": 63116052,
     "open": {
       "1161437": {
         "id": "1161437",
