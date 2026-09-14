@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 42586805,
+  "last_block": 42609902,
   "open": {},
   "closed": [
     {
@@ -330,10 +330,10 @@
     }
   ],
   "robinhood": {
-    "last_block": 62223748,
+    "last_block": 62451359,
     "open": {
-      "1099863": {
-        "id": "1099863",
+      "1160419": {
+        "id": "1160419",
         "chain": "robinhood",
         "pair": "USDG / CRCL",
         "pool_fee": "0.3%",
@@ -344,14 +344,29 @@
         "d1": 18,
         "s0": "USDG",
         "s1": "CRCL",
-        "opened_block": 58601841,
-        "opened": "2026-09-09",
-        "opened_ts": 1788962466,
-        "in0": 290.7161,
-        "in1": 1.9484710123053366,
-        "open_value_usd": 477.77
+        "opened_block": 62441427,
+        "opened": "2026-09-14",
+        "opened_ts": 1789351704,
+        "in0": 324.452095,
+        "in1": 1.6240306965292812,
+        "open_value_usd": 470.08
       }
     },
-    "closed": []
+    "closed": [
+      {
+        "id": "1099863",
+        "chain": "robinhood",
+        "pair": "USDG / CRCL",
+        "pool_fee": "0.3%",
+        "opened": "2026-09-09",
+        "opened_ts": 1788962466,
+        "closed": "2026-09-14",
+        "closed_ts": 1789350275,
+        "open_value_usd": 477.77,
+        "close_value_usd": 477.66,
+        "pnl_usd": -0.11,
+        "pnl_pct": -0.02
+      }
+    ]
   }
 }
