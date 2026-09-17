@@ -28,6 +28,7 @@ const CFG = {
   arcV4State: '0x6e43e7be27a11956218d6882ecc0cc1bed63e31f',  // StateView bound to that PoolManager
   arcUsdc: '0x3600000000000000000000000000000000000000',     // native USDC's ERC-20 face
   arcStartBlock: 21140000,                                   // just before the wallet's first Arc transaction
+  rhStartBlock: 58600000,                                    // just before the first Robinhood position (2026-09-09)
   /* Allowlist, as on Robinhood: two unsolicited airdrops (TOLLY, GIMX) and a free mint sit
      in this wallet with no market. Each token here is priced off its own USDC pool. */
   arcTokens: {
@@ -244,6 +245,202 @@ async function updateClaims(W, katPrice) {
   return c;
 }
 
+/* ---------- LP fee claim record ----------
+   Fees the LP positions have actually paid out, by UTC+8 day and by chain, each valued at the
+   price of the block it was collected in — the same rule as the KAT record beside it.
+   A V3 Collect pays out two things at once: principal that a DecreaseLiquidity released, and
+   fees. So each position carries a running "principal owed", and a Collect counts as fees
+   only past it. Stored in claims.json under lp_fees; the browser adds collections made since
+   the last run on top, from the per-chain state kept alongside.
+   These fees are already inside each position's P&L — a close books everything it paid out —
+   so the record lists them and the P&L total does not add them a second time. */
+function feeStore(claims) {
+  const f = claims.lp_fees || (claims.lp_fees = {});
+  f.tz = 'UTC+8';
+  f.days = f.days || {};
+  f.state = f.state || {};
+  return f;
+}
+function feeBook(fees, chain, ts, usd) {
+  const k = dayKey(ts);
+  const v = Math.round((((fees.days[k] && fees.days[k][chain]) || 0) + (usd > 0 ? usd : 0)) * 10000) / 10000;
+  if (!v) return;                     /* dust that rounds to nothing is not a day with fees */
+  (fees.days[k] || (fees.days[k] = {}))[chain] = v;
+}
+function feeClear(fees, chain) {
+  for (const k of Object.keys(fees.days)) {
+    delete fees.days[k][chain];
+    if (!Object.keys(fees.days[k]).length) delete fees.days[k];
+  }
+}
+
+/* One ordered pass over a V3 position manager's DecreaseLiquidity / Collect logs.
+   All or nothing: owed principal and bookings are applied only once the whole pass has
+   read cleanly, so a pass that fails part-way can simply be run again next time.
+   Only a Collect that paid this wallet is income, and "paid" has two shapes on chain:
+   - straight to the wallet, or
+   - to a helper contract that passes the tokens on in the same transaction (the Robinhood
+     app closes positions that way).
+   What it must not include: a staked Katana position has its trading fees collected by the
+   staker and sent to the Katana DAO (0xb722…b675), which keeps them — the staker's reward is
+   the KAT claimed separately. Checked against the chain: that address is an Aragon DAO and
+   never forwards to this wallet. */
+async function paidToUs(l, tokens, receipt) {
+  const W = CFG.wallet.toLowerCase();
+  const to = toAddr(w(l.data, 0)).toLowerCase();
+  if (to === W) return true;
+  const tk = new Set(tokens.map((t) => t.toLowerCase()));
+  const rc = await receipt(l.transactionHash);
+  return rc.logs.some((x) => x.topics[0] === TRANSFER_TOPIC && x.topics.length === 3 &&
+    tk.has(x.address.toLowerCase()) && '0x' + x.topics[1].slice(26) === to && '0x' + x.topics[2].slice(26) === W);
+}
+async function v3FeePass(chain, logs, st, fees, io) {
+  const owed = { ...st.owed }, pending = [];
+  const n = (x) => BigInt(x);
+  logs.sort((a, b) => (n(a.blockNumber) === n(b.blockNumber)
+    ? Number(n(a.logIndex) - n(b.logIndex)) : Number(n(a.blockNumber) - n(b.blockNumber))));
+  for (const l of logs) {
+    const id = BigInt(l.topics[1]).toString();
+    const blk = Number(BigInt(l.blockNumber));
+    const r0 = toBig(w(l.data, 1)), r1 = toBig(w(l.data, 2));
+    const ow = owed[id] || ['0', '0'];
+    let o0 = BigInt(ow[0]), o1 = BigInt(ow[1]);
+    if (l.topics[0] === DEC_TOPIC) {
+      o0 += r0; o1 += r1;
+    } else {
+      const f0 = r0 > o0 ? r0 - o0 : 0n, f1 = r1 > o1 ? r1 - o1 : 0n;
+      o0 = o0 > r0 ? o0 - r0 : 0n; o1 = o1 > r1 ? o1 - r1 : 0n;
+      const m = (f0 || f1) ? await io.metaFor(id, blk) : null;
+      if ((f0 || f1) && !m) console.warn(`  ${chain} fees: #${id} could not be described, collection at ${blk} skipped`);
+      if (m && await paidToUs(l, [m.token0, m.token1], io.receipt)) {
+        const px = await io.priceAt(m, blk);
+        const a0 = Number(f0) / 10 ** m.d0, a1 = Number(f1) / 10 ** m.d1;
+        let usd = null;
+        if (io.isStable(m.token0) && (px || !a1)) usd = a0 + (px ? a1 / px : 0);
+        else if (io.isStable(m.token1) && (px || !a0)) usd = a1 + a0 * (px || 0);
+        if (usd === null) console.warn(`  ${chain} fees: #${id} collection at ${blk} unpriced, skipped`);
+        else {
+          const ts = await io.blockTime(l, blk);
+          if (!ts) throw new Error(`no timestamp for block ${blk}`);   /* retry, never date it 1970 */
+          pending.push([ts, usd]);
+        }
+      }
+    }
+    if (o0 || o1) owed[id] = [String(o0), String(o1)]; else delete owed[id];
+  }
+  st.owed = owed;
+  for (const [ts, usd] of pending) feeBook(fees, chain, ts, usd);
+}
+
+/* last block at or before a timestamp — the fee record's first run starts from here */
+async function blockAtTs(getTs, ts, hi) {
+  let lo = 1;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if ((await getTs(mid)) <= ts) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+async function katanaFees(fees, positions, stakedIds) {
+  const st = fees.state.katana || (fees.state.katana = { last_block: 0, owed: {}, meta: {} });
+  const T = CFG.tokens;
+  const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
+  /* open and staked positions, plus anything closed in the last month — a collection can
+     trail a close. The first run takes every position the ledger has ever seen. */
+  const ids = new Set([...Object.keys(positions.open || {}), ...(stakedIds || []).map(String)]);
+  const monthAgo = Date.now() / 1000 - 30 * 86400;
+  for (const c of positions.closed || []) if (!st.last_block || (c.closed_ts || 0) > monthAgo) ids.add(String(c.id));
+  if (!ids.size) { st.ids = []; st.last_block = latest; return; }
+  let from = st.last_block + 1;
+  if (!st.last_block) {
+    const first = Math.min(...(positions.closed || []).map((c) => c.opened_ts || Infinity),
+      ...Object.values(positions.open || {}).map((o) => o.opened_ts || Infinity));
+    const tsOf = async (b) => Number(BigInt((await rpc('eth_getBlockByNumber', ['0x' + b.toString(16), false])).timestamp));
+    from = isFinite(first) ? await blockAtTs(tsOf, first - 3600, latest) : latest;
+    console.log(`  katana fees: first run, reading from block ${from}`);
+  }
+  const stable = new Set([T.USDC.a.toLowerCase(), T.USDT.a.toLowerCase()]);
+  const pxc = {};
+  const io = {
+    isStable: (a) => stable.has(a.toLowerCase()),
+    receipt: (h) => rpc('eth_getTransactionReceipt', [h]),
+    /* read the position just before the block that paid out — it may be burnt at that block */
+    metaFor: async (id, blk) => {
+      if (st.meta[id]) return st.meta[id];
+      try {
+        const r = await rpc('eth_call', [{ to: CFG.npm, data: '0x99fbab88' + pad(BigInt(id).toString(16)) }, '0x' + (blk - 1).toString(16)]);
+        const t0 = toAddr(w(r, 2)), t1 = toAddr(w(r, 3)), fee = Number(toBig(w(r, 4)));
+        const pool = toAddr(w(await ethCall(CFG.factory, '0x1698ee82' + pad(t0) + pad(t1) + pad(fee.toString(16))), 0));
+        const dec = async (a) => { const k = symOf(a); return k ? T[k].d : parseInt(await ethCall(a, '0x313ce567'), 16); };
+        st.meta[id] = { pool, token0: t0, token1: t1, d0: await dec(t0), d1: await dec(t1) };
+        return st.meta[id];
+      } catch { return null; }
+    },
+    priceAt: async (m, blk) => {
+      const k = m.pool + '@' + blk;
+      if (pxc[k] === undefined) {
+        const r = await rpc('eth_call', [{ to: m.pool, data: '0x3850c7bd' }, '0x' + blk.toString(16)]);
+        pxc[k] = poolPrice(toBig(w(r, 0)), m.d0, m.d1);
+      }
+      return pxc[k];
+    },
+    blockTime: async (l, blk) => (l.blockTimestamp && l.blockTimestamp !== '0x0'
+      ? Number(BigInt(l.blockTimestamp))
+      : Number(BigInt((await rpc('eth_getBlockByNumber', ['0x' + blk.toString(16), false])).timestamp))),
+  };
+  /* the ids the browser keeps watching after this run; open ones are described now, so it
+     can price a collection before the next run gets to it */
+  st.ids = [...ids];
+  for (const id of Object.keys(positions.open || {})) await io.metaFor(id, latest + 1);
+  const topics = [[DEC_TOPIC, COL_TOPIC], [...ids].map((id) => '0x' + pad(BigInt(id).toString(16)))];
+  for (; from <= latest; from += CFG.logChunk) {
+    const to = Math.min(from + CFG.logChunk - 1, latest);
+    const logs = await rpc('eth_getLogs', [{ fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
+      address: CFG.npm, topics }]);
+    await v3FeePass('katana', logs, st, fees, io);
+    st.last_block = to;               /* advanced per chunk, so a failure resumes where it stopped */
+  }
+}
+
+async function robinhoodFees(fees, led) {
+  const st = fees.state.robinhood || (fees.state.robinhood = { last_block: 0, owed: {}, meta: {} });
+  const recs = [...Object.values(led.open || {}), ...(led.closed || [])];
+  /* Closed records written before they kept pool details borrow them from a record of the
+     same pair and fee tier — a pair and a tier name exactly one pool. */
+  for (const r of recs) {
+    if (st.meta[r.id]) continue;
+    const src = r.pool ? r : recs.find((x) => x.pool && x.pair === r.pair && x.pool_fee === r.pool_fee);
+    if (src) st.meta[r.id] = { pool: src.pool, token0: src.token0, token1: src.token1, d0: src.d0, d1: src.d1 };
+  }
+  const latest = await (async () => {
+    const r = await fetch(CFG.rhRpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }) }).then((x) => x.json());
+    return parseInt(r.result, 16);
+  })();
+  const monthAgo = Date.now() / 1000 - 30 * 86400;
+  const ids = recs.filter((r) => st.meta[r.id] && (!st.last_block || !r.closed_ts || r.closed_ts > monthAgo)).map((r) => r.id);
+  st.ids = ids;
+  if (!ids.length) { st.last_block = latest; return; }
+  const stable = new Set(Object.values(CFG.rhTokens).filter((t) => t.stable).map((t) => t.a.toLowerCase()));
+  const io = {
+    isStable: (a) => stable.has(a.toLowerCase()),
+    receipt: (h) => rhCall('eth_getTransactionReceipt', [h]),
+    metaFor: async (id) => st.meta[id] || null,
+    /* no archive state here — the pool's own swap history prices the block, as in the ledger */
+    priceAt: async (m, blk) => { const px = await rhPriceAt(m.pool, blk, m.d0, m.d1); return px ? px.p1per0 : null; },
+    blockTime: async (l, blk) => rhBlockTime(blk),
+  };
+  const topics = [[DEC_TOPIC, COL_TOPIC], ids.map((id) => '0x' + pad(BigInt(id).toString(16)))];
+  /* filtered queries are allowed wide ranges here; 4M blocks is well inside what answers */
+  for (let from = st.last_block ? st.last_block + 1 : CFG.rhStartBlock; from <= latest; from += 4000000) {
+    const to = Math.min(from + 3999999, latest);
+    const logs = await rhLogs({ address: CFG.rhNpm, topics, fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16) });
+    await v3FeePass('robinhood', logs, st, fees, io);
+    st.last_block = to;
+  }
+}
+
 /* ---------- closed LP position ledger ----------
    A V3 position's whole life is on chain: IncreaseLiquidity puts principal in, Collect
    takes principal AND fees back out. Valuing each leg at the pool price of its own block
@@ -280,7 +477,11 @@ async function lifecycle(tokenId, fromBlock) {
     const ts = Number(BigInt(l.blockTimestamp));
     const usd = a0 + a1 * (await katPriceAtBlock(l.blockNumber));
     if (t === INC_TOPIC) { inUsd += usd; if (openTs === null) openTs = ts; }
-    else if (t === COL_TOPIC) outUsd += usd;   // principal and fees both exit via Collect
+    else if (t === COL_TOPIC) {
+      /* principal and fees both exit via Collect — but only what came back to this wallet is
+         ours; a staked position's fees go to the Katana DAO (see paidToUs) */
+      if (await paidToUs(l, [CFG.tokens.USDC.a, CFG.tokens.KAT.a], (h) => rpc('eth_getTransactionReceipt', [h]))) outUsd += usd;
+    }
     else closeTs = ts;                          // DecreaseLiquidity — the last one closes it
   }
   return { inUsd, outUsd, openTs, closeTs };
@@ -300,6 +501,29 @@ async function updatePositions(W) {
 
   try {
     const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
+    /* v2: v1 counted every Collect as money back, including the trading fees a staked
+       position pays to the Katana DAO, which overstated each staked position's result.
+       Closed records are settled history, so they are replayed once under the corrected
+       rule and never again. */
+    if (p.version !== 2 && p.closed.length) {
+      const first = Math.min(...p.closed.map((c) => c.opened_ts || Infinity));
+      const tsOf = async (b) => Number(BigInt((await rpc('eth_getBlockByNumber', ['0x' + b.toString(16), false])).timestamp));
+      const fromBlk = await blockAtTs(tsOf, first - 3600, latest);
+      let moved = 0;
+      for (const c of p.closed) {
+        const lc = await lifecycle(BigInt(c.id), fromBlk);
+        if (lc.openTs === null) continue;
+        const was = c.pnl_usd;
+        c.open_value_usd = round2(lc.inUsd);
+        c.close_value_usd = round2(lc.outUsd);
+        c.pnl_usd = round2(lc.outUsd - lc.inUsd);
+        c.pnl_pct = lc.inUsd > 0 ? round2((lc.outUsd - lc.inUsd) / lc.inUsd * 100) : 0;
+        moved += c.pnl_usd - was;
+      }
+      p.version = 2;
+      console.log(`  position ledger: replayed ${p.closed.length} closed positions, realised moved by ${round2(moved)}`);
+    }
+    p.version = 2;
     const done = new Set(p.closed.map((c) => String(c.id)));
     /* candidate id -> earliest block we've seen it at (where its event replay starts) */
     const cand = new Map();
@@ -657,16 +881,26 @@ const RH_COL_TOPIC  = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab176563273
 /* the public RPC has a burst limit as well as a range limit, and this ledger makes several
    calls back to back — a short gap between them is cheaper than a failed run */
 let rhLastCall = 0;
-async function rhLogs(params) {
-  const gap = 250 - (Date.now() - rhLastCall);
-  if (gap > 0) await new Promise((k) => setTimeout(k, gap));
-  rhLastCall = Date.now();
-  const r = await fetch(CFG.rhRpc, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getLogs', params: [params] }),
-  }).then(x => { if (!x.ok) throw new Error('HTTP ' + x.status); return x.json(); });
-  if (r.error) throw new Error(r.error.message);
-  return r.result;
+const rhLogs = (params) => rhCall('eth_getLogs', [params]);
+
+/* Paced, and patient with the rate limit: a 429 waits and tries again rather than failing a
+   run that has only been asked to slow down. Any other error is returned at once. */
+async function rhCall(method, params) {
+  for (let attempt = 0; ; attempt++) {
+    const gap = 250 - (Date.now() - rhLastCall);
+    if (gap > 0) await new Promise((k) => setTimeout(k, gap));
+    rhLastCall = Date.now();
+    const x = await fetch(CFG.rhRpc, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    const r = await x.json().catch(() => null);
+    const limited = x.status === 429 || /rate limit|too many/i.test((r && r.error && r.error.message) || '');
+    if (limited && attempt < 4) { await new Promise((k) => setTimeout(k, 1500 * (attempt + 1))); continue; }
+    if (!x.ok || !r) throw new Error('HTTP ' + x.status);
+    if (r.error) throw new Error(r.error.message);
+    return r.result;
+  }
 }
 
 /* Robinhood's RPC returns a blockTimestamp field on every log but leaves it at "0x0", so
@@ -674,17 +908,14 @@ async function rhLogs(params) {
    and close each resolve to one block and the ledger is rebuilt every run. */
 const RH_TS = {};
 async function rhBlockTime(block) {
-  if (RH_TS[block] !== undefined) return RH_TS[block];
-  const gap = 250 - (Date.now() - rhLastCall);
-  if (gap > 0) await new Promise((k) => setTimeout(k, gap));
-  rhLastCall = Date.now();
+  if (RH_TS[block]) return RH_TS[block];
   try {
-    const r = await fetch(CFG.rhRpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBlockByNumber',
-        params: ['0x' + block.toString(16), false] }) }).then(x => x.json());
-    RH_TS[block] = r.result ? parseInt(r.result.timestamp, 16) : null;
-  } catch { RH_TS[block] = null; }
-  return RH_TS[block];
+    const b = await rhCall('eth_getBlockByNumber', ['0x' + block.toString(16), false]);
+    /* only a real answer is remembered — a failure used to be cached as "no timestamp" for
+       the rest of the run, and a collection then went undated */
+    if (b && b.timestamp) RH_TS[block] = parseInt(b.timestamp, 16);
+  } catch { /* the caller decides whether a missing time is fatal */ }
+  return RH_TS[block] || null;
 }
 
 /* price of token1 in token0 terms at a block, from the pool's own swap history */
@@ -791,6 +1022,9 @@ async function rhBuildLedger(current, prevLedger) {
       const closeTs = await rhBlockTime(blk);
       led.closed.push({
         id: o.id, chain: 'robinhood', pair: o.pair, pool_fee: o.pool_fee,
+        /* kept so the fee record can still price this position's collections */
+        pool: o.pool, token0: o.token0, token1: o.token1, d0: o.d0, d1: o.d1, s0: o.s0, s1: o.s1,
+        opened_block: o.opened_block,
         opened: o.opened, opened_ts: o.opened_ts,
         closed: closeTs ? new Date(closeTs * 1000).toISOString().slice(0, 10) : null,
         closed_ts: closeTs,
@@ -1068,11 +1302,21 @@ async function getArc(tag = 'latest', known = {}) {
    and Uniswap. That covers fees too, which V4 pays out on every modification. */
 const ARC_TR = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ARC_INC = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+const ARC_DEC = '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4';
+/* bumped when the ledger starts recording something it did not before; an older ledger is
+   rebuilt from the chain's first block so the new figure covers the whole history */
+const ARC_LEDGER_VERSION = 2;   /* 2: fee claims */
 const ARC_COL = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
 const ARC_MODLIQ = '0xf208f4912782fd25c7f114ca3723a2d5dd6f3bcc3ac8db5af63baa85f711d5ec';
 
-async function arcBuildLedger(prev) {
-  const led = { last_block: 0, open: {}, closed: [], ...(prev || {}) };
+async function arcBuildLedger(prev, fees) {
+  if (prev && prev.version !== ARC_LEDGER_VERSION) {
+    console.log('  arc ledger: older format, rebuilding from the first block');
+    prev = null;
+  }
+  /* a rebuild recounts every collection, so the fee days it wrote before go first */
+  if (!prev) feeClear(fees, 'arc');
+  const led = { last_block: 0, open: {}, closed: [], ...(prev || {}), version: ARC_LEDGER_VERSION };
   led.open = { ...led.open };
   led.closed = [...led.closed];
   const W = CFG.wallet.toLowerCase(), Wt = '0x' + pad(W);
@@ -1088,17 +1332,26 @@ async function arcBuildLedger(prev) {
     return tsCache[block];
   };
   const day = (ts) => dayKey(ts);
-  const pxCache = {};
-  const pxAt = async (o, block) => {                  /* token1 per token0, at that block */
+  const slotCache = {};
+  const slotAt = async (o, block) => {                /* pool price at that block */
     const k = o.uid + '@' + block;
-    if (pxCache[k] === undefined) {
+    if (slotCache[k] === undefined) {
       const call = o.kind === 'v4' ? { to: CFG.arcV4State, data: '0xc815641c' + o.pool_id.slice(2) }
                                    : { to: o.pool, data: '0x3850c7bd' };
       const r = await arcRpc('eth_call', [call, hexBlock(block)]);
-      pxCache[k] = poolPrice(toBig(w(r, 0)), arcDec(o.token0, o.d0), arcDec(o.token1, o.d1));
+      const sqrt = toBig(w(r, 0));
+      slotCache[k] = { sqrt, px: poolPrice(sqrt, arcDec(o.token0, o.d0), arcDec(o.token1, o.d1)) };
     }
-    return pxCache[k];
+    return slotCache[k];
   };
+  const pxAt = async (o, block) => (await slotAt(o, block)).px;   /* token1 per token0 */
+  let feePending = [];
+  async function bookFee(o, block, tsHex, f0, f1) {
+    const usd = arcPairUsd(f0, f1, o.token0, o.token1, await pxAt(o, block));
+    if (usd === null || !(usd > 0)) return;
+    o.fees_usd = (o.fees_usd || 0) + usd;
+    feePending.push([await blockTs(block, tsHex), usd]);   /* booked when the window completes */
+  }
 
   /* what a newly-seen position is, read at the block it arrived — a position burnt before
      this run can still be described there, thanks to archive state */
@@ -1159,6 +1412,12 @@ async function arcBuildLedger(prev) {
     for (; from <= latest; from += 10000) {
       const to = Math.min(from + 9999, latest);
       const nfts = [CFG.arcNpm, CFG.arcV4Posm];
+      /* A window is all or nothing: if any read in it fails, the positions go back to how
+         they stood before it and its fees are dropped, so the next run replays it cleanly
+         instead of counting its first half twice. */
+      const before = JSON.stringify(led.open), knownBefore = new Set(known);
+      feePending = [];
+      try {
 
       /* 1. position NFTs arriving — minted, or handed back by a contract */
       for (const l of await arcLogs({ address: nfts, topics: [ARC_TR, null, Wt] }, from, to)) {
@@ -1191,14 +1450,29 @@ async function arcBuildLedger(prev) {
       if (v3.length) {
         const byId = Object.fromEntries(v3.map((o) => [o.id, o]));
         const logs = await arcLogs({ address: CFG.arcNpm,
-          topics: [[ARC_INC, ARC_COL], v3.map((o) => '0x' + pad(BigInt(o.id).toString(16)))] }, from, to);
+          topics: [[ARC_INC, ARC_DEC, ARC_COL], v3.map((o) => '0x' + pad(BigInt(o.id).toString(16)))] }, from, to);
+        logs.sort((a, b) => (BigInt(a.blockNumber) === BigInt(b.blockNumber)
+          ? Number(BigInt(a.logIndex) - BigInt(b.logIndex)) : Number(BigInt(a.blockNumber) - BigInt(b.blockNumber))));
         for (const l of logs) {
           const o = byId[BigInt(l.topics[1]).toString()];
           if (!o) continue;
+          const blk = Number(BigInt(l.blockNumber));
+          const r0 = toBig(w(l.data, 1)), r1 = toBig(w(l.data, 2));
+          /* principal released, not yet paid — the next Collect pays this out first */
+          if (l.topics[0] === ARC_DEC) {
+            o.owed0 = String(BigInt(o.owed0 || 0) + r0); o.owed1 = String(BigInt(o.owed1 || 0) + r1);
+            continue;
+          }
           /* amounts as the pool moved them; a token with a transfer tax (ARGUS takes 1%)
              lands slightly short of this in the wallet */
-          const a0 = Number(toBig(w(l.data, 1))) / 10 ** o.d0, a1 = Number(toBig(w(l.data, 2))) / 10 ** o.d1;
-          await book(o, Number(BigInt(l.blockNumber)), l.blockTimestamp, a0, a1, l.topics[0] === ARC_INC ? 'in' : 'out');
+          const a0 = Number(r0) / 10 ** o.d0, a1 = Number(r1) / 10 ** o.d1;
+          if (l.topics[0] === ARC_INC) { await book(o, blk, l.blockTimestamp, a0, a1, 'in'); continue; }
+          const ours = await paidToUs(l, [o.token0, o.token1], (h) => arcRpc('eth_getTransactionReceipt', [h]));
+          if (ours) await book(o, blk, l.blockTimestamp, a0, a1, 'out');
+          const ow0 = BigInt(o.owed0 || 0), ow1 = BigInt(o.owed1 || 0);
+          const f0 = r0 > ow0 ? r0 - ow0 : 0n, f1 = r1 > ow1 ? r1 - ow1 : 0n;
+          o.owed0 = String(ow0 > r0 ? ow0 - r0 : 0n); o.owed1 = String(ow1 > r1 ? ow1 - r1 : 0n);
+          if (ours && (f0 || f1)) await bookFee(o, blk, l.blockTimestamp, Number(f0) / 10 ** o.d0, Number(f1) / 10 ** o.d1);
         }
       }
 
@@ -1207,11 +1481,17 @@ async function arcBuildLedger(prev) {
       if (v4.length) {
         const logs = await arcLogs({ address: CFG.arcV4Pool,
           topics: [ARC_MODLIQ, [...new Set(v4.map((o) => o.pool_id))], posmT] }, from, to);
+        /* one entry per transaction, with every liquidity change it made to the position */
+        const txs = new Map();
         for (const l of logs) {
           const salt = BigInt('0x' + w(l.data, 3)).toString();
           const o = v4.find((x) => x.id === salt && x.pool_id === l.topics[1]);
           if (!o || seenTx.has(l.transactionHash)) continue;
-          seenTx.add(l.transactionHash);
+          if (!txs.has(l.transactionHash)) txs.set(l.transactionHash, { o, l, dL: 0n });
+          txs.get(l.transactionHash).dL += toSigned(w(l.data, 2));
+        }
+        for (const [hash, { o, l, dL }] of txs) {
+          seenTx.add(hash);
           const rc = await arcRpc('eth_getTransactionReceipt', [l.transactionHash]);
           const leg = (a) => (a.toLowerCase() === ZERO_ADDR ? CFG.arcUsdc : a.toLowerCase());
           const t0 = leg(o.token0), t1 = leg(o.token1);
@@ -1236,8 +1516,31 @@ async function arcBuildLedger(prev) {
           const i0 = Math.max(n0, 0), i1 = Math.max(n1, 0), o0 = Math.max(-n0, 0), o1 = Math.max(-n1, 0);
           if (i0 || i1) await book(o, blk, l.blockTimestamp, i0, i1, 'in');
           if (o0 || o1) await book(o, blk, l.blockTimestamp, o0, o1, 'out');
+
+          /* V4 pays accrued fees on every modification, netted into the same transfer. What
+             the liquidity change moved is known from the pool price at that block, so the
+             rest is fees. Block-end price: a swap later in the same block can shift the split
+             by a hair, so a negative remainder is taken as none rather than booked. A position
+             with no liquidity before this transaction has earned nothing yet. */
+          const had = BigInt(o.v4_liq || 0);
+          o.v4_liq = String(had + dL);
+          if (had > 0n) {
+            const L = dL < 0n ? -dL : dL;
+            const { sqrt } = await slotAt(o, blk);
+            const [q0, q1] = L ? v3Amounts(L, o.lo, o.hi, sqrt) : [0, 0];
+            const p0 = q0 / 10 ** arcDec(o.token0, o.d0), p1 = q1 / 10 ** arcDec(o.token1, o.d1);
+            const f0 = Math.max(0, dL > 0n ? p0 - n0 : -n0 - p0);
+            const f1 = Math.max(0, dL > 0n ? p1 - n1 : -n1 - p1);
+            if (f0 || f1) await bookFee(o, blk, l.blockTimestamp, f0, f1);
+          }
         }
       }
+      } catch (e) {
+        led.open = JSON.parse(before);
+        known.clear(); knownBefore.forEach((k) => known.add(k));
+        throw e;
+      }
+      for (const [ts, usd] of feePending) feeBook(fees, 'arc', ts, usd);
       reached = to;
     }
   } catch (e) {
@@ -1266,6 +1569,7 @@ async function arcBuildLedger(prev) {
         closed: o.last_ts ? day(o.last_ts) : o.opened, closed_ts: o.last_ts || o.opened_ts,
         open_value_usd: round2(o.in_usd), close_value_usd: round2(o.out_usd),
         pnl_usd: round2(pnl), pnl_pct: o.in_usd > 0 ? round2(pnl / o.in_usd * 100) : 0,
+        fees_usd: round2(o.fees_usd || 0),
         in0: o.in0, in1: o.in1, out0: o.out0, out1: o.out1,
         ...(o.unpriced ? { unpriced: true } : {}),
       });
@@ -1450,12 +1754,32 @@ if (rh.lps.length || (positions.robinhood && Object.keys(positions.robinhood.ope
 
 /* Arc: the ledger runs before the valuation, because it is what knows the V4 positions and
    any staked V3 ones — neither NFT contract can list those for a wallet. */
+const fees = feeStore(claims);
 try {
-  positions.arc = await arcBuildLedger(positions.arc);
+  positions.arc = await arcBuildLedger(positions.arc, fees);
   writeFileSync(join(ROOT, 'positions.json'), JSON.stringify(positions, null, 2) + String.fromCharCode(10));
 } catch (e) {
   console.warn('arc ledger failed, keeping existing record:', e.message);
 }
+/* LP fee claims on the other two EVM chains — each failure costs that chain's record only */
+try { await robinhoodFees(fees, positions.robinhood || {}); }
+catch (e) { console.warn('robinhood fee scan failed, resuming next run:', e.message); }
+try { await katanaFees(fees, positions, kat.stakedLpIds); }
+catch (e) { console.warn('katana fee scan failed, resuming next run:', e.message); }
+/* Arc's scan state lives in its ledger; copy what the browser needs to add collections made
+   after this run: where the ledger stopped, and each open V3 position's pool and owed principal */
+{
+  const a = { last_block: (positions.arc && positions.arc.last_block) || 0, ids: [], owed: {}, meta: {} };
+  for (const o of Object.values((positions.arc && positions.arc.open) || {})) {
+    if (o.kind !== 'v3') continue;
+    a.ids.push(o.id);
+    a.meta[o.id] = { pool: o.pool, token0: o.token0, token1: o.token1, d0: o.d0, d1: o.d1 };
+    if (BigInt(o.owed0 || 0) || BigInt(o.owed1 || 0)) a.owed[o.id] = [String(o.owed0 || 0), String(o.owed1 || 0)];
+  }
+  fees.state.arc = a;
+}
+fees.start_date = Object.keys(fees.days).sort()[0] || null;
+writeFileSync(join(ROOT, 'claims.json'), JSON.stringify(claims, null, 2) + '\n');
 const arcOpen = Object.values((positions.arc && positions.arc.open) || {});
 const arcKnown = {
   staked: arcOpen.filter((o) => o.kind === 'v3' && o.staked).map((o) => o.id),
@@ -1652,4 +1976,10 @@ console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} |
 console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length} | Arc LPs: ${arc.lps.length}`);
 if (positions.arc) console.log(`Arc ledger: to block ${positions.arc.last_block}, ${Object.keys(positions.arc.open).length} open, ${positions.arc.closed.length} closed (realised ${round2(positions.arc.closed.reduce((a, c) => a + (c.pnl_usd || 0), 0))})`);
 console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);
+{
+  const tot = {};
+  for (const d of Object.values(fees.days)) for (const [c, v] of Object.entries(d)) tot[c] = (tot[c] || 0) + v;
+  console.log(`LP fee record: ${Object.keys(fees.days).length} day(s) since ${fees.start_date} | ` +
+    Object.entries(tot).map(([c, v]) => `${c} $${round2(v)}`).join(' | '));
+}
 console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open (${Object.values(positions.open).map((o) => '#' + (o.opened || '?') + ' $' + (o.open_value_usd ?? '-')).join(', ')})`);

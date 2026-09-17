@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 42900636,
+  "last_block": 42904415,
   "open": {},
   "closed": [
     {
@@ -12,9 +12,9 @@
       "closed": "2026-08-21",
       "closed_ts": 1787275156,
       "open_value_usd": 1977.18,
-      "close_value_usd": 2015.07,
-      "pnl_usd": 37.89,
-      "pnl_pct": 1.92
+      "close_value_usd": 1998.79,
+      "pnl_usd": 21.61,
+      "pnl_pct": 1.09
     },
     {
       "id": "425369",
@@ -25,9 +25,9 @@
       "closed": "2026-08-14",
       "closed_ts": 1786667864,
       "open_value_usd": 306.73,
-      "close_value_usd": 286.21,
-      "pnl_usd": -20.52,
-      "pnl_pct": -6.69
+      "close_value_usd": 285.63,
+      "pnl_usd": -21.1,
+      "pnl_pct": -6.88
     },
     {
       "id": "425460",
@@ -38,9 +38,9 @@
       "closed": "2026-08-14",
       "closed_ts": 1786667844,
       "open_value_usd": 1750.58,
-      "close_value_usd": 1667.52,
-      "pnl_usd": -83.06,
-      "pnl_pct": -4.74
+      "close_value_usd": 1663.49,
+      "pnl_usd": -87.09,
+      "pnl_pct": -4.97
     },
     {
       "id": "425270",
@@ -51,9 +51,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786365047,
       "open_value_usd": 1217.99,
-      "close_value_usd": 1191.24,
-      "pnl_usd": -26.74,
-      "pnl_pct": -2.2
+      "close_value_usd": 1190.14,
+      "pnl_usd": -27.84,
+      "pnl_pct": -2.29
     },
     {
       "id": "425257",
@@ -64,9 +64,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786330741,
       "open_value_usd": 806.63,
-      "close_value_usd": 807,
-      "pnl_usd": 0.37,
-      "pnl_pct": 0.05
+      "close_value_usd": 806.95,
+      "pnl_usd": 0.32,
+      "pnl_pct": 0.04
     },
     {
       "id": "425252",
@@ -77,9 +77,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786330706,
       "open_value_usd": 1206.86,
-      "close_value_usd": 1207.87,
-      "pnl_usd": 1.01,
-      "pnl_pct": 0.08
+      "close_value_usd": 1207.63,
+      "pnl_usd": 0.76,
+      "pnl_pct": 0.06
     },
     {
       "id": "425245",
@@ -90,9 +90,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786324720,
       "open_value_usd": 1243.76,
-      "close_value_usd": 1245.3,
-      "pnl_usd": 1.54,
-      "pnl_pct": 0.12
+      "close_value_usd": 1245.1,
+      "pnl_usd": 1.34,
+      "pnl_pct": 0.11
     },
     {
       "id": "425076",
@@ -103,9 +103,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786321040,
       "open_value_usd": 891.74,
-      "close_value_usd": 893.02,
-      "pnl_usd": 1.29,
-      "pnl_pct": 0.14
+      "close_value_usd": 892.65,
+      "pnl_usd": 0.92,
+      "pnl_pct": 0.1
     },
     {
       "id": "425075",
@@ -116,9 +116,9 @@
       "closed": "2026-08-10",
       "closed_ts": 1786321022,
       "open_value_usd": 1170.93,
-      "close_value_usd": 1172.34,
-      "pnl_usd": 1.41,
-      "pnl_pct": 0.12
+      "close_value_usd": 1171.97,
+      "pnl_usd": 1.04,
+      "pnl_pct": 0.09
     },
     {
       "id": "424932",
@@ -129,9 +129,9 @@
       "closed": "2026-08-09",
       "closed_ts": 1786288773,
       "open_value_usd": 866.77,
-      "close_value_usd": 868.17,
-      "pnl_usd": 1.4,
-      "pnl_pct": 0.16
+      "close_value_usd": 867.47,
+      "pnl_usd": 0.7,
+      "pnl_pct": 0.08
     },
     {
       "id": "424319",
@@ -142,9 +142,9 @@
       "closed": "2026-08-09",
       "closed_ts": 1786288754,
       "open_value_usd": 1199.2,
-      "close_value_usd": 1206.95,
-      "pnl_usd": 7.75,
-      "pnl_pct": 0.65
+      "close_value_usd": 1201.26,
+      "pnl_usd": 2.06,
+      "pnl_pct": 0.17
     },
     {
       "id": "424335",
@@ -155,9 +155,9 @@
       "closed": "2026-08-09",
       "closed_ts": 1786262939,
       "open_value_usd": 828.61,
-      "close_value_usd": 833.95,
-      "pnl_usd": 5.34,
-      "pnl_pct": 0.64
+      "close_value_usd": 829.86,
+      "pnl_usd": 1.25,
+      "pnl_pct": 0.15
     },
     {
       "id": "423843",
@@ -168,9 +168,9 @@
       "closed": "2026-08-07",
       "closed_ts": 1786064347,
       "open_value_usd": 834.1,
-      "close_value_usd": 838.76,
-      "pnl_usd": 4.66,
-      "pnl_pct": 0.56
+      "close_value_usd": 837.03,
+      "pnl_usd": 2.93,
+      "pnl_pct": 0.35
     },
     {
       "id": "423611",
@@ -181,9 +181,9 @@
       "closed": "2026-08-07",
       "closed_ts": 1786064326,
       "open_value_usd": 1152.44,
-      "close_value_usd": 1159.29,
-      "pnl_usd": 6.85,
-      "pnl_pct": 0.59
+      "close_value_usd": 1153.32,
+      "pnl_usd": 0.88,
+      "pnl_pct": 0.08
     },
     {
       "id": "423178",
@@ -194,9 +194,9 @@
       "closed": "2026-08-05",
       "closed_ts": 1785917985,
       "open_value_usd": 810.65,
-      "close_value_usd": 820.27,
-      "pnl_usd": 9.62,
-      "pnl_pct": 1.19
+      "close_value_usd": 818.08,
+      "pnl_usd": 7.43,
+      "pnl_pct": 0.92
     },
     {
       "id": "423480",
@@ -207,9 +207,9 @@
       "closed": "2026-08-04",
       "closed_ts": 1785837626,
       "open_value_usd": 1146.83,
-      "close_value_usd": 1147.28,
-      "pnl_usd": 0.46,
-      "pnl_pct": 0.04
+      "close_value_usd": 1145.89,
+      "pnl_usd": -0.94,
+      "pnl_pct": -0.08
     },
     {
       "id": "423426",
@@ -220,9 +220,9 @@
       "closed": "2026-08-04",
       "closed_ts": 1785818591,
       "open_value_usd": 1146.96,
-      "close_value_usd": 1150.94,
-      "pnl_usd": 3.98,
-      "pnl_pct": 0.35
+      "close_value_usd": 1150.18,
+      "pnl_usd": 3.22,
+      "pnl_pct": 0.28
     },
     {
       "id": "423232",
@@ -233,9 +233,9 @@
       "closed": "2026-08-04",
       "closed_ts": 1785802944,
       "open_value_usd": 1126.14,
-      "close_value_usd": 1135.08,
-      "pnl_usd": 8.94,
-      "pnl_pct": 0.79
+      "close_value_usd": 1134.23,
+      "pnl_usd": 8.09,
+      "pnl_pct": 0.72
     },
     {
       "id": "423179",
@@ -246,9 +246,9 @@
       "closed": "2026-08-03",
       "closed_ts": 1785735033,
       "open_value_usd": 71.47,
-      "close_value_usd": 70.92,
-      "pnl_usd": -0.55,
-      "pnl_pct": -0.77
+      "close_value_usd": 70.89,
+      "pnl_usd": -0.58,
+      "pnl_pct": -0.81
     },
     {
       "id": "423125",
@@ -259,9 +259,9 @@
       "closed": "2026-08-03",
       "closed_ts": 1785735016,
       "open_value_usd": 1065.89,
-      "close_value_usd": 1048.19,
-      "pnl_usd": -17.7,
-      "pnl_pct": -1.66
+      "close_value_usd": 1047.19,
+      "pnl_usd": -18.7,
+      "pnl_pct": -1.75
     },
     {
       "id": "423126",
@@ -272,9 +272,9 @@
       "closed": "2026-08-02",
       "closed_ts": 1785679389,
       "open_value_usd": 55.14,
-      "close_value_usd": 54.7,
-      "pnl_usd": -0.44,
-      "pnl_pct": -0.79
+      "close_value_usd": 54.64,
+      "pnl_usd": -0.51,
+      "pnl_pct": -0.92
     },
     {
       "id": "422640",
@@ -285,9 +285,9 @@
       "closed": "2026-08-02",
       "closed_ts": 1785644734,
       "open_value_usd": 834.77,
-      "close_value_usd": 812.39,
-      "pnl_usd": -22.38,
-      "pnl_pct": -2.68
+      "close_value_usd": 811.14,
+      "pnl_usd": -23.63,
+      "pnl_pct": -2.83
     },
     {
       "id": "422873",
@@ -298,9 +298,9 @@
       "closed": "2026-08-01",
       "closed_ts": 1785594045,
       "open_value_usd": 40.07,
-      "close_value_usd": 40.1,
-      "pnl_usd": 0.03,
-      "pnl_pct": 0.08
+      "close_value_usd": 39.99,
+      "pnl_usd": -0.08,
+      "pnl_pct": -0.19
     },
     {
       "id": "422564",
@@ -311,9 +311,9 @@
       "closed": "2026-08-01",
       "closed_ts": 1785588385,
       "open_value_usd": 998.24,
-      "close_value_usd": 998.87,
-      "pnl_usd": 0.63,
-      "pnl_pct": 0.06
+      "close_value_usd": 996.14,
+      "pnl_usd": -2.1,
+      "pnl_pct": -0.21
     },
     {
       "id": "422530",
@@ -324,13 +324,13 @@
       "closed": "2026-07-30",
       "closed_ts": 1785411506,
       "open_value_usd": 494.71,
-      "close_value_usd": 498.07,
-      "pnl_usd": 3.36,
-      "pnl_pct": 0.68
+      "close_value_usd": 497.61,
+      "pnl_usd": 2.9,
+      "pnl_pct": 0.59
     }
   ],
   "robinhood": {
-    "last_block": 65320505,
+    "last_block": 65358073,
     "open": {
       "1161437": {
         "id": "1161437",
@@ -383,8 +383,9 @@
       }
     ]
   },
+  "version": 2,
   "arc": {
-    "last_block": 21318563,
+    "last_block": 21326022,
     "open": {
       "arc:v3:25048": {
         "uid": "arc:v3:25048",
@@ -415,7 +416,10 @@
         "opened_ts": 1789577213,
         "opened": "2026-09-17",
         "last_block": 21311340,
-        "last_ts": 1789639789
+        "last_ts": 1789639789,
+        "owed0": "0",
+        "owed1": "0",
+        "fees_usd": 10.473582497646815
       },
       "arc:v3:32901": {
         "uid": "arc:v3:32901",
@@ -424,11 +428,11 @@
         "chain": "arc",
         "opened_block": 21306490,
         "in_usd": 44.443746396554396,
-        "out_usd": 4.9658544291541435,
+        "out_usd": 7.134357100133052,
         "in0": 27.640408,
         "in1": 7991.037351290179,
-        "out0": 2.568356,
-        "out1": 2067.016085232441,
+        "out0": 3.740847,
+        "out1": 3045.4620447465327,
         "staked": false,
         "token0": "0x3600000000000000000000000000000000000000",
         "token1": "0xa163d7624da3b5d9182c50eab5b8cd247ae861bb",
@@ -445,8 +449,11 @@
         "protocol": "Uniswap V3",
         "opened_ts": 1789637331,
         "opened": "2026-09-17",
-        "last_block": 21313939,
-        "last_ts": 1789641105
+        "last_block": 21321521,
+        "last_ts": 1789644946,
+        "owed0": "0",
+        "owed1": "0",
+        "fees_usd": 7.134357100133052
       }
     },
     "closed": [
@@ -465,11 +472,13 @@
         "close_value_usd": 42.92,
         "pnl_usd": 4.8,
         "pnl_pct": 12.59,
+        "fees_usd": 1.54,
         "in0": 23.509287,
         "in1": 12089.780146713972,
         "out0": 42.358589,
         "out1": 295.1785163896155
       }
-    ]
+    ],
+    "version": 2
   }
 }

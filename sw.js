@@ -11,7 +11,9 @@
    exactly like the feature never shipped. Bump this on EVERY shell change. */
 /* v19: Arc chain (wallet, Uniswap V3 + V4 positions, ledger, Merkl), every chain in the
    history series, a badge colour per chain. */
-var CACHE_VERSION = 'tiger-v19';
+/* v20: LP fee claims in the claim record, on every chain; Katana LP results count only
+   what was paid to this wallet. */
+var CACHE_VERSION = 'tiger-v20';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

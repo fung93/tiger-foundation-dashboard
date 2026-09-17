@@ -332,9 +332,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Claims: fixed columns on both tables so the pinned TOTAL lines up with the rows that
    scroll above it. The footer carries the table's own horizontal padding. */
 #claimsTable,.claims-total table{table-layout:fixed;width:100%}
-#claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:42%}
-#claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:29%}
-#claimsTable th:nth-child(3),#claimsTable td:nth-child(3),.claims-total td:nth-child(3){width:29%}
+#claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:31%}
+#claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:23%}
+#claimsTable th:nth-child(3),#claimsTable td:nth-child(3),.claims-total td:nth-child(3){width:22%}
+#claimsTable th:nth-child(4),#claimsTable td:nth-child(4),.claims-total td:nth-child(4){width:24%}
+.claims-note{color:var(--dim);font-size:10px;padding:2px 10px 6px;line-height:1.4}
 /* column headings stay put while the days scroll under them. Sticky goes on the cells,
    not the row — a sticky <tr> is ignored in several engines. Needs an opaque background
    or the rows would show through as they pass beneath. */
@@ -498,7 +500,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
         <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
-        <button class="rec-btn" id="claimsBtn" title="KAT claim record" aria-label="KAT claim record">
+        <button class="rec-btn" id="claimsBtn" title="Claim record — KAT and LP fees" aria-label="Claim record">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
         </button>
       </div>
@@ -569,10 +571,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   </div>
 </div>
 
-<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="KAT claim record">
+<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Claim record">
   <div class="modal">
     <div class="modal-head">
-      <span class="modal-title">KAT Claim Record</span>
+      <span class="modal-title">Claim Record</span>
       <button class="modal-x" id="claimsClose" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body"><table class="tbl" id="claimsTable"></table></div>
@@ -827,6 +829,7 @@ var CFG={
     Minara:{a:'0xa163d7624da3b5d9182c50eab5b8cd247ae861bb',d:18,pool:'0xfd0dc7b3591cb578fd1affcd652ca6e2907c63e9'}
   },
   merklApi:'https://api.merkl.xyz/v4',
+  transferTopic:'0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
   startValue:502.29,
   startDate:'2026-05-02',
   katClaimed:84937,
@@ -2184,33 +2187,178 @@ function claimDays(){
   return out;
 }
 
+/* ---- LP fee record ----
+   Fees the LP positions paid into this wallet, per UTC+8 day and chain, valued at the price
+   of the block they were collected in. claims.json carries what the Action has booked
+   (lp_fees.days) and where each chain's scan stopped (lp_fees.state); the scan below adds
+   collections made since, valued at today's price — the same rule as live KAT days.
+   Only money that reached the wallet counts: a staked Katana position's fees are collected
+   by the staker and paid to the Katana DAO, which keeps them. */
+function paidToUs(l,tokens,receipt){
+  var W=CFG.wallet.toLowerCase(),to=toAddr(w(l.data,0)).toLowerCase();
+  if(to===W)return Promise.resolve(true);
+  var tk={};tokens.forEach(function(t){tk[t.toLowerCase()]=1;});
+  /* or to a helper that passed the tokens on in the same transaction */
+  return receipt(l.transactionHash).then(function(rc){
+    return rc.logs.some(function(x){
+      return x.topics[0]===CFG.transferTopic&&x.topics.length===3&&tk[x.address.toLowerCase()]
+        &&'0x'+x.topics[1].slice(26)===to&&'0x'+x.topics[2].slice(26)===W;
+    });
+  });
+}
+var FEE_CHAINS=[
+  {key:'katana',name:'Katana',call:function(m,p){return rpc(m,p);},npm:CFG.npm,span:100000,
+   stable:[CFG.tokens.USDC.a,CFG.tokens.USDT.a]},
+  {key:'robinhood',name:'Robinhood',call:function(m,p){return rhRpc(m,p);},npm:CFG.rhNpm,span:4000000,
+   stable:Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
+     .map(function(k){return CFG.rhTokens[k].a;})},
+  {key:'arc',name:'Arc',call:function(m,p){return arcRpc(m,p);},npm:CFG.arcNpm,span:10000,
+   stable:[CFG.arcUsdc]}
+];
+var LIVE_FEES={days:{},cur:{},owed:{}},LIVE_FEES_AT=0,LIVE_FEES_BUSY=false;
+/* Every two minutes at most, and at most three log windows a chain per pass — on Arc that
+   clears a six-hour backlog in a few passes without leaning on its rate limit. */
+function scanLiveFees(){
+  var F=CLAIMS&&CLAIMS.lp_fees;
+  if(!F||!F.state||LIVE_FEES_BUSY||Date.now()-LIVE_FEES_AT<120000)return Promise.resolve();
+  LIVE_FEES_BUSY=true;LIVE_FEES_AT=Date.now();
+  return FEE_CHAINS.reduce(function(p,c){
+    return p.then(function(){
+      return liveFeesFor(c,F.state[c.key],3).catch(function(e){console.warn(c.key+' live fee scan failed, will retry',e);});
+    });
+  },Promise.resolve()).then(function(){LIVE_FEES_BUSY=false;keepingScroll(buildClaims);});
+}
+function liveFeesFor(c,st,windows){
+  if(!st||!st.last_block||!st.ids||!st.ids.length||windows<=0)return Promise.resolve();
+  var from=LIVE_FEES.cur[c.key]||st.last_block+1;
+  if(!LIVE_FEES.owed[c.key])LIVE_FEES.owed[c.key]=JSON.parse(JSON.stringify(st.owed||{}));
+  return c.call('eth_blockNumber',[]).then(function(h){
+    var latest=parseInt(h,16);
+    if(from>latest)return;
+    var to=Math.min(from+c.span-1,latest);
+    return c.call('eth_getLogs',[{address:c.npm,fromBlock:'0x'+from.toString(16),toBlock:'0x'+to.toString(16),
+      topics:[[CFG.decTopic,CFG.colTopic],st.ids.map(function(id){return'0x'+pad(BigInt(id).toString(16));})]}])
+      .then(function(logs){return liveFeeWindow(c,st,logs);})
+      .then(function(){
+        LIVE_FEES.cur[c.key]=to+1;          /* only once the whole window has been booked */
+        if(to<latest)return liveFeesFor(c,st,windows-1);
+      });
+  });
+}
+function liveFeeWindow(c,st,logs){
+  logs.sort(function(a,b){
+    var d=parseInt(a.blockNumber,16)-parseInt(b.blockNumber,16);
+    return d||parseInt(a.logIndex,16)-parseInt(b.logIndex,16);
+  });
+  var owed=JSON.parse(JSON.stringify(LIVE_FEES.owed[c.key])),found=[];
+  logs.forEach(function(l){
+    var id=BigInt(l.topics[1]).toString(),r0=toBig(w(l.data,1)),r1=toBig(w(l.data,2));
+    var ow=owed[id]||['0','0'],o0=BigInt(ow[0]),o1=BigInt(ow[1]);
+    if(l.topics[0]===CFG.decTopic){o0+=r0;o1+=r1;}
+    else{
+      /* principal a DecreaseLiquidity released is paid first; the rest is fees */
+      var f0=r0>o0?r0-o0:0n,f1=r1>o1?r1-o1:0n;
+      o0=o0>r0?o0-r0:0n;o1=o1>r1?o1-r1:0n;
+      if((f0||f1)&&st.meta&&st.meta[id])found.push({l:l,m:st.meta[id],f0:f0,f1:f1});
+    }
+    if(o0||o1)owed[id]=[String(o0),String(o1)];else delete owed[id];
+  });
+  var commit=function(){LIVE_FEES.owed[c.key]=owed;};
+  if(!found.length){commit();return Promise.resolve();}
+  var receipt=function(h){return c.call('eth_getTransactionReceipt',[h]);};
+  var pools={};found.forEach(function(x){pools[x.m.pool]=1;});
+  var poolList=Object.keys(pools);
+  return Promise.all(found.map(function(x){return paidToUs(x.l,[x.m.token0,x.m.token1],receipt);}))
+    .then(function(ours){
+      found=found.filter(function(x,i){return ours[i];});
+      if(!found.length)return;
+      return c.call('eth_call',[{to:CFG.multicall,data:encodeAgg3(poolList.map(function(pl){
+        return{to:pl,data:'0x3850c7bd'};}))},'latest']).then(decodeAgg3).then(function(sl){
+        var sqrt={};poolList.forEach(function(pl,i){if(sl[i].ok)sqrt[pl]=toBig(w(sl[i].data,0));});
+        /* Robinhood leaves blockTimestamp at 0x0 on its logs — ask for those blocks */
+        var need={};
+        found.forEach(function(x){if(!x.l.blockTimestamp||x.l.blockTimestamp==='0x0')need[x.l.blockNumber]=1;});
+        var nums=Object.keys(need);
+        return Promise.all(nums.map(function(n){return c.call('eth_getBlockByNumber',[n,false]);})).then(function(bl){
+          var ts={};nums.forEach(function(n,i){ts[n]=parseInt(bl[i].timestamp,16);});
+          var stab={};c.stable.forEach(function(a){stab[a.toLowerCase()]=1;});
+          var add={};
+          found.forEach(function(x){
+            var sq=sqrt[x.m.pool];if(sq===undefined)throw new Error('no price for '+x.m.pool);
+            var px=poolPrice(sq,x.m.d0,x.m.d1);
+            var a0=Number(x.f0)/Math.pow(10,x.m.d0),a1=Number(x.f1)/Math.pow(10,x.m.d1);
+            var usd=stab[x.m.token0.toLowerCase()]?a0+(px?a1/px:0)
+                   :stab[x.m.token1.toLowerCase()]?a1+a0*px:null;
+            if(usd===null)return;
+            var sec=ts[x.l.blockNumber]||parseInt(x.l.blockTimestamp,16);
+            if(!sec)throw new Error('no timestamp for '+x.l.blockNumber);
+            var k=utc8Date(sec*1000);
+            add[k]=(add[k]||0)+usd;
+          });
+          Object.keys(add).forEach(function(k){
+            var d=LIVE_FEES.days[k]||(LIVE_FEES.days[k]={});
+            d[c.key]=(d[c.key]||0)+add[k];
+          });
+        });
+      });
+    }).then(commit);
+}
+/* stored fee days with the live ones added — the live scan starts where the stored record
+   stops, so the two never overlap */
+function feeDays(){
+  var out={},src=(CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.days)||{};
+  [src,LIVE_FEES.days].forEach(function(set){
+    Object.keys(set).forEach(function(k){
+      var d=out[k]||(out[k]={total:0});
+      Object.keys(set[k]).forEach(function(ch){
+        d[ch]=(d[ch]||0)+set[k][ch];d.total+=set[k][ch];
+      });
+    });
+  });
+  return out;
+}
+function feeTip(d){
+  return FEE_CHAINS.filter(function(c){return d[c.key];})
+    .map(function(c){return c.name+' '+money(d[c.key]);}).join(' · ');
+}
+
 function buildClaims(){
   var t=document.getElementById('claimsTable');
   if(!t)return;
   var start=(CLAIMS&&CLAIMS.start_date)||utc8Date(Date.now());
-  var days=claimDays();
+  var fs=CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.start_date;
+  if(fs&&fs<start)start=fs;          /* the record opens at whichever began first */
+  var days=claimDays(),fees=feeDays();
   var today=utc8Date(Date.now());
   var list=[],d=new Date(start+'T00:00:00Z'),end=new Date(today+'T00:00:00Z');
   while(d<=end){list.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
   list.reverse(); /* newest first */
-  var rows='<tr><th>Date</th><th class="num">Claimed KAT</th><th class="num">Value</th></tr>';
-  var totKat=0,totVal=0;
+  var dash='<span style="color:var(--dim)">-</span>';
+  var rows='<tr><th>Date</th><th class="num">KAT</th><th class="num">KAT value</th><th class="num">LP fees</th></tr>';
+  var totKat=0,totVal=0,totFee={total:0};
   list.forEach(function(k){
-    var e=days[k];
+    var e=days[k],f=fees[k];
     if(e){totKat+=e.kat||0;totVal+=e.value_usd||0;}
+    if(f)Object.keys(f).forEach(function(ch){totFee[ch]=(totFee[ch]||0)+f[ch];});
+    var hasFee=f&&f.total>=0.005;
     rows+='<tr><td style="white-space:nowrap">'+k+(k===today?' <span style="color:var(--dim);font-size:9px">today</span>':'')+'</td>'
-      +'<td class="num">'+(e?fmtN(e.kat,2):'<span style="color:var(--dim)">-</span>')+'</td>'
-      +'<td class="num" style="color:'+(e?'var(--gold)':'var(--dim)')+'">'+(e?fmt(e.value_usd):'-')+'</td></tr>';
+      +'<td class="num">'+(e?fmtN(e.kat,2):dash)+'</td>'
+      +'<td class="num" style="color:'+(e?'var(--gold)':'var(--dim)')+'">'+(e?fmt(e.value_usd):'-')+'</td>'
+      +'<td class="num"'+(hasFee?' style="color:var(--green)" title="'+feeTip(f)+'"':'')+'>'
+      +(hasFee?money(f.total):dash)+'</td></tr>';
   });
   t.innerHTML=rows;
   /* TOTAL lives in the pinned footer, not the table, so it stays visible while the days
      scroll. Same fixed column widths as the table above, so the figures line up. */
   var tot=document.getElementById('claimsTotal');
   if(tot){
-    tot.innerHTML=totKat>0
+    tot.innerHTML=(totKat>0||totFee.total>0)
       ? '<table class="tbl"><tr><td style="font-weight:700">TOTAL</td>'
         +'<td class="num" style="font-weight:700">'+fmtN(totKat,2)+'</td>'
-        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td></tr></table>'
+        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--green)" title="'+feeTip(totFee)+'">'+money(totFee.total)+'</td></tr></table>'
+        +'<div class="claims-note">LP fees: '+(feeTip(totFee)||'none yet')
+        +'. Paid into this wallet, valued on the day — already part of each position\'s P&amp;L.</div>'
       : '';
   }
   capClaimsHeight();   /* re-cap when a live scan adds a day while the window is open */
@@ -2276,9 +2424,18 @@ function posLifecycle(tokenId,fromBlock){
       var a0=Number(toBig(w(l.data,1)))/Math.pow(10,CFG.tokens.USDC.d);
       var a1=Number(toBig(w(l.data,2)))/Math.pow(10,CFG.tokens.KAT.d);
       if(!a0&&!a1)return;
-      acts.push({t:t,a0:a0,a1:a1,block:l.blockNumber});
+      acts.push({t:t,a0:a0,a1:a1,block:l.blockNumber,log:l});
     });
-    return Promise.all(acts.map(function(a){return blockInfo(a.block);})).then(function(bi){
+    /* a Collect only counts if it paid this wallet — a staked position's fees go to the
+       Katana DAO (see paidToUs) */
+    return Promise.all(acts.map(function(a){
+      return a.t===CFG.colTopic
+        ? paidToUs(a.log,[CFG.tokens.USDC.a,CFG.tokens.KAT.a],function(h){return rpc('eth_getTransactionReceipt',[h]);})
+        : true;
+    })).then(function(ours){
+      acts=acts.filter(function(a,i){return ours[i];});
+      return Promise.all(acts.map(function(a){return blockInfo(a.block);}));
+    }).then(function(bi){
       var inUsd=0,outUsd=0,openTs=null,closeTs=null;
       acts.forEach(function(a,i){
         var usd=a.a0+a.a1*bi[i].px;
@@ -2947,6 +3104,13 @@ function askFacts(){
   f.claimFrom=(CLAIMS&&CLAIMS.start_date)||(keys[0]||'—');
   f.claimWeek=0;
   keys.forEach(function(k){if(utc8DayStartSec(k)>=Date.now()/1000-7*86400)f.claimWeek+=days[k].value_usd||0;});
+  /* LP fees paid into the wallet, from the same record the claim window shows */
+  var fd=feeDays(),weekAgo=Date.now()/1000-7*86400;
+  f.feeTotal={total:0};f.feeWeek=0;f.feeToday=(fd[utc8Date(Date.now())]||{}).total||0;
+  Object.keys(fd).forEach(function(k){
+    Object.keys(fd[k]).forEach(function(ch){f.feeTotal[ch]=(f.feeTotal[ch]||0)+fd[k][ch];});
+    if(utc8DayStartSec(k)>=weekAgo)f.feeWeek+=fd[k].total;
+  });
 
   /* positions */
   var closed=closedPositions(),open=currentPositions();
@@ -3048,12 +3212,15 @@ var ASK={
       +"<span class=\"hint\">Closed positions are priced at the block they opened and closed, not today.</span>";},
 
   claims:function(f){
-    if(!f.claimDays)return "No claims recorded yet.";
+    if(!f.claimDays&&!f.feeTotal.total)return "No claims recorded yet.";
     var t=f.claimToday;
-    return "Claimed since "+f.claimFrom+": <b>"+fmtN(f.claimKat)+" KAT</b> = <b>"+money(f.claimVal)+"</b>\n\n"
-      +"Today: "+(t?"<b>"+fmtN(t.kat)+" KAT</b> ("+money(t.value_usd)+")":"nothing yet")
-      +"\nLast 7 days: <b>"+money(f.claimWeek)+"</b>"
-      +"\n<span class=\"hint\">Each day is valued at the KAT price it was booked at.</span>";},
+    return "KAT claimed since "+f.claimFrom+": <b>"+fmtN(f.claimKat)+" KAT</b> = <b>"+money(f.claimVal)+"</b>\n"
+      +"LP fees collected: <b>"+money(f.feeTotal.total)+"</b>"
+      +(feeTip(f.feeTotal)?" ("+feeTip(f.feeTotal)+")":"")+"\n\n"
+      +"Today: "+(t?"<b>"+fmtN(t.kat)+" KAT</b> ("+money(t.value_usd)+")":"no KAT")
+      +" · "+(f.feeToday>=0.005?"<b>"+money(f.feeToday)+"</b> in fees":"no fees")
+      +"\nLast 7 days: <b>"+money(f.claimWeek)+"</b> KAT + <b>"+money(f.feeWeek)+"</b> fees"
+      +"\n<span class=\"hint\">Each day is valued at the price it was booked at. LP fees are already inside each position's P&amp;L.</span>";},
 
   bestclaim:function(f){
     if(!f.claimBest)return "No claims recorded yet.";
@@ -3248,6 +3415,8 @@ function refreshLive(){
     return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
       .then(function(res){LIVE_CLAIMS=res;keepingScroll(function(){buildClaims();buildPositions();});})
       .catch(function(e){console.warn('live claim scan failed',e);});
+  }).then(function(){
+    return scanLiveFees();                         /* throttled to one pass every two minutes */
   }).then(function(){
     /* sequential here, unlike boot: no reason to burst the RPC every 15s */
     return scanLivePositions(POSITIONS)
