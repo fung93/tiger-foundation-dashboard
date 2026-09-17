@@ -9,7 +9,9 @@
    vault, and the in-range fix. Six shell releases went out on v17 without a bump, so
    returning visitors kept being served the shell from before any of it — which looks
    exactly like the feature never shipped. Bump this on EVERY shell change. */
-var CACHE_VERSION = 'tiger-v18';
+/* v19: Arc chain (wallet, Uniswap V3 + V4 positions, ledger, Merkl), every chain in the
+   history series, a badge colour per chain. */
+var CACHE_VERSION = 'tiger-v19';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

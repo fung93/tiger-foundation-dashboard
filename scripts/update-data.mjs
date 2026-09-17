@@ -1,5 +1,5 @@
 /**
- * Auto-update dashboard data from Katana + Solana chains.
+ * Auto-update dashboard data from Katana, Solana, Robinhood Chain and Arc.
  * Runs in GitHub Actions (Node 20+, no dependencies).
  * Writes data.json (full snapshot incl. meteora_refs for the browser's live mode)
  * and history.json (one entry per UTC date).
@@ -18,6 +18,22 @@ const CFG = {
   rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
   rhFactory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
   rhTokens: { USDG: { a: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', d: 6, stable: true } },
+  /* Arc (5042). Addresses read off the chain and the explorer; see the Arc section below and
+     the same note in index.html. Lower-case throughout — the code compares them as strings. */
+  arcRpc: 'https://rpc.mainnet.arc.io',
+  arcNpm: '0x39654a85a4c05127f5fd6ed22caec077a0fb1377',      // Uniswap V3 NonfungiblePositionManager
+  arcFactory: '0xf0db7b58379503491d857db50ac9ece64c653918',
+  arcV4Posm: '0x6049c9a0e26405c0985f9e3685c87d0ae917f82b',   // Uniswap V4 PositionManager
+  arcV4Pool: '0x8366a39cc670b4001a1121b8f6a443a643e40951',   // Uniswap V4 PoolManager
+  arcV4State: '0x6e43e7be27a11956218d6882ecc0cc1bed63e31f',  // StateView bound to that PoolManager
+  arcUsdc: '0x3600000000000000000000000000000000000000',     // native USDC's ERC-20 face
+  arcStartBlock: 21140000,                                   // just before the wallet's first Arc transaction
+  /* Allowlist, as on Robinhood: two unsolicited airdrops (TOLLY, GIMX) and a free mint sit
+     in this wallet with no market. Each token here is priced off its own USDC pool. */
+  arcTokens: {
+    ARGUS: { a: '0xece5ca8bf9220718e5727754026757512212cb3c', d: 18, pool: '0x6a3bacaa6493734c1ac221ebf42cf530a96c1e02' },
+    Minara: { a: '0xa163d7624da3b5d9182c50eab5b8cd247ae861bb', d: 18, pool: '0xfd0dc7b3591cb578fd1affcd652ca6e2907c63e9' },
+  },
   rpcs: ['https://rpc.katanarpc.com', 'https://katana.drpc.org', 'https://747474.rpc.thirdweb.com'],
   wallet: '0xb378207ab46aa2105eb1cb94ae8a5bab57316de1',
   solWallet: 'GSMtKVYnxLbhfGQUBkdYW5npnu1LWP58ruBxVya5VM4B',
@@ -605,7 +621,9 @@ async function rhPositions(count) {
         _id: p.id, _pool: p.pool, _token0: p.token0, _token1: p.token1,
         _d0: p.d0, _d1: p.d1, _s0: p.s0, _s1: p.s1, _fee: p.fee,
         pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`, token_id: p.id,
-        range_status: tick < p.tickLo ? 'below' : tick >= p.tickHi ? 'above' : 'in',
+        /* through the stable side, as on Katana: all-stable means the other leg ran up */
+        range_status: tick < p.tickLo ? (stable[p.token0] ? 'above' : 'below')
+                    : tick >= p.tickHi ? (stable[p.token1] ? 'above' : 'below') : 'in',
         staked: false, apr: null, value_usd: usd === null ? null : round2(usd),
         note: `NFT #${p.id} — ${a0.toFixed(2)} ${p.s0} + ${a1.toFixed(4)} ${p.s1}` +
               (usd === null ? ' (no stable leg — unpriced)' : '') });
@@ -788,6 +806,477 @@ async function rhBuildLedger(current, prevLedger) {
   return led;
 }
 
+/* ---------- Arc (5042) ----------
+   Circle's L1, where gas is paid in USDC. That shapes the reads below:
+   - The wallet's native balance IS its USDC. The ERC-20 at 0x3600…0000 is a second face on
+     the same balance (6 dp where native reports 18), so it is read once, natively, and never
+     added again — counting both would double the cash.
+   - Every native USDC movement also emits an ERC-20 Transfer from 0x3600…0000, so token flows
+     can be followed through logs even when the value moved as msg.value.
+   The RPC serves archive state, so history is priced at its own block as on Katana. But it
+   caps eth_getLogs at 10,000 blocks (~80 minutes here) and rate-limits log queries hard: 11 of
+   18 back-to-back queries were refused in testing, 10 of 10 went through at a 500ms pace. */
+let arcLast = 0;
+async function arcRpc(method, params) {
+  for (let attempt = 0; ; attempt++) {
+    const gap = 450 - (Date.now() - arcLast);
+    if (gap > 0) await new Promise((k) => setTimeout(k, gap));
+    arcLast = Date.now();
+    let j = null, status = 0;
+    try {
+      const r = await fetch(CFG.arcRpc, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      });
+      status = r.status;
+      j = await r.json().catch(() => null);
+    } catch (e) { if (attempt >= 3) throw e; }
+    /* the limit arrives either as HTTP 429 or as a JSON-RPC error on a 200 — back off on both */
+    const limited = status === 429 || /rate limit/i.test((j && j.error && j.error.message) || '');
+    if (limited && attempt < 5) { await new Promise((k) => setTimeout(k, 1500 * (attempt + 1))); continue; }
+    if (!j) { if (attempt < 3) continue; throw new Error('HTTP ' + status); }
+    if (j.error) throw new Error(j.error.message);
+    return j.result;
+  }
+}
+/* Log queries are capped twice: 10,000 blocks, and 2,000 results. The pool manager is busy
+   enough to hit the second inside a few minutes of blocks, so a full window halves itself
+   until each piece fits rather than failing the run. */
+async function arcLogs(filter, from, to) {
+  try {
+    return await arcRpc('eth_getLogs', [{ ...filter, fromBlock: hexBlock(from), toBlock: hexBlock(to) }]);
+  } catch (e) {
+    if (!/max results/i.test(e.message) || to <= from) throw e;
+    const mid = Math.floor((from + to) / 2);
+    return [...await arcLogs(filter, from, mid), ...await arcLogs(filter, mid + 1, to)];
+  }
+}
+const arcMulti = async (calls, tag = 'latest') => calls.length
+  ? decodeAgg3(await arcRpc('eth_call', [{ to: CFG.multicall, data: encodeAgg3(calls) }, tag]))
+  : [];
+const hexBlock = (n) => '0x' + n.toString(16);
+const enc24 = (t) => pad((t < 0 ? (1n << 256n) + BigInt(t) : BigInt(t)).toString(16));
+const MOD256 = 1n << 256n;
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+const arcIsUsdc = (a) => { const x = a.toLowerCase(); return x === CFG.arcUsdc || x === ZERO_ADDR; };
+/* a V4 pool can hold USDC natively, and native USDC counts in 18 dp */
+const arcDec = (a, d) => (a.toLowerCase() === ZERO_ADDR ? 18 : d);
+const abiStr = (h) => { try {
+  const d = h.replace(/^0x/, ''), l = parseInt(d.slice(64, 128), 16);
+  return Buffer.from(d.slice(128, 128 + l * 2), 'hex').toString('utf8');
+} catch { return '?'; } };
+const amt = (n) => (n >= 1000 ? Math.round(n).toLocaleString('en-US') : n >= 1 ? n.toFixed(2) : n.toFixed(4));
+
+/* USD value of a token pair, anchored on the USDC leg. p1per0 is token1 per token0. */
+function arcPairUsd(a0, a1, t0, t1, p1per0) {
+  if (arcIsUsdc(t0)) return a0 + (p1per0 ? a1 / p1per0 : 0);
+  if (arcIsUsdc(t1)) return a1 + a0 * p1per0;
+  return null;   /* no USDC leg — unpriced rather than guessed */
+}
+
+/* Fees earned since the position was last touched. positions() only carries tokensOwed as of
+   the last interaction; on a 1% pool that is collected several times a day, leaving out the
+   accrual since then understates the position by dollars, not cents. */
+const accrued = (liq, insideNow, insideLast) => (((insideNow - insideLast) % MOD256 + MOD256) % MOD256) * liq / (1n << 128n);
+function v3Inside(tick, lo, hi, global, outLo, outHi) {
+  const below = tick >= lo ? outLo : global - outLo;
+  const above = tick < hi ? outHi : global - outHi;
+  return ((global - below - above) % MOD256 + MOD256) % MOD256;
+}
+
+function arcLpRow(kind, p, v) {
+  /* Read through the USDC side, as on Katana: sitting entirely in USDC means the other token
+     ran up past the band (fine), sitting entirely in the other token means it fell through. */
+  let range = 'in';
+  if (v.tick < p.lo) range = arcIsUsdc(p.token0) ? 'above' : 'below';
+  else if (v.tick >= p.hi) range = arcIsUsdc(p.token1) ? 'above' : 'below';
+  return {
+    type: 'LP', protocol: kind === 'v4' ? 'Uniswap V4' : 'Uniswap V3', chain: 'arc',
+    uid: `arc:${kind}:${p.id}`, token_id: String(p.id),
+    pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`,
+    range_status: range, staked: !!p.staked, apr: null,
+    value_usd: v.usd === null ? null : round2(v.usd),
+    fees_usd: v.feeUsd === null ? null : round2(v.feeUsd),
+    note: `${kind.toUpperCase()} #${p.id}${p.staked ? ' · STAKED' : ''} — ${amt(v.h0)} ${p.s0} + ${amt(v.h1)} ${p.s1}` +
+      (v.feeUsd ? ` incl. $${v.feeUsd.toFixed(2)} unclaimed fees` : '') +
+      (v.usd === null ? ' (no USDC leg — unpriced)' : ''),
+  };
+}
+
+async function arcV3Positions(tag, count, stakedIds) {
+  const W = CFG.wallet.replace(/^0x/, '');
+  const idCalls = [];
+  for (let i = 0; i < count; i++) idCalls.push({ to: CFG.arcNpm, data: '0x2f745c59' + pad(W) + pad(i.toString(16)) });
+  const owned = (await arcMulti(idCalls, tag)).filter((r) => r.ok).map((r) => toBig(w(r.data, 0)).toString());
+  const ids = [...new Set([...owned, ...stakedIds.map(String)])];
+  if (!ids.length) return [];
+
+  const pr = await arcMulti(ids.map((id) => ({ to: CFG.arcNpm, data: '0x99fbab88' + pad(BigInt(id).toString(16)) })), tag);
+  const pos = [];
+  pr.forEach((r, i) => {
+    if (!r.ok) return;                                   /* burnt */
+    const liq = toBig(w(r.data, 7)), owed0 = toBig(w(r.data, 10)), owed1 = toBig(w(r.data, 11));
+    if (liq === 0n && owed0 === 0n && owed1 === 0n) return;
+    pos.push({ id: ids[i], staked: !owned.includes(ids[i]),
+      token0: toAddr(w(r.data, 2)), token1: toAddr(w(r.data, 3)), fee: Number(toBig(w(r.data, 4))),
+      lo: Number(toSigned(w(r.data, 5))), hi: Number(toSigned(w(r.data, 6))),
+      liq, last0: toBig(w(r.data, 8)), last1: toBig(w(r.data, 9)), owed0, owed1 });
+  });
+  if (!pos.length) return [];
+
+  const meta = await arcMulti(pos.flatMap((p) => [
+    { to: p.token0, data: '0x313ce567' }, { to: p.token0, data: '0x95d89b41' },
+    { to: p.token1, data: '0x313ce567' }, { to: p.token1, data: '0x95d89b41' },
+    { to: CFG.arcFactory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)) },
+  ]), tag);
+  pos.forEach((p, i) => {
+    const b = i * 5;
+    p.d0 = meta[b].ok ? parseInt(meta[b].data, 16) : 18;
+    p.s0 = meta[b + 1].ok ? abiStr(meta[b + 1].data) : '?';
+    p.d1 = meta[b + 2].ok ? parseInt(meta[b + 2].data, 16) : 18;
+    p.s1 = meta[b + 3].ok ? abiStr(meta[b + 3].data) : '?';
+    p.pool = meta[b + 4].ok ? toAddr(w(meta[b + 4].data, 0)) : null;
+  });
+  const live = pos.filter((p) => p.pool && p.pool !== ZERO_ADDR);
+
+  /* price and fee growth in one round: slot0, both global accumulators, both boundary ticks */
+  const st = await arcMulti(live.flatMap((p) => [
+    { to: p.pool, data: '0x3850c7bd' }, { to: p.pool, data: '0xf3058399' }, { to: p.pool, data: '0x46141319' },
+    { to: p.pool, data: '0xf30dba93' + enc24(p.lo) }, { to: p.pool, data: '0xf30dba93' + enc24(p.hi) },
+  ]), tag);
+  const out = [];
+  live.forEach((p, i) => {
+    const b = i * 5;
+    if (!st[b].ok) return;
+    const sq = toBig(w(st[b].data, 0)), tick = Number(toSigned(w(st[b].data, 1)));
+    const [r0, r1] = v3Amounts(p.liq, p.lo, p.hi, sq);
+    let f0 = p.owed0, f1 = p.owed1;
+    if (st[b + 1].ok && st[b + 2].ok && st[b + 3].ok && st[b + 4].ok) {
+      const g0 = toBig(w(st[b + 1].data, 0)), g1 = toBig(w(st[b + 2].data, 0));
+      f0 += accrued(p.liq, v3Inside(tick, p.lo, p.hi, g0, toBig(w(st[b + 3].data, 2)), toBig(w(st[b + 4].data, 2))), p.last0);
+      f1 += accrued(p.liq, v3Inside(tick, p.lo, p.hi, g1, toBig(w(st[b + 3].data, 3)), toBig(w(st[b + 4].data, 3))), p.last1);
+    }
+    const fee0 = Number(f0) / 10 ** p.d0, fee1 = Number(f1) / 10 ** p.d1;
+    const h0 = r0 / 10 ** p.d0 + fee0, h1 = r1 / 10 ** p.d1 + fee1;
+    const px = poolPrice(sq, p.d0, p.d1);
+    out.push(arcLpRow('v3', p, { tick, h0, h1,
+      usd: arcPairUsd(h0, h1, p.token0, p.token1, px), feeUsd: arcPairUsd(fee0, fee1, p.token0, p.token1, px) }));
+  });
+  return out;
+}
+
+/* V4 positions live in one singleton, and its position NFT is not enumerable — so the ids
+   come from the ledger, which finds them in Transfer logs, along with the pool id and ticks
+   that never change for a position. */
+async function arcV4Positions(tag, rows) {
+  if (!rows.length) return [];
+  const W = CFG.wallet.toLowerCase();
+  const r = await arcMulti(rows.flatMap((p) => {
+    const id = pad(BigInt(p.id).toString(16)), pid = p.pool_id.slice(2);
+    return [
+      { to: CFG.arcV4Posm, data: '0x6352211e' + id },                                  /* ownerOf */
+      { to: CFG.arcV4State, data: '0xc815641c' + pid },                                /* getSlot0 */
+      { to: CFG.arcV4State, data: '0x53e9c1fb' + pid + enc24(p.lo) + enc24(p.hi) },    /* getFeeGrowthInside */
+      { to: CFG.arcV4State, data: '0xdacf1d2f' + pid + pad(CFG.arcV4Posm) + enc24(p.lo) + enc24(p.hi) + id }, /* getPositionInfo */
+    ];
+  }), tag);
+  const out = [];
+  rows.forEach((p, i) => {
+    const b = i * 4;
+    if (!r[b + 1].ok || !r[b + 3].ok) return;
+    const owner = r[b].ok ? toAddr(w(r[b].data, 0)).toLowerCase() : '';
+    if (owner !== W && !p.staked) return;                /* burnt, sold or given away */
+    const liq = toBig(w(r[b + 3].data, 0));
+    if (liq === 0n) return;
+    const sq = toBig(w(r[b + 1].data, 0)), tick = Number(toSigned(w(r[b + 1].data, 1)));
+    const d0 = arcDec(p.token0, p.d0), d1 = arcDec(p.token1, p.d1);
+    const [r0, r1] = v3Amounts(liq, p.lo, p.hi, sq);
+    let f0 = 0n, f1 = 0n;
+    if (r[b + 2].ok) {
+      f0 = accrued(liq, toBig(w(r[b + 2].data, 0)), toBig(w(r[b + 3].data, 1)));
+      f1 = accrued(liq, toBig(w(r[b + 2].data, 1)), toBig(w(r[b + 3].data, 2)));
+    }
+    const fee0 = Number(f0) / 10 ** d0, fee1 = Number(f1) / 10 ** d1;
+    const h0 = r0 / 10 ** d0 + fee0, h1 = r1 / 10 ** d1 + fee1;
+    const px = poolPrice(sq, d0, d1);
+    out.push(arcLpRow('v4', p, { tick, h0, h1,
+      usd: arcPairUsd(h0, h1, p.token0, p.token1, px), feeUsd: arcPairUsd(fee0, fee1, p.token0, p.token1, px) }));
+  });
+  return out;
+}
+
+/* Wallet + LP in one pass. `tag` lets the same code value the wallet at a past block, which is
+   how the history was backfilled. known.staked = V3 ids a contract holds for the wallet;
+   known.v4 = the ledger's open V4 rows. */
+async function getArc(tag = 'latest', known = {}) {
+  const W = CFG.wallet.replace(/^0x/, '');
+  const toks = Object.entries(CFG.arcTokens);
+  let head;
+  try {
+    head = await arcMulti([
+      { to: CFG.multicall, data: '0x4d2301cc' + pad(W) },     /* native USDC, 18 dp */
+      { to: CFG.arcNpm, data: '0x70a08231' + pad(W) },
+      ...toks.map(([, t]) => ({ to: t.a, data: '0x70a08231' + pad(W) })),
+      ...toks.map(([, t]) => ({ to: t.pool, data: '0x3850c7bd' })),
+    ], tag);
+  } catch (e) {
+    console.warn('arc read failed:', e.message);
+    return { usdc: 0, tokens: {}, walletUsd: 0, lps: [], ok: false, lpOk: false };
+  }
+  const usdc = head[0].ok ? Number(toBig(w(head[0].data, 0))) / 1e18 : 0;
+  const nV3 = head[1].ok ? Math.min(Number(toBig(w(head[1].data, 0))), 30) : -1;
+  const tokens = { USDC: { balance: usdc, priceUSD: 1, valueUSD: round2(usdc) } };
+  let walletUsd = usdc;
+  toks.forEach(([sym, t], i) => {
+    const b = head[2 + i], s = head[2 + toks.length + i];
+    let px = null;
+    if (s && s.ok && s.data.length >= 130) {
+      /* each allowlisted token is priced off its own USDC pool; order is by address */
+      const sq = toBig(w(s.data, 0));
+      px = CFG.arcUsdc < t.a ? 1 / poolPrice(sq, 6, t.d) : poolPrice(sq, t.d, 6);
+      if (!isFinite(px)) px = null;
+    }
+    const bal = b && b.ok ? Number(toBig(w(b.data, 0))) / 10 ** t.d : 0;
+    const usd = px ? bal * px : 0;
+    walletUsd += usd;
+    if (bal > 0) tokens[sym] = { balance: bal, priceUSD: px, valueUSD: round2(usd) };
+  });
+  let lps = [], lpOk = true;
+  try {
+    /* a failed count must not read as "no positions" */
+    if (nV3 < 0) throw new Error('position count unreadable');
+    lps = [...await arcV3Positions(tag, nV3, known.staked || []), ...await arcV4Positions(tag, known.v4 || [])];
+  } catch (e) {
+    console.warn('arc LP read failed:', e.message);
+    lpOk = false;
+  }
+  return { usdc, tokens, walletUsd, lps, ok: true, lpOk };
+}
+
+/* ---- Arc position ledger ------------------------------------------------------------
+   Incremental, because a 10,000-block log cap makes re-reading a position's whole life each
+   run a few hundred queries. Each run scans only the blocks since the last one and folds what
+   it finds into running totals per position:
+     in_usd  — every deposit, valued at its own block
+     out_usd — every withdrawal, principal and fees alike, valued at its own block
+   A closed position books out_usd − in_usd, as Katana's does. An open one is worth its live
+   value plus what it has already paid out, less what went in — on a pool whose fees are
+   collected several times a day, leaving the payouts out would report a loss that is not one.
+
+   V3 carries amounts on its own events. V4 does not: ModifyLiquidity says only that liquidity
+   changed, so the amounts are read from that transaction's token transfers between the wallet
+   and Uniswap. That covers fees too, which V4 pays out on every modification. */
+const ARC_TR = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const ARC_INC = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+const ARC_COL = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
+const ARC_MODLIQ = '0xf208f4912782fd25c7f114ca3723a2d5dd6f3bcc3ac8db5af63baa85f711d5ec';
+
+async function arcBuildLedger(prev) {
+  const led = { last_block: 0, open: {}, closed: [], ...(prev || {}) };
+  led.open = { ...led.open };
+  led.closed = [...led.closed];
+  const W = CFG.wallet.toLowerCase(), Wt = '0x' + pad(W);
+  const posmT = '0x' + pad(CFG.arcV4Posm);
+  const latest = Number(BigInt(await arcRpc('eth_blockNumber', [])));
+  const known = new Set([...Object.keys(led.open), ...led.closed.map((c) => c.uid)]);
+
+  const tsCache = {};
+  const blockTs = async (block, hint) => {
+    if (hint && hint !== '0x0') return Number(BigInt(hint));      /* inline, and real here */
+    if (tsCache[block] === undefined)
+      tsCache[block] = Number(BigInt((await arcRpc('eth_getBlockByNumber', [hexBlock(block), false])).timestamp));
+    return tsCache[block];
+  };
+  const day = (ts) => dayKey(ts);
+  const pxCache = {};
+  const pxAt = async (o, block) => {                  /* token1 per token0, at that block */
+    const k = o.uid + '@' + block;
+    if (pxCache[k] === undefined) {
+      const call = o.kind === 'v4' ? { to: CFG.arcV4State, data: '0xc815641c' + o.pool_id.slice(2) }
+                                   : { to: o.pool, data: '0x3850c7bd' };
+      const r = await arcRpc('eth_call', [call, hexBlock(block)]);
+      pxCache[k] = poolPrice(toBig(w(r, 0)), arcDec(o.token0, o.d0), arcDec(o.token1, o.d1));
+    }
+    return pxCache[k];
+  };
+
+  /* what a newly-seen position is, read at the block it arrived — a position burnt before
+     this run can still be described there, thanks to archive state */
+  async function describe(kind, id, block, blockTsHex) {
+    const tag = hexBlock(block), idHex = pad(BigInt(id).toString(16));
+    const rec = { uid: `arc:${kind}:${id}`, id: String(id), kind, chain: 'arc', opened_block: block,
+      in_usd: 0, out_usd: 0, in0: 0, in1: 0, out0: 0, out1: 0, staked: false };
+    if (kind === 'v3') {
+      const r = await arcRpc('eth_call', [{ to: CFG.arcNpm, data: '0x99fbab88' + idHex }, tag]);
+      rec.token0 = toAddr(w(r, 2)); rec.token1 = toAddr(w(r, 3)); rec.fee = Number(toBig(w(r, 4)));
+      rec.lo = Number(toSigned(w(r, 5))); rec.hi = Number(toSigned(w(r, 6)));
+      const m = await arcMulti([
+        { to: CFG.arcFactory, data: '0x1698ee82' + pad(rec.token0) + pad(rec.token1) + pad(rec.fee.toString(16)) },
+      ], tag);
+      rec.pool = toAddr(w(m[0].data, 0));
+    } else {
+      const r = await arcRpc('eth_call', [{ to: CFG.arcV4Posm, data: '0x7ba03aad' + idHex }, tag]);
+      rec.token0 = toAddr(w(r, 0)); rec.token1 = toAddr(w(r, 1)); rec.fee = Number(toBig(w(r, 2)));
+      const info = toBig(w(r, 5));
+      const s24 = (x) => { const v = Number(x & 0xffffffn); return v >= 0x800000 ? v - 0x1000000 : v; };
+      rec.lo = s24(info >> 8n); rec.hi = s24(info >> 32n);
+      /* the full pool id is not stored on the NFT (it keeps a 25-byte prefix), but the pool
+         manager emits it on the ModifyLiquidity that opened the position, salted with the id */
+      const logs = await arcLogs({ address: CFG.arcV4Pool, topics: [ARC_MODLIQ, null, posmT] }, block, block);
+      const hit = logs.find((l) => BigInt('0x' + w(l.data, 3)) === BigInt(id));
+      if (!hit) throw new Error(`no ModifyLiquidity for V4 #${id} in block ${block}`);
+      rec.pool_id = hit.topics[1];
+    }
+    const sym = await arcMulti([
+      { to: rec.token0, data: '0x313ce567' }, { to: rec.token0, data: '0x95d89b41' },
+      { to: rec.token1, data: '0x313ce567' }, { to: rec.token1, data: '0x95d89b41' },
+    ], tag);
+    const nat = (a) => a.toLowerCase() === ZERO_ADDR;
+    rec.d0 = nat(rec.token0) ? 18 : parseInt(sym[0].data, 16); rec.s0 = nat(rec.token0) ? 'USDC' : abiStr(sym[1].data);
+    rec.d1 = nat(rec.token1) ? 18 : parseInt(sym[2].data, 16); rec.s1 = nat(rec.token1) ? 'USDC' : abiStr(sym[3].data);
+    rec.pair = `${rec.s0} / ${rec.s1}`;
+    rec.pool_fee = `${rec.fee / 10000}%`;
+    rec.protocol = kind === 'v4' ? 'Uniswap V4' : 'Uniswap V3';
+    rec.opened_ts = await blockTs(block, blockTsHex);
+    rec.opened = day(rec.opened_ts);
+    return rec;
+  }
+
+  async function book(o, block, tsHex, a0, a1, dir) {
+    const px = await pxAt(o, block);
+    const usd = arcPairUsd(a0, a1, o.token0, o.token1, px);
+    if (dir === 'in') { o.in0 += a0; o.in1 += a1; o.in_usd += usd || 0; }
+    else { o.out0 += a0; o.out1 += a1; o.out_usd += usd || 0; }
+    if (usd === null) o.unpriced = true;
+    o.last_block = block;
+    o.last_ts = await blockTs(block, tsHex);
+  }
+
+  let from = led.last_block ? led.last_block + 1 : CFG.arcStartBlock;
+  let reached = from - 1;
+  const seenTx = new Set();
+  try {
+    for (; from <= latest; from += 10000) {
+      const to = Math.min(from + 9999, latest);
+      const nfts = [CFG.arcNpm, CFG.arcV4Posm];
+
+      /* 1. position NFTs arriving — minted, or handed back by a contract */
+      for (const l of await arcLogs({ address: nfts, topics: [ARC_TR, null, Wt] }, from, to)) {
+        const kind = l.address.toLowerCase() === CFG.arcNpm ? 'v3' : 'v4';
+        const id = BigInt(l.topics[3]).toString();
+        const uid = `arc:${kind}:${id}`;
+        if (led.open[uid]) { led.open[uid].staked = false; continue; }
+        if (known.has(uid)) continue;
+        led.open[uid] = await describe(kind, id, Number(BigInt(l.blockNumber)), l.blockTimestamp);
+        known.add(uid);
+        console.log(`  arc ledger: found ${uid} ${led.open[uid].pair}`);
+      }
+
+      /* 2. position NFTs leaving. To a contract it is still ours — a staking or farming
+            contract holds it on our behalf, and it keeps being valued. To anyone else it
+            is gone, and the settle step closes it out at what it had paid back. */
+      for (const l of await arcLogs({ address: nfts, topics: [ARC_TR, Wt] }, from, to)) {
+        const kind = l.address.toLowerCase() === CFG.arcNpm ? 'v3' : 'v4';
+        const uid = `arc:${kind}:${BigInt(l.topics[3])}`;
+        const o = led.open[uid];
+        const dest = '0x' + l.topics[2].slice(26);
+        if (!o || dest === ZERO_ADDR) continue;                 /* a burn — settle handles it */
+        const code = await arcRpc('eth_getCode', [dest, hexBlock(Number(BigInt(l.blockNumber)))]);
+        if (code && code !== '0x') { o.staked = true; o.staked_in = dest; console.log(`  arc ledger: ${uid} staked in ${dest}`); }
+        else { o.left_to = dest; console.warn(`  arc ledger: ${uid} sent to ${dest}`); }
+      }
+
+      /* 3. V3 deposits and withdrawals, by token id */
+      const v3 = Object.values(led.open).filter((o) => o.kind === 'v3');
+      if (v3.length) {
+        const byId = Object.fromEntries(v3.map((o) => [o.id, o]));
+        const logs = await arcLogs({ address: CFG.arcNpm,
+          topics: [[ARC_INC, ARC_COL], v3.map((o) => '0x' + pad(BigInt(o.id).toString(16)))] }, from, to);
+        for (const l of logs) {
+          const o = byId[BigInt(l.topics[1]).toString()];
+          if (!o) continue;
+          /* amounts as the pool moved them; a token with a transfer tax (ARGUS takes 1%)
+             lands slightly short of this in the wallet */
+          const a0 = Number(toBig(w(l.data, 1))) / 10 ** o.d0, a1 = Number(toBig(w(l.data, 2))) / 10 ** o.d1;
+          await book(o, Number(BigInt(l.blockNumber)), l.blockTimestamp, a0, a1, l.topics[0] === ARC_INC ? 'in' : 'out');
+        }
+      }
+
+      /* 4. V4: find the transactions that touched our positions, then read the money moved */
+      const v4 = Object.values(led.open).filter((o) => o.kind === 'v4');
+      if (v4.length) {
+        const logs = await arcLogs({ address: CFG.arcV4Pool,
+          topics: [ARC_MODLIQ, [...new Set(v4.map((o) => o.pool_id))], posmT] }, from, to);
+        for (const l of logs) {
+          const salt = BigInt('0x' + w(l.data, 3)).toString();
+          const o = v4.find((x) => x.id === salt && x.pool_id === l.topics[1]);
+          if (!o || seenTx.has(l.transactionHash)) continue;
+          seenTx.add(l.transactionHash);
+          const rc = await arcRpc('eth_getTransactionReceipt', [l.transactionHash]);
+          const leg = (a) => (a.toLowerCase() === ZERO_ADDR ? CFG.arcUsdc : a.toLowerCase());
+          const t0 = leg(o.token0), t1 = leg(o.token1);
+          const uni = new Set([CFG.arcV4Pool, CFG.arcV4Posm]);
+          const flows = { in: [0, 0], out: [0, 0] };
+          for (const x of rc.logs) {
+            if (x.topics[0] !== ARC_TR || x.topics.length !== 3) continue;
+            const a = x.address.toLowerCase();
+            const side = a === t0 ? 0 : a === t1 ? 1 : -1;
+            if (side < 0) continue;
+            const src = '0x' + x.topics[1].slice(26), dst = '0x' + x.topics[2].slice(26);
+            /* flows are logged by the ERC-20, so native USDC arrives in the face's 6 dp */
+            const dec = a === CFG.arcUsdc ? 6 : side === 0 ? o.d0 : o.d1;
+            const v = Number(BigInt(x.data)) / 10 ** dec;
+            if (src === W && uni.has(dst)) flows.in[side] += v;
+            else if (uni.has(src) && dst === W) flows.out[side] += v;
+          }
+          const blk = Number(BigInt(l.blockNumber));
+          /* V4 routes the whole movement through one transaction, so a mint that refunds
+             change shows both directions — net them rather than book both */
+          const n0 = flows.in[0] - flows.out[0], n1 = flows.in[1] - flows.out[1];
+          const i0 = Math.max(n0, 0), i1 = Math.max(n1, 0), o0 = Math.max(-n0, 0), o1 = Math.max(-n1, 0);
+          if (i0 || i1) await book(o, blk, l.blockTimestamp, i0, i1, 'in');
+          if (o0 || o1) await book(o, blk, l.blockTimestamp, o0, o1, 'out');
+        }
+      }
+      reached = to;
+    }
+  } catch (e) {
+    console.warn(`  arc ledger: scan stopped at block ${reached}:`, e.message);
+  }
+  led.last_block = reached;
+
+  /* 5. settle — only once the scan has caught up, or a close could be booked before the
+        withdrawal that went with it has been read */
+  if (reached >= latest) {
+    const open = Object.values(led.open);
+    const res = await arcMulti(open.map((o) => o.kind === 'v3'
+      ? { to: CFG.arcNpm, data: '0x99fbab88' + pad(BigInt(o.id).toString(16)) }
+      : { to: CFG.arcV4Posm, data: '0x1efeed33' + pad(BigInt(o.id).toString(16)) }));
+    open.forEach((o, i) => {
+      const r = res[i];
+      let done;
+      if (o.kind === 'v3') done = !r.ok || (toBig(w(r.data, 7)) === 0n && toBig(w(r.data, 10)) === 0n && toBig(w(r.data, 11)) === 0n);
+      else done = !r.ok || toBig(w(r.data, 0)) === 0n;
+      if (o.left_to) done = true;
+      if (!done) return;
+      const pnl = o.out_usd - o.in_usd;
+      led.closed.push({
+        uid: o.uid, id: o.id, chain: 'arc', protocol: o.protocol, pair: o.pair, pool_fee: o.pool_fee,
+        opened: o.opened, opened_ts: o.opened_ts,
+        closed: o.last_ts ? day(o.last_ts) : o.opened, closed_ts: o.last_ts || o.opened_ts,
+        open_value_usd: round2(o.in_usd), close_value_usd: round2(o.out_usd),
+        pnl_usd: round2(pnl), pnl_pct: o.in_usd > 0 ? round2(pnl / o.in_usd * 100) : 0,
+        in0: o.in0, in1: o.in1, out0: o.out0, out1: o.out1,
+        ...(o.unpriced ? { unpriced: true } : {}),
+      });
+      delete led.open[o.uid];
+      console.log(`  arc ledger: closed ${o.uid} ${o.pair} realised $${pnl.toFixed(2)}`);
+    });
+    led.closed.sort((a, b) => b.closed_ts - a.closed_ts);
+  }
+  return led;
+}
+
 async function getSolana() {
   const [balRes, usdcRes, posAccounts] = await Promise.all([
     solRpc('getBalance', [CFG.solWallet]),
@@ -881,9 +1370,9 @@ async function getSolana() {
 }
 
 /* ---------- merkl ---------- */
-async function getMerkl(katPrice) {
+async function getMerkl(katPrice, chainId = 747474) {
   try {
-    const arr = await (await fetch(`${CFG.merklApi}/users/${CFG.wallet}/rewards?chainId=747474`)).json();
+    const arr = await (await fetch(`${CFG.merklApi}/users/${CFG.wallet}/rewards?chainId=${chainId}`)).json();
     let totalUsd = 0;
     const rewards = [];
     for (const chain of arr || []) {
@@ -919,15 +1408,27 @@ async function getAprs() {
 const round2 = (v) => Math.round(v * 100) / 100;
 
 /* carry forward previously-discovered staked LP ids so detection survives a log-scan hiccup */
-let prevStakedIds = [];
+let prevStakedIds = [], prevSnap = null;
 try {
-  prevStakedIds = JSON.parse(readFileSync(join(ROOT, 'data.json'), 'utf8')).staked_lp_ids || [];
+  prevSnap = JSON.parse(readFileSync(join(ROOT, 'data.json'), 'utf8'));
+  prevStakedIds = prevSnap.staked_lp_ids || [];
 } catch { /* first run or unreadable snapshot */ }
+/* A chain whose read failed keeps its last snapshot's figures rather than reading as zero.
+   The history series now includes every chain, so a zero would chart as a crash that never
+   happened — and the next run would chart the recovery as a gain. */
+const prevChain = (key) => (prevSnap && prevSnap.chains && prevSnap.chains[key]) || null;
 
 const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
 /* after Katana, because it needs the ETH price that read already fetched */
 const rh = await getRobinhood(kat.ethPrice);
+if (!rh.ok && prevChain('robinhood')) {
+  const pr = prevChain('robinhood');
+  rh.walletUsd = pr.onchain_usd || 0;
+  rh.tokens = (pr.wallet && pr.wallet.balances && pr.wallet.balances.tokens) || {};
+  rh.lps = pr.lp_positions || [];
+  console.warn('robinhood: carrying the last snapshot forward');
+}
 const rhLpUsd = rh.lps.reduce((a, l) => a + (l.value_usd || 0), 0);
 const rhTotal = rh.walletUsd + rhLpUsd;
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
@@ -946,6 +1447,37 @@ if (rh.lps.length || (positions.robinhood && Object.keys(positions.robinhood.ope
     console.warn('robinhood ledger failed, keeping existing record:', e.message);
   }
 }
+
+/* Arc: the ledger runs before the valuation, because it is what knows the V4 positions and
+   any staked V3 ones — neither NFT contract can list those for a wallet. */
+try {
+  positions.arc = await arcBuildLedger(positions.arc);
+  writeFileSync(join(ROOT, 'positions.json'), JSON.stringify(positions, null, 2) + String.fromCharCode(10));
+} catch (e) {
+  console.warn('arc ledger failed, keeping existing record:', e.message);
+}
+const arcOpen = Object.values((positions.arc && positions.arc.open) || {});
+const arcKnown = {
+  staked: arcOpen.filter((o) => o.kind === 'v3' && o.staked).map((o) => o.id),
+  v4: arcOpen.filter((o) => o.kind === 'v4').map((o) => ({
+    id: o.id, pool_id: o.pool_id, token0: o.token0, token1: o.token1, d0: o.d0, d1: o.d1,
+    s0: o.s0, s1: o.s1, fee: o.fee, lo: o.lo, hi: o.hi, staked: !!o.staked })),
+};
+const arc = await getArc('latest', arcKnown);
+if (!arc.ok && prevChain('arc')) {
+  const pa = prevChain('arc');
+  arc.walletUsd = pa.onchain_usd || 0;
+  arc.tokens = (pa.wallet && pa.wallet.balances && pa.wallet.balances.tokens) || {};
+  arc.lps = pa.lp_positions || [];
+  console.warn('arc: carrying the last snapshot forward');
+} else if (!arc.lpOk && prevChain('arc')) {
+  arc.lps = prevChain('arc').lp_positions || [];
+  console.warn('arc: positions unreadable, carrying the last snapshot forward');
+}
+const arcMerkl = await getMerkl(kat.katPrice, 5042);
+const arcLpUsd = round2(arc.lps.reduce((a, l) => a + (l.value_usd || 0), 0));
+const arcWalletUsd = round2(arc.walletUsd);
+const arcTotal = round2(arcWalletUsd + arcLpUsd + arcMerkl.total_usd);
 
 for (const lp of kat.lps) {
   const key = `${lp.pair}|${lp.pool_fee}`;
@@ -967,9 +1499,16 @@ const solTotal = round2(solWalletUsd + solLpUsd);
 const grand = round2(katTotal + solTotal);
 const onchainUsd = round2(katWalletUsd + solWalletUsd);
 const lpUsd = round2(katLpUsd + solLpUsd);
+/* every chain — what the headline, the tracking figure and the history series all use.
+   `grand` alone is Katana + Solana, and the history was written from it for eight days after
+   Robinhood arrived, which charted a transfer between chains as a $470 loss. */
+const grandAll = round2(grand + rhTotal + arcTotal);
+const onchainAll = round2(onchainUsd + rh.walletUsd + arcWalletUsd);
+const lpAll = round2(lpUsd + rhLpUsd + arcLpUsd);
+const pendingAll = round2(merkl.total_usd + arcMerkl.total_usd);
 const now = new Date();
 const days = Math.floor((now - new Date(CFG.startDate + 'T00:00:00Z')) / 86400000);
-const current = round2(grand - katLpUsd);
+const current = round2(grandAll - katLpUsd);
 const gain = round2(current - CFG.startValue);
 
 const tok = (balance, priceUSD, valueUSD) => ({ balance, priceUSD, valueUSD: round2(valueUSD) });
@@ -1036,6 +1575,23 @@ const data = {
       live: rh.ok,
       native_token: 'ETH', color: '#00c805',
     },
+    arc: {
+      name: 'Arc', chain_id: 5042, explorer: 'https://explorer.arc.io',
+      wallet: { balances: { tokens: arc.tokens }, total_usd: arcWalletUsd },
+      onchain_usd: arcWalletUsd,
+      merkl_rewards: arcMerkl,
+      lp_positions: arc.lps,
+      defi_positions: [],
+      lp_total_usd: arcLpUsd,
+      total_usd: arcTotal,
+      live: arc.ok,
+      native_token: 'USDC', color: '#5b9cff',
+      /* what the browser needs to value positions the NFT contracts cannot list for it,
+         and the block the ledger has read to, so the browser only scans what came after */
+      v4_positions: arcKnown.v4,
+      staked_ids: arcKnown.staked,
+      last_block: (positions.arc && positions.arc.last_block) || 0,
+    },
     solana: {
       name: 'Solana', chain_id: 'solana-mainnet', explorer: 'https://solscan.io',
       wallet_address: CFG.solWallet,
@@ -1053,20 +1609,21 @@ const data = {
     },
   },
   summary: {
-    grand_total_usd: grand + rhTotal,
-    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: rhTotal,
-    onchain_usd: onchainUsd + rh.walletUsd, lp_usd: lpUsd + rhLpUsd, merkl_usd: merkl.total_usd,
-    total_defi_positions: defiPositions.length, chains_count: 3,
+    grand_total_usd: grandAll,
+    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: round2(rhTotal), arc_usd: arcTotal,
+    onchain_usd: onchainAll, lp_usd: lpAll, merkl_usd: pendingAll,
+    total_defi_positions: defiPositions.length, chains_count: 4,
   },
   merkl_rewards: merkl,
   lp_positions: [...kat.lps, ...sol.lps,
-    ...rh.lps.map((l) => { const c = { ...l }; Object.keys(c).forEach((k) => k[0] === '_' && delete c[k]); return c; })],
+    ...rh.lps.map((l) => { const c = { ...l }; Object.keys(c).forEach((k) => k[0] === '_' && delete c[k]); return c; }),
+    ...arc.lps],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
   usdc_ata: sol.usdcAta,
   staked_lp_ids: kat.stakedLpIds,
-  onchain_usd: onchainUsd,
-  total_usd: grand,
+  onchain_usd: onchainAll,
+  total_usd: grandAll,
 };
 
 writeFileSync(join(ROOT, 'data.json'), JSON.stringify(data, null, 2) + '\n');
@@ -1078,18 +1635,21 @@ const today = now.toISOString().slice(0, 10);
 const entry = {
   date: today,
   timestamp: now.toISOString(),
-  onchain_usd: onchainUsd,
-  pending_usd: merkl.total_usd,
-  lp_usd: lpUsd,
+  onchain_usd: onchainAll,
+  pending_usd: pendingAll,
+  lp_usd: lpAll,
   solana_usd: solTotal,
-  total_usd: grand,
+  robinhood_usd: round2(rhTotal),
+  arc_usd: arcTotal,
+  total_usd: grandAll,
 };
 const i = hist.data.findIndex((e) => e.date === today);
 if (i >= 0) hist.data[i] = entry; else hist.data.push(entry);
 writeFileSync(histPath, JSON.stringify(hist, null, 2) + '\n');
 
-console.log(`Updated: total $${round2(grand + rhTotal)} | Katana $${katTotal} (wallet $${katWalletUsd}, LP $${katLpUsd}, Morpho $${morphoNet}, Merkl $${merkl.total_usd}) | Solana $${solTotal} | Robinhood $${round2(rhTotal)} (wallet $${round2(rh.walletUsd)}, LP $${round2(rhLpUsd)})`);
+console.log(`Updated: total $${grandAll} | Katana $${katTotal} (wallet $${katWalletUsd}, LP $${katLpUsd}, Morpho $${morphoNet}, Merkl $${merkl.total_usd}) | Solana $${solTotal} | Robinhood $${round2(rhTotal)} (wallet $${round2(rh.walletUsd)}, LP $${round2(rhLpUsd)}) | Arc $${arcTotal} (wallet $${arcWalletUsd}, LP $${arcLpUsd}, Merkl $${arcMerkl.total_usd})`);
 console.log(`KAT $${kat.katPrice.toFixed(6)} | ETH $${kat.ethPrice.toFixed(2)} | SOL $${sol.solPrice} | avKAT rate ${kat.avkatRate.toFixed(4)}`);
-console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length}`);
+console.log(`Sushi LPs: ${kat.lps.length} | Meteora positions: ${sol.lps.length} | Arc LPs: ${arc.lps.length}`);
+if (positions.arc) console.log(`Arc ledger: to block ${positions.arc.last_block}, ${Object.keys(positions.arc.open).length} open, ${positions.arc.closed.length} closed (realised ${round2(positions.arc.closed.reduce((a, c) => a + (c.pnl_usd || 0), 0))})`);
 console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims since ${claims.start_date}`);
 console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open (${Object.values(positions.open).map((o) => '#' + (o.opened || '?') + ' $' + (o.open_value_usd ?? '-')).join(', ')})`);

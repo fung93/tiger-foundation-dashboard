@@ -276,6 +276,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .chain-badge{font-size:10px;padding:2px 8px;border-radius:4px;margin-left:6px;font-weight:600}
 .chain-katana{background:rgba(245,158,11,.15);color:var(--accent)}
 .chain-solana{background:rgba(153,69,255,.15);color:var(--sol)}
+.chain-robinhood{background:rgba(0,200,5,.13);color:#00c805}
+.chain-arc{background:rgba(91,156,255,.15);color:#5b9cff}
 
 /* Position cards */
 /* opaque: these sit directly on the page, so the art must not show through the text */
@@ -806,6 +808,24 @@ var CFG={
   rhTokens:{
     USDG:{a:'0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',d:6,stable:true}
   },
+  /* ---- Arc (5042) — Circle's L1, gas paid in USDC ----
+     Read off the chain and its explorer, like Robinhood's. Archive state is served, so the
+     Action prices history at its own block; log queries are capped at 10,000 blocks and
+     rate-limited, so the browser keeps those to one small window per pass.
+     Lower-case throughout: the code compares these as strings. */
+  arcRpcs:['https://rpc.mainnet.arc.io'],
+  arcNpm:'0x39654a85a4c05127f5fd6ed22caec077a0fb1377',      /* Uniswap V3 NonfungiblePositionManager */
+  arcFactory:'0xf0db7b58379503491d857db50ac9ece64c653918',
+  arcV4Posm:'0x6049c9a0e26405c0985f9e3685c87d0ae917f82b',   /* Uniswap V4 PositionManager */
+  arcV4Pool:'0x8366a39cc670b4001a1121b8f6a443a643e40951',   /* Uniswap V4 PoolManager */
+  arcV4State:'0x6e43e7be27a11956218d6882ecc0cc1bed63e31f',  /* StateView bound to that PoolManager */
+  arcUsdc:'0x3600000000000000000000000000000000000000',     /* native USDC's ERC-20 face — same money */
+  /* Allowlist, as on Robinhood — TOLLY, GIMX and a free-mint NFT sit in this wallet with no
+     market. Each token is priced off its own USDC pool. Add a row here to count a token. */
+  arcTokens:{
+    ARGUS:{a:'0xece5ca8bf9220718e5727754026757512212cb3c',d:18,pool:'0x6a3bacaa6493734c1ac221ebf42cf530a96c1e02'},
+    Minara:{a:'0xa163d7624da3b5d9182c50eab5b8cd247ae861bb',d:18,pool:'0xfd0dc7b3591cb578fd1affcd652ca6e2907c63e9'}
+  },
   merklApi:'https://api.merkl.xyz/v4',
   startValue:502.29,
   startDate:'2026-05-02',
@@ -1319,7 +1339,10 @@ function scanRhPositions(base){
                     var usd=null;
                     if(stable[p.token0]) usd=a0+a1*(p1per0?1/p1per0:0);
                     else if(stable[p.token1]) usd=a1+a0*p1per0;
-                    var range=tick<p.tickLo?'below':tick>=p.tickHi?'above':'in';
+                    /* through the stable side, as on Katana: all-stable means the
+                       other leg ran up past the band, which is not a problem */
+                    var range=tick<p.tickLo?(stable[p.token0]?'above':'below')
+                             :tick>=p.tickHi?(stable[p.token1]?'above':'below'):'in';
                     base.lps.push({type:'LP',protocol:'Uniswap V3',chain:'robinhood',
                       pair:p.s0+' / '+p.s1,pool_fee:(p.fee/10000)+'%',
                       token_id:p.id,range_status:range,staked:false,apr:null,
@@ -1351,6 +1374,300 @@ function hexStr(h){
   }catch(e){return '?';}
 }
 
+/* ============ Arc ============ */
+/* Circle's L1, where gas is paid in USDC. The quirks that matter to this reader are set out
+   in the Arc section of scripts/update-data.mjs; in short:
+   - the native balance IS the wallet's USDC. The ERC-20 at 0x3600…0000 is the same money
+     seen through a second face, so it is never read or added again;
+   - log queries are capped at 10,000 blocks and rate-limited hard, so this reads current
+     state in a handful of multicalls and scans logs for one thing only — V4 positions opened
+     since the snapshot, because the V4 position NFT cannot list a wallet's tokens. */
+function arcRpc(method,params){
+  return fT(CFG.arcRpcs[0],{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},5000)
+    .then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status+(r.status===429?' (rate limited)':''));
+      return r.json();
+    })
+    .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;});
+}
+function arcMulti(calls){
+  if(!calls.length)return Promise.resolve([]);
+  return arcRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(calls)},'latest']).then(decodeAgg3);
+}
+var ARC_ZERO='0x0000000000000000000000000000000000000000';
+var ARC_TR='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+var ARC_MODLIQ='0xf208f4912782fd25c7f114ca3723a2d5dd6f3bcc3ac8db5af63baa85f711d5ec';
+var ARC_MOD=1n<<256n;
+function arcIsUsdc(a){a=a.toLowerCase();return a===CFG.arcUsdc||a===ARC_ZERO;}
+/* USD value of a pair, anchored on its USDC leg; p1per0 is token1 per token0 */
+function arcPairUsd(a0,a1,t0,t1,p1per0){
+  if(arcIsUsdc(t0))return a0+(p1per0?a1/p1per0:0);
+  if(arcIsUsdc(t1))return a1+a0*p1per0;
+  return null;                     /* no USDC leg — unpriced rather than guessed */
+}
+/* ticks go into calldata as 256-bit two's complement */
+function enc24(t){return pad((t<0?(1n<<256n)+BigInt(t):BigInt(t)).toString(16));}
+/* Fees earned since the position was last touched. positions() only knows tokensOwed as of
+   its last interaction, and these 1% pools are collected several times a day — without the
+   accrual since then a position reads dollars short. Checked against Uniswap's own collect
+   simulation: identical to the last unit on both positions. */
+function arcAccrued(liq,insideNow,insideLast){
+  return (((insideNow-insideLast)%ARC_MOD+ARC_MOD)%ARC_MOD)*liq/(1n<<128n);
+}
+function arcInside(tick,lo,hi,g,outLo,outHi){
+  var below=tick>=lo?outLo:g-outLo,above=tick<hi?outHi:g-outHi;
+  return ((g-below-above)%ARC_MOD+ARC_MOD)%ARC_MOD;
+}
+function arcAmt(n){return n>=1000?fmtN(n,0):n>=1?n.toFixed(2):n.toFixed(4);}
+
+function arcLpRow(kind,p,v){
+  /* through the USDC side, as on Katana: all-USDC means the other token ran up past the
+     band, all-other-token means it fell through */
+  var range='in';
+  if(v.tick<p.lo)range=arcIsUsdc(p.token0)?'above':'below';
+  else if(v.tick>=p.hi)range=arcIsUsdc(p.token1)?'above':'below';
+  return{type:'LP',protocol:kind==='v4'?'Uniswap V4':'Uniswap V3',chain:'arc',
+    uid:'arc:'+kind+':'+p.id,token_id:String(p.id),
+    pair:p.s0+' / '+p.s1,pool_fee:(p.fee/10000)+'%',
+    range_status:range,staked:!!p.staked,apr:null,
+    value_usd:v.usd,fees_usd:v.feeUsd,
+    note:kind.toUpperCase()+' #'+p.id+(p.staked?' · STAKED':'')+' — '+arcAmt(v.h0)+' '+p.s0+' + '+arcAmt(v.h1)+' '+p.s1
+      +(v.feeUsd?' incl. $'+v.feeUsd.toFixed(2)+' unclaimed fees':'')
+      +(v.usd===null?' (no USDC leg — unpriced)':'')+' (live on-chain)'};
+}
+
+var ARC_META={};        /* V3 id -> {d0,s0,d1,s1,pool}; fixed for the life of a position */
+function arcV3Live(n,stakedIds){
+  var W=CFG.wallet.replace(/^0x/,''),calls=[];
+  for(var i=0;i<n;i++)calls.push({to:CFG.arcNpm,data:'0x2f745c59'+pad(W)+pad(i.toString(16))});
+  return arcMulti(calls).then(function(res){
+    var owned=res.filter(function(x){return x.ok;}).map(function(x){return toBig(w(x.data,0)).toString();});
+    var ids=owned.slice();
+    stakedIds.forEach(function(id){id=String(id);if(ids.indexOf(id)<0)ids.push(id);});
+    if(!ids.length)return [];
+    return arcMulti(ids.map(function(id){return{to:CFG.arcNpm,data:'0x99fbab88'+pad(BigInt(id).toString(16))};}))
+      .then(function(pr){
+        var pos=[];
+        pr.forEach(function(r,i){
+          if(!r.ok)return;                                  /* burnt */
+          var liq=toBig(w(r.data,7)),o0=toBig(w(r.data,10)),o1=toBig(w(r.data,11));
+          if(liq===0n&&o0===0n&&o1===0n)return;
+          pos.push({id:ids[i],staked:owned.indexOf(ids[i])<0,
+            token0:toAddr(w(r.data,2)),token1:toAddr(w(r.data,3)),fee:Number(toBig(w(r.data,4))),
+            lo:Number(toSigned(w(r.data,5))),hi:Number(toSigned(w(r.data,6))),
+            liq:liq,last0:toBig(w(r.data,8)),last1:toBig(w(r.data,9)),owed0:o0,owed1:o1});
+        });
+        if(!pos.length)return [];
+        var unknown=pos.filter(function(p){return !ARC_META[p.id];});
+        var metaStep=unknown.length
+          ? arcMulti(unknown.reduce(function(a,p){return a.concat([
+              {to:p.token0,data:'0x313ce567'},{to:p.token0,data:'0x95d89b41'},
+              {to:p.token1,data:'0x313ce567'},{to:p.token1,data:'0x95d89b41'},
+              {to:CFG.arcFactory,data:'0x1698ee82'+pad(p.token0)+pad(p.token1)+pad(p.fee.toString(16))}]);},[]))
+            .then(function(m){
+              unknown.forEach(function(p,i){
+                var b=i*5;
+                if(!m[b].ok||!m[b+2].ok||!m[b+4].ok)return;  /* never cache a partial read */
+                ARC_META[p.id]={d0:parseInt(m[b].data,16),s0:m[b+1].ok?hexStr(m[b+1].data):'?',
+                  d1:parseInt(m[b+2].data,16),s1:m[b+3].ok?hexStr(m[b+3].data):'?',
+                  pool:toAddr(w(m[b+4].data,0))};
+              });
+            })
+          : Promise.resolve();
+        return metaStep.then(function(){
+          pos.forEach(function(p){
+            var m=ARC_META[p.id];
+            if(!m)throw new Error('arc: metadata missing for #'+p.id);
+            p.d0=m.d0;p.s0=m.s0;p.d1=m.d1;p.s1=m.s1;p.pool=m.pool;
+          });
+          /* price and fee growth in one round: slot0, both accumulators, both boundary ticks */
+          return arcMulti(pos.reduce(function(a,p){return a.concat([
+              {to:p.pool,data:'0x3850c7bd'},{to:p.pool,data:'0xf3058399'},{to:p.pool,data:'0x46141319'},
+              {to:p.pool,data:'0xf30dba93'+enc24(p.lo)},{to:p.pool,data:'0xf30dba93'+enc24(p.hi)}]);},[]))
+            .then(function(st){
+              return pos.map(function(p,i){
+                var b=i*5;
+                /* all or nothing: a partial list would read as money gone missing */
+                if(!st[b].ok)throw new Error('arc: pool read failed for #'+p.id);
+                var sq=toBig(w(st[b].data,0)),tick=Number(toSigned(w(st[b].data,1)));
+                var amts=v3Amounts(p.liq,p.lo,p.hi,sq);
+                var f0=p.owed0,f1=p.owed1;
+                if(st[b+1].ok&&st[b+2].ok&&st[b+3].ok&&st[b+4].ok){
+                  f0+=arcAccrued(p.liq,arcInside(tick,p.lo,p.hi,toBig(w(st[b+1].data,0)),
+                    toBig(w(st[b+3].data,2)),toBig(w(st[b+4].data,2))),p.last0);
+                  f1+=arcAccrued(p.liq,arcInside(tick,p.lo,p.hi,toBig(w(st[b+2].data,0)),
+                    toBig(w(st[b+3].data,3)),toBig(w(st[b+4].data,3))),p.last1);
+                }
+                var fee0=Number(f0)/Math.pow(10,p.d0),fee1=Number(f1)/Math.pow(10,p.d1);
+                var h0=amts[0]/Math.pow(10,p.d0)+fee0,h1=amts[1]/Math.pow(10,p.d1)+fee1;
+                var px=poolPrice(sq,p.d0,p.d1);
+                return arcLpRow('v3',p,{tick:tick,h0:h0,h1:h1,
+                  usd:arcPairUsd(h0,h1,p.token0,p.token1,px),
+                  feeUsd:arcPairUsd(fee0,fee1,p.token0,p.token1,px)});
+              });
+            });
+        });
+      });
+  });
+}
+
+/* V4: values the positions it is told about — from the snapshot, plus any found live */
+function arcV4Live(rows){
+  if(!rows.length)return Promise.resolve([]);
+  var W=CFG.wallet.toLowerCase();
+  return arcMulti(rows.reduce(function(a,p){
+    var id=pad(BigInt(p.id).toString(16)),pid=p.pool_id.slice(2);
+    return a.concat([
+      {to:CFG.arcV4Posm,data:'0x6352211e'+id},                                   /* ownerOf */
+      {to:CFG.arcV4State,data:'0xc815641c'+pid},                                 /* getSlot0 */
+      {to:CFG.arcV4State,data:'0x53e9c1fb'+pid+enc24(p.lo)+enc24(p.hi)},         /* getFeeGrowthInside */
+      {to:CFG.arcV4State,data:'0xdacf1d2f'+pid+pad(CFG.arcV4Posm)+enc24(p.lo)+enc24(p.hi)+id}]); /* getPositionInfo */
+  },[])).then(function(r){
+    var out=[];
+    rows.forEach(function(p,i){
+      var b=i*4;
+      if(!r[b+1].ok||!r[b+3].ok)throw new Error('arc: V4 read failed for #'+p.id);
+      var owner=r[b].ok?toAddr(w(r[b].data,0)).toLowerCase():'';
+      if(owner!==W&&!p.staked)return;                   /* burnt, sold or given away */
+      var liq=toBig(w(r[b+3].data,0));
+      if(liq===0n)return;
+      var sq=toBig(w(r[b+1].data,0)),tick=Number(toSigned(w(r[b+1].data,1)));
+      /* a pool holding USDC natively counts it in 18 dp */
+      var d0=p.token0.toLowerCase()===ARC_ZERO?18:p.d0,d1=p.token1.toLowerCase()===ARC_ZERO?18:p.d1;
+      var amts=v3Amounts(liq,p.lo,p.hi,sq),f0=0n,f1=0n;
+      if(r[b+2].ok){
+        f0=arcAccrued(liq,toBig(w(r[b+2].data,0)),toBig(w(r[b+3].data,1)));
+        f1=arcAccrued(liq,toBig(w(r[b+2].data,1)),toBig(w(r[b+3].data,2)));
+      }
+      var fee0=Number(f0)/Math.pow(10,d0),fee1=Number(f1)/Math.pow(10,d1);
+      var h0=amts[0]/Math.pow(10,d0)+fee0,h1=amts[1]/Math.pow(10,d1)+fee1;
+      var px=poolPrice(sq,d0,d1);
+      out.push(arcLpRow('v4',p,{tick:tick,h0:h0,h1:h1,
+        usd:arcPairUsd(h0,h1,p.token0,p.token1,px),
+        feeUsd:arcPairUsd(fee0,fee1,p.token0,p.token1,px)}));
+    });
+    return out;
+  });
+}
+
+/* What a V4 position is. The NFT keeps only a 25-byte prefix of its pool id; the full id is
+   on the ModifyLiquidity that opened it, salted with the token id — so one block's logs. */
+function arcDescribeV4(id,block){
+  var tag='0x'+block.toString(16),idHex=pad(BigInt(id).toString(16));
+  return arcRpc('eth_call',[{to:CFG.arcV4Posm,data:'0x7ba03aad'+idHex},'latest']).then(function(r){
+    var rec={id:String(id),token0:toAddr(w(r,0)),token1:toAddr(w(r,1)),fee:Number(toBig(w(r,2))),staked:false};
+    if(rec.token1===ARC_ZERO)return null;             /* burnt already */
+    var info=toBig(w(r,5));
+    var s24=function(x){var v=Number(x&0xffffffn);return v>=0x800000?v-0x1000000:v;};
+    rec.lo=s24(info>>8n);rec.hi=s24(info>>32n);
+    return arcRpc('eth_getLogs',[{address:CFG.arcV4Pool,topics:[ARC_MODLIQ,null,'0x'+pad(CFG.arcV4Posm)],
+      fromBlock:tag,toBlock:tag}]).then(function(logs){
+      var hit=logs.filter(function(l){return BigInt('0x'+w(l.data,3))===BigInt(id);})[0];
+      if(!hit)return null;
+      rec.pool_id=hit.topics[1];
+      return arcMulti([{to:rec.token0,data:'0x313ce567'},{to:rec.token0,data:'0x95d89b41'},
+        {to:rec.token1,data:'0x313ce567'},{to:rec.token1,data:'0x95d89b41'}]).then(function(m){
+        var nat0=rec.token0===ARC_ZERO,nat1=rec.token1===ARC_ZERO;
+        rec.d0=nat0?18:parseInt(m[0].data,16);rec.s0=nat0?'USDC':hexStr(m[1].data);
+        rec.d1=nat1?18:parseInt(m[2].data,16);rec.s1=nat1?'USDC':hexStr(m[3].data);
+        return rec;
+      });
+    });
+  });
+}
+
+/* V4 positions opened since the snapshot. One 10,000-block window per pass: a six-hour
+   backlog clears in a few refreshes, and the rate limit never sees a burst of log queries. */
+var ARC_V4_FOUND={},ARC_SCAN_FROM=0;
+function arcV4Rows(sa){
+  var rows=(sa.v4_positions||[]).slice(),have={};
+  rows.forEach(function(r){have[r.id]=1;});
+  var merged=function(){
+    var out=rows.slice();
+    Object.keys(ARC_V4_FOUND).forEach(function(k){if(!have[k])out.push(ARC_V4_FOUND[k]);});
+    return out;
+  };
+  if(!ARC_SCAN_FROM)ARC_SCAN_FROM=(sa.last_block||0)+1;
+  if(ARC_SCAN_FROM<=1)return Promise.resolve(merged());   /* no ledger block to start from */
+  return arcRpc('eth_blockNumber',[]).then(function(h){
+    var latest=parseInt(h,16);
+    if(ARC_SCAN_FROM>latest)return merged();
+    var to=Math.min(ARC_SCAN_FROM+9999,latest);
+    return arcRpc('eth_getLogs',[{address:CFG.arcV4Posm,topics:[ARC_TR,null,'0x'+pad(CFG.wallet)],
+      fromBlock:'0x'+ARC_SCAN_FROM.toString(16),toBlock:'0x'+to.toString(16)}]).then(function(logs){
+      var fresh=logs.filter(function(l){
+        var id=BigInt(l.topics[3]).toString();
+        return !have[id]&&!ARC_V4_FOUND[id];
+      });
+      /* one at a time — each costs a log query */
+      return fresh.reduce(function(chain,l){
+        return chain.then(function(){
+          return arcDescribeV4(BigInt(l.topics[3]).toString(),parseInt(l.blockNumber,16))
+            .then(function(rec){if(rec)ARC_V4_FOUND[rec.id]=rec;});
+        });
+      },Promise.resolve()).then(function(){ARC_SCAN_FROM=to+1;return merged();});
+    });
+  }).catch(function(e){console.warn('arc V4 scan failed, will retry',e);return merged();});
+}
+
+/* Merkl runs campaigns on Arc too. Rewards move slowly, so this is asked every five minutes
+   rather than every pass, and a failure keeps the last answer. */
+var ARC_MERKL=null,ARC_MERKL_AT=0;
+function arcMerkl(snapVal){
+  if(ARC_MERKL===null)ARC_MERKL=snapVal||{total_usd:0,rewards:[]};
+  if(Date.now()-ARC_MERKL_AT<300000)return Promise.resolve(ARC_MERKL);
+  ARC_MERKL_AT=Date.now();
+  return getMerklLive(0,ARC_MERKL,5042).then(function(m){ARC_MERKL=m;return m;});
+}
+
+/* The whole chain in one pass. A failed position read keeps the last good positions — a
+   position blinking to $0 because one call hit the rate limit reads as money gone. */
+var ARC_LAST_LPS=null,ARC_LAST=null;
+function getArcLive(snap){
+  var sa=(snap&&snap.chains&&snap.chains.arc)||{};
+  var W=CFG.wallet.replace(/^0x/,''),toks=Object.keys(CFG.arcTokens);
+  var head=[{to:CFG.multicall,data:'0x4d2301cc'+pad(W)},        /* native USDC, 18 dp */
+            {to:CFG.arcNpm,data:'0x70a08231'+pad(W)}];           /* V3 position count */
+  toks.forEach(function(k){head.push({to:CFG.arcTokens[k].a,data:'0x70a08231'+pad(W)});});
+  toks.forEach(function(k){head.push({to:CFG.arcTokens[k].pool,data:'0x3850c7bd'});});
+  return arcMulti(head).then(function(r){
+    var usdc=r[0].ok?Number(toBig(w(r[0].data,0)))/1e18:0;
+    /* -1 = the count itself failed, which must not read as "no positions" */
+    var nV3=r[1].ok?Math.min(Number(toBig(w(r[1].data,0))),30):-1;
+    var tokens=[{symbol:'USDC',amount:usdc,usd:usdc}],walletUsd=usdc;
+    toks.forEach(function(k,i){
+      var t=CFG.arcTokens[k],b=r[2+i],s=r[2+toks.length+i],px=null;
+      if(s&&s.ok&&s.data.length>=130){
+        /* each allowlisted token is priced off its own USDC pool; order is by address */
+        var sq=toBig(w(s.data,0));
+        px=CFG.arcUsdc<t.a?1/poolPrice(sq,6,t.d):poolPrice(sq,t.d,6);
+        if(!isFinite(px))px=null;
+      }
+      var bal=b&&b.ok?Number(toBig(w(b.data,0)))/Math.pow(10,t.d):0;
+      var usd=px?bal*px:0;
+      walletUsd+=usd;
+      if(bal>0)tokens.push({symbol:k,amount:bal,usd:usd});
+    });
+    var base={usdc:usdc,tokens:tokens,walletUsd:walletUsd,lps:[]};
+    var lpStep=arcV4Rows(sa).then(function(v4rows){
+      if(nV3<0)throw new Error('arc: position count unreadable');
+      return arcV3Live(nV3,sa.staked_ids||[]).then(function(v3){
+        return arcV4Live(v4rows).then(function(v4){
+          base.lps=v3.concat(v4);
+          ARC_LAST_LPS=base.lps;
+        });
+      });
+    }).catch(function(e){
+      console.warn('arc LP scan failed, keeping last good positions',e);
+      base.lps=ARC_LAST_LPS||sa.lp_positions||[];
+    });
+    return lpStep
+      .then(function(){return arcMerkl(sa.merkl_rewards);})
+      .then(function(m){base.merkl=m;ARC_LAST=base;return base;});
+  });
+}
+
 function getSolanaLive(refs,ata){
   return Promise.all([
     solRpc('getBalance',[CFG.solWallet]),
@@ -1377,8 +1694,8 @@ function getSolanaLive(refs,ata){
   });
 }
 
-function getMerklLive(katPrice,fallback){
-  return fT(CFG.merklApi+'/users/'+CFG.wallet+'/rewards?chainId=747474')
+function getMerklLive(katPrice,fallback,chainId){
+  return fT(CFG.merklApi+'/users/'+CFG.wallet+'/rewards?chainId='+(chainId||747474))
     .then(function(r){return r.json();})
     .then(function(arr){
       var totalUsd=0,rewards=[];
@@ -1413,6 +1730,15 @@ function getSushiAprs(){
 }
 
 function loadLive(refs,snap){
+  /* Arc needs nothing from the other chains, so it starts at once. Its own catch: a dead or
+     rate-limited Arc RPC costs that chain only — last good pass first, snapshot after. */
+  var arcP=getArcLive(snap).catch(function(e){
+    console.warn('arc live failed, using last good values',e);
+    if(ARC_LAST)return ARC_LAST;
+    var sa=(snap&&snap.chains&&snap.chains.arc)||{};
+    return{usdc:0,tokens:[],walletUsd:sa.onchain_usd||0,lps:sa.lp_positions||[],
+           merkl:sa.merkl_rewards||{total_usd:0,rewards:[]},fromSnapshot:true};
+  });
   /* a Solana outage must not kill the whole overlay — degrade to snapshot values for that chain */
   var solP=getSolanaLive(refs,snap&&snap.usdc_ata).catch(function(e){
     console.warn('solana live failed, using snapshot values',e);
@@ -1455,12 +1781,16 @@ function loadLive(refs,snap){
       var solWalletUsd=sol.sol*sol.solPrice+sol.usdc;
       var solLpUsd=0;sol.lps.forEach(function(l){solLpUsd+=l.value_usd;});
       var solTotal=solWalletUsd+solLpUsd;
-      return rhP.then(function(rh){
+      return Promise.all([rhP,arcP]).then(function(pair){
+      var rh=pair[0],arc=pair[1];
       var rhLpUsd=0;rh.lps.forEach(function(l){rhLpUsd+=l.value_usd||0;});
       var rhTotal=rh.walletUsd+rhLpUsd;
+      var arcLpUsd=0;arc.lps.forEach(function(l){arcLpUsd+=l.value_usd||0;});
+      var arcMerklUsd=(arc.merkl&&arc.merkl.total_usd)||0;
+      var arcTotal=arc.walletUsd+arcLpUsd+arcMerklUsd;
       /* folded in before current/gain are derived, or the tracking figure would quietly
-         exclude this chain while the headline total included it */
-      var grand=katTotal+solTotal+rhTotal;
+         exclude a chain while the headline total included it */
+      var grand=katTotal+solTotal+rhTotal+arcTotal;
       var days=Math.floor((Date.now()-new Date(CFG.startDate+'T00:00:00Z').getTime())/86400000);
       var current=grand-katLpUsd;
       var gain=current-CFG.startValue;
@@ -1495,15 +1825,20 @@ function loadLive(refs,snap){
             lp_total_usd:solLpUsd,total_usd:solTotal,color:'#9945ff'},
           robinhood:{name:'Robinhood',onchain_usd:rh.walletUsd,
             tokens:rh.tokens,lp_positions:rh.lps,defi_positions:[],
-            lp_total_usd:rhLpUsd,total_usd:rhTotal,color:'#00c805'}
+            lp_total_usd:rhLpUsd,total_usd:rhTotal,color:'#00c805'},
+          arc:{name:'Arc',onchain_usd:arc.walletUsd,
+            tokens:arc.tokens,merkl_rewards:arc.merkl,lp_positions:arc.lps,defi_positions:[],
+            lp_total_usd:arcLpUsd,total_usd:arcTotal,color:'#5b9cff'}
         },
         summary:{grand_total_usd:grand,katana_usd:katTotal,solana_usd:solTotal,
-          robinhood_usd:rhTotal,
-          onchain_usd:katWalletUsd+solWalletUsd+rh.walletUsd,
-          lp_usd:katLpUsd+solLpUsd+rhLpUsd,
-          merkl_usd:merkl.total_usd,chains_count:3},
+          robinhood_usd:rhTotal,arc_usd:arcTotal,
+          onchain_usd:katWalletUsd+solWalletUsd+rh.walletUsd+arc.walletUsd,
+          lp_usd:katLpUsd+solLpUsd+rhLpUsd+arcLpUsd,
+          /* claimable on every chain — the split into "earning" and "waiting to be claimed"
+             reads this, so Arc's rewards must not be counted as DeFi value */
+          merkl_usd:merkl.total_usd+arcMerklUsd,chains_count:4},
         merkl_rewards:merkl,
-        lp_positions:kat.lps.concat(sol.lps).concat(rh.lps),
+        lp_positions:kat.lps.concat(sol.lps).concat(rh.lps).concat(arc.lps),
         total_usd:grand
       };
       return d;
@@ -2015,15 +2350,25 @@ function scanLivePositions(known){
   });
 }
 
+/* One key per position across chains. A token id is only unique within its own position
+   manager, so a bare number would let an Arc position and a Katana one with the same id
+   overwrite each other's value. Katana keeps the bare id it has always had. */
+function posKey(x,idField){
+  if(x.uid)return x.uid;
+  var id=String(x[idField]);
+  return x.chain&&x.chain!=='katana'?x.chain+':'+id:id;
+}
+
 /* stored ledger with live-detected changes layered on top (stored wins on id collision) */
 function closedPositions(){
   var out=[],seen={};
-  ((POSITIONS&&POSITIONS.closed)||[]).forEach(function(c){seen[String(c.id)]=1;out.push(c);});
-  ((LIVE_POSITIONS&&LIVE_POSITIONS.closed)||[]).forEach(function(c){if(!seen[String(c.id)])out.push(c);});
-  /* Robinhood keeps its own section — its figures come from swap-history pricing rather
-     than archive state, so they are stored apart, but they belong in the same ledger view */
-  ((POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.closed)||[]).forEach(function(c){
-    if(!seen[String(c.id)])out.push(c);});
+  var add=function(c){var k=posKey(c,'id');if(!seen[k]){seen[k]=1;out.push(c);}};
+  ((POSITIONS&&POSITIONS.closed)||[]).forEach(add);
+  ((LIVE_POSITIONS&&LIVE_POSITIONS.closed)||[]).forEach(add);
+  /* Robinhood and Arc keep their own sections — each chain's figures come from a different
+     pricing route, so they are stored apart — but they belong in the same ledger view */
+  ((POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.closed)||[]).forEach(add);
+  ((POSITIONS&&POSITIONS.arc&&POSITIONS.arc.closed)||[]).forEach(add);
   out.sort(function(a,b){return (b.closed_ts||0)-(a.closed_ts||0);});
   return out;
 }
@@ -2033,24 +2378,30 @@ function closedPositions(){
    (Not `openPositions` — that name already belongs to the modal opener.) */
 function currentPositions(){
   var out=[],seen={},shut={};
-  closedPositions().forEach(function(c){shut[String(c.id)]=1;});
+  closedPositions().forEach(function(c){shut[posKey(c,'id')]=1;});
+  var add=function(o){var k=posKey(o,'id');if(!seen[k]&&!shut[k]){seen[k]=1;out.push(o);}};
   var rhOpen=(POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.open)||{};
   Object.keys(rhOpen).forEach(function(k){
-    if(shut[k])return;
-    var o=rhOpen[k];seen[k]=1;
-    out.push({id:k,pair:o.pair,pool_fee:o.pool_fee,chain:'robinhood',
+    var o=rhOpen[k];
+    add({id:k,pair:o.pair,pool_fee:o.pool_fee,chain:'robinhood',
       opened:o.opened,opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
+  });
+  /* Arc also carries what each position has already paid back — fees are collected from
+     these several times a day, and the P&L column has to count them */
+  var arcOpen=(POSITIONS&&POSITIONS.arc&&POSITIONS.arc.open)||{};
+  Object.keys(arcOpen).forEach(function(k){
+    var o=arcOpen[k];
+    add({uid:o.uid,id:o.id,pair:o.pair,pool_fee:o.pool_fee,chain:'arc',protocol:o.protocol,
+      opened:o.opened,opened_ts:o.opened_ts,open_value_usd:Math.round(o.in_usd*100)/100,
+      withdrawn_usd:Math.round(o.out_usd*100)/100});
   });
   var om=(POSITIONS&&POSITIONS.open)||{};
   Object.keys(om).forEach(function(k){
-    if(shut[k])return;
-    var o=om[k];seen[k]=1;
-    out.push({id:k,pair:o.pair,pool_fee:o.pool_fee,opened:o.opened,
+    var o=om[k];
+    add({id:k,pair:o.pair,pool_fee:o.pool_fee,opened:o.opened,
       opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
   });
-  ((LIVE_POSITIONS&&LIVE_POSITIONS.open)||[]).forEach(function(o){
-    if(!seen[String(o.id)]&&!shut[String(o.id)])out.push(o);
-  });
+  ((LIVE_POSITIONS&&LIVE_POSITIONS.open)||[]).forEach(add);
   out.sort(function(a,b){return (b.opened_ts||0)-(a.opened_ts||0);});
   return out;
 }
@@ -2126,11 +2477,13 @@ function lockPosBodyHeight(){
    reads as "my position is missing" rather than "it is the row above". */
 function chainTag(chain){
   if(!chain||chain==='katana')return '';
-  var c=chain==='robinhood'?'#00c805':chain==='solana'?'#9945ff':'var(--dim)';
+  var c={robinhood:'#00c805',solana:'#9945ff',arc:'#5b9cff'}[chain]||'var(--dim)';
   var label=chain.charAt(0).toUpperCase()+chain.slice(1);
   return ' <span style="color:'+c+';font-size:8px;border:1px solid '+c
     +';border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px">'+label+'</span>';
 }
+/* V3 and V4 number their positions separately, so a V4 row says so */
+function v4Tag(d){return d.protocol==='Uniswap V4'?' · V4':'';}
 function buildPositions(){
   var t=document.getElementById('posTable');
   if(!t)return;
@@ -2161,28 +2514,34 @@ function buildPositions(){
     var d=row.d;
     if(row.isOpen){
       /* mark to market: what it's worth now, against what went in */
-      var now=LP_VALUE[String(d.id)];
+      var key=posKey(d,'id');
+      var now=LP_VALUE[key];
       var hasOpen=d.open_value_usd!==null&&d.open_value_usd!==undefined;
-      var live=now!==undefined&&hasOpen;
-      var up=live?now-d.open_value_usd:0;
+      var live=now!==undefined&&now!==null&&hasOpen;
+      /* what it has already paid back counts: worth now + paid out − put in */
+      var paid=d.withdrawn_usd||0;
+      var up=live?now+paid-d.open_value_usd:0;
       var ucol=up>=0?'var(--green)':'var(--red)',usg=up>=0?'+':'-';
       var upct=live&&d.open_value_usd>0?up/d.open_value_usd*100:0;
       /* out of range: red when price fell through the floor, green when it ran past
          the ceiling (the position is sitting in stables) */
-      var rng=LP_RANGE[String(d.id)],oor='';
+      var rng=LP_RANGE[key],oor='';
       if(rng==='below'||rng==='above'){
         var rc=rng==='below'?'var(--red)':'var(--green)';
         oor=' <span title="Price '+rng+' this position\'s range" style="color:'+rc
           +';font-size:8px;border:1px solid '+rc+';border-radius:3px;padding:1px 3px;vertical-align:1px">OOR</span>';
       }
       rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+money(now):'')
+        +(paid>0?' · paid out '+money(paid)+' so far':'')
         +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
         +'<td class="pos-cell">#'+d.id
         +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+oor
-        +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+'</span>'
+        +'<br><span style="color:var(--dim);font-size:9px">'+(d.pair||'')+v4Tag(d)+'</span>'
         +chainTag(d.chain)+'</td>'
         +'<td class="num">'+(hasOpen?money(d.open_value_usd):dash)+'</td>'
-        +'<td class="num">'+(live?money(now):dash)+'</td>'
+        +'<td class="num">'+(live?money(now)
+            +(paid>0?'<br><span style="font-size:8px;color:var(--dim)">+'+money(paid)+' paid out</span>':'')
+          :dash)+'</td>'
         +'<td class="num" style="white-space:nowrap'+(live?';color:'+ucol:'')+'">'
         +(live?usg+money(Math.abs(up))
               +'<br><span style="font-size:9px">'+usg+Math.abs(upct).toFixed(2)+'%</span>'
@@ -2194,7 +2553,8 @@ function buildPositions(){
     var p=d.pnl_usd||0;
     var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
     rows+='<tr title="Opened '+d.opened+' · closed '+d.closed+'"><td class="pos-cell">#'+d.id
-      +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+'</span></td>'
+      +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+v4Tag(d)+'</span>'
+      +chainTag(d.chain)+'</td>'
       +'<td class="num">'+money(d.open_value_usd)+'</td>'
       +'<td class="num">'+money(d.close_value_usd)+'</td>'
       +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(p))
@@ -2269,9 +2629,11 @@ function buildMonthly(){
 }
 function downloadCsv(){
   if(!HIST)return;
-  var lines=['date,onchain_usd,pending_usd,lp_usd,solana_usd,total_usd'];
+  var lines=['date,onchain_usd,pending_usd,lp_usd,solana_usd,robinhood_usd,arc_usd,total_usd'];
+  var opt=function(v){return v!==undefined?v:'';};   /* blank before a chain was tracked */
   HIST.forEach(function(e){
-    lines.push([e.date,e.onchain_usd||0,e.pending_usd||0,e.lp_usd||0,e.solana_usd!==undefined?e.solana_usd:'',e.total_usd||0].join(','));
+    lines.push([e.date,e.onchain_usd||0,e.pending_usd||0,e.lp_usd||0,opt(e.solana_usd),
+      opt(e.robinhood_usd),opt(e.arc_usd),e.total_usd||0].join(','));
   });
   var blob=new Blob([lines.join('\n')],{type:'text/csv'});
   var a=document.createElement('a');
@@ -2312,12 +2674,15 @@ function syncTodayPoint(){
       last.pending_usd=LAST_BREAKDOWN.pending_usd;
       last.lp_usd=LAST_BREAKDOWN.lp_usd;
       last.solana_usd=LAST_BREAKDOWN.solana_usd;
+      last.robinhood_usd=LAST_BREAKDOWN.robinhood_usd;
+      last.arc_usd=LAST_BREAKDOWN.arc_usd;
     }
   }else{
     var e={date:today,timestamp:new Date().toISOString(),total_usd:LAST_TOTAL};
     if(LAST_BREAKDOWN){
       e.onchain_usd=LAST_BREAKDOWN.onchain_usd;e.pending_usd=LAST_BREAKDOWN.pending_usd;
       e.lp_usd=LAST_BREAKDOWN.lp_usd;e.solana_usd=LAST_BREAKDOWN.solana_usd;
+      e.robinhood_usd=LAST_BREAKDOWN.robinhood_usd;e.arc_usd=LAST_BREAKDOWN.arc_usd;
     }
     HIST.push(e);   /* next call takes the branch above, so this can't push twice */
   }
@@ -2338,6 +2703,9 @@ var CHAIN_LOGO={
   /* Robinhood's mark is a feather; drawn inline in their green so it costs no request */
   robinhood:'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
     +'<path fill="#00c805" d="M12.9 2.2c-.5 1.9-1.5 3.6-2.9 5-1.9 1.9-3 4.4-3 7.1 0 1.3.3 2.6.8 3.8l-2 2.1a.8.8 0 0 0 1.1 1.1l2-2c1.1.5 2.3.8 3.6.8 4.5 0 8.1-3.6 8.1-8.1 0-3.6-1.9-6.8-4.8-8.6-.9-.5-1.9-1-2.9-1.2zm-.7 3.6c.6.9 1.6 2 3 2.9 2 1.3 3.3 3.5 3.3 6 0 1.1-.3 2.2-.8 3.1-1-2.6-2.9-4.7-5.4-5.9-.9-.4-1.6-1-2.1-1.8.6-1.5 1.3-3 2-4.3z"/></svg>',
+  /* Arc's mark is an arch; drawn inline in the colour this page gives the chain */
+  arc:'<svg viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<path fill="#5b9cff" d="M1 30c.243-7.345 1.489-14.199 3.57-19.53C7.206 3.72 11.023 0 15.314 0c4.292 0 8.109 3.719 10.745 10.472 1.371 3.512 2.38 7.685 2.978 12.225.054.405.1.817.146 1.229.015.025.024.049.02.068 0 0 .352 2.194.427 6.007h-.04c-.52-.428-6.666-5.256-16.854-3.858a63.94 63.94 0 0 1 .639-5.009l.044-.243c3.995-.12 7.493.343 10.175.952-.01-.064-.018-.13-.03-.193-.55-3.432-1.364-6.575-2.413-9.26-1.714-4.392-3.952-7.12-5.838-7.12-1.885 0-4.123 2.728-5.837 7.12a37.113 37.113 0 0 0-1.132 3.389 50.654 50.654 0 0 0-1.196 5.355c-.474 2.786-.769 5.773-.877 8.868H1V30Z"/></svg>',
   solana:'<svg viewBox="0 0 398 312" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
     +'<defs><linearGradient id="solMark" x1="360" y1="-37" x2="141" y2="383" gradientUnits="userSpaceOnUse">'
     +'<stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs>'
@@ -2348,6 +2716,8 @@ var CHAIN_LOGO={
     +'</g></svg>'
 };
 
+/* the order chains are listed in, everywhere */
+var CHAIN_ORDER=['katana','solana','robinhood','arc'];
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
@@ -2355,7 +2725,8 @@ function render(d,isLive){
   var s=d.summary||{};
   var total=s.grand_total_usd||d.total_usd||0;   /* portfolio only — metrics use this */
   var onchain=s.onchain_usd||d.onchain_usd||0;
-  var pending=(d.merkl_rewards&&d.merkl_rewards.total_usd)||0;
+  /* claimable on every chain; older snapshots only carry Katana's */
+  var pending=(s.merkl_usd!==undefined?s.merkl_usd:(d.merkl_rewards&&d.merkl_rewards.total_usd))||0;
   var defiValue=total-onchain-pending;           /* LP positions + lending (Morpho net) */
   var target=CFG.target;
   var displayTotal=total+CFG.coldVault;          /* overview includes the cold vault */
@@ -2388,7 +2759,8 @@ function render(d,isLive){
   /* metrics that depend on the current total */
   LAST_TOTAL=total;
   LAST_BREAKDOWN={onchain_usd:onchain,pending_usd:pending,
-    lp_usd:s.lp_usd||0,solana_usd:s.solana_usd||0};
+    lp_usd:s.lp_usd||0,solana_usd:s.solana_usd||0,
+    robinhood_usd:s.robinhood_usd||0,arc_usd:s.arc_usd||0};
   syncTodayPoint();
   updateAvgDaily();
   updateChangeChips();
@@ -2397,7 +2769,7 @@ function render(d,isLive){
   /* chains */
   var chains=d.chains||{};
   var chainHtml='',chainNames=[];
-  ['katana','solana','robinhood'].forEach(function(key){
+  CHAIN_ORDER.forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
     chainNames.push(ch.name);
@@ -2418,14 +2790,15 @@ function render(d,isLive){
 
   var allLp=[];
   LP_VALUE={};LP_RANGE={};
-  ['katana','solana','robinhood'].forEach(function(key){
+  CHAIN_ORDER.forEach(function(key){
     if(!chains[key])return;
     (chains[key].lp_positions||[]).forEach(function(p){
-      allLp.push({p:p,chain:chains[key].name,badge:key==='katana'?'chain-katana':'chain-solana'});
+      allLp.push({p:p,chain:chains[key].name,badge:'chain-'+key});
       /* what each open position is worth right now — the ledger marks them to market */
       if(p.token_id){
-        LP_VALUE[String(p.token_id)]=p.value_usd||0;
-        if(p.range_status)LP_RANGE[String(p.token_id)]=p.range_status;
+        var k=posKey(p,'token_id');
+        LP_VALUE[k]=p.value_usd;
+        if(p.range_status)LP_RANGE[k]=p.range_status;
       }
     });
   });
@@ -2464,11 +2837,11 @@ function render(d,isLive){
     dl+='</div>';
   }
 
-  ['katana','solana','robinhood'].forEach(function(key){
+  CHAIN_ORDER.forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
-    var badgeClass=key==='katana'?'chain-katana':'chain-solana';
-    var badgeColor=key==='katana'?'var(--accent)':'var(--sol)';
+    var badgeClass='chain-'+key;
+    var badgeColor=key==='katana'?'var(--accent)':(ch.color||'var(--sol)');
 
     (ch.defi_positions||[]).forEach(function(p){
       dl+='<div class="pos-card">';
@@ -2536,8 +2909,9 @@ function askFacts(){
   f.left=Math.max(0,f.target-f.total);
   f.onchain=(LAST_BREAKDOWN&&LAST_BREAKDOWN.onchain_usd)||0;
   f.katana=s.katana_usd||0; f.solana=s.solana_usd||0;
-  f.defi=f.portfolio-f.onchain-((d&&d.merkl_rewards&&d.merkl_rewards.total_usd)||0);
-  f.pending=(d&&d.merkl_rewards&&d.merkl_rewards.total_usd)||0;
+  f.robinhood=s.robinhood_usd||0; f.arc=s.arc_usd||0;
+  f.pending=(LAST_BREAKDOWN&&LAST_BREAKDOWN.pending_usd)||0;   /* every chain, as the card uses */
+  f.defi=f.portfolio-f.onchain-f.pending;
   f.roi=(d&&d.tracking&&d.tracking.monthly_roi_pct)||0;
   f.startDate=CFG.startDate; f.startValue=CFG.startValue;
   f.days=HIST_START?Math.floor((Date.now()-HIST_START.time)/86400000):0;
@@ -2585,17 +2959,18 @@ function askFacts(){
   });
   f.unrealised=0; f.openValue=0; f.oor=[]; f.ranged=0;
   open.forEach(function(o){
-    var now=LP_VALUE[String(o.id)];
-    if(now!==undefined){
+    var now=LP_VALUE[posKey(o,'id')];
+    if(now!==undefined&&now!==null){
       f.openValue+=now;
-      if(o.open_value_usd!==null&&o.open_value_usd!==undefined)f.unrealised+=now-o.open_value_usd;
+      if(o.open_value_usd!==null&&o.open_value_usd!==undefined)
+        f.unrealised+=now+(o.withdrawn_usd||0)-o.open_value_usd;
     }
     /* Count the ones we have a reading for, not just the bad ones — "0 out of range" and
        "no data yet" are different answers and must not collapse into each other.
        Test for the two out-of-range values rather than "not in": the producer emits
        'in' / 'above' / 'below', and anything else — a new status, a blank — should not
        be reported as a problem on the strength of not matching one string. */
-    var r=LP_RANGE[String(o.id)];
+    var r=LP_RANGE[posKey(o,'id')];
     if(r){
       f.ranged++;
       if(r==='below'||r==='above'){o.rangeDir=r;f.oor.push(o);}
@@ -2741,9 +3116,10 @@ var ASK={
 
   chains:function(f){
     var tot=f.total||1;
-    return "Katana: <b>"+fmt(f.katana)+"</b> ("+(f.katana/tot*100).toFixed(0)+"%)\n"
-      +"Solana: <b>"+fmt(f.solana)+"</b> ("+(f.solana/tot*100).toFixed(1)+"%)\n"
-      +"Vault: <b>"+fmt(f.vault)+"</b> ("+(f.vault/tot*100).toFixed(0)+"%, cold)";},
+    var share=function(v){var p=v/tot*100;return p>0&&p<1?p.toFixed(1):p.toFixed(0);};
+    return [['Katana',f.katana],['Solana',f.solana],['Robinhood',f.robinhood],['Arc',f.arc]]
+      .map(function(c){return c[0]+": <b>"+fmt(c[1])+"</b> ("+share(c[1])+"%)";}).join("\n")
+      +"\nVault: <b>"+fmt(f.vault)+"</b> ("+share(f.vault)+"%, cold)";},
 
   split:function(f){
     return "Liquid on-chain: <b>"+fmt(f.onchain)+"</b>\n"

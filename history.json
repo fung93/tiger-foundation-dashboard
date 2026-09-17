@@ -849,83 +849,101 @@
     {
       "date": "2026-09-09",
       "timestamp": "2026-09-09T20:12:10.550Z",
-      "onchain_usd": 590.78,
+      "onchain_usd": 595.61,
       "pending_usd": 0,
-      "lp_usd": 0,
+      "lp_usd": 468.2,
       "solana_usd": 0.1,
-      "total_usd": 2340.42
+      "total_usd": 2813.45,
+      "robinhood_usd": 473.03,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-10",
       "timestamp": "2026-09-10T20:13:56.492Z",
-      "onchain_usd": 569.93,
+      "onchain_usd": 574.76,
       "pending_usd": 1.87,
-      "lp_usd": 0,
+      "lp_usd": 457.16,
       "solana_usd": 0.09,
-      "total_usd": 2018.89
+      "total_usd": 2480.88,
+      "robinhood_usd": 461.99,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-11",
       "timestamp": "2026-09-11T20:13:06.583Z",
-      "onchain_usd": 564.85,
+      "onchain_usd": 569.83,
       "pending_usd": 3.62,
-      "lp_usd": 0,
+      "lp_usd": 461.82,
       "solana_usd": 0.1,
-      "total_usd": 1978.96
+      "total_usd": 2445.76,
+      "robinhood_usd": 466.8,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-12",
       "timestamp": "2026-09-12T19:52:10.325Z",
-      "onchain_usd": 563.73,
+      "onchain_usd": 568.67,
       "pending_usd": 5.55,
-      "lp_usd": 0,
+      "lp_usd": 462.43,
       "solana_usd": 0.1,
-      "total_usd": 1973.66
+      "total_usd": 2441.03,
+      "robinhood_usd": 467.37,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-13",
       "timestamp": "2026-09-13T20:00:16.729Z",
-      "onchain_usd": 553.86,
+      "onchain_usd": 558.76,
       "pending_usd": 7.52,
-      "lp_usd": 0,
+      "lp_usd": 461.12,
       "solana_usd": 0.09,
-      "total_usd": 1909.69
+      "total_usd": 2375.71,
+      "robinhood_usd": 466.02,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-14",
       "timestamp": "2026-09-14T21:10:59.598Z",
-      "onchain_usd": 539.24,
+      "onchain_usd": 557.18,
       "pending_usd": 9.61,
-      "lp_usd": 0,
+      "lp_usd": 483.38,
       "solana_usd": 0.1,
-      "total_usd": 1839.42
+      "total_usd": 2340.74,
+      "robinhood_usd": 501.32,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-15",
       "timestamp": "2026-09-15T20:39:08.947Z",
-      "onchain_usd": 520.29,
+      "onchain_usd": 537.96,
       "pending_usd": 11.49,
-      "lp_usd": 0,
+      "lp_usd": 450.78,
       "solana_usd": 0.09,
-      "total_usd": 1759.28
+      "total_usd": 2227.73,
+      "robinhood_usd": 468.45,
+      "arc_usd": 0
     },
     {
       "date": "2026-09-16",
       "timestamp": "2026-09-16T20:39:06.705Z",
-      "onchain_usd": 419.55,
+      "onchain_usd": 432.78,
       "pending_usd": 9.21,
-      "lp_usd": 0,
+      "lp_usd": 529.52,
       "solana_usd": 0.09,
-      "total_usd": 1653.97
+      "total_usd": 2196.72,
+      "robinhood_usd": 431.78,
+      "arc_usd": 110.97
     },
     {
       "date": "2026-09-17",
-      "timestamp": "2026-09-17T10:39:42.254Z",
-      "onchain_usd": 418.64,
+      "timestamp": "2026-09-17T11:11:28.883Z",
+      "onchain_usd": 439.92,
       "pending_usd": 0,
-      "lp_usd": 0,
+      "lp_usd": 565.9,
       "solana_usd": 0.09,
-      "total_usd": 1660.89
+      "robinhood_usd": 450.26,
+      "arc_usd": 136.64,
+      "total_usd": 2248.89
     }
   ]
 }
