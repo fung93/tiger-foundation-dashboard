@@ -13,7 +13,8 @@
    history series, a badge colour per chain. */
 /* v20: LP fee claims in the claim record, on every chain; Katana LP results count only
    what was paid to this wallet. */
-var CACHE_VERSION = 'tiger-v20';
+/* v21: the claim record lists LP fees only, split by chain. */
+var CACHE_VERSION = 'tiger-v21';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

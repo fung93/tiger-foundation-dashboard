@@ -332,10 +332,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* Claims: fixed columns on both tables so the pinned TOTAL lines up with the rows that
    scroll above it. The footer carries the table's own horizontal padding. */
 #claimsTable,.claims-total table{table-layout:fixed;width:100%}
-#claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:31%}
-#claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:23%}
-#claimsTable th:nth-child(3),#claimsTable td:nth-child(3),.claims-total td:nth-child(3){width:22%}
-#claimsTable th:nth-child(4),#claimsTable td:nth-child(4),.claims-total td:nth-child(4){width:24%}
+#claimsTable th:nth-child(1),#claimsTable td:nth-child(1),.claims-total td:nth-child(1){width:38%}
+#claimsTable th:nth-child(2),#claimsTable td:nth-child(2),.claims-total td:nth-child(2){width:62%}
+.fee-split{display:block;font-size:9px;color:var(--dim);margin-top:2px;line-height:1.35}
 .claims-note{color:var(--dim);font-size:10px;padding:2px 10px 6px;line-height:1.4}
 /* column headings stay put while the days scroll under them. Sticky goes on the cells,
    not the row — a sticky <tr> is ignored in several engines. Needs an opaque background
@@ -500,7 +499,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
         <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
-        <button class="rec-btn" id="claimsBtn" title="Claim record — KAT and LP fees" aria-label="Claim record">
+        <button class="rec-btn" id="claimsBtn" title="LP fee claim record" aria-label="LP fee claim record">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
         </button>
       </div>
@@ -571,7 +570,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   </div>
 </div>
 
-<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Claim record">
+<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="LP fee claim record">
   <div class="modal">
     <div class="modal-head">
       <span class="modal-title">Claim Record</span>
@@ -2207,12 +2206,12 @@ function paidToUs(l,tokens,receipt){
   });
 }
 var FEE_CHAINS=[
-  {key:'katana',name:'Katana',call:function(m,p){return rpc(m,p);},npm:CFG.npm,span:100000,
+  {key:'katana',name:'Katana',color:'#f59e0b',call:function(m,p){return rpc(m,p);},npm:CFG.npm,span:100000,
    stable:[CFG.tokens.USDC.a,CFG.tokens.USDT.a]},
-  {key:'robinhood',name:'Robinhood',call:function(m,p){return rhRpc(m,p);},npm:CFG.rhNpm,span:4000000,
+  {key:'robinhood',name:'Robinhood',color:'#00c805',call:function(m,p){return rhRpc(m,p);},npm:CFG.rhNpm,span:4000000,
    stable:Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
      .map(function(k){return CFG.rhTokens[k].a;})},
-  {key:'arc',name:'Arc',call:function(m,p){return arcRpc(m,p);},npm:CFG.arcNpm,span:10000,
+  {key:'arc',name:'Arc',color:'#5b9cff',call:function(m,p){return arcRpc(m,p);},npm:CFG.arcNpm,span:10000,
    stable:[CFG.arcUsdc]}
 ];
 var LIVE_FEES={days:{},cur:{},owed:{}},LIVE_FEES_AT=0,LIVE_FEES_BUSY=false;
@@ -2317,48 +2316,51 @@ function feeDays(){
   });
   return out;
 }
+/* the same split, coloured per chain, for the second line under a figure */
+function feeSplit(d){
+  return FEE_CHAINS.filter(function(c){return d[c.key]>=0.005;})
+    .map(function(c){return'<span style="white-space:nowrap"><span style="color:'+c.color+'">'+c.name+'</span> '
+      +money(d[c.key])+'</span>';}).join(' · ');
+}
 function feeTip(d){
   return FEE_CHAINS.filter(function(c){return d[c.key];})
     .map(function(c){return c.name+' '+money(d[c.key]);}).join(' · ');
 }
 
+/* The claim record is LP fees only, one row a day, with the chains that paid on a second
+   line — a hover title would be invisible on a phone. KAT claims are no longer listed here;
+   they still count in the P&L summary of the position record. */
 function buildClaims(){
   var t=document.getElementById('claimsTable');
   if(!t)return;
-  var start=(CLAIMS&&CLAIMS.start_date)||utc8Date(Date.now());
-  var fs=CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.start_date;
-  if(fs&&fs<start)start=fs;          /* the record opens at whichever began first */
-  var days=claimDays(),fees=feeDays();
+  var fees=feeDays();
   var today=utc8Date(Date.now());
+  var start=(CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.start_date)||today;
   var list=[],d=new Date(start+'T00:00:00Z'),end=new Date(today+'T00:00:00Z');
   while(d<=end){list.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
   list.reverse(); /* newest first */
   var dash='<span style="color:var(--dim)">-</span>';
-  var rows='<tr><th>Date</th><th class="num">KAT</th><th class="num">KAT value</th><th class="num">LP fees</th></tr>';
-  var totKat=0,totVal=0,totFee={total:0};
+  var rows='<tr><th>Date</th><th class="num">LP fees claimed</th></tr>';
+  var totFee={total:0};
   list.forEach(function(k){
-    var e=days[k],f=fees[k];
-    if(e){totKat+=e.kat||0;totVal+=e.value_usd||0;}
+    var f=fees[k];
     if(f)Object.keys(f).forEach(function(ch){totFee[ch]=(totFee[ch]||0)+f[ch];});
     var hasFee=f&&f.total>=0.005;
     rows+='<tr><td style="white-space:nowrap">'+k+(k===today?' <span style="color:var(--dim);font-size:9px">today</span>':'')+'</td>'
-      +'<td class="num">'+(e?fmtN(e.kat,2):dash)+'</td>'
-      +'<td class="num" style="color:'+(e?'var(--gold)':'var(--dim)')+'">'+(e?fmt(e.value_usd):'-')+'</td>'
-      +'<td class="num"'+(hasFee?' style="color:var(--green)" title="'+feeTip(f)+'"':'')+'>'
-      +(hasFee?money(f.total):dash)+'</td></tr>';
+      +'<td class="num">'+(hasFee
+        ?'<span style="color:var(--green)">'+money(f.total)+'</span><span class="fee-split">'+feeSplit(f)+'</span>'
+        :dash)+'</td></tr>';
   });
   t.innerHTML=rows;
   /* TOTAL lives in the pinned footer, not the table, so it stays visible while the days
      scroll. Same fixed column widths as the table above, so the figures line up. */
   var tot=document.getElementById('claimsTotal');
   if(tot){
-    tot.innerHTML=(totKat>0||totFee.total>0)
+    tot.innerHTML=totFee.total>0
       ? '<table class="tbl"><tr><td style="font-weight:700">TOTAL</td>'
-        +'<td class="num" style="font-weight:700">'+fmtN(totKat,2)+'</td>'
-        +'<td class="num" style="font-weight:700;color:var(--gold)">'+fmt(totVal)+'</td>'
-        +'<td class="num" style="font-weight:700;color:var(--green)" title="'+feeTip(totFee)+'">'+money(totFee.total)+'</td></tr></table>'
-        +'<div class="claims-note">LP fees: '+(feeTip(totFee)||'none yet')
-        +'. Paid into this wallet, valued on the day — already part of each position\'s P&amp;L.</div>'
+        +'<td class="num" style="font-weight:700"><span style="color:var(--green)">'+money(totFee.total)+'</span>'
+        +'<span class="fee-split" style="font-weight:400">'+feeSplit(totFee)+'</span></td></tr></table>'
+        +'<div class="claims-note">Fees paid into this wallet, valued on the day they were claimed — already part of each position\'s P&amp;L.</div>'
       : '';
   }
   capClaimsHeight();   /* re-cap when a live scan adds a day while the window is open */
