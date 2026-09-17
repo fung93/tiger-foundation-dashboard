@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 42904415,
+  "last_block": 42917600,
   "open": {},
   "closed": [
     {
@@ -330,7 +330,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 65358073,
+    "last_block": 65489173,
     "open": {
       "1161437": {
         "id": "1161437",
@@ -385,7 +385,7 @@
   },
   "version": 2,
   "arc": {
-    "last_block": 21326022,
+    "last_block": 21352038,
     "open": {
       "arc:v3:25048": {
         "uid": "arc:v3:25048",
@@ -394,11 +394,11 @@
         "chain": "arc",
         "opened_block": 21187836,
         "in_usd": 104.91331452282279,
-        "out_usd": 10.473582497646815,
+        "out_usd": 11.551282191867394,
         "in0": 52.947881,
         "in1": 1998.7510820457887,
-        "out0": 5.290078,
-        "out1": 287.24131695297524,
+        "out0": 5.794922000000001,
+        "out1": 319.2865056154243,
         "staked": false,
         "token0": "0x3600000000000000000000000000000000000000",
         "token1": "0xece5ca8bf9220718e5727754026757512212cb3c",
@@ -415,48 +415,35 @@
         "protocol": "Uniswap V3",
         "opened_ts": 1789577213,
         "opened": "2026-09-17",
-        "last_block": 21311340,
-        "last_ts": 1789639789,
+        "last_block": 21336314,
+        "last_ts": 1789652441,
         "owed0": "0",
         "owed1": "0",
-        "fees_usd": 10.473582497646815
-      },
-      "arc:v3:32901": {
-        "uid": "arc:v3:32901",
-        "id": "32901",
-        "kind": "v3",
-        "chain": "arc",
-        "opened_block": 21306490,
-        "in_usd": 44.443746396554396,
-        "out_usd": 7.134357100133052,
-        "in0": 27.640408,
-        "in1": 7991.037351290179,
-        "out0": 3.740847,
-        "out1": 3045.4620447465327,
-        "staked": false,
-        "token0": "0x3600000000000000000000000000000000000000",
-        "token1": "0xa163d7624da3b5d9182c50eab5b8cd247ae861bb",
-        "fee": 10000,
-        "lo": 334000,
-        "hi": 345000,
-        "pool": "0xfd0dc7b3591cb578fd1affcd652ca6e2907c63e9",
-        "d0": 6,
-        "s0": "USDC",
-        "d1": 18,
-        "s1": "Minara",
-        "pair": "USDC / Minara",
-        "pool_fee": "1%",
-        "protocol": "Uniswap V3",
-        "opened_ts": 1789637331,
-        "opened": "2026-09-17",
-        "last_block": 21321521,
-        "last_ts": 1789644946,
-        "owed0": "0",
-        "owed1": "0",
-        "fees_usd": 7.134357100133052
+        "fees_usd": 11.551282191867394
       }
     },
     "closed": [
+      {
+        "uid": "arc:v3:32901",
+        "id": "32901",
+        "chain": "arc",
+        "protocol": "Uniswap V3",
+        "pair": "USDC / Minara",
+        "pool_fee": "1%",
+        "opened": "2026-09-17",
+        "opened_ts": 1789637331,
+        "closed": "2026-09-17",
+        "closed_ts": 1789652430,
+        "open_value_usd": 44.44,
+        "close_value_usd": 17.2,
+        "pnl_usd": -27.25,
+        "pnl_pct": -61.31,
+        "fees_usd": 7.14,
+        "in0": 27.640408,
+        "in1": 7991.037351290179,
+        "out0": 3.741834,
+        "out1": 29716.440381997898
+      },
       {
         "uid": "arc:v4:144422",
         "id": "144422",
