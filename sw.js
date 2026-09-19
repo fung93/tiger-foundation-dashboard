@@ -15,7 +15,8 @@
    what was paid to this wallet. */
 /* v21: the claim record lists LP fees only, split by chain. */
 /* v22: Robinhood and Arc positions opened since the last snapshot appear in the record. */
-var CACHE_VERSION = 'tiger-v22';
+/* v23: Arc requests queued and paced, live fee claims start at load and cover new positions. */
+var CACHE_VERSION = 'tiger-v23';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

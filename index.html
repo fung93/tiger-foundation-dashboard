@@ -1385,14 +1385,34 @@ function hexStr(h){
    - log queries are capped at 10,000 blocks and rate-limited hard, so this reads current
      state in a handful of multicalls and scans logs for one thing only — V4 positions opened
      since the snapshot, because the V4 position NFT cannot list a wallet's tokens. */
+/* The live overlay and the fee scan both read Arc, and its node refuses bursts: fired
+   side by side they drew a 429 and today's Arc fee claims never reached the record. So Arc
+   requests go out one at a time, at least 350ms apart, and a "slow down" waits and asks
+   again (three tries, backing off) instead of failing the pass. */
+var ARC_QUEUE=Promise.resolve(),ARC_SENT_AT=0;
 function arcRpc(method,params){
-  return fT(CFG.arcRpcs[0],{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},5000)
-    .then(function(r){
+  var send=function(attempt){
+    var wait=Math.max(0,350-(Date.now()-ARC_SENT_AT));
+    return new Promise(function(k){setTimeout(k,wait);}).then(function(){
+      ARC_SENT_AT=Date.now();
+      return fT(CFG.arcRpcs[0],{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},5000);
+    }).then(function(r){
+      if(r.status===429&&attempt<3)return backoff(attempt);
       if(!r.ok)throw new Error('HTTP '+r.status+(r.status===429?' (rate limited)':''));
-      return r.json();
-    })
-    .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;});
+      return r.json().then(function(j){
+        if(j.error&&/rate limit/i.test(j.error.message||'')&&attempt<3)return backoff(attempt);
+        if(j.error)throw new Error(j.error.message);
+        return j.result;
+      });
+    });
+  };
+  var backoff=function(attempt){
+    return new Promise(function(k){setTimeout(k,1000*(attempt+1));}).then(function(){return send(attempt+1);});
+  };
+  var p=ARC_QUEUE.then(function(){return send(0);});
+  ARC_QUEUE=p.catch(function(){});      /* a failed call must not stall the ones behind it */
+  return p;
 }
 function arcMulti(calls){
   if(!calls.length)return Promise.resolve([]);
@@ -2229,11 +2249,35 @@ function scanLiveFees(){
   var F=CLAIMS&&CLAIMS.lp_fees;
   if(!F||!F.state||LIVE_FEES_BUSY||Date.now()-LIVE_FEES_AT<120000)return Promise.resolve();
   LIVE_FEES_BUSY=true;LIVE_FEES_AT=Date.now();
+  var failed=false;
   return FEE_CHAINS.reduce(function(p,c){
     return p.then(function(){
-      return liveFeesFor(c,F.state[c.key],3).catch(function(e){console.warn(c.key+' live fee scan failed, will retry',e);});
+      return liveFeesFor(c,withLiveIds(c.key,F.state[c.key]),3)
+        .catch(function(e){failed=true;console.warn(c.key+' live fee scan failed, will retry',e);});
     });
-  },Promise.resolve()).then(function(){LIVE_FEES_BUSY=false;keepingScroll(buildClaims);});
+  },Promise.resolve()).then(function(){
+    LIVE_FEES_BUSY=false;
+    /* a chain that failed is asked again in about 30 seconds, not two minutes — its window
+       did not advance, so nothing is skipped or counted twice */
+    if(failed)LIVE_FEES_AT=Date.now()-90000;
+    keepingScroll(buildClaims);
+  });
+}
+/* The stored state names the positions the last run knew about. A position opened since
+   then pays fees too, so the live Robinhood and Arc (V3) positions are added, with the pool
+   details their live read already has. */
+function withLiveIds(key,st){
+  if(!st)return st;
+  var lps=(LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains[key]&&LAST_DATA.chains[key].lp_positions)||[];
+  var ids=(st.ids||[]).slice(),meta={};
+  Object.keys(st.meta||{}).forEach(function(k){meta[k]=st.meta[k];});
+  lps.forEach(function(p){
+    var m=p.meta;
+    if(!m||!m.pool||(m.kind&&m.kind!=='v3')||!p.token_id)return;
+    if(ids.indexOf(p.token_id)<0)ids.push(p.token_id);
+    if(!meta[p.token_id])meta[p.token_id]={pool:m.pool,token0:m.token0,token1:m.token1,d0:m.d0,d1:m.d1};
+  });
+  return{last_block:st.last_block,owed:st.owed,ids:ids,meta:meta};
 }
 function liveFeesFor(c,st,windows){
   if(!st||!st.last_block||!st.ids||!st.ids.length||windows<=0)return Promise.resolve();
@@ -3600,6 +3644,7 @@ function load(){
            the overlay down if it fails */
         return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
           .then(function(res){LIVE_CLAIMS=res;buildClaims();buildPositions();})
+          .then(scanLiveFees)
           .catch(function(e){console.warn('live claim scan failed, using claims.json',e);});
       });
     })
@@ -3612,7 +3657,8 @@ function load(){
   fetch('/claims.json?t='+Date.now()).then(function(r){return r.json();})
     .then(function(c){CLAIMS=c;})
     .catch(function(){/* not generated yet — table falls back to today only */})
-    .then(buildClaims);
+    .then(buildClaims)
+    .then(function(){if(liveRendered)return scanLiveFees();});   /* else the overlay's boot pass starts it */
   /* The header mark opens the chat — talking to the character is the bigger action, so it
      gets the obvious tap. The mood toggle keeps its home one level in, on the tiger's face
      in the chat's own header, and is still remembered like the other toggles. */
