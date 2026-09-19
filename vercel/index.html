@@ -1346,6 +1346,7 @@ function scanRhPositions(base){
                     var range=tick<p.tickLo?(stable[p.token0]?'above':'below')
                              :tick>=p.tickHi?(stable[p.token1]?'above':'below'):'in';
                     base.lps.push({type:'LP',protocol:'Uniswap V3',chain:'robinhood',
+                      meta:{pool:p.pool,token0:p.token0,token1:p.token1,d0:p.d0,d1:p.d1},
                       pair:p.s0+' / '+p.s1,pool_fee:(p.fee/10000)+'%',
                       token_id:p.id,range_status:range,staked:false,apr:null,
                       value_usd:usd,
@@ -1430,6 +1431,7 @@ function arcLpRow(kind,p,v){
   if(v.tick<p.lo)range=arcIsUsdc(p.token0)?'above':'below';
   else if(v.tick>=p.hi)range=arcIsUsdc(p.token1)?'above':'below';
   return{type:'LP',protocol:kind==='v4'?'Uniswap V4':'Uniswap V3',chain:'arc',
+    meta:{kind:kind,pool:p.pool,pool_id:p.pool_id,token0:p.token0,token1:p.token1,d0:p.d0,d1:p.d1},
     uid:'arc:'+kind+':'+p.id,token_id:String(p.id),
     pair:p.s0+' / '+p.s1,pool_fee:(p.fee/10000)+'%',
     range_status:range,staked:!!p.staked,apr:null,
@@ -1581,7 +1583,7 @@ function arcDescribeV4(id,block){
 
 /* V4 positions opened since the snapshot. One 10,000-block window per pass: a six-hour
    backlog clears in a few refreshes, and the rate limit never sees a burst of log queries. */
-var ARC_V4_FOUND={},ARC_SCAN_FROM=0;
+var ARC_V4_FOUND={},ARC_SCAN_FROM=0,ARC_MINTS={};
 function arcV4Rows(sa){
   var rows=(sa.v4_positions||[]).slice(),have={};
   rows.forEach(function(r){have[r.id]=1;});
@@ -1596,8 +1598,14 @@ function arcV4Rows(sa){
     var latest=parseInt(h,16);
     if(ARC_SCAN_FROM>latest)return merged();
     var to=Math.min(ARC_SCAN_FROM+9999,latest);
-    return arcRpc('eth_getLogs',[{address:CFG.arcV4Posm,topics:[ARC_TR,null,'0x'+pad(CFG.wallet)],
+    return arcRpc('eth_getLogs',[{address:[CFG.arcNpm,CFG.arcV4Posm],topics:[ARC_TR,null,'0x'+pad(CFG.wallet)],
       fromBlock:'0x'+ARC_SCAN_FROM.toString(16),toBlock:'0x'+to.toString(16)}]).then(function(logs){
+      logs.forEach(function(l){
+        var kind=l.address.toLowerCase()===CFG.arcNpm?'v3':'v4';
+        ARC_MINTS[kind+':'+BigInt(l.topics[3])]={block:parseInt(l.blockNumber,16),tx:l.transactionHash,
+          ts:parseInt(l.blockTimestamp||'0x0',16)};
+      });
+      logs=logs.filter(function(l){return l.address.toLowerCase()===CFG.arcV4Posm;});
       var fresh=logs.filter(function(l){
         var id=BigInt(l.topics[3]).toString();
         return !have[id]&&!ARC_V4_FOUND[id];
@@ -2518,6 +2526,113 @@ function posKey(x,idField){
   return x.chain&&x.chain!=='katana'?x.chain+':'+id:id;
 }
 
+/* ---- positions opened since the last snapshot ----
+   Robinhood's and Arc's ledgers are written by the 6-hourly Action, so a position opened
+   after its last run was worth something on the page but missing from the record for up to
+   six hours. Katana has its own live replay; for these two, a position the chain shows open
+   but the ledger has not booked is described here — what went in, priced at the block it
+   went in, by the same rule the Action uses — and listed at once. The Action's figure takes
+   its place on the next run. */
+var PENDING_OPEN={},PENDING_TRY={};
+var RH_SWAP_TOPIC='0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+function pairUsd(a0,a1,m,stable,px){
+  var st={};stable.forEach(function(a){st[a.toLowerCase()]=1;});
+  if(st[m.token0.toLowerCase()])return a0+(px?a1/px:0);
+  if(st[m.token1.toLowerCase()])return a1+a0*px;
+  return null;
+}
+function rhOpenInfo(p){
+  var m=p.meta,idT='0x'+pad(BigInt(p.token_id).toString(16)),blk,a0,a1;
+  var stable=Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
+    .map(function(k){return CFG.rhTokens[k].a;});
+  /* newest first, in steps: a new position is almost always in the first, and one wide query
+     can time out on this chain's node */
+  var steps=[[0,250000],[250000,1000000],[1000000,4000000]];
+  var back=function(latest,i){
+    if(i>=steps.length)return Promise.resolve([]);
+    return rhRpc('eth_getLogs',[{address:CFG.rhNpm,topics:[CFG.incTopic,idT],
+      fromBlock:'0x'+Math.max(0,latest-steps[i][1]).toString(16),toBlock:'0x'+Math.max(0,latest-steps[i][0]).toString(16)}])
+      .then(function(logs){return logs.length?logs:back(latest,i+1);});
+  };
+  return rhRpc('eth_blockNumber',[]).then(function(h){return back(parseInt(h,16),0);}).then(function(logs){
+    if(!logs.length)return null;
+    var l=logs[0];blk=parseInt(l.blockNumber,16);
+    a0=Number(toBig(w(l.data,1)))/Math.pow(10,m.d0);a1=Number(toBig(w(l.data,2)))/Math.pow(10,m.d1);
+    /* no archive state on this chain — the pool's last swap at or before the block prices it */
+    var swapAt=function(spans){
+      if(!spans.length)return Promise.resolve(null);
+      return rhRpc('eth_getLogs',[{address:m.pool,topics:[RH_SWAP_TOPIC],
+        fromBlock:'0x'+Math.max(0,blk-spans[0]).toString(16),toBlock:'0x'+blk.toString(16)}])
+        .then(function(sw){return sw.length?toBig(w(sw[sw.length-1].data,2)):swapAt(spans.slice(1));});
+    };
+    /* the block time, because this chain leaves it at 0x0 on its logs */
+    return Promise.all([swapAt([50000,500000]),rhRpc('eth_getBlockByNumber',['0x'+blk.toString(16),false])]);
+  }).then(function(r){
+    if(!r||r[0]===null)return null;
+    var usd=pairUsd(a0,a1,m,stable,poolPrice(r[0],m.d0,m.d1));
+    return usd===null?null:{usd:usd,ts:parseInt(r[1].timestamp,16)};
+  });
+}
+function arcOpenInfo(p){
+  var m=p.meta,mint=ARC_MINTS[m.kind+':'+p.token_id];
+  if(!mint||!mint.ts)return Promise.resolve(null);  /* the transfer scan has not reached it yet */
+  var tag='0x'+mint.block.toString(16);
+  var d0=m.token0.toLowerCase()===ARC_ZERO?18:m.d0,d1=m.token1.toLowerCase()===ARC_ZERO?18:m.d1;
+  var priceAt=m.kind==='v4'
+    ? arcRpc('eth_call',[{to:CFG.arcV4State,data:'0xc815641c'+m.pool_id.slice(2)},tag])
+    : arcRpc('eth_call',[{to:m.pool,data:'0x3850c7bd'},tag]);
+  /* V3 states the amounts on its IncreaseLiquidity; V4 does not, so they are read from the
+     mint's own transfers between the wallet and Uniswap */
+  var amounts=m.kind==='v3'
+    ? arcRpc('eth_getLogs',[{address:CFG.arcNpm,topics:[CFG.incTopic,'0x'+pad(BigInt(p.token_id).toString(16))],
+        fromBlock:tag,toBlock:tag}]).then(function(logs){
+        if(!logs.length)return null;
+        return[Number(toBig(w(logs[0].data,1)))/Math.pow(10,m.d0),Number(toBig(w(logs[0].data,2)))/Math.pow(10,m.d1)];
+      })
+    : arcRpc('eth_getTransactionReceipt',[mint.tx]).then(function(rc){
+        var W=CFG.wallet.toLowerCase(),uni={};uni[CFG.arcV4Pool]=1;uni[CFG.arcV4Posm]=1;
+        var leg=function(a){a=a.toLowerCase();return a===ARC_ZERO?CFG.arcUsdc:a;};
+        var t=[leg(m.token0),leg(m.token1)],net=[0,0];
+        rc.logs.forEach(function(x){
+          if(x.topics[0]!==ARC_TR||x.topics.length!==3)return;
+          var side=t.indexOf(x.address.toLowerCase());if(side<0)return;
+          var src='0x'+x.topics[1].slice(26),dst='0x'+x.topics[2].slice(26);
+          /* flows are logged by the ERC-20, so native USDC arrives in its 6 dp */
+          var v=Number(BigInt(x.data))/Math.pow(10,t[side]===CFG.arcUsdc?6:(side?m.d1:m.d0));
+          if(src===W&&uni[dst])net[side]+=v;else if(uni[src]&&dst===W)net[side]-=v;
+        });
+        return[Math.max(0,net[0]),Math.max(0,net[1])];
+      });
+  return Promise.all([amounts,priceAt]).then(function(r){
+    if(!r[0])return null;
+    var usd=pairUsd(r[0][0],r[0][1],m,[CFG.arcUsdc],poolPrice(toBig(w(r[1],0)),d0,d1));
+    return usd===null?null:{usd:usd,ts:mint.ts};
+  });
+}
+function trackPendingOpens(lps){
+  if(!POSITIONS)return;                  /* until the ledger is loaded, everything looks new */
+  var booked={};
+  ['robinhood','arc'].forEach(function(ch){
+    var L=POSITIONS[ch];if(!L)return;
+    Object.keys(L.open||{}).forEach(function(k){var o=L.open[k];booked[posKey({uid:o.uid,chain:ch,id:o.id||k},'id')]=1;});
+    (L.closed||[]).forEach(function(c){booked[posKey({uid:c.uid,chain:ch,id:c.id},'id')]=1;});
+  });
+  lps.forEach(function(p){
+    if((p.chain!=='robinhood'&&p.chain!=='arc')||!p.meta||!p.token_id)return;
+    var k=posKey(p,'token_id');
+    if(booked[k]){delete PENDING_OPEN[k];return;}
+    if(PENDING_OPEN[k])return;
+    if(PENDING_TRY[k]&&Date.now()-PENDING_TRY[k]<60000)return;   /* each at most once a minute */
+    PENDING_TRY[k]=Date.now();
+    (p.chain==='robinhood'?rhOpenInfo(p):arcOpenInfo(p)).then(function(info){
+      if(!info)return;
+      PENDING_OPEN[k]={uid:p.uid,id:p.token_id,chain:p.chain,pair:p.pair,pool_fee:p.pool_fee,protocol:p.protocol,
+        opened:utc8Date(info.ts*1000),opened_ts:info.ts,open_value_usd:Math.round(info.usd*100)/100,pending:true};
+      keepingScroll(buildPositions);
+    }).catch(function(e){console.warn('could not describe new position '+k+', will retry',e);});
+  });
+}
+
 /* stored ledger with live-detected changes layered on top (stored wins on id collision) */
 function closedPositions(){
   var out=[],seen={};
@@ -2561,6 +2676,8 @@ function currentPositions(){
       opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
   });
   ((LIVE_POSITIONS&&LIVE_POSITIONS.open)||[]).forEach(add);
+  /* opened since the last snapshot, while the chain still shows them open */
+  Object.keys(PENDING_OPEN).forEach(function(k){if(LP_VALUE[k]!==undefined)add(PENDING_OPEN[k]);});
   out.sort(function(a,b){return (b.opened_ts||0)-(a.opened_ts||0);});
   return out;
 }
@@ -2692,6 +2809,7 @@ function buildPositions(){
       }
       rows+='<tr title="Opened '+(d.opened||'?')+(live?' · now worth '+money(now):'')
         +(paid>0?' · paid out '+money(paid)+' so far':'')
+        +(d.pending?' · new — the 6-hourly update will confirm it':'')
         +(rng&&rng!=='in'?' · price '+rng+' range':'')+'">'
         +'<td class="pos-cell">#'+d.id
         +' <span style="color:var(--green);font-size:8px;border:1px solid var(--green);border-radius:3px;padding:1px 3px;vertical-align:1px">OPEN</span>'+oor
@@ -2961,6 +3079,7 @@ function render(d,isLive){
       }
     });
   });
+  trackPendingOpens(allLp.map(function(x){return x.p;}));
   buildPositions();   /* refresh unrealised P&L against the values just computed */
   if(allLp.length){
     var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];

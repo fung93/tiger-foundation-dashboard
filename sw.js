@@ -14,7 +14,8 @@
 /* v20: LP fee claims in the claim record, on every chain; Katana LP results count only
    what was paid to this wallet. */
 /* v21: the claim record lists LP fees only, split by chain. */
-var CACHE_VERSION = 'tiger-v21';
+/* v22: Robinhood and Arc positions opened since the last snapshot appear in the record. */
+var CACHE_VERSION = 'tiger-v22';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

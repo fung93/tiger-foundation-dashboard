@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 43041385,
+  "last_block": 43048348,
   "open": {},
   "closed": [
     {
@@ -330,7 +330,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 66718342,
+    "last_block": 66787349,
     "open": {
       "1161437": {
         "id": "1161437",
@@ -350,6 +350,25 @@
         "in0": 273.26684,
         "in1": 2.2439893368255572,
         "open_value_usd": 479.89
+      },
+      "1230033": {
+        "id": "1230033",
+        "chain": "robinhood",
+        "pair": "USDG / CRCL",
+        "pool_fee": "0.3%",
+        "pool": "0x654e4143e82a5824445ade0824351c2a9acd95a8",
+        "token0": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "token1": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+        "d0": 6,
+        "d1": 18,
+        "s0": "USDG",
+        "s1": "CRCL",
+        "opened_block": 66773884,
+        "opened": "2026-09-19",
+        "opened_ts": 1789789799,
+        "in0": 117.94,
+        "in1": 1.4294891405866588,
+        "open_value_usd": 250.22
       }
     },
     "closed": [
@@ -385,7 +404,7 @@
   },
   "version": 2,
   "arc": {
-    "last_block": 21596012,
+    "last_block": 21609776,
     "open": {
       "arc:v3:25048": {
         "uid": "arc:v3:25048",

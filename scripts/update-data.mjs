@@ -881,7 +881,23 @@ const RH_COL_TOPIC  = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab176563273
 /* the public RPC has a burst limit as well as a range limit, and this ledger makes several
    calls back to back — a short gap between them is cheaper than a failed run */
 let rhLastCall = 0;
-const rhLogs = (params) => rhCall('eth_getLogs', [params]);
+/* A wide log query can time out on the node's side ("context deadline exceeded") as the chain
+   grows — that is how a new position went unrecorded on 2026-09-19. A timed-out range is
+   halved and each half asked again, down to 20,000 blocks, rather than failing the lookup.
+   Halves are returned in order, so "first" and "last" still mean what callers expect. */
+async function rhLogs(params) {
+  try {
+    return await rhCall('eth_getLogs', [params]);
+  } catch (e) {
+    if (!/deadline|timeout|timed out/i.test(e.message)) throw e;
+    const from = parseInt(params.fromBlock, 16);
+    const to = params.toBlock === 'latest' ? parseInt(await rhCall('eth_blockNumber', []), 16) : parseInt(params.toBlock, 16);
+    if (!(to - from > 20000)) throw e;
+    const mid = Math.floor((from + to) / 2), h = (n) => '0x' + n.toString(16);
+    return [...await rhLogs({ ...params, fromBlock: h(from), toBlock: h(mid) }),
+            ...await rhLogs({ ...params, fromBlock: h(mid + 1), toBlock: h(to) })];
+  }
+}
 
 /* Paced, and patient with the rate limit: a 429 waits and tries again rather than failing a
    run that has only been asked to slow down. Any other error is returned at once. */
