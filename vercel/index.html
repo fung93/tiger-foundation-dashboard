@@ -2701,8 +2701,10 @@ function currentPositions(){
   var rhOpen=(POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.open)||{};
   Object.keys(rhOpen).forEach(function(k){
     var o=rhOpen[k];
+    /* like Arc, with what it has already paid back — fees collected while it stays open */
     add({id:k,pair:o.pair,pool_fee:o.pool_fee,chain:'robinhood',
-      opened:o.opened,opened_ts:o.opened_ts,open_value_usd:o.open_value_usd});
+      opened:o.opened,opened_ts:o.opened_ts,open_value_usd:o.open_value_usd,
+      withdrawn_usd:o.withdrawn_usd||0});
   });
   /* Arc also carries what each position has already paid back — fees are collected from
      these several times a day, and the P&L column has to count them */

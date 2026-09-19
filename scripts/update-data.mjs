@@ -866,13 +866,12 @@ async function rhPositions(count) {
    swap at or before a block gives the price at that block without an archive node.
 
    The ledger is built from raw token flows rather than from liquidity maths — what went
-   in on IncreaseLiquidity, what came out on Collect (which carries principal AND fees).
-   That closes the books without needing to split the two.
+   in on every IncreaseLiquidity, what came out on every Collect (which carries principal
+   AND fees). That closes the books without needing to split the two.
 
-   It accrues forward rather than reconstructing history: each run records the open of any
-   position it has not seen before, and settles any it was watching that has since gone.
-   A burnt NFT can no longer be asked which pool it belonged to, so anything that closed
-   before this code existed is simply not in the ledger — which is the honest outcome. */
+   Version 2 books every deposit and every payout, as Arc's ledger does. Version 1 kept only
+   the first deposit and the last payout, so fees collected while a position was open never
+   reached its P&L — #1161437 read +$0.95 having already paid out about $18.70. */
 
 const RH_SWAP_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
 const RH_INC_TOPIC  = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
@@ -959,99 +958,151 @@ function rhValue(a0, a1, token0, token1, p1per0) {
   return null;   /* no stable leg — unpriceable, and a guess would be worse */
 }
 
-async function rhBuildLedger(current, prevLedger) {
-  const latestBlock = await (async () => {
-    const r = await fetch(CFG.rhRpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }) }).then(x => x.json());
-    return parseInt(r.result, 16);
-  })();
-  const led = { last_block: 0, open: {}, closed: [], ...(prevLedger || {}) };
-  led.last_block = latestBlock;
-  led.open = { ...(led.open || {}) };
-  led.closed = [...(led.closed || [])];
-  const held = {};
-  current.forEach(p => { held[p.id] = p; });
+const RH_DEC_TOPIC = '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4';
+const RH_LEDGER_VERSION = 2;
+const rhMulti = async (calls) => decodeAgg3(await rhCall('eth_call', [{ to: CFG.multicall, data: encodeAgg3(calls) }, 'latest']));
 
-  /* 0. repair records written before the timestamp fetch existed. Driven off the ledger
-        rather than off the live positions, or a run where the position read fails would
-        skip the repair entirely — which is exactly how this stayed broken for two runs. */
-  for (const e of Object.values(led.open)) {
-    if (e.opened_ts || !e.opened_block) continue;
-    const ts = await rhBlockTime(e.opened_block);
-    if (ts) {
-      e.opened_ts = ts;
-      e.opened = new Date(ts * 1000).toISOString().slice(0, 10);
-      console.log(`  robinhood ledger: backfilled open date for #${e.id} -> ${e.opened}`);
-    }
+async function rhBuildLedger(prevLedger) {
+  let prev = prevLedger;
+  if (prev && prev.version !== RH_LEDGER_VERSION) {
+    console.log('  robinhood ledger: older format, rebuilding from the first position');
+    prev = null;
+  }
+  const led = { last_block: 0, open: {}, closed: [], ...(prev || {}), version: RH_LEDGER_VERSION };
+  led.open = { ...led.open };
+  led.closed = [...led.closed];
+  const W = CFG.wallet.toLowerCase(), Wt = '0x' + pad(W);
+  const h = (n) => '0x' + n.toString(16);
+  const latest = parseInt(await rhCall('eth_blockNumber', []), 16);
+  const done = new Set(led.closed.map((c) => String(c.id)));
+  const stable = new Set(Object.values(CFG.rhTokens).filter((t) => t.stable).map((t) => t.a.toLowerCase()));
+  const receipt = (x) => rhCall('eth_getTransactionReceipt', [x]);
+
+  /* what a position is. No archive state here, so it is read as it stands now — the NFT
+     outlives the position unless it is burnt, and a burnt one is reported, not guessed. */
+  async function describe(id, block) {
+    const r = await rhCall('eth_call', [{ to: CFG.rhNpm, data: '0x99fbab88' + pad(BigInt(id).toString(16)) }, 'latest']);
+    const rec = { id, chain: 'robinhood', token0: toAddr(w(r, 2)), token1: toAddr(w(r, 3)), fee: Number(toBig(w(r, 4))),
+      opened_block: block, in0: 0, in1: 0, out0: 0, out1: 0, in_usd: 0, out_usd: 0, fees_usd: 0, owed0: '0', owed1: '0' };
+    const str = (x) => { try {
+      const d = x.replace(/^0x/, ''), l = parseInt(d.slice(64, 128), 16);
+      return Buffer.from(d.slice(128, 128 + l * 2), 'hex').toString('utf8');
+    } catch { return '?'; } };
+    const m = await rhMulti([
+      { to: rec.token0, data: '0x313ce567' }, { to: rec.token0, data: '0x95d89b41' },
+      { to: rec.token1, data: '0x313ce567' }, { to: rec.token1, data: '0x95d89b41' },
+      { to: CFG.rhFactory, data: '0x1698ee82' + pad(rec.token0) + pad(rec.token1) + pad(rec.fee.toString(16)) },
+    ]);
+    rec.d0 = parseInt(m[0].data, 16); rec.s0 = str(m[1].data);
+    rec.d1 = parseInt(m[2].data, 16); rec.s1 = str(m[3].data);
+    rec.pool = toAddr(w(m[4].data, 0));
+    rec.pair = `${rec.s0} / ${rec.s1}`;
+    rec.pool_fee = `${rec.fee / 10000}%`;
+    return rec;
+  }
+  async function usdAt(o, blk, a0, a1) {
+    const px = await rhPriceAt(o.pool, blk, o.d0, o.d1);
+    if (!px) { o.unpriced = true; return 0; }
+    return rhValue(a0, a1, o.token0, o.token1, px.p1per0) || 0;
+  }
+  async function when(blk) {
+    const ts = await rhBlockTime(blk);
+    if (!ts) throw new Error(`no timestamp for block ${blk}`);    /* retry the window, never date it 1970 */
+    return ts;
   }
 
-  /* 1. record the open of anything new */
-  for (const p of current) {
-    if (led.open[p.id]) continue;
-    try {
-      /* Bounded, widening. A 0x0->latest scan over 58M blocks is refused with a 429 even
-         with a tight topic filter; 8M blocks (~9 days here) answers in under 300ms. */
-      const topic = '0x' + pad(BigInt(p.id).toString(16));
-      let inc = [];
-      for (const span of [2000000, 8000000, 24000000]) {
-        inc = await rhLogs({ address: CFG.rhNpm, topics: [RH_INC_TOPIC, topic],
-          fromBlock: '0x' + Math.max(0, latestBlock - span).toString(16), toBlock: 'latest' });
-        if (inc.length) break;
+  let from = led.last_block ? led.last_block + 1 : CFG.rhStartBlock;
+  let reached = from - 1;
+  try {
+    for (; from <= latest; from += 4000000) {
+      const to = Math.min(from + 3999999, latest);
+      /* all or nothing, as on Arc: a window that fails part-way puts every position back as
+         it stood, so the next run replays it without counting its first half twice */
+      const before = JSON.stringify(led.open);
+      try {
+        /* 1. positions arriving in the wallet — minted here, or handed back */
+        for (const l of await rhLogs({ address: CFG.rhNpm, topics: [TRANSFER_TOPIC, null, Wt], fromBlock: h(from), toBlock: h(to) })) {
+          const id = BigInt(l.topics[3]).toString();
+          if (led.open[id] || done.has(id)) continue;
+          try {
+            led.open[id] = await describe(id, parseInt(l.blockNumber, 16));
+            console.log(`  robinhood ledger: found #${id} ${led.open[id].pair}`);
+          } catch (e) { console.warn(`  robinhood ledger: #${id} could not be described (burnt?):`, e.message); }
+        }
+        /* 2. every deposit and payout on them, in order */
+        const ids = Object.keys(led.open);
+        if (ids.length) {
+          const logs = await rhLogs({ address: CFG.rhNpm, fromBlock: h(from), toBlock: h(to),
+            topics: [[RH_INC_TOPIC, RH_DEC_TOPIC, RH_COL_TOPIC], ids.map((id) => '0x' + pad(BigInt(id).toString(16)))] });
+          logs.sort((a, b) => (parseInt(a.blockNumber, 16) - parseInt(b.blockNumber, 16)) || (parseInt(a.logIndex, 16) - parseInt(b.logIndex, 16)));
+          for (const l of logs) {
+            const o = led.open[BigInt(l.topics[1]).toString()];
+            if (!o) continue;
+            const blk = parseInt(l.blockNumber, 16);
+            const r0 = toBig(w(l.data, 1)), r1 = toBig(w(l.data, 2));
+            if (l.topics[0] === RH_DEC_TOPIC) {          /* principal released, paid by the next Collect */
+              o.owed0 = String(BigInt(o.owed0) + r0); o.owed1 = String(BigInt(o.owed1) + r1);
+              continue;
+            }
+            const a0 = Number(r0) / 10 ** o.d0, a1 = Number(r1) / 10 ** o.d1;
+            if (l.topics[0] === RH_INC_TOPIC) {
+              o.in0 += a0; o.in1 += a1;
+              o.in_usd += await usdAt(o, blk, a0, a1);
+              if (!o.opened_ts) { o.opened_ts = await when(blk); o.opened = dayKey(o.opened_ts); o.opened_block = blk; }
+            } else {
+              /* only what reached this wallet — directly, or through the app's helper */
+              const ow0 = BigInt(o.owed0), ow1 = BigInt(o.owed1);
+              o.owed0 = String(ow0 > r0 ? ow0 - r0 : 0n); o.owed1 = String(ow1 > r1 ? ow1 - r1 : 0n);
+              if (!await paidToUs(l, [o.token0, o.token1], receipt)) continue;
+              o.out0 += a0; o.out1 += a1;
+              o.out_usd += await usdAt(o, blk, a0, a1);
+              const f0 = r0 > ow0 ? r0 - ow0 : 0n, f1 = r1 > ow1 ? r1 - ow1 : 0n;
+              if (f0 || f1) o.fees_usd += await usdAt(o, blk, Number(f0) / 10 ** o.d0, Number(f1) / 10 ** o.d1);
+            }
+            o.last_block = blk;
+            o.last_ts = await when(blk);
+          }
+        }
+        /* the figures the page reads, kept beside the running totals */
+        for (const o of Object.values(led.open)) {
+          o.open_value_usd = round2(o.in_usd);
+          o.withdrawn_usd = round2(o.out_usd);
+        }
+      } catch (e) {
+        led.open = JSON.parse(before);
+        throw e;
       }
-      if (!inc.length) { console.warn(`  robinhood: no open event found for #${p.id} within 24M blocks`); continue; }
-      const first = inc[0];
-      const blk = parseInt(first.blockNumber, 16);
-      const a0 = Number(toBig(w(first.data, 1))) / 10 ** p.d0;
-      const a1 = Number(toBig(w(first.data, 2))) / 10 ** p.d1;
-      const px = await rhPriceAt(p.pool, blk, p.d0, p.d1);
-      const val = px ? rhValue(a0, a1, p.token0, p.token1, px.p1per0) : null;
-      const openTs = await rhBlockTime(blk);
-      led.open[p.id] = {
-        id: p.id, chain: 'robinhood', pair: `${p.s0} / ${p.s1}`, pool_fee: `${p.fee / 10000}%`,
-        pool: p.pool, token0: p.token0, token1: p.token1, d0: p.d0, d1: p.d1,
-        s0: p.s0, s1: p.s1,
-        opened_block: blk,
-        opened: openTs ? new Date(openTs * 1000).toISOString().slice(0, 10) : null,
-        opened_ts: openTs,
-        in0: a0, in1: a1,
-        open_value_usd: val === null ? null : round2(val),
-      };
-      console.log(`  robinhood ledger: opened #${p.id} ${p.s0}/${p.s1} at block ${blk} = $${val === null ? '?' : val.toFixed(2)}`);
-    } catch (e) { console.warn(`  robinhood open scan failed for #${p.id}:`, e.message); }
+      reached = to;
+      led.last_block = to;
+    }
+  } catch (e) {
+    console.warn(`  robinhood ledger: scan stopped at block ${reached}:`, e.message);
   }
 
-  /* 2. settle anything we were watching that is no longer held */
-  for (const id of Object.keys(led.open)) {
-    if (held[id]) continue;
-    const o = led.open[id];
-    try {
-      const col = await rhLogs({ address: CFG.rhNpm, topics: [RH_COL_TOPIC, '0x' + pad(BigInt(id).toString(16))],
-        fromBlock: '0x' + Math.max(0, o.opened_block).toString(16), toBlock: 'latest' });
-      if (!col.length) continue;   /* gone but nothing collected yet — leave it open */
-      const last = col[col.length - 1];
-      const blk = parseInt(last.blockNumber, 16);
-      const a0 = Number(toBig(w(last.data, 1))) / 10 ** o.d0;
-      const a1 = Number(toBig(w(last.data, 2))) / 10 ** o.d1;
-      const px = await rhPriceAt(o.pool, blk, o.d0, o.d1);
-      const val = px ? rhValue(a0, a1, o.token0, o.token1, px.p1per0) : null;
-      const pnl = (val !== null && o.open_value_usd !== null) ? val - o.open_value_usd : null;
-      const closeTs = await rhBlockTime(blk);
+  /* 3. settle — only once the scan has caught up, or a close could be booked before the
+        payout that went with it has been read */
+  if (reached >= latest && Object.keys(led.open).length) {
+    const open = Object.values(led.open);
+    const res = await rhMulti(open.map((o) => ({ to: CFG.rhNpm, data: '0x99fbab88' + pad(BigInt(o.id).toString(16)) })));
+    open.forEach((o, i) => {
+      const r = res[i];
+      const empty = !r.ok || (toBig(w(r.data, 7)) === 0n && toBig(w(r.data, 10)) === 0n && toBig(w(r.data, 11)) === 0n);
+      if (!empty || !o.opened_ts) return;
+      const pnl = o.out_usd - o.in_usd;
       led.closed.push({
         id: o.id, chain: 'robinhood', pair: o.pair, pool_fee: o.pool_fee,
-        /* kept so the fee record can still price this position's collections */
         pool: o.pool, token0: o.token0, token1: o.token1, d0: o.d0, d1: o.d1, s0: o.s0, s1: o.s1,
-        opened_block: o.opened_block,
-        opened: o.opened, opened_ts: o.opened_ts,
-        closed: closeTs ? new Date(closeTs * 1000).toISOString().slice(0, 10) : null,
-        closed_ts: closeTs,
-        open_value_usd: o.open_value_usd,
-        close_value_usd: val === null ? null : round2(val),
-        pnl_usd: pnl === null ? null : round2(pnl),
-        pnl_pct: (pnl !== null && o.open_value_usd) ? round2(pnl / o.open_value_usd * 100) : null,
+        opened_block: o.opened_block, opened: o.opened, opened_ts: o.opened_ts,
+        closed: o.last_ts ? dayKey(o.last_ts) : o.opened, closed_ts: o.last_ts || o.opened_ts,
+        open_value_usd: round2(o.in_usd), close_value_usd: round2(o.out_usd),
+        pnl_usd: round2(pnl), pnl_pct: o.in_usd > 0 ? round2(pnl / o.in_usd * 100) : 0,
+        fees_usd: round2(o.fees_usd),
+        ...(o.unpriced ? { unpriced: true } : {}),
       });
-      delete led.open[id];
-      console.log(`  robinhood ledger: closed #${id} realised $${pnl === null ? '?' : pnl.toFixed(2)}`);
-    } catch (e) { console.warn(`  robinhood close scan failed for #${id}:`, e.message); }
+      delete led.open[o.id];
+      console.log(`  robinhood ledger: closed #${o.id} realised $${pnl.toFixed(2)} (fees $${o.fees_usd.toFixed(2)})`);
+    });
+    led.closed.sort((a, b) => b.closed_ts - a.closed_ts);
   }
   return led;
 }
@@ -1755,17 +1806,11 @@ const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
 const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
 /* Robinhood keeps its own section: its positions are priced from swap history rather than
    archive state, and mixing the two ledgers would hide which method produced a figure. */
-if (rh.lps.length || (positions.robinhood && Object.keys(positions.robinhood.open || {}).length)) {
-  try {
-    const cur = rh.lps.map((l) => ({
-      id: l._id, pool: l._pool, token0: l._token0, token1: l._token1,
-      d0: l._d0, d1: l._d1, s0: l._s0, s1: l._s1, fee: l._fee,
-    }));
-    positions.robinhood = await rhBuildLedger(cur, positions.robinhood);
-    writeFileSync(join(ROOT, 'positions.json'), JSON.stringify(positions, null, 2) + String.fromCharCode(10));
-  } catch (e) {
-    console.warn('robinhood ledger failed, keeping existing record:', e.message);
-  }
+try {
+  positions.robinhood = await rhBuildLedger(positions.robinhood);
+  writeFileSync(join(ROOT, 'positions.json'), JSON.stringify(positions, null, 2) + String.fromCharCode(10));
+} catch (e) {
+  console.warn('robinhood ledger failed, keeping existing record:', e.message);
 }
 
 /* Arc: the ledger runs before the valuation, because it is what knows the V4 positions and
