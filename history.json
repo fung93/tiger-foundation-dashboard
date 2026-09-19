@@ -955,6 +955,17 @@
       "robinhood_usd": 491.28,
       "arc_usd": 97.7,
       "total_usd": 2418.04
+    },
+    {
+      "date": "2026-09-19",
+      "timestamp": "2026-09-19T02:16:46.733Z",
+      "onchain_usd": 492.6,
+      "pending_usd": 0,
+      "lp_usd": 545.52,
+      "solana_usd": 0.11,
+      "robinhood_usd": 492.29,
+      "arc_usd": 90.56,
+      "total_usd": 2401.8
     }
   ]
 }
