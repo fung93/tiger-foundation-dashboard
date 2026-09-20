@@ -17,7 +17,8 @@
 /* v22: Robinhood and Arc positions opened since the last snapshot appear in the record. */
 /* v23: Arc requests queued and paced, live fee claims start at load and cover new positions. */
 /* v24: Robinhood open positions carry what they have paid out, as Arc's do. */
-var CACHE_VERSION = 'tiger-v24';
+/* v25: a Robinhood or Arc position emptied since the last snapshot is concluded on the page. */
+var CACHE_VERSION = 'tiger-v25';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 

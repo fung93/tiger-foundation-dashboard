@@ -2653,6 +2653,130 @@ function arcOpenInfo(p){
     return usd===null?null:{usd:usd,ts:mint.ts};
   });
 }
+/* ---- positions closed since the last snapshot ----
+   The other half of the same gap: Robinhood and Arc settle a position in the 6-hourly run,
+   so one emptied in between stayed listed as open with no result. When the chain says a
+   position holds nothing — no liquidity, nothing owed — its last payouts are replayed here,
+   each priced at its own block, and the position is concluded at once. The Action's own
+   figure replaces this on the next run.
+   Only checked when the position is gone from the live list, and only trusted when the
+   position manager itself confirms it is empty — a failed read must never close a position. */
+var PENDING_CLOSE={},PENDING_CLOSE_TRY={};
+function closeRow(o,chain,add,lastTs){
+  var inUsd=o.in_usd||0,outUsd=(o.out_usd||0)+add.out,pnl=outUsd-(inUsd+add.in);
+  var ts=lastTs||o.last_ts||o.opened_ts;
+  return{uid:o.uid,id:o.id,chain:chain,protocol:o.protocol,pair:o.pair,pool_fee:o.pool_fee,
+    opened:o.opened,opened_ts:o.opened_ts,closed:utc8Date(ts*1000),closed_ts:ts,
+    open_value_usd:Math.round((inUsd+add.in)*100)/100,close_value_usd:Math.round(outUsd*100)/100,
+    pnl_usd:Math.round(pnl*100)/100,
+    pnl_pct:(inUsd+add.in)>0?Math.round(pnl/(inUsd+add.in)*10000)/100:0,pending:true};
+}
+/* replay the deposits and payouts a ledger has not seen yet, in order */
+function replayTail(o,chain,logs,priceAt,stable){
+  logs.sort(function(a,b){
+    var d=parseInt(a.blockNumber,16)-parseInt(b.blockNumber,16);
+    return d||parseInt(a.logIndex,16)-parseInt(b.logIndex,16);
+  });
+  var owed0=BigInt(o.owed0||0),owed1=BigInt(o.owed1||0),add={in:0,out:0},lastTs=null;
+  var receipt=function(h){return chain==='arc'?arcRpc('eth_getTransactionReceipt',[h])
+                                             :rhRpc('eth_getTransactionReceipt',[h]);};
+  return logs.reduce(function(chain2,l){
+    return chain2.then(function(){
+      var blk=parseInt(l.blockNumber,16),r0=toBig(w(l.data,1)),r1=toBig(w(l.data,2));
+      if(l.topics[0]===CFG.decTopic){owed0+=r0;owed1+=r1;return;}   /* principal released, paid by the next Collect */
+      var a0=Number(r0)/Math.pow(10,o.d0),a1=Number(r1)/Math.pow(10,o.d1);
+      var isIn=l.topics[0]===CFG.incTopic;
+      return (isIn?Promise.resolve(true):paidToUs(l,[o.token0,o.token1],receipt)).then(function(ours){
+        if(!ours)return;
+        return priceAt(blk).then(function(px){
+          var usd=pairUsd(a0,a1,o,stable,px);
+          if(usd===null)return;
+          if(isIn)add.in+=usd;else add.out+=usd;
+          if(!isIn){owed0=owed0>r0?owed0-r0:0n;owed1=owed1>r1?owed1-r1:0n;}
+          var t=l.blockTimestamp&&l.blockTimestamp!=='0x0'?parseInt(l.blockTimestamp,16):null;
+          if(t)lastTs=t;
+          else return (chain==='arc'?arcRpc:rhRpc)('eth_getBlockByNumber',[l.blockNumber,false])
+            .then(function(b){lastTs=parseInt(b.timestamp,16);});
+        });
+      });
+    });
+  },Promise.resolve()).then(function(){return{add:add,lastTs:lastTs};});
+}
+function arcCloseInfo(o,fromBlock){
+  /* V4 pays out through the pool manager's own transactions, which the Action reads from
+     receipts — left to it rather than half-read here */
+  if(o.kind!=='v3')return Promise.resolve(null);
+  var idHex=pad(BigInt(o.id).toString(16));
+  return arcRpc('eth_call',[{to:CFG.arcNpm,data:'0x99fbab88'+idHex},'latest']).then(function(r){
+    if(toBig(w(r,7))!==0n||toBig(w(r,10))!==0n||toBig(w(r,11))!==0n)return null;   /* not empty */
+    return arcRpc('eth_blockNumber',[]).then(function(h){
+      var latest=parseInt(h,16),logs=[],wins=[];
+      for(var f=fromBlock+1;f<=latest;f+=10000)wins.push([f,Math.min(f+9999,latest)]);
+      return wins.reduce(function(p2,win){
+        return p2.then(function(){
+          return arcRpc('eth_getLogs',[{address:CFG.arcNpm,fromBlock:'0x'+win[0].toString(16),toBlock:'0x'+win[1].toString(16),
+            topics:[[CFG.incTopic,CFG.decTopic,CFG.colTopic],['0x'+idHex]]}]).then(function(ls){logs=logs.concat(ls);});
+        });
+      },Promise.resolve()).then(function(){
+        var priceAt=function(blk){
+          return arcRpc('eth_call',[{to:o.pool,data:'0x3850c7bd'},'0x'+blk.toString(16)])
+            .then(function(sl){return poolPrice(toBig(w(sl,0)),o.d0,o.d1);});
+        };
+        return replayTail(o,'arc',logs,priceAt,[CFG.arcUsdc]);
+      });
+    });
+  }).then(function(r){return r?closeRow(o,'arc',r.add,r.lastTs):null;});
+}
+function rhCloseInfo(o,fromBlock){
+  var idHex=pad(BigInt(o.id).toString(16));
+  var stable=Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
+    .map(function(k){return CFG.rhTokens[k].a;});
+  return rhRpc('eth_call',[{to:CFG.rhNpm,data:'0x99fbab88'+idHex},'latest']).then(function(r){
+    if(toBig(w(r,7))!==0n||toBig(w(r,10))!==0n||toBig(w(r,11))!==0n)return null;
+    return rhRpc('eth_blockNumber',[]).then(function(h){
+      var latest=parseInt(h,16),logs=[],wins=[];
+      for(var f=fromBlock+1;f<=latest;f+=1000000)wins.push([f,Math.min(f+999999,latest)]);
+      return wins.reduce(function(p2,win){
+        return p2.then(function(){
+          return rhRpc('eth_getLogs',[{address:CFG.rhNpm,fromBlock:'0x'+win[0].toString(16),toBlock:'0x'+win[1].toString(16),
+            topics:[[CFG.incTopic,CFG.decTopic,CFG.colTopic],['0x'+idHex]]}]).then(function(ls){logs=logs.concat(ls);});
+        });
+      },Promise.resolve()).then(function(){
+        /* no archive state — the pool's last swap at or before the block prices it */
+        var priceAt=function(blk){
+          var swapAt=function(spans){
+            if(!spans.length)return Promise.resolve(null);
+            return rhRpc('eth_getLogs',[{address:o.pool,topics:[RH_SWAP_TOPIC],
+              fromBlock:'0x'+Math.max(0,blk-spans[0]).toString(16),toBlock:'0x'+blk.toString(16)}])
+              .then(function(sw){return sw.length?toBig(w(sw[sw.length-1].data,2)):swapAt(spans.slice(1));});
+          };
+          return swapAt([50000,500000]).then(function(sq){return sq===null?null:poolPrice(sq,o.d0,o.d1);});
+        };
+        return replayTail(o,'robinhood',logs,priceAt,stable);
+      });
+    });
+  }).then(function(r){return r?closeRow(o,'robinhood',r.add,r.lastTs):null;});
+}
+function trackPendingCloses(){
+  if(!POSITIONS)return;
+  ['robinhood','arc'].forEach(function(ch){
+    var L=POSITIONS[ch];
+    if(!L||!L.last_block)return;
+    (L.closed||[]).forEach(function(c){delete PENDING_CLOSE[posKey({uid:c.uid,chain:ch,id:c.id},'id')];});
+    Object.keys(L.open||{}).forEach(function(k){
+      var o=L.open[k],key=posKey({uid:o.uid,chain:ch,id:o.id||k},'id');
+      if(PENDING_CLOSE[key]||LP_VALUE[key]!==undefined)return;      /* still worth something on screen */
+      if(PENDING_CLOSE_TRY[key]&&Date.now()-PENDING_CLOSE_TRY[key]<120000)return;
+      PENDING_CLOSE_TRY[key]=Date.now();
+      (ch==='arc'?arcCloseInfo(o,L.last_block):rhCloseInfo(o,L.last_block)).then(function(c){
+        if(!c)return;
+        PENDING_CLOSE[key]=c;
+        keepingScroll(buildPositions);
+      }).catch(function(e){console.warn('could not settle '+key+', will retry',e);});
+    });
+  });
+}
+
 function trackPendingOpens(lps){
   if(!POSITIONS)return;                  /* until the ledger is loaded, everything looks new */
   var booked={};
@@ -2687,6 +2811,8 @@ function closedPositions(){
      pricing route, so they are stored apart — but they belong in the same ledger view */
   ((POSITIONS&&POSITIONS.robinhood&&POSITIONS.robinhood.closed)||[]).forEach(add);
   ((POSITIONS&&POSITIONS.arc&&POSITIONS.arc.closed)||[]).forEach(add);
+  /* emptied since the last snapshot, settled here until the Action books it */
+  Object.keys(PENDING_CLOSE).forEach(function(k){add(PENDING_CLOSE[k]);});
   out.sort(function(a,b){return (b.closed_ts||0)-(a.closed_ts||0);});
   return out;
 }
@@ -2875,7 +3001,9 @@ function buildPositions(){
     }
     var p=d.pnl_usd||0;
     var col=p>=0?'var(--green)':'var(--red)',sg=p>=0?'+':'-';
-    rows+='<tr title="Opened '+d.opened+' · closed '+d.closed+'"><td class="pos-cell">#'+d.id
+    rows+='<tr title="Opened '+d.opened+' · closed '+d.closed
+      +(d.pending?' · just closed — the 6-hourly update will confirm it':'')
+      +'"><td class="pos-cell">#'+d.id
       +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+v4Tag(d)+'</span>'
       +chainTag(d.chain)+'</td>'
       +'<td class="num">'+money(d.open_value_usd)+'</td>'
@@ -3126,6 +3254,7 @@ function render(d,isLive){
     });
   });
   trackPendingOpens(allLp.map(function(x){return x.p;}));
+  trackPendingCloses();
   buildPositions();   /* refresh unrealised P&L against the values just computed */
   if(allLp.length){
     var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];
