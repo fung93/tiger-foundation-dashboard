@@ -2669,6 +2669,7 @@ function closeRow(o,chain,add,lastTs){
     opened:o.opened,opened_ts:o.opened_ts,closed:utc8Date(ts*1000),closed_ts:ts,
     open_value_usd:Math.round((inUsd+add.in)*100)/100,close_value_usd:Math.round(outUsd*100)/100,
     pnl_usd:Math.round(pnl*100)/100,
+    fees_usd:Math.round(((o.fees_usd||0)+add.fees)*100)/100,
     pnl_pct:(inUsd+add.in)>0?Math.round(pnl/(inUsd+add.in)*10000)/100:0,pending:true};
 }
 /* replay the deposits and payouts a ledger has not seen yet, in order */
@@ -2677,7 +2678,7 @@ function replayTail(o,chain,logs,priceAt,stable){
     var d=parseInt(a.blockNumber,16)-parseInt(b.blockNumber,16);
     return d||parseInt(a.logIndex,16)-parseInt(b.logIndex,16);
   });
-  var owed0=BigInt(o.owed0||0),owed1=BigInt(o.owed1||0),add={in:0,out:0},lastTs=null;
+  var owed0=BigInt(o.owed0||0),owed1=BigInt(o.owed1||0),add={in:0,out:0,fees:0},lastTs=null;
   var receipt=function(h){return chain==='arc'?arcRpc('eth_getTransactionReceipt',[h])
                                              :rhRpc('eth_getTransactionReceipt',[h]);};
   return logs.reduce(function(chain2,l){
@@ -2692,7 +2693,15 @@ function replayTail(o,chain,logs,priceAt,stable){
           var usd=pairUsd(a0,a1,o,stable,px);
           if(usd===null)return;
           if(isIn)add.in+=usd;else add.out+=usd;
-          if(!isIn){owed0=owed0>r0?owed0-r0:0n;owed1=owed1>r1?owed1-r1:0n;}
+          if(!isIn){
+            /* a payout settles principal a DecreaseLiquidity released first; the rest is fees */
+            var f0=r0>owed0?r0-owed0:0n,f1=r1>owed1?r1-owed1:0n;
+            owed0=owed0>r0?owed0-r0:0n;owed1=owed1>r1?owed1-r1:0n;
+            if(f0||f1){
+              var fu=pairUsd(Number(f0)/Math.pow(10,o.d0),Number(f1)/Math.pow(10,o.d1),o,stable,px);
+              if(fu!==null)add.fees+=fu;
+            }
+          }
           var t=l.blockTimestamp&&l.blockTimestamp!=='0x0'?parseInt(l.blockTimestamp,16):null;
           if(t)lastTs=t;
           else return (chain==='arc'?arcRpc:rhRpc)('eth_getBlockByNumber',[l.blockNumber,false])
@@ -3007,7 +3016,11 @@ function buildPositions(){
       +'<br><span style="color:var(--dim);font-size:9px">'+d.pair+v4Tag(d)+'</span>'
       +chainTag(d.chain)+'</td>'
       +'<td class="num">'+money(d.open_value_usd)+'</td>'
-      +'<td class="num">'+money(d.close_value_usd)+'</td>'
+      /* how much of what came back was fees — they are inside this figure, and inside the
+         P&L beside it, so nobody has to add them on top */
+      +'<td class="num">'+money(d.close_value_usd)
+      +(d.fees_usd>=0.005?'<br><span style="font-size:8px;color:var(--dim)">incl. '+money(d.fees_usd)+' fees</span>':'')
+      +'</td>'
       +'<td class="num" style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(p))
       +'<br><span style="font-size:9px">'+sg+Math.abs(d.pnl_pct||0).toFixed(2)+'%</span></td></tr>';
   });
