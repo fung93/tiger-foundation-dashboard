@@ -466,7 +466,7 @@ async function lifecycle(tokenId, fromBlock) {
     fromBlock: '0x' + fromBlock.toString(16), toBlock: 'latest', address: CFG.npm,
     topics: [null, '0x' + pad(tokenId.toString(16))],
   }]);
-  let inUsd = 0, outUsd = 0, openTs = null, closeTs = null;
+  let inUsd = 0, outUsd = 0, topupUsd = 0, openTs = null, closeTs = null;
   for (const l of logs) {
     const t = l.topics[0];
     if (t !== INC_TOPIC && t !== DEC_TOPIC && t !== COL_TOPIC) continue;
@@ -476,7 +476,11 @@ async function lifecycle(tokenId, fromBlock) {
     if (!a0 && !a1) continue;
     const ts = Number(BigInt(l.blockTimestamp));
     const usd = a0 + a1 * (await katPriceAtBlock(l.blockNumber));
-    if (t === INC_TOPIC) { inUsd += usd; if (openTs === null) openTs = ts; }
+    if (t === INC_TOPIC) {
+      if (inUsd > 0) topupUsd += usd;           /* added to a position already open */
+      inUsd += usd;
+      if (openTs === null) openTs = ts;
+    }
     else if (t === COL_TOPIC) {
       /* principal and fees both exit via Collect — but only what came back to this wallet is
          ours; a staked position's fees go to the Katana DAO (see paidToUs) */
@@ -484,7 +488,7 @@ async function lifecycle(tokenId, fromBlock) {
     }
     else closeTs = ts;                          // DecreaseLiquidity — the last one closes it
   }
-  return { inUsd, outUsd, openTs, closeTs };
+  return { inUsd, outUsd, topupUsd, openTs, closeTs };
 }
 
 const symOf = (addr) => {
@@ -505,7 +509,7 @@ async function updatePositions(W) {
        position pays to the Katana DAO, which overstated each staked position's result.
        Closed records are settled history, so they are replayed once under the corrected
        rule and never again. */
-    if (p.version !== 2 && p.closed.length) {
+    if (p.version !== 3 && p.closed.length) {
       const first = Math.min(...p.closed.map((c) => c.opened_ts || Infinity));
       const tsOf = async (b) => Number(BigInt((await rpc('eth_getBlockByNumber', ['0x' + b.toString(16), false])).timestamp));
       const fromBlk = await blockAtTs(tsOf, first - 3600, latest);
@@ -516,14 +520,15 @@ async function updatePositions(W) {
         const was = c.pnl_usd;
         c.open_value_usd = round2(lc.inUsd);
         c.close_value_usd = round2(lc.outUsd);
+        c.topup_usd = round2(lc.topupUsd);
         c.pnl_usd = round2(lc.outUsd - lc.inUsd);
         c.pnl_pct = lc.inUsd > 0 ? round2((lc.outUsd - lc.inUsd) / lc.inUsd * 100) : 0;
         moved += c.pnl_usd - was;
       }
-      p.version = 2;
+      p.version = 3;
       console.log(`  position ledger: replayed ${p.closed.length} closed positions, realised moved by ${round2(moved)}`);
     }
-    p.version = 2;
+    p.version = 3;   /* 3 also records how much of a position's capital was added after opening */
     const done = new Set(p.closed.map((c) => String(c.id)));
     /* candidate id -> earliest block we've seen it at (where its event replay starts) */
     const cand = new Map();
@@ -568,6 +573,7 @@ async function updatePositions(W) {
             opened: dayKey(lc.openTs), opened_ts: lc.openTs,
             closed: dayKey(lc.closeTs || lc.openTs), closed_ts: lc.closeTs || lc.openTs,
             open_value_usd: round2(lc.inUsd), close_value_usd: round2(lc.outUsd),
+            topup_usd: round2(lc.topupUsd),
             pnl_usd: round2(lc.outUsd - lc.inUsd),
             pnl_pct: lc.inUsd > 0 ? round2((lc.outUsd - lc.inUsd) / lc.inUsd * 100) : 0,
           });
@@ -581,6 +587,7 @@ async function updatePositions(W) {
             opened: lc.openTs ? dayKey(lc.openTs) : null,
             opened_ts: lc.openTs || null,
             open_value_usd: lc.openTs ? round2(lc.inUsd) : null,
+            topup_usd: round2(lc.topupUsd),
           };
         }
       }
@@ -1046,8 +1053,10 @@ async function rhBuildLedger(prevLedger) {
             }
             const a0 = Number(r0) / 10 ** o.d0, a1 = Number(r1) / 10 ** o.d1;
             if (l.topics[0] === RH_INC_TOPIC) {
+              const add = await usdAt(o, blk, a0, a1);
+              if (o.in_usd > 0) o.topup_usd = (o.topup_usd || 0) + add;   /* capital topped up */
               o.in0 += a0; o.in1 += a1;
-              o.in_usd += await usdAt(o, blk, a0, a1);
+              o.in_usd += add;
               if (!o.opened_ts) { o.opened_ts = await when(blk); o.opened = dayKey(o.opened_ts); o.opened_block = blk; }
             } else {
               /* only what reached this wallet — directly, or through the app's helper */
@@ -1095,6 +1104,7 @@ async function rhBuildLedger(prevLedger) {
         opened_block: o.opened_block, opened: o.opened, opened_ts: o.opened_ts,
         closed: o.last_ts ? dayKey(o.last_ts) : o.opened, closed_ts: o.last_ts || o.opened_ts,
         open_value_usd: round2(o.in_usd), close_value_usd: round2(o.out_usd),
+        topup_usd: round2(o.topup_usd || 0),
         pnl_usd: round2(pnl), pnl_pct: o.in_usd > 0 ? round2(pnl / o.in_usd * 100) : 0,
         fees_usd: round2(o.fees_usd),
         ...(o.unpriced ? { unpriced: true } : {}),
@@ -1465,7 +1475,12 @@ async function arcBuildLedger(prev, fees) {
   async function book(o, block, tsHex, a0, a1, dir) {
     const px = await pxAt(o, block);
     const usd = arcPairUsd(a0, a1, o.token0, o.token1, px);
-    if (dir === 'in') { o.in0 += a0; o.in1 += a1; o.in_usd += usd || 0; }
+    if (dir === 'in') {
+      /* money added to a position that already has some is capital topped up, not a gain:
+         it raises what went in, so the P&L beside it does not move */
+      if (o.in_usd > 0) o.topup_usd = (o.topup_usd || 0) + (usd || 0);
+      o.in0 += a0; o.in1 += a1; o.in_usd += usd || 0;
+    }
     else { o.out0 += a0; o.out1 += a1; o.out_usd += usd || 0; }
     if (usd === null) o.unpriced = true;
     o.last_block = block;
@@ -1635,6 +1650,7 @@ async function arcBuildLedger(prev, fees) {
         opened: o.opened, opened_ts: o.opened_ts,
         closed: o.last_ts ? day(o.last_ts) : o.opened, closed_ts: o.last_ts || o.opened_ts,
         open_value_usd: round2(o.in_usd), close_value_usd: round2(o.out_usd),
+        topup_usd: round2(o.topup_usd || 0),
         pnl_usd: round2(pnl), pnl_pct: o.in_usd > 0 ? round2(pnl / o.in_usd * 100) : 0,
         fees_usd: round2(o.fees_usd || 0),
         in0: o.in0, in1: o.in1, out0: o.out0, out1: o.out1,

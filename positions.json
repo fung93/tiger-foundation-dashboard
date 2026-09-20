@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 43128294,
+  "last_block": 43138286,
   "open": {},
   "closed": [
     {
@@ -14,7 +14,8 @@
       "open_value_usd": 1977.18,
       "close_value_usd": 1998.79,
       "pnl_usd": 21.61,
-      "pnl_pct": 1.09
+      "pnl_pct": 1.09,
+      "topup_usd": 11.35
     },
     {
       "id": "425369",
@@ -27,7 +28,8 @@
       "open_value_usd": 306.73,
       "close_value_usd": 285.63,
       "pnl_usd": -21.1,
-      "pnl_pct": -6.88
+      "pnl_pct": -6.88,
+      "topup_usd": 0
     },
     {
       "id": "425460",
@@ -40,7 +42,8 @@
       "open_value_usd": 1750.58,
       "close_value_usd": 1663.49,
       "pnl_usd": -87.09,
-      "pnl_pct": -4.97
+      "pnl_pct": -4.97,
+      "topup_usd": 69.83
     },
     {
       "id": "425270",
@@ -53,7 +56,8 @@
       "open_value_usd": 1217.99,
       "close_value_usd": 1190.14,
       "pnl_usd": -27.84,
-      "pnl_pct": -2.29
+      "pnl_pct": -2.29,
+      "topup_usd": 0
     },
     {
       "id": "425257",
@@ -66,7 +70,8 @@
       "open_value_usd": 806.63,
       "close_value_usd": 806.95,
       "pnl_usd": 0.32,
-      "pnl_pct": 0.04
+      "pnl_pct": 0.04,
+      "topup_usd": 0
     },
     {
       "id": "425252",
@@ -79,7 +84,8 @@
       "open_value_usd": 1206.86,
       "close_value_usd": 1207.63,
       "pnl_usd": 0.76,
-      "pnl_pct": 0.06
+      "pnl_pct": 0.06,
+      "topup_usd": 0
     },
     {
       "id": "425245",
@@ -92,7 +98,8 @@
       "open_value_usd": 1243.76,
       "close_value_usd": 1245.1,
       "pnl_usd": 1.34,
-      "pnl_pct": 0.11
+      "pnl_pct": 0.11,
+      "topup_usd": 0
     },
     {
       "id": "425076",
@@ -105,7 +112,8 @@
       "open_value_usd": 891.74,
       "close_value_usd": 892.65,
       "pnl_usd": 0.92,
-      "pnl_pct": 0.1
+      "pnl_pct": 0.1,
+      "topup_usd": 0
     },
     {
       "id": "425075",
@@ -118,7 +126,8 @@
       "open_value_usd": 1170.93,
       "close_value_usd": 1171.97,
       "pnl_usd": 1.04,
-      "pnl_pct": 0.09
+      "pnl_pct": 0.09,
+      "topup_usd": 0
     },
     {
       "id": "424932",
@@ -131,7 +140,8 @@
       "open_value_usd": 866.77,
       "close_value_usd": 867.47,
       "pnl_usd": 0.7,
-      "pnl_pct": 0.08
+      "pnl_pct": 0.08,
+      "topup_usd": 0
     },
     {
       "id": "424319",
@@ -144,7 +154,8 @@
       "open_value_usd": 1199.2,
       "close_value_usd": 1201.26,
       "pnl_usd": 2.06,
-      "pnl_pct": 0.17
+      "pnl_pct": 0.17,
+      "topup_usd": 0
     },
     {
       "id": "424335",
@@ -157,7 +168,8 @@
       "open_value_usd": 828.61,
       "close_value_usd": 829.86,
       "pnl_usd": 1.25,
-      "pnl_pct": 0.15
+      "pnl_pct": 0.15,
+      "topup_usd": 0
     },
     {
       "id": "423843",
@@ -170,7 +182,8 @@
       "open_value_usd": 834.1,
       "close_value_usd": 837.03,
       "pnl_usd": 2.93,
-      "pnl_pct": 0.35
+      "pnl_pct": 0.35,
+      "topup_usd": 0
     },
     {
       "id": "423611",
@@ -183,7 +196,8 @@
       "open_value_usd": 1152.44,
       "close_value_usd": 1153.32,
       "pnl_usd": 0.88,
-      "pnl_pct": 0.08
+      "pnl_pct": 0.08,
+      "topup_usd": 31.28
     },
     {
       "id": "423178",
@@ -196,7 +210,8 @@
       "open_value_usd": 810.65,
       "close_value_usd": 818.08,
       "pnl_usd": 7.43,
-      "pnl_pct": 0.92
+      "pnl_pct": 0.92,
+      "topup_usd": 4.43
     },
     {
       "id": "423480",
@@ -209,7 +224,8 @@
       "open_value_usd": 1146.83,
       "close_value_usd": 1145.89,
       "pnl_usd": -0.94,
-      "pnl_pct": -0.08
+      "pnl_pct": -0.08,
+      "topup_usd": 0
     },
     {
       "id": "423426",
@@ -222,7 +238,8 @@
       "open_value_usd": 1146.96,
       "close_value_usd": 1150.18,
       "pnl_usd": 3.22,
-      "pnl_pct": 0.28
+      "pnl_pct": 0.28,
+      "topup_usd": 0
     },
     {
       "id": "423232",
@@ -235,7 +252,8 @@
       "open_value_usd": 1126.14,
       "close_value_usd": 1134.23,
       "pnl_usd": 8.09,
-      "pnl_pct": 0.72
+      "pnl_pct": 0.72,
+      "topup_usd": 4.85
     },
     {
       "id": "423179",
@@ -248,7 +266,8 @@
       "open_value_usd": 71.47,
       "close_value_usd": 70.89,
       "pnl_usd": -0.58,
-      "pnl_pct": -0.81
+      "pnl_pct": -0.81,
+      "topup_usd": 0
     },
     {
       "id": "423125",
@@ -261,7 +280,8 @@
       "open_value_usd": 1065.89,
       "close_value_usd": 1047.19,
       "pnl_usd": -18.7,
-      "pnl_pct": -1.75
+      "pnl_pct": -1.75,
+      "topup_usd": 0
     },
     {
       "id": "423126",
@@ -274,7 +294,8 @@
       "open_value_usd": 55.14,
       "close_value_usd": 54.64,
       "pnl_usd": -0.51,
-      "pnl_pct": -0.92
+      "pnl_pct": -0.92,
+      "topup_usd": 0
     },
     {
       "id": "422640",
@@ -287,7 +308,8 @@
       "open_value_usd": 834.77,
       "close_value_usd": 811.14,
       "pnl_usd": -23.63,
-      "pnl_pct": -2.83
+      "pnl_pct": -2.83,
+      "topup_usd": 9.88
     },
     {
       "id": "422873",
@@ -300,7 +322,8 @@
       "open_value_usd": 40.07,
       "close_value_usd": 39.99,
       "pnl_usd": -0.08,
-      "pnl_pct": -0.19
+      "pnl_pct": -0.19,
+      "topup_usd": 0
     },
     {
       "id": "422564",
@@ -313,7 +336,8 @@
       "open_value_usd": 998.24,
       "close_value_usd": 996.14,
       "pnl_usd": -2.1,
-      "pnl_pct": -0.21
+      "pnl_pct": -0.21,
+      "topup_usd": 0
     },
     {
       "id": "422530",
@@ -326,11 +350,12 @@
       "open_value_usd": 494.71,
       "close_value_usd": 497.61,
       "pnl_usd": 2.9,
-      "pnl_pct": 0.59
+      "pnl_pct": 0.59,
+      "topup_usd": 0
     }
   ],
   "robinhood": {
-    "last_block": 67580981,
+    "last_block": 67680295,
     "open": {
       "1161437": {
         "id": "1161437",
@@ -341,11 +366,11 @@
         "opened_block": 62527316,
         "in0": 273.26684,
         "in1": 2.2439893368255572,
-        "out0": 9.681930999999999,
-        "out1": 0.10552600225440838,
+        "out0": 9.886717999999998,
+        "out1": 0.11176800159898242,
         "in_usd": 479.89065762780166,
-        "out_usd": 18.663474965521367,
-        "fees_usd": 18.663474965521367,
+        "out_usd": 19.429157548662474,
+        "fees_usd": 19.429157548662474,
         "owed0": "0",
         "owed1": "0",
         "d0": 6,
@@ -357,10 +382,10 @@
         "pool_fee": "0.3%",
         "opened_ts": 1789360417,
         "opened": "2026-09-14",
-        "last_block": 67101077,
-        "last_ts": 1789822779,
+        "last_block": 67605137,
+        "last_ts": 1789873536,
         "open_value_usd": 479.89,
-        "withdrawn_usd": 18.66
+        "withdrawn_usd": 19.43
       },
       "1230033": {
         "id": "1230033",
@@ -371,11 +396,11 @@
         "opened_block": 66773884,
         "in0": 117.94,
         "in1": 1.4294891405866588,
-        "out0": 0.083274,
-        "out1": 0.001638267721145117,
+        "out0": 0.236556,
+        "out1": 0.005806639249999174,
         "in_usd": 250.22191855525418,
-        "out_usd": 0.23400123111191512,
-        "fees_usd": 0.23400123111191512,
+        "out_usd": 0.7618460995713199,
+        "fees_usd": 0.7618460995713199,
         "owed0": "0",
         "owed1": "0",
         "d0": 6,
@@ -387,10 +412,10 @@
         "pool_fee": "0.3%",
         "opened_ts": 1789789799,
         "opened": "2026-09-19",
-        "last_block": 67101167,
-        "last_ts": 1789822788,
+        "last_block": 67605204,
+        "last_ts": 1789873543,
         "open_value_usd": 250.22,
-        "withdrawn_usd": 0.23
+        "withdrawn_usd": 0.76
       }
     },
     "closed": [
@@ -443,28 +468,28 @@
     ],
     "version": 2
   },
-  "version": 2,
+  "version": 3,
   "arc": {
-    "last_block": 21767347,
+    "last_block": 21787149,
     "open": {
-      "arc:v3:25048": {
-        "uid": "arc:v3:25048",
-        "id": "25048",
+      "arc:v3:41740": {
+        "uid": "arc:v3:41740",
+        "id": "41740",
         "kind": "v3",
         "chain": "arc",
-        "opened_block": 21187836,
-        "in_usd": 104.91331452282279,
-        "out_usd": 19.82471998147096,
-        "in0": 52.947881,
-        "in1": 1998.7510820457887,
-        "out0": 10.032179000000001,
-        "out1": 582.7404781866979,
+        "opened_block": 21772706,
+        "in_usd": 101.05736696029919,
+        "out_usd": 0,
+        "in0": 55.375009,
+        "in1": 2750.568747647992,
+        "out0": 0,
+        "out1": 0,
         "staked": false,
         "token0": "0x3600000000000000000000000000000000000000",
         "token1": "0xece5ca8bf9220718e5727754026757512212cb3c",
         "fee": 10000,
-        "lo": 306000,
-        "hi": 319800,
+        "lo": 313200,
+        "hi": 322400,
         "pool": "0x6a3bacaa6493734c1ac221ebf42cf530a96c1e02",
         "d0": 6,
         "s0": "USDC",
@@ -473,16 +498,35 @@
         "pair": "USDC / ARGUS",
         "pool_fee": "1%",
         "protocol": "Uniswap V3",
-        "opened_ts": 1789577213,
-        "opened": "2026-09-17",
-        "last_block": 21754149,
-        "last_ts": 1789864408,
-        "owed0": "0",
-        "owed1": "0",
-        "fees_usd": 19.82471998147096
+        "opened_ts": 1789873822,
+        "opened": "2026-09-20",
+        "last_block": 21772706,
+        "last_ts": 1789873822
       }
     },
     "closed": [
+      {
+        "uid": "arc:v3:25048",
+        "id": "25048",
+        "chain": "arc",
+        "protocol": "Uniswap V3",
+        "pair": "USDC / ARGUS",
+        "pool_fee": "1%",
+        "opened": "2026-09-17",
+        "opened_ts": 1789577213,
+        "closed": "2026-09-20",
+        "closed_ts": 1789873519,
+        "open_value_usd": 104.91,
+        "close_value_usd": 98.55,
+        "topup_usd": 0,
+        "pnl_usd": -6.36,
+        "pnl_pct": -6.06,
+        "fees_usd": 20.05,
+        "in0": 52.947881,
+        "in1": 1998.7510820457887,
+        "out0": 26.534604,
+        "out1": 4353.213277557013
+      },
       {
         "uid": "arc:v3:32901",
         "id": "32901",

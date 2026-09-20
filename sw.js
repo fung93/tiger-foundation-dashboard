@@ -19,7 +19,8 @@
 /* v24: Robinhood open positions carry what they have paid out, as Arc's do. */
 /* v25: a Robinhood or Arc position emptied since the last snapshot is concluded on the page. */
 /* v26: a closed row shows how much of its close value was fees. */
-var CACHE_VERSION = 'tiger-v26';
+/* v27: liquidity added to an open position is marked as capital topped up. */
+var CACHE_VERSION = 'tiger-v27';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
