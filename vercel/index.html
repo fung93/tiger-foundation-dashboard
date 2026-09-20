@@ -3060,25 +3060,20 @@ function buildPositions(){
   renderPosPager(pages);
   lockPosBodyHeight();
 
-  /* PnL = value of every KAT claimed + realised PnL on every closed position */
+  /* One figure: every KAT claimed plus the realised result of every closed position, on
+     every chain. The record used to break it into a "KAT claimed" line and an LP line, which
+     framed a four-chain record around Katana's reward token. */
   var days=claimDays(),katVal=0;
   Object.keys(days).forEach(function(k){katVal+=days[k].value_usd||0;});
   var total=katVal+lpPnl;
-  var claimFrom=(CLAIMS&&CLAIMS.start_date)||utc8Date(Date.now());
-  var posFrom=list.length?list[list.length-1].opened:'—';
-  function line(label,val,sub,bold){
-    var col=val>=0?'var(--green)':'var(--red)',sg=val>=0?'+':'-';
-    return'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:5px 0'
-      +(bold?';margin-top:7px;padding-top:9px;border-top:1px solid var(--border);font-weight:700':'')+'">'
-      +'<span'+(bold?'':' style="color:var(--dim)"')+'>'+label
-      +(sub?'<span style="color:var(--dim);font-size:9px;font-weight:400"> · '+sub+'</span>':'')+'</span>'
-      +'<span style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(val))+'</span></div>';
-  }
+  var col=total>=0?'var(--green)':'var(--red)',sg=total>=0?'+':'-';
+  var since=list.length?list[list.length-1].opened:((CLAIMS&&CLAIMS.start_date)||utc8Date(Date.now()));
   document.getElementById('posSummary').innerHTML=
     '<div style="padding:6px 10px 12px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:12px">'
-    +line('KAT claimed',katVal,'since '+claimFrom,false)
-    +line('Realised LP P&L',lpPnl,list.length?('since '+posFrom):'no closed positions',false)
-    +line('Total P&L',total,'',true)
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:5px 0;font-weight:700"'
+    +' title="Rewards claimed and the realised result of every closed position, all chains">'
+    +'<span>Total P&L<span style="color:var(--dim);font-size:9px;font-weight:400"> · since '+since+'</span></span>'
+    +'<span style="color:'+col+';white-space:nowrap">'+sg+money(Math.abs(total))+'</span></div>'
     +'</div>';
 }
 function openPositions(){

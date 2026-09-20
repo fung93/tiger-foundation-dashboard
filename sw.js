@@ -20,7 +20,8 @@
 /* v25: a Robinhood or Arc position emptied since the last snapshot is concluded on the page. */
 /* v26: a closed row shows how much of its close value was fees. */
 /* v27: liquidity added to an open position is marked as capital topped up. */
-var CACHE_VERSION = 'tiger-v27';
+/* v28: the position record shows one P&L figure, not a Katana-framed breakdown. */
+var CACHE_VERSION = 'tiger-v28';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
