@@ -685,13 +685,19 @@ async function getKatana(prevStakedIds) {
     active.push({
       tokenId: ids[i], token0: toAddr(w(d, 2)), token1: toAddr(w(d, 3)),
       fee: Number(toBig(w(d, 4))), tickLo: Number(toSigned(w(d, 5))), tickHi: Number(toSigned(w(d, 6))),
-      liq, owed0, owed1, staked: stakedSet.has(String(ids[i])),
+      liq, last0: toBig(w(d, 8)), last1: toBig(w(d, 9)), owed0, owed1, staked: stakedSet.has(String(ids[i])),
     });
   });
   const poolRes = active.length ? await multicall(active.map((p) => ({
     to: CFG.factory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)),
   }))) : [];
-  const slotRes = poolRes.length ? await multicall(poolRes.map((x) => ({ to: toAddr(w(x.data, 0)), data: '0x3850c7bd' }))) : [];
+  /* slot0, both fee accumulators and both boundary ticks — the fees earned since each
+     position was last touched count too, not just the ones already owed */
+  const slotRes = poolRes.length ? await multicall(poolRes.flatMap((x, i) => {
+    const pl = toAddr(w(x.data, 0));
+    return [{ to: pl, data: '0x3850c7bd' }, { to: pl, data: '0xf3058399' }, { to: pl, data: '0x46141319' },
+      { to: pl, data: '0xf30dba93' + enc24(active[i].tickLo) }, { to: pl, data: '0xf30dba93' + enc24(active[i].tickHi) }];
+  })) : [];
 
   const lc = (s) => s.toLowerCase();
   const priceOf = { [lc(T.USDC.a)]: 1, [lc(T.USDT.a)]: 1, [lc(T.KAT.a)]: katPrice, [lc(T.WETH.a)]: ethPrice, [lc(T.avKAT.a)]: katPrice * avkatRate };
@@ -699,20 +705,29 @@ async function getKatana(prevStakedIds) {
   const symOf = { [lc(T.USDC.a)]: 'vbUSDC', [lc(T.USDT.a)]: 'vbUSDT', [lc(T.KAT.a)]: 'KAT', [lc(T.WETH.a)]: 'vbETH', [lc(T.avKAT.a)]: 'avKAT' };
 
   const lps = [];
-  active.forEach((p, i) => {
+  active.forEach((p, j) => {
+    const i = j * 5;
     if (!slotRes[i]?.ok) return;
     const sqrtP = toBig(w(slotRes[i].data, 0));
     const [a0, a1] = v3Amounts(p.liq, p.tickLo, p.tickHi, sqrtP);
     const t0 = lc(p.token0), t1 = lc(p.token1);
     if (decOf[t0] === undefined || decOf[t1] === undefined) return;
-    const h0 = a0 / 10 ** decOf[t0] + Number(p.owed0) / 10 ** decOf[t0];
-    const h1 = a1 / 10 ** decOf[t1] + Number(p.owed1) / 10 ** decOf[t1];
+    const curTick0 = Number(toSigned(w(slotRes[i].data, 1)));
+    let f0 = p.owed0, f1 = p.owed1;
+    if (slotRes[i + 1]?.ok && slotRes[i + 2]?.ok && slotRes[i + 3]?.ok && slotRes[i + 4]?.ok) {
+      f0 += accrued(p.liq, v3Inside(curTick0, p.tickLo, p.tickHi, toBig(w(slotRes[i + 1].data, 0)),
+        toBig(w(slotRes[i + 3].data, 2)), toBig(w(slotRes[i + 4].data, 2))), p.last0);
+      f1 += accrued(p.liq, v3Inside(curTick0, p.tickLo, p.tickHi, toBig(w(slotRes[i + 2].data, 0)),
+        toBig(w(slotRes[i + 3].data, 3)), toBig(w(slotRes[i + 4].data, 3))), p.last1);
+    }
+    const h0 = a0 / 10 ** decOf[t0] + Number(f0) / 10 ** decOf[t0];
+    const h1 = a1 / 10 ** decOf[t1] + Number(f1) / 10 ** decOf[t1];
     const val = h0 * (priceOf[t0] || 0) + h1 * (priceOf[t1] || 0);
     if (val < 0.5) return;
     /* Out of range? Below tickLower the position is entirely token0, above tickUpper
        entirely token1. Judged via whichever side is the stable coin so it holds whichever
        way the pair is ordered: holding stables means price ran up, volatile means it fell. */
-    const curTick = Number(toSigned(w(slotRes[i].data, 1)));
+    const curTick = curTick0;
     const isStable = (a) => a === lc(T.USDC.a) || a === lc(T.USDT.a);
     let range = 'in';
     if (curTick < p.tickLo) range = isStable(t0) ? 'above' : 'below';
@@ -813,7 +828,8 @@ async function rhPositions(count) {
       pos.push({ id: ids[i].toString(), token0: toAddr(w(r.data, 2)), token1: toAddr(w(r.data, 3)),
         fee: Number(toBig(w(r.data, 4))),
         tickLo: Number(toSigned(w(r.data, 5))), tickHi: Number(toSigned(w(r.data, 6))),
-        liq, owed0: toBig(w(r.data, 10)), owed1: toBig(w(r.data, 11)) });
+        liq, last0: toBig(w(r.data, 8)), last1: toBig(w(r.data, 9)),
+        owed0: toBig(w(r.data, 10)), owed1: toBig(w(r.data, 11)) });
     });
     if (!pos.length) return [];
 
@@ -833,15 +849,28 @@ async function rhPositions(count) {
 
     const pools = pos.filter(p => p.pool);
     if (!pools.length) return [];
-    const slots = await rhCall(pools.map(p => ({ to: p.pool, data: '0x3850c7bd' })));
+    /* slot0, both fee accumulators and both boundary ticks: tokensOwed alone stops at the
+       position's last touch, which understates what it is worth */
+    const slots = await rhCall(pools.flatMap(p => [
+      { to: p.pool, data: '0x3850c7bd' }, { to: p.pool, data: '0xf3058399' }, { to: p.pool, data: '0x46141319' },
+      { to: p.pool, data: '0xf30dba93' + enc24(p.tickLo) }, { to: p.pool, data: '0xf30dba93' + enc24(p.tickHi) },
+    ]));
     const out = [];
-    pools.forEach((p, i) => {
+    pools.forEach((p, j) => {
+      const i = j * 5;
       if (!slots[i].ok) return;
       const sqrtP = toBig(w(slots[i].data, 0));
       const tick = Number(toSigned(w(slots[i].data, 1)));
+      let f0 = p.owed0, f1 = p.owed1;
+      if (slots[i + 1].ok && slots[i + 2].ok && slots[i + 3].ok && slots[i + 4].ok) {
+        f0 += accrued(p.liq, v3Inside(tick, p.tickLo, p.tickHi, toBig(w(slots[i + 1].data, 0)),
+          toBig(w(slots[i + 3].data, 2)), toBig(w(slots[i + 4].data, 2))), p.last0);
+        f1 += accrued(p.liq, v3Inside(tick, p.tickLo, p.tickHi, toBig(w(slots[i + 2].data, 0)),
+          toBig(w(slots[i + 3].data, 3)), toBig(w(slots[i + 4].data, 3))), p.last1);
+      }
       const [r0, r1] = v3Amounts(p.liq, p.tickLo, p.tickHi, sqrtP);
-      const a0 = r0 / 10 ** p.d0 + Number(p.owed0) / 10 ** p.d0;
-      const a1 = r1 / 10 ** p.d1 + Number(p.owed1) / 10 ** p.d1;
+      const a0 = r0 / 10 ** p.d0 + Number(f0) / 10 ** p.d0;
+      const a1 = r1 / 10 ** p.d1 + Number(f1) / 10 ** p.d1;
       const p1per0 = poolPrice(sqrtP, p.d0, p.d1);
       let usd = null;
       if (stable[p.token0]) usd = a0 + a1 * (p1per0 ? 1 / p1per0 : 0);

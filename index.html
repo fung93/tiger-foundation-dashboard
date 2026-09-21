@@ -1129,7 +1129,8 @@ function getKatanaLive(stakedLpIds){
           if(liq===0n&&owed0===0n&&owed1===0n)continue;
           active.push({tokenId:ids[i],token0:toAddr(w(d,2)),token1:toAddr(w(d,3)),
             fee:Number(toBig(w(d,4))),tickLo:Number(toSigned(w(d,5))),tickHi:Number(toSigned(w(d,6))),
-            liq:liq,owed0:owed0,owed1:owed1,staked:!!stakedSet[ids[i].toString()]});
+            liq:liq,last0:toBig(w(d,8)),last1:toBig(w(d,9)),
+            owed0:owed0,owed1:owed1,staked:!!stakedSet[ids[i].toString()]});
         }
         /* pools for active positions */
         var poolCalls=active.map(function(p){
@@ -1137,7 +1138,13 @@ function getKatanaLive(stakedLpIds){
         });
         var poolsP=active.length>0?multicall(poolCalls):Promise.resolve([]);
         return poolsP.then(function(poolRes){
-          var slotCalls=poolRes.map(function(x){return{to:toAddr(w(x.data,0)),data:'0x3850c7bd'};});
+          /* slot0, both fee accumulators and both boundary ticks — enough to count the fees
+             earned since each position was last touched, not just the ones already owed */
+          var slotCalls=poolRes.reduce(function(a,x,i){
+            var pl=toAddr(w(x.data,0));
+            return a.concat([{to:pl,data:'0x3850c7bd'},{to:pl,data:'0xf3058399'},{to:pl,data:'0x46141319'},
+              {to:pl,data:'0xf30dba93'+enc24(active[i].tickLo)},{to:pl,data:'0xf30dba93'+enc24(active[i].tickHi)}]);
+          },[]);
           var slotsP=slotCalls.length>0?multicall(slotCalls):Promise.resolve([]);
           return slotsP.then(function(slotRes){
             var priceOf={};
@@ -1154,24 +1161,31 @@ function getKatanaLive(stakedLpIds){
             symOf[T.avKAT.a.toLowerCase()]='avKAT';
             var lps=[];
             for(var i=0;i<active.length;i++){
-              var p=active[i];
-              if(!slotRes[i]||!slotRes[i].ok)continue;
-              var sqrtP=toBig(w(slotRes[i].data,0));
+              var p=active[i],si=i*5;
+              if(!slotRes[si]||!slotRes[si].ok)continue;
+              var sqrtP=toBig(w(slotRes[si].data,0));
               var amts=v3Amounts(p.liq,p.tickLo,p.tickHi,sqrtP);
               var t0=p.token0.toLowerCase(),t1=p.token1.toLowerCase();
               /* Out of range? Below tickLower the position is entirely token0, above
                  tickUpper entirely token1. Read it through whichever side is the stable
                  coin, so the verdict holds whichever way the pair is ordered: holding the
                  stable means price ran up, holding the volatile means it fell. */
-              var curTick=Number(toSigned(w(slotRes[i].data,1)));
+              var curTick=Number(toSigned(w(slotRes[si].data,1)));
+              var fee0=p.owed0,fee1=p.owed1;
+              if(slotRes[si+1].ok&&slotRes[si+2].ok&&slotRes[si+3].ok&&slotRes[si+4].ok){
+                fee0+=arcAccrued(p.liq,arcInside(curTick,p.tickLo,p.tickHi,toBig(w(slotRes[si+1].data,0)),
+                  toBig(w(slotRes[si+3].data,2)),toBig(w(slotRes[si+4].data,2))),p.last0);
+                fee1+=arcAccrued(p.liq,arcInside(curTick,p.tickLo,p.tickHi,toBig(w(slotRes[si+2].data,0)),
+                  toBig(w(slotRes[si+3].data,3)),toBig(w(slotRes[si+4].data,3))),p.last1);
+              }
               var isStable=function(a){return a===T.USDC.a.toLowerCase()||a===T.USDT.a.toLowerCase();};
               var range='in';
               if(curTick<p.tickLo)range=isStable(t0)?'above':'below';
               else if(curTick>p.tickHi)range=isStable(t1)?'above':'below';
               var d0=decOf[t0],d1=decOf[t1];
               if(d0===undefined||d1===undefined)continue; /* unknown token */
-              var h0=amts[0]/Math.pow(10,d0)+Number(p.owed0)/Math.pow(10,d0);
-              var h1=amts[1]/Math.pow(10,d1)+Number(p.owed1)/Math.pow(10,d1);
+              var h0=amts[0]/Math.pow(10,d0)+Number(fee0)/Math.pow(10,d0);
+              var h1=amts[1]/Math.pow(10,d1)+Number(fee1)/Math.pow(10,d1);
               var val=h0*(priceOf[t0]||0)+h1*(priceOf[t1]||0);
               if(val<0.5)continue;
               lps.push({
@@ -1287,6 +1301,8 @@ function scanRhPositions(base){
               fee:Number(toBig(w(r.data,4))),
               tickLo:Number(toSigned(w(r.data,5))),tickHi:Number(toSigned(w(r.data,6))),
               liq:liq,
+              /* where the pool's fee counters stood when this position was last touched */
+              last0:toBig(w(r.data,8)),last1:toBig(w(r.data,9)),
               /* uncollected fees — leaving these out understates every open position */
               owed0:toBig(w(r.data,10)),owed1:toBig(w(r.data,11))});
           });
@@ -1323,18 +1339,31 @@ function scanRhPositions(base){
               });
               var pools=pos.filter(function(p){return p.pool;});
               if(!pools.length){base.lps=RH_LAST_LPS||[];return base;}
-              return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(pools.map(function(p){
-                return{to:p.pool,data:'0x3850c7bd'};}))},'latest'])
+              /* price and fee growth in one round: slot0, both accumulators, both boundary
+                 ticks — tokensOwed alone stops at the position's last touch, which left
+                 these two positions $2.95 short of what Uniswap says they can collect */
+              return rhRpc('eth_call',[{to:CFG.multicall,data:encodeAgg3(pools.reduce(function(a,p){
+                return a.concat([{to:p.pool,data:'0x3850c7bd'},{to:p.pool,data:'0xf3058399'},
+                  {to:p.pool,data:'0x46141319'},{to:p.pool,data:'0xf30dba93'+enc24(p.tickLo)},
+                  {to:p.pool,data:'0xf30dba93'+enc24(p.tickHi)}]);},[]))},'latest'])
                 .then(decodeAgg3)
                 .then(function(sRes){
                   base.lps=[];
-                  pools.forEach(function(p,i){
+                  pools.forEach(function(p,j){
+                    var i=j*5;
                     if(!sRes[i].ok)return;
                     var sqrtP=toBig(w(sRes[i].data,0));
                     var tick=Number(toSigned(w(sRes[i].data,1)));
+                    var f0=p.owed0,f1=p.owed1;
+                    if(sRes[i+1].ok&&sRes[i+2].ok&&sRes[i+3].ok&&sRes[i+4].ok){
+                      f0+=arcAccrued(p.liq,arcInside(tick,p.tickLo,p.tickHi,toBig(w(sRes[i+1].data,0)),
+                        toBig(w(sRes[i+3].data,2)),toBig(w(sRes[i+4].data,2))),p.last0);
+                      f1+=arcAccrued(p.liq,arcInside(tick,p.tickLo,p.tickHi,toBig(w(sRes[i+2].data,0)),
+                        toBig(w(sRes[i+3].data,3)),toBig(w(sRes[i+4].data,3))),p.last1);
+                    }
                     var amts=v3Amounts(p.liq,p.tickLo,p.tickHi,sqrtP);
-                    var a0=amts[0]/Math.pow(10,p.d0)+Number(p.owed0)/Math.pow(10,p.d0);
-                    var a1=amts[1]/Math.pow(10,p.d1)+Number(p.owed1)/Math.pow(10,p.d1);
+                    var a0=amts[0]/Math.pow(10,p.d0)+Number(f0)/Math.pow(10,p.d0);
+                    var a1=amts[1]/Math.pow(10,p.d1)+Number(f1)/Math.pow(10,p.d1);
                     /* token1 per token0, decimals-adjusted — the raw ratio is off by
                        10^(d0-d1) and a same-decimals pair would hide the mistake */
                     var p1per0=poolPrice(sqrtP,p.d0,p.d1);
