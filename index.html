@@ -354,6 +354,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .chart-legend span{display:flex;align-items:center;gap:5px}
 .legend-dot{display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .chart-h{position:relative;height:300px}
+.magic-wrap{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.magic{font-size:46px;font-weight:800;color:var(--gold);line-height:1;letter-spacing:-1px}
+.magic-unit{font-size:14px;font-weight:600;color:var(--dim);margin-left:6px;letter-spacing:1px;text-transform:uppercase}
+.magic-note{color:var(--dim);font-size:11px;line-height:1.6;max-width:330px;text-align:right}
+.compound-foot{color:var(--dim);font-size:11px;line-height:1.6;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+@media(max-width:768px){
+  .magic{font-size:36px}
+  .magic-note{text-align:left;max-width:none}
+}
 
 @media(max-width:768px){
   .grid4{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr}
@@ -547,6 +556,23 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
     </div>
   </div>
 
+  <!-- Compounding -->
+  <div class="sec">
+    <div class="sec-title">The Power of Compounding</div>
+    <div class="c" id="compoundCard" style="cursor:pointer" title="Tap to try a slower pace">
+      <div class="magic-wrap">
+        <div>
+          <div class="cl" id="paceLabel">Days to double &#8644;</div>
+          <div><span class="magic" id="magicNum">---</span><span class="magic-unit" id="magicUnit">days</span></div>
+          <div class="cs" id="paceSub">---</div>
+        </div>
+        <div class="magic-note" id="compoundNote"></div>
+      </div>
+      <div class="chart-h" style="height:250px"><canvas id="compoundChart"></canvas></div>
+      <div class="compound-foot" id="compoundFoot"></div>
+    </div>
+  </div>
+
   <!-- Monthly summary -->
   <div class="sec">
     <div class="sec-title">Monthly Summary <button class="btn" id="csvBtn" style="margin-left:auto">&#8681; CSV</button></div>
@@ -674,7 +700,7 @@ function reprice(){
   paintMarkers();
   if(LAST_DATA)render(LAST_DATA,liveRendered);
   buildClaims();buildPositions();
-  updatePeak();buildMonthly();updateAvgDaily();updateChangeChips();
+  updatePeak();buildMonthly();updateAvgDaily();updateChangeChips();buildCompound();
   if(CHART)CHART.update('none');   /* dataset is USD; the tick and tooltip callbacks convert */
 }
 /* Quarter marks under the progress bar. Written from the target rather than hard-coded so
@@ -3174,6 +3200,109 @@ function updatePeak(){
   document.getElementById('peakDate').textContent='on '+peakDate+' (incl vault)';
 }
 
+/* ---- the power of compounding ----
+   The rate is measured, never assumed: total wealth on the first day of the record (the
+   portfolio plus the vault as it stood then) against total wealth now, turned into a daily
+   compound rate. The magic number is what that rate does — how long it takes to double the
+   money, ln2 / ln(1+r). Doubling is the honest way to show it: a bar per doubling makes the
+   curve visible without pretending to a precision the rate does not have.
+   Tap the card to halve or quarter the pace: the shape holds, only the clock changes. */
+var COMPOUND_CHART=null,PACE_IDX=0;
+var PACES=[{k:'Your pace',f:1},{k:'Half pace',f:0.5},{k:'Quarter pace',f:0.25}];
+try{PACE_IDX=parseInt(localStorage.getItem('paceIdx'),10)||0;}catch(e){}
+function compoundFacts(){
+  if(!HIST||!HIST.length||LAST_TOTAL===null)return null;
+  var f=HIST[0],start=(f.total_usd||0)+vaultAt(f.date),now=LAST_TOTAL+CFG.coldVault;
+  if(!(start>0)||!(now>0))return null;
+  var days=Math.max(1,Math.round((Date.now()-new Date(f.date+'T00:00:00Z').getTime())/86400000));
+  var rate=Math.pow(now/start,1/days)-1;                 /* measured, compounded daily */
+  var pace=PACES[PACE_IDX%PACES.length],r=rate*pace.f;   /* a slower pace is a slower daily rate */
+  if(!(r>0))return null;
+  var dbl=Math.log(2)/Math.log(1+r);
+  /* the first doubling that actually happened, so the projection has a precedent */
+  var hit=null;
+  for(var i=0;i<HIST.length;i++){
+    var v=(HIST[i].total_usd||0)+vaultAt(HIST[i].date);
+    if(v>=start*2){hit={date:HIST[i].date,days:Math.round((new Date(HIST[i].date+'T00:00:00Z')-new Date(f.date+'T00:00:00Z'))/86400000)};break;}
+  }
+  return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:dbl,firstDouble:hit};
+}
+function buildCompound(){
+  var el=document.getElementById('compoundChart');
+  if(!el||typeof Chart==='undefined')return;
+  var c=compoundFacts();
+  if(!c){document.getElementById('magicNum').textContent='---';return;}
+  /* five doublings ahead: enough to show the shape, short enough to stay this side of fantasy */
+  var labels=[],values=[],colors=[],borders=[];
+  for(var i=0;i<=5;i++){
+    var when=new Date(Date.now()+i*c.dbl*86400000);
+    var month=when.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    labels.push([i===0?'Now':'\u00d7'+Math.pow(2,i),month]);
+    values.push(c.now*Math.pow(2,i));
+    colors.push(i===0?'rgba(245,158,11,0.85)':'rgba(251,191,36,'+(0.5-i*0.055)+')');
+    borders.push(i===0?'rgba(245,158,11,1)':'rgba(251,191,36,0.75)');
+  }
+  document.getElementById('magicNum').textContent=Math.round(c.dbl);
+  document.getElementById('magicUnit').textContent=Math.round(c.dbl)===1?'day to double':'days to double';
+  document.getElementById('paceLabel').innerHTML=c.pace.k+' <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
+  document.getElementById('paceSub').textContent='+'+(c.paceRate*100).toFixed(2)+'% a day · '
+    +((Math.pow(1+c.paceRate,30)-1)*100).toFixed(1)+'% a month';
+  document.getElementById('compoundNote').innerHTML=
+    'Measured, not assumed: <b>'+fmt(c.start)+'</b> on '+c.from+' to <b>'+fmt(c.now)+'</b> today — '
+    +c.days+' days at <b>+'+(c.rate*100).toFixed(2)+'% a day</b>, vault included.';
+  var toTarget=Math.log((CFG.target)/c.now)/Math.log(1+c.paceRate);
+  var targetLine=toTarget>0
+    ? 'At this pace the '+fmt(CFG.target)+' target lands around <b>'
+      +new Date(Date.now()+toTarget*86400000).toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</b>. '
+    : 'The '+fmt(CFG.target)+' target is already behind you. ';
+  document.getElementById('compoundFoot').innerHTML=targetLine
+    +(c.firstDouble?'Your first doubling really happened: '+fmt(c.start*2)+' reached on '+c.firstDouble.date
+      +', '+c.firstDouble.days+' days in. ':'')
+    +'<span style="opacity:.75">Each bar is double the one before it — that is compounding, not a forecast. '
+    +'It assumes the pace holds and that nothing is added or taken out.</span>';
+  if(COMPOUND_CHART){
+    COMPOUND_CHART.data.labels=labels;
+    COMPOUND_CHART.data.datasets[0].data=values;
+    COMPOUND_CHART.update('none');
+    return;
+  }
+  COMPOUND_CHART=new Chart(el.getContext('2d'),{
+    type:'bar',
+    data:{labels:labels,datasets:[{data:values,backgroundColor:colors,borderColor:borders,borderWidth:1,borderRadius:4,
+      maxBarThickness:64}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:22}},          /* room for the figure written above each bar */
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'rgba(15,22,35,0.96)',titleColor:'#e8edf5',bodyColor:'#e8edf5',
+          borderColor:'#fbbf24',borderWidth:1,padding:10,
+          callbacks:{title:function(x){return x[0].label.replace(',',' · ');},
+            label:function(ctx){return' '+fmt(ctx.raw);}}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#5a6a8a',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a8a',font:{size:10},
+          callback:function(v){return fmtAxis(v);}}}
+      }
+    },
+    plugins:[{
+      id:'barValues',
+      afterDatasetsDraw:function(ch){
+        var ctx=ch.ctx;
+        ctx.save();
+        ctx.font='600 10px ui-monospace,monospace';
+        ctx.fillStyle='#fbbf24';
+        ctx.textAlign='center';
+        ch.getDatasetMeta(0).data.forEach(function(bar,i){
+          ctx.fillText(fmtAxis(ch.data.datasets[0].data[i]),bar.x,bar.y-6);
+        });
+        ctx.restore();
+      }
+    }]
+  });
+}
+
 /* history.json only gains a datapoint when the 6h Action runs, so today's point would
    otherwise lag the headline total. Once live data lands, overwrite today's entry (or add
    it) from the live figure — chart, peak and monthly summary then all agree.
@@ -3209,6 +3338,7 @@ function syncTodayPoint(){
   }
   updatePeak();
   buildMonthly();
+  buildCompound();
 }
 
 /* Chain marks. Katana's is the official spark logomark, cropped to its bounds and scaled
@@ -3914,11 +4044,19 @@ function load(){
     HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
     HIST=data;
     updatePeak();
+    buildCompound();
     updateAvgDaily();
     updateChangeChips();
     updateRoiToggle();
     buildMonthly();
     document.getElementById('csvBtn').onclick=downloadCsv;
+    /* tap the card for a slower pace — the same measurement, a longer clock */
+    var cc=document.getElementById('compoundCard');
+    if(cc)cc.onclick=function(){
+      PACE_IDX=(PACE_IDX+1)%PACES.length;
+      try{localStorage.setItem('paceIdx',PACE_IDX);}catch(e){}
+      buildCompound();
+    };
     document.getElementById('roiCard').onclick=function(){
       ROI_IDX=(ROI_IDX+1)%ROI_MODES.length;
       try{localStorage.setItem('roiIdx',ROI_IDX);}catch(e){}

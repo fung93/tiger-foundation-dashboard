@@ -22,7 +22,8 @@
 /* v27: liquidity added to an open position is marked as capital topped up. */
 /* v28: the position record shows one P&L figure, not a Katana-framed breakdown. */
 /* v29: Katana and Robinhood positions count fees earned since their last touch, as Arc does. */
-var CACHE_VERSION = 'tiger-v29';
+/* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
+var CACHE_VERSION = 'tiger-v30';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
