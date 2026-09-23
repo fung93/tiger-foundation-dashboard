@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 43366766,
+  "last_block": 43387626,
   "open": {},
   "closed": [
     {
@@ -355,7 +355,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 69948053,
+    "last_block": 70155526,
     "open": {
       "1273105": {
         "id": "1273105",
@@ -488,7 +488,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 22235109,
+    "last_block": 22276229,
     "open": {
       "arc:v3:41740": {
         "uid": "arc:v3:41740",
