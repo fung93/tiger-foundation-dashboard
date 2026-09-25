@@ -1669,31 +1669,46 @@ function arcV4Rows(sa){
   };
   if(!ARC_SCAN_FROM)ARC_SCAN_FROM=(sa.last_block||0)+1;
   if(ARC_SCAN_FROM<=1)return Promise.resolve(merged());   /* no ledger block to start from */
-  return arcRpc('eth_blockNumber',[]).then(function(h){
-    var latest=parseInt(h,16);
-    if(ARC_SCAN_FROM>latest)return merged();
-    var to=Math.min(ARC_SCAN_FROM+9999,latest);
-    return arcRpc('eth_getLogs',[{address:[CFG.arcNpm,CFG.arcV4Posm],topics:[ARC_TR,null,'0x'+pad(CFG.wallet)],
-      fromBlock:'0x'+ARC_SCAN_FROM.toString(16),toBlock:'0x'+to.toString(16)}]).then(function(logs){
-      logs.forEach(function(l){
-        var kind=l.address.toLowerCase()===CFG.arcNpm?'v3':'v4';
-        ARC_MINTS[kind+':'+BigInt(l.topics[3])]={block:parseInt(l.blockNumber,16),tx:l.transactionHash,
-          ts:parseInt(l.blockTimestamp||'0x0',16)};
-      });
-      logs=logs.filter(function(l){return l.address.toLowerCase()===CFG.arcV4Posm;});
-      var fresh=logs.filter(function(l){
-        var id=BigInt(l.topics[3]).toString();
-        return !have[id]&&!ARC_V4_FOUND[id];
-      });
-      /* one at a time — each costs a log query */
-      return fresh.reduce(function(chain,l){
-        return chain.then(function(){
-          return arcDescribeV4(BigInt(l.topics[3]).toString(),parseInt(l.blockNumber,16))
-            .then(function(rec){if(rec)ARC_V4_FOUND[rec.id]=rec;});
+  /* Arc answers 10,000 blocks at a time, and a snapshot can be six hours behind — 43,000
+     blocks. Crawling one window per refresh left a V4 position worth $199 off the page for
+     minutes after every load, and the crawl restarted on each load. The whole gap is walked
+     in one pass instead: the requests are queued and paced anyway, so it costs seconds. */
+  var WINDOWS=12;
+  var step=function(){
+    return arcRpc('eth_blockNumber',[]).then(function(h){
+      var latest=parseInt(h,16),done=0;
+      var one=function(){
+        if(ARC_SCAN_FROM>latest||done>=WINDOWS)return Promise.resolve();
+        var to=Math.min(ARC_SCAN_FROM+9999,latest);
+        return arcRpc('eth_getLogs',[{address:[CFG.arcNpm,CFG.arcV4Posm],topics:[ARC_TR,null,'0x'+pad(CFG.wallet)],
+          fromBlock:'0x'+ARC_SCAN_FROM.toString(16),toBlock:'0x'+to.toString(16)}]).then(function(logs){
+          logs.forEach(function(l){
+            var kind=l.address.toLowerCase()===CFG.arcNpm?'v3':'v4';
+            ARC_MINTS[kind+':'+BigInt(l.topics[3])]={block:parseInt(l.blockNumber,16),tx:l.transactionHash,
+              ts:parseInt(l.blockTimestamp||'0x0',16)};
+          });
+          var fresh=logs.filter(function(l){
+            if(l.address.toLowerCase()!==CFG.arcV4Posm)return false;
+            var id=BigInt(l.topics[3]).toString();
+            return !have[id]&&!ARC_V4_FOUND[id];
+          });
+          /* one at a time — each costs a log query of its own */
+          return fresh.reduce(function(chain,l){
+            return chain.then(function(){
+              return arcDescribeV4(BigInt(l.topics[3]).toString(),parseInt(l.blockNumber,16))
+                .then(function(rec){if(rec)ARC_V4_FOUND[rec.id]=rec;});
+            });
+          },Promise.resolve()).then(function(){
+            ARC_SCAN_FROM=to+1;   /* advanced only once the window is fully read */
+            done++;
+            return one();
+          });
         });
-      },Promise.resolve()).then(function(){ARC_SCAN_FROM=to+1;return merged();});
+      };
+      return one().then(merged);
     });
-  }).catch(function(e){console.warn('arc V4 scan failed, will retry',e);return merged();});
+  };
+  return step().catch(function(e){console.warn('arc V4 scan failed, will retry',e);return merged();});
 }
 
 /* Merkl runs campaigns on Arc too. Rewards move slowly, so this is asked every five minutes
@@ -2307,7 +2322,8 @@ function scanLiveFees(){
   var failed=false;
   return FEE_CHAINS.reduce(function(p,c){
     return p.then(function(){
-      return liveFeesFor(c,withLiveIds(c.key,F.state[c.key]),3)
+      /* 12 windows: enough for Arc to walk a six-hour gap in one pass, as the V4 scan does */
+      return liveFeesFor(c,withLiveIds(c.key,F.state[c.key]),12)
         .catch(function(e){failed=true;console.warn(c.key+' live fee scan failed, will retry',e);});
     });
   },Promise.resolve()).then(function(){
@@ -2776,7 +2792,7 @@ function replayTail(o,chain,logs,priceAt,stable){
    never read as profit or as fees), fees collected, and a position that has since been
    emptied. Robinhood and Arc only; V4's payouts run through the pool manager's own
    transactions, which the Action reads from receipts. */
-var PENDING_TAIL={},TAIL_AT=0,TAIL_BUSY=false;
+var PENDING_TAIL={},TAIL_AT=0,TAIL_BUSY=false,LP_SIG='';
 function chainPriceAt(chain,o){
   if(chain==='arc')return function(blk){
     return arcRpc('eth_call',[{to:o.pool,data:'0x3850c7bd'},'0x'+blk.toString(16)])
@@ -3449,7 +3465,15 @@ function render(d,isLive){
     });
   });
   trackPendingOpens(allLp.map(function(x){return x.p;}));
-  scanLedgerTails();
+  /* Judge what is still open against live values only. A snapshot paint still carries a
+     position that has since been emptied, and reading that as "still live" parked the
+     settle behind the two-minute throttle — which is how a closed position kept its row.
+     A change in the live set (one opened, one gone) also means look now, not in two minutes. */
+  if(isLive){
+    var sig=Object.keys(LP_VALUE).sort().join(',');
+    if(sig!==LP_SIG){LP_SIG=sig;TAIL_AT=0;}
+    scanLedgerTails();
+  }
   buildPositions();   /* refresh unrealised P&L against the values just computed */
   if(allLp.length){
     var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];
