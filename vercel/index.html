@@ -1446,8 +1446,12 @@ function hexStr(h){
    again (three tries, backing off) instead of failing the pass. */
 var ARC_QUEUE=Promise.resolve(),ARC_SENT_AT=0;
 function arcRpc(method,params){
+  /* State reads are cheap and Arc answers a run of them happily; its log queries are what
+     the node rations, so those keep the wider gap. Splitting the two took the chain's share
+     of a live pass from 5.2s to about 3s. */
+  var gap=method==='eth_getLogs'?400:150;
   var send=function(attempt){
-    var wait=Math.max(0,350-(Date.now()-ARC_SENT_AT));
+    var wait=Math.max(0,gap-(Date.now()-ARC_SENT_AT));
     return new Promise(function(k){setTimeout(k,wait);}).then(function(){
       ARC_SENT_AT=Date.now();
       return fT(CFG.arcRpcs[0],{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1658,8 +1662,28 @@ function arcDescribeV4(id,block){
 
 /* V4 positions opened since the snapshot. One 10,000-block window per pass: a six-hour
    backlog clears in a few refreshes, and the rate limit never sees a burst of log queries. */
-var ARC_V4_FOUND={},ARC_SCAN_FROM=0,ARC_MINTS={};
+var ARC_V4_FOUND={},ARC_SCAN_FROM=0,ARC_MINTS={},ARC_CACHE_READ=false;
+/* What the scan has already found, kept in this browser. Without it every load started the
+   crawl again from the snapshot's block, so a position opened since the last 6-hourly run
+   took ten seconds or more to appear — and on a short visit, never. A remembered position is
+   still checked against the chain every pass, so one that has since been closed drops out. */
+function arcV4CacheLoad(sa){
+  if(ARC_CACHE_READ)return;
+  ARC_CACHE_READ=true;
+  try{
+    var j=JSON.parse(localStorage.getItem('tf_arcv4_'+CFG.wallet)||'null');
+    if(!j)return;
+    if(j.from>(sa.last_block||0)+1)ARC_SCAN_FROM=j.from;
+    Object.keys(j.found||{}).forEach(function(k){if(!ARC_V4_FOUND[k])ARC_V4_FOUND[k]=j.found[k];});
+    Object.keys(j.mints||{}).forEach(function(k){if(!ARC_MINTS[k])ARC_MINTS[k]=j.mints[k];});
+  }catch(e){/* private window, or nothing stored yet */}
+}
+function arcV4CacheSave(){
+  try{localStorage.setItem('tf_arcv4_'+CFG.wallet,
+    JSON.stringify({from:ARC_SCAN_FROM,found:ARC_V4_FOUND,mints:ARC_MINTS}));}catch(e){}
+}
 function arcV4Rows(sa){
+  arcV4CacheLoad(sa);
   var rows=(sa.v4_positions||[]).slice(),have={};
   rows.forEach(function(r){have[r.id]=1;});
   var merged=function(){
@@ -1700,6 +1724,7 @@ function arcV4Rows(sa){
             });
           },Promise.resolve()).then(function(){
             ARC_SCAN_FROM=to+1;   /* advanced only once the window is fully read */
+            arcV4CacheSave();     /* so the next load starts where this one got to */
             done++;
             return one();
           });

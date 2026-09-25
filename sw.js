@@ -24,7 +24,8 @@
 /* v29: Katana and Robinhood positions count fees earned since their last touch, as Arc does. */
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
-var CACHE_VERSION = 'tiger-v31';
+/* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
+var CACHE_VERSION = 'tiger-v32';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
