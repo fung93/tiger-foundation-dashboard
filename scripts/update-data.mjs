@@ -1944,8 +1944,10 @@ const gain = round2(current - CFG.startValue);
 const tok = (balance, priceUSD, valueUSD) => ({ balance, priceUSD, valueUSD: round2(valueUSD) });
 const defiPositions = [{
   type: 'Lending', protocol: 'Morpho Blue', market: 'KAT / avKAT',
-  collateral: { amount: kat.morpho.collateral, token: 'avKAT' },
-  debt: { amount: kat.morpho.debt, token: 'KAT' },
+  /* both sides in dollars, priced the same way the net is: avKAT through its rate, debt
+     in KAT. Carried in the data so the page never has to re-derive a price it was given. */
+  collateral: { amount: kat.morpho.collateral, token: 'avKAT', usd: round2(colKat * kat.katPrice) },
+  debt: { amount: kat.morpho.debt, token: 'KAT', usd: round2(kat.morpho.debt * kat.katPrice) },
   lltv: '77%', avkat_rate: kat.avkatRate, value_usd: morphoNet,
   note: `Net ${Math.round(colKat - kat.morpho.debt).toLocaleString('en-US')} KAT = $${morphoNet} · avKAT rate ${kat.avkatRate.toFixed(4)}`,
 }];
