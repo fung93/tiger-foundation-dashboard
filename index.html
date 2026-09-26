@@ -532,7 +532,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
       <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
       <div class="c"><div class="cl">DeFi Positions</div><div class="cv accent" id="defiVal">$---</div><div class="cs">LP + lending</div></div>
       <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs">Cold wallet</div></div>
-      <div class="c"><div class="cl">Active Chains</div><div class="cv blue" id="chainCount">-</div><div class="cs"><span style="color:var(--green)">&#9679;</span> <span id="chainNames">-</span></div></div>
+      <div class="c"><div class="cl">Merkl Pending</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed rewards</div></div>
     </div>
   </div>
 
@@ -3425,7 +3425,25 @@ function render(d,isLive){
   placeRocket(pct);   /* owns the fill width too — it ends where the rocket begins */
   document.getElementById('onchainVal').textContent=fmt(onchain);
   document.getElementById('defiVal').textContent=fmt(defiValue);
-  document.getElementById('chainCount').textContent=s.chains_count||1;
+  /* Rewards sitting unclaimed at Merkl — the money already earned but not yet collected.
+     `pending` is the same figure that is held out of defiValue above, so the cards add up.
+     The sub-line names the chain each reward is waiting on, read per chain so a new chain
+     with rewards needs no change here. */
+  document.getElementById('merklVal').textContent=fmt(pending);
+  var mbits=[],mAmt=function(rw){return fmtN(rw.amount,rw.amount>=1000?0:2)+' '+rw.symbol;};
+  CHAIN_ORDER.forEach(function(k){
+    var c=(d.chains||{})[k],m=c&&c.merkl_rewards;
+    if(!m)return;
+    /* one entry per chain, however many tokens are waiting on it */
+    var toks=(m.rewards||[]).filter(function(rw){return rw.amount>0;}).map(mAmt);
+    if(toks.length)mbits.push(c.name+' '+toks.join(' + '));
+  });
+  /* older snapshots carry Katana's rewards at the top level only */
+  if(!mbits.length&&d.merkl_rewards)
+    mbits=(d.merkl_rewards.rewards||[]).filter(function(rw){return rw.amount>0;}).map(mAmt);
+  document.getElementById('merklSub').innerHTML=mbits.length
+    ? '<span style="color:var(--green)">&#9679;</span> '+mbits.join(' &nbsp;&#183;&nbsp; ')
+    : 'Nothing to claim';
 
   var lu=document.getElementById('lastUpdated');
   if(isLive){
@@ -3455,11 +3473,10 @@ function render(d,isLive){
 
   /* chains */
   var chains=d.chains||{};
-  var chainHtml='',chainNames=[];
+  var chainHtml='';
   CHAIN_ORDER.forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
-    chainNames.push(ch.name);
     var dotColor=ch.color||'#f59e0b';
     chainHtml+='<div class="chain-row">';
     chainHtml+=CHAIN_LOGO[key]
@@ -3470,7 +3487,6 @@ function render(d,isLive){
     chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(ch.total_usd)+'</div></div>';
   });
   document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
-  document.getElementById('chainNames').textContent=chainNames.join(' + ');
 
   /* positions — one card per DeFi type; every LP is rolled into a single combined card */
   var dl='';
