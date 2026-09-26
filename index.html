@@ -2462,6 +2462,11 @@ function feeDays(){
       });
     });
   });
+  /* Arc's V4 fees, which no Collect event ever carries — see arcV4Tails */
+  Object.keys(ARCV4_FEES).forEach(function(k){
+    var d=out[k]||(out[k]={total:0});
+    d.arc=(d.arc||0)+ARCV4_FEES[k];d.total+=ARCV4_FEES[k];
+  });
   return out;
 }
 /* the same split, coloured per chain, for the second line under a figure */
@@ -2843,9 +2848,12 @@ function scanLedgerTails(){
       return tailsFor(ch).catch(function(e){failed=true;console.warn(ch+' ledger tail scan failed, will retry',e);});
     });
   },Promise.resolve()).then(function(){
+    return arcV4Tails().catch(function(e){failed=true;console.warn('arc v4 tail scan failed, will retry',e);});
+  }).then(function(){
     TAIL_BUSY=false;
     if(failed)TAIL_AT=Date.now()-90000;     /* try again in about 30s, nothing skipped */
-    keepingScroll(buildPositions);
+    /* the claim record reads the V4 fees this pass found, so it is rebuilt too */
+    keepingScroll(function(){buildPositions();buildClaims();});
   });
 }
 function tailsFor(ch){
@@ -2894,6 +2902,125 @@ function tailsFor(ch){
     });
   });
 }
+/* ---- Arc V4: the money the scans above cannot see ----
+   A V4 position is not held by the V3 position manager, so neither the fee scan (Collect
+   events on the NPM) nor the tail scan (the same place) can ever see one. On V4 every change
+   to a position is a ModifyLiquidity on the pool manager, and claiming fees is one that moves
+   no liquidity at all — then the whole payout is fees. This walks the gap the Action's ledger
+   has not reached yet and books both halves of what it finds: the day's fees for the claim
+   record, and what was paid out or added for the position row.
+   Recomputed whole on every pass and merged as its own source, so a later pass replaces the
+   earlier one instead of adding to it, and the Action's own figures take over the moment the
+   ledger moves past these blocks. */
+var ARCV4_FEES={},ARCV4_READ={};
+function arcV4Tails(){
+  var L=POSITIONS&&POSITIONS.arc;
+  if(!L||!L.last_block)return Promise.resolve();
+  var recs=Object.keys(L.open||{}).map(function(k){return L.open[k];})
+    .filter(function(o){return o.kind==='v4'&&o.pool_id;});
+  if(!recs.length){ARCV4_FEES={};return Promise.resolve();}
+  var byId={},pools=[];
+  recs.forEach(function(o){byId[o.id]=o;if(pools.indexOf(o.pool_id)<0)pools.push(o.pool_id);});
+  var posmT='0x'+pad(CFG.arcV4Posm);
+  return arcRpc('eth_blockNumber',[]).then(function(h){
+    var latest=parseInt(h,16),wins=[],logs=[];
+    for(var f=L.last_block+1;f<=latest&&wins.length<12;f+=9000)wins.push([f,Math.min(f+8999,latest)]);
+    return wins.reduce(function(pr,win){
+      return pr.then(function(){
+        return arcRpc('eth_getLogs',[{address:CFG.arcV4Pool,topics:[ARC_MODLIQ,pools,posmT],
+          fromBlock:'0x'+win[0].toString(16),toBlock:'0x'+win[1].toString(16)}])
+          .then(function(ls){logs=logs.concat(ls);});
+      });
+    },Promise.resolve()).then(function(){
+      /* one entry per transaction and position: V4 can touch the same position twice in one */
+      logs.sort(function(a,b){var d=parseInt(a.blockNumber,16)-parseInt(b.blockNumber,16);
+        return d||parseInt(a.logIndex,16)-parseInt(b.logIndex,16);});
+      var txs=[],seen={};
+      logs.forEach(function(l){
+        var o=byId[BigInt('0x'+w(l.data,3)).toString()];
+        if(!o||o.pool_id!==l.topics[1])return;
+        var k=l.transactionHash+':'+o.id,t=seen[k];
+        if(!t){t=seen[k]={o:o,l:l,dL:0n};txs.push(t);}
+        t.dL+=toSigned(w(l.data,2));
+      });
+      return txs.reduce(function(pr,t){
+        return pr.then(function(){return arcV4Read(t);}).then(function(r){t.r=r;});
+      },Promise.resolve()).then(function(){return txs;});
+    });
+  }).then(function(txs){
+    var days={},tails={},liq={};
+    txs.forEach(function(t){
+      var o=t.o,r=t.r,d0=arcDp(o.token0,o.d0),d1=arcDp(o.token1,o.d1);
+      var had=BigInt(liq[o.uid]!==undefined?liq[o.uid]:(o.v4_liq||0));
+      liq[o.uid]=String(had+t.dL);
+      var m={token0:o.token0.toLowerCase()===ARC_ZERO?CFG.arcUsdc:o.token0,
+             token1:o.token1.toLowerCase()===ARC_ZERO?CFG.arcUsdc:o.token1};
+      var i0=Math.max(r.net[0],0),i1=Math.max(r.net[1],0);
+      var u0=Math.max(-r.net[0],0),u1=Math.max(-r.net[1],0);
+      /* the liquidity itself moved this much at the block's price; the rest of the payout is
+         fees — the same split the Action makes, so the two agree when the ledger catches up.
+         A position that held nothing before this transaction has earned nothing yet. */
+      var f0=0,f1=0;
+      if(had>0n){
+        var Ld=t.dL<0n?-t.dL:t.dL,q=Ld?v3Amounts(Ld,o.lo,o.hi,r.sqrt):[0,0];
+        var q0=q[0]/Math.pow(10,d0),q1=q[1]/Math.pow(10,d1);
+        f0=Math.max(0,t.dL>0n?q0-r.net[0]:-r.net[0]-q0);
+        f1=Math.max(0,t.dL>0n?q1-r.net[1]:-r.net[1]-q1);
+      }
+      var tl=tails[o.uid]||(tails[o.uid]={in:0,out:0,topup:0});
+      var inUsd=(i0||i1)?pairUsd(i0,i1,m,[CFG.arcUsdc],r.px):0;
+      var outUsd=(u0||u1)?pairUsd(u0,u1,m,[CFG.arcUsdc],r.px):0;
+      var feeUsd=(f0||f1)?pairUsd(f0,f1,m,[CFG.arcUsdc],r.px):0;
+      if(inUsd>0){
+        tl.in+=inUsd;
+        /* money added to a position that already holds some is capital, not a gain — the
+           liquidity it held before this transaction is what tells the two apart */
+        if(had>0n||(o.in_usd||0)>0)tl.topup+=inUsd;
+      }
+      if(outUsd>0)tl.out+=outUsd;
+      if(feeUsd>0){var k=utc8Date(r.ts*1000);days[k]=(days[k]||0)+feeUsd;}
+    });
+    ARCV4_FEES=days;
+    recs.forEach(function(o){
+      var k=posKey(o,'id');
+      if(tails[o.uid])PENDING_TAIL[k]=tails[o.uid];else delete PENDING_TAIL[k];
+    });
+  });
+}
+/* native USDC is logged by its ERC-20 face, in that face's decimals */
+function arcDp(token,d){return token.toLowerCase()===ARC_ZERO?6:d;}
+/* what one transaction moved, read once and kept — the logs are re-walked every pass */
+function arcV4Read(t){
+  var key=t.l.transactionHash+':'+t.o.id;
+  if(ARCV4_READ[key])return Promise.resolve(ARCV4_READ[key]);
+  var o=t.o,tag=t.l.blockNumber,d0=arcDp(o.token0,o.d0),d1=arcDp(o.token1,o.d1);
+  return Promise.all([
+    arcRpc('eth_getTransactionReceipt',[t.l.transactionHash]),
+    arcRpc('eth_call',[{to:CFG.arcV4State,data:'0xc815641c'+o.pool_id.slice(2)},tag]),
+    (t.l.blockTimestamp&&t.l.blockTimestamp!=='0x0')
+      ? Promise.resolve(parseInt(t.l.blockTimestamp,16))
+      : arcRpc('eth_getBlockByNumber',[tag,false]).then(function(b){return parseInt(b.timestamp,16);})
+  ]).then(function(r){
+    var rc=r[0],sqrt=toBig(w(r[1],0)),ts=r[2];
+    /* a fee with no date could land on the wrong day, so refuse it rather than guess */
+    if(!ts)throw new Error('no timestamp for arc v4 '+t.l.transactionHash);
+    var Wa=CFG.wallet.toLowerCase(),uni={};uni[CFG.arcV4Pool]=1;uni[CFG.arcV4Posm]=1;
+    var leg=function(a){a=a.toLowerCase();return a===ARC_ZERO?CFG.arcUsdc:a;};
+    var tk=[leg(o.token0),leg(o.token1)],net=[0,0];
+    rc.logs.forEach(function(x){
+      if(x.topics[0]!==ARC_TR||x.topics.length!==3)return;
+      var side=tk.indexOf(x.address.toLowerCase());if(side<0)return;
+      var src='0x'+x.topics[1].slice(26),dst='0x'+x.topics[2].slice(26);
+      var v=Number(BigInt(x.data))/Math.pow(10,side?d1:d0);
+      /* only what actually reached the wallet counts, in either direction */
+      if(src===Wa&&uni[dst])net[side]+=v;else if(uni[src]&&dst===Wa)net[side]-=v;
+    });
+    var rec={ts:ts,net:net,sqrt:sqrt,px:poolPrice(sqrt,d0,d1)};
+    ARCV4_READ[key]=rec;
+    return rec;
+  });
+}
+
 /* what a ledger row is worth once the unseen tail is folded in */
 function withTail(row){
   var t=PENDING_TAIL[posKey(row,'id')];
