@@ -751,17 +751,18 @@ function vaultAt(date){
   for(var i=0;i<h.length;i++){ if(!date||h[i].from<=date)v=h[i].usd; }
   return v;
 }
-function calcEta(current,target,monthlyRoiPct){
-  if(!monthlyRoiPct||monthlyRoiPct<=0)return'Not on track';
+/* The date the target arrives at the rate the record actually shows. It was worked out from
+   tracking.monthly_roi_pct, which is the whole gain since May over the starting figure — a
+   cumulative return read as a monthly one, which put a $10,000 target under a month away. */
+function calcEta(current,target){
   if(current>=target)return'&#127881; Target reached!';
-  var rate=monthlyRoiPct/100;
-  var months=Math.log(target/current)/Math.log(1+rate);
-  if(!isFinite(months)||months<0)return'—';
-  if(months<1)return'&lt; 1 month';
-  var yr=Math.floor(months/12);
-  var mo=Math.round(months%12);
-  if(yr===0)return'~'+Math.round(months)+' months';
-  return'~'+yr+'y '+mo+'m';
+  var c=compoundFacts();
+  if(!c)return'—';
+  var n=daysTo(c,target);
+  if(n===null||!isFinite(n))return'Not on track';
+  var when=new Date(Date.now()+n*86400000);
+  return when.toLocaleDateString('en-US',{month:'short',year:'numeric'})
+    +'<span style="color:var(--dim);font-size:10px"> &#183; '+Math.round(n)+'d</span>';
 }
 
 /* ============ config ============ */
@@ -873,6 +874,21 @@ var CFG={
   coldVaultHistory:[
     {from:'2000-01-01',usd:2048},
     {from:'2026-09-09',usd:3048}
+  ],
+  /* Days the record jumped because it started counting something, not because anything was
+     earned. Money that was already yours appearing in the series for the first time is not a
+     return, and a growth rate measured across one of these days is measuring the dashboard
+     rather than the portfolio.
+       2026-08-01  +$1,897.57  LP positions counted for the first time, and Morpho and the
+                               vKAT stake valued — the day before, Morpho carried no value at
+                               all and the stake read $0.51.
+       2026-09-09  +$473.03    Robinhood counted for the first time.
+     Any rate the page states is measured from the day after the last of these, so it only
+     ever covers a stretch where the record already held everything. Add a row whenever a new
+     chain or position type starts being counted. */
+  recordSteps:[
+    {from:'2026-08-01',usd:1897.57,note:'LP, Morpho and the stake first counted'},
+    {from:'2026-09-09',usd:473.03,note:'Robinhood first counted'}
   ],
   target:10000
 };
@@ -3378,28 +3394,52 @@ function updatePeak(){
 var COMPOUND_CHART=null,PACE_IDX=0;
 var PACES=[{k:'Your pace',f:1},{k:'Half pace',f:0.5},{k:'Quarter pace',f:0.25}];
 try{PACE_IDX=parseInt(localStorage.getItem('paceIdx'),10)||0;}catch(e){}
+/* The first point the record can be trusted to compare with today: the day after the last
+   counting step, since every point before it was missing something today's figure includes. */
+function rateBase(){
+  if(!HIST||!HIST.length)return null;
+  var steps=CFG.recordSteps||[],after='';
+  steps.forEach(function(st){if(st.from>after)after=st.from;});
+  for(var i=0;i<HIST.length;i++)if(HIST[i].date>after)return HIST[i];
+  return null;
+}
 function compoundFacts(){
   if(!HIST||!HIST.length||LAST_TOTAL===null)return null;
-  var f=HIST[0],start=(f.total_usd||0)+vaultAt(f.date),now=LAST_TOTAL+CFG.coldVault;
+  var f=rateBase();
+  if(!f)return null;
+  var start=(f.total_usd||0)+vaultAt(f.date),now=LAST_TOTAL+CFG.coldVault;
   if(!(start>0)||!(now>0))return null;
   var days=Math.max(1,Math.round((Date.now()-new Date(f.date+'T00:00:00Z').getTime())/86400000));
   var rate=Math.pow(now/start,1/days)-1;                 /* measured, compounded daily */
   var pace=PACES[PACE_IDX%PACES.length],r=rate*pace.f;   /* a slower pace is a slower daily rate */
-  if(!(r>0))return null;
+  if(!(r>0))return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:null,flat:true};
   var dbl=Math.log(2)/Math.log(1+r);
-  /* the first doubling that actually happened, so the projection has a precedent */
-  var hit=null;
-  for(var i=0;i<HIST.length;i++){
-    var v=(HIST[i].total_usd||0)+vaultAt(HIST[i].date);
-    if(v>=start*2){hit={date:HIST[i].date,days:Math.round((new Date(HIST[i].date+'T00:00:00Z')-new Date(f.date+'T00:00:00Z'))/86400000)};break;}
-  }
-  return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:dbl,firstDouble:hit};
+  return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:dbl};
+}
+/* days from now to a figure at the measured pace, or null if the pace never gets there */
+function daysTo(c,value){
+  if(!c||!(c.paceRate>0)||!(c.now>0))return null;
+  if(c.now>=value)return 0;
+  return Math.log(value/c.now)/Math.log(1+c.paceRate);
 }
 function buildCompound(){
   var el=document.getElementById('compoundChart');
   if(!el||typeof Chart==='undefined')return;
   var c=compoundFacts();
-  if(!c){document.getElementById('magicNum').textContent='---';return;}
+  if(!c||c.flat){
+    document.getElementById('magicNum').textContent='---';
+    document.getElementById('magicUnit').textContent='days';
+    document.getElementById('paceSub').textContent=c?(c.rate*100).toFixed(2)+'% a day since '+c.from:'';
+    /* no pace, no bars — clear them rather than leave the last good projection standing */
+    if(COMPOUND_CHART){COMPOUND_CHART.data.labels=[];COMPOUND_CHART.data.datasets[0].data=[];COMPOUND_CHART.update('none');}
+    document.getElementById('compoundNote').innerHTML=c
+      ? 'Measured since <b>'+c.from+'</b>, the first day the record counted every chain: <b>'
+        +fmt(c.start)+'</b> to <b>'+fmt(c.now)+'</b> over '+c.days+' days. Flat or falling, so there is '
+        +'no doubling to project.'
+      : '';
+    document.getElementById('compoundFoot').innerHTML='';
+    return;
+  }
   /* five doublings ahead: enough to show the shape, short enough to stay this side of fantasy */
   var labels=[],values=[],colors=[],borders=[];
   for(var i=0;i<=5;i++){
@@ -3410,6 +3450,8 @@ function buildCompound(){
     colors.push(i===0?'rgba(245,158,11,0.85)':'rgba(251,191,36,'+(0.5-i*0.055)+')');
     borders.push(i===0?'rgba(245,158,11,1)':'rgba(251,191,36,0.75)');
   }
+  var eta=document.getElementById('targetEta');
+  if(eta&&LAST_TOTAL!==null)eta.innerHTML=calcEta(LAST_TOTAL+CFG.coldVault,CFG.target);
   document.getElementById('magicNum').textContent=Math.round(c.dbl);
   document.getElementById('magicUnit').textContent=Math.round(c.dbl)===1?'day to double':'days to double';
   document.getElementById('paceLabel').innerHTML=c.pace.k+' <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
@@ -3417,17 +3459,18 @@ function buildCompound(){
     +((Math.pow(1+c.paceRate,30)-1)*100).toFixed(1)+'% a month';
   document.getElementById('compoundNote').innerHTML=
     'Measured, not assumed: <b>'+fmt(c.start)+'</b> on '+c.from+' to <b>'+fmt(c.now)+'</b> today — '
-    +c.days+' days at <b>+'+(c.rate*100).toFixed(2)+'% a day</b>, vault included.';
-  var toTarget=Math.log((CFG.target)/c.now)/Math.log(1+c.paceRate);
+    +c.days+' days at <b>+'+(c.rate*100).toFixed(2)+'% a day</b>, vault included. '
+    +'<span style="opacity:.75">'+c.from+' is the first day the record counted every chain; '
+    +'earlier days are left out because what changed then was the counting, not the money.</span>';
+  var toTarget=daysTo(c,CFG.target);
   var targetLine=toTarget>0
     ? 'At this pace the '+fmt(CFG.target)+' target lands around <b>'
       +new Date(Date.now()+toTarget*86400000).toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</b>. '
     : 'The '+fmt(CFG.target)+' target is already behind you. ';
   document.getElementById('compoundFoot').innerHTML=targetLine
-    +(c.firstDouble?'Your first doubling really happened: '+fmt(c.start*2)+' reached on '+c.firstDouble.date
-      +', '+c.firstDouble.days+' days in. ':'')
     +'<span style="opacity:.75">Each bar is double the one before it — that is compounding, not a forecast. '
-    +'It assumes the pace holds and that nothing is added or taken out.</span>';
+    +'It assumes the pace holds and that nothing is added or taken out. '
+    +'Measured over '+c.days+' days — a short rope: the fewer the days, the more one good week moves it.</span>';
   if(COMPOUND_CHART){
     COMPOUND_CHART.data.labels=labels;
     COMPOUND_CHART.data.datasets[0].data=values;
@@ -3583,9 +3626,8 @@ function render(d,isLive){
 
   if(d.tracking){
     var t=d.tracking;
-    var roiPct=t.monthly_roi_pct||0;
     document.getElementById('daysElapsed').textContent=(t.days_elapsed||0)+' days';
-    document.getElementById('targetEta').innerHTML=calcEta(displayTotal,target,roiPct);
+    document.getElementById('targetEta').innerHTML=calcEta(displayTotal,target);
   }
 
   /* metrics that depend on the current total */
@@ -3763,10 +3805,20 @@ function askFacts(){
   f.robinhood=s.robinhood_usd||0; f.arc=s.arc_usd||0;
   f.pending=(LAST_BREAKDOWN&&LAST_BREAKDOWN.pending_usd)||0;   /* every chain, as the card uses */
   f.defi=f.portfolio-f.onchain-f.pending;
-  f.roi=(d&&d.tracking&&d.tracking.monthly_roi_pct)||0;
+  /* the measured pace, not the cumulative gain that used to be labelled monthly */
+  var cf=compoundFacts();
+  f.roi=cf&&cf.paceRate>0?Math.round((Math.pow(1+cf.rate,30)-1)*1000)/10:0;
+  f.rateFrom=cf?cf.from:null;
+  f.rateDays=cf?cf.days:0;
+  f.etaDays=cf?daysTo(cf,CFG.target):null;
   f.startDate=CFG.startDate; f.startValue=CFG.startValue;
-  f.days=HIST_START?Math.floor((Date.now()-HIST_START.time)/86400000):0;
-  f.gain=f.total-f.startValue;
+  /* how long the record has been running, which is not the window the pace is measured
+     over — HIST_START moved to the first complete day, this did not */
+  f.days=Math.floor((Date.now()-new Date(((HIST&&HIST.length&&HIST[0].date)||CFG.startDate)+'T00:00:00Z').getTime())/86400000);
+  /* like against like: the opening figure is the portfolio as the record then had it plus
+     the vault as it then stood, because f.total carries the vault too */
+  f.startCombined=CFG.startValue+vaultAt(CFG.startDate);
+  f.gain=f.total-f.startCombined;
 
   /* peak: same series and the same vault adjustment the card uses */
   f.peak=0;f.peakDate='—';
@@ -3785,7 +3837,10 @@ function askFacts(){
     return {from:b.date,base:b.total_usd,delta:LAST_TOTAL-b.total_usd,
             pct:(LAST_TOTAL-b.total_usd)/b.total_usd*100};
   };
-  f.avgDaily=(HIST_START&&f.days>0)?(LAST_TOTAL-HIST_START.total)/((Date.now()-HIST_START.time)/86400000):0;
+  /* averaged over the window the figure is honest for, not the whole record */
+  f.avgFrom=HIST_START?HIST_START.dateStr:CFG.startDate;
+  f.avgDays=HIST_START?Math.max(1,Math.floor((Date.now()-HIST_START.time)/86400000)):0;
+  f.avgDaily=(HIST_START&&f.avgDays>0)?(LAST_TOTAL-HIST_START.total)/((Date.now()-HIST_START.time)/86400000):0;
 
   /* claims */
   var days=claimDays(),keys=Object.keys(days).sort();
@@ -3953,12 +4008,15 @@ var ASK={
     var d=Math.ceil(f.left/f.avgDaily);
     return "About <b>"+d+" days</b> at "+money(f.avgDaily)+"/day, so roughly "
       +new Date(Date.now()+d*86400000).toISOString().slice(0,10)+".\n"
-      +"<span class=\"hint\">Straight line from the average since "+f.startDate+". It assumes nothing changes, which it will.</span>";},
+      +"<span class=\"hint\">Straight line from the average since "+f.avgFrom+". It assumes nothing changes, which it will.</span>";},
 
   daily:function(f){
-    return "Average "+askSigned(f.avgDaily)+" a day since "+f.startDate+" ("+f.days+" days).\n\n"
-      +"Started at "+money(f.startValue)+", now "+fmt(f.total)+"\n"
-      +askSignedBig(f.gain)+" overall, "+askPct(f.startValue?f.gain/f.startValue*100:0)+".";},
+    return "Average "+askSigned(f.avgDaily)+" a day since "+f.avgFrom+" ("+f.avgDays+" days).\n\n"
+      +"Started at "+fmt(f.startCombined)+" on "+f.startDate+" ("+money(f.startValue)+" tracked + "
+      +fmt(vaultAt(f.startDate))+" vault), now "+fmt(f.total)+"\n"
+      +askSignedBig(f.gain)+" overall, "+askPct(f.startCombined?f.gain/f.startCombined*100:0)+".\n"
+      +"<span class=\"hint\">Part of that rise is assets the record only began counting later — "
+      +"which is why the pace is measured from "+f.avgFrom+".</span>";},
 
   /* one implementation, three chips — the lookback is the only thing that differs */
   change:function(f,n){
@@ -3995,7 +4053,8 @@ var ASK={
 
   days:function(f){
     return "Running <b>"+f.days+" days</b>, since "+f.startDate+".\n\n"
-      +"Started at "+money(f.startValue)+", now "+fmt(f.total)+" — "+askSignedBig(f.gain)+".";},
+      +"Started at "+fmt(f.startCombined)+" (vault included), now "+fmt(f.total)+" — "
+      +askSignedBig(f.gain)+".";},
 
   who:function(){
     return "I'm the tiger on your header.\n\nScripted, not a language model — every number I give you is read straight off this dashboard, so I can't be confidently wrong about one. Tap a chip and I'll answer it.";},
@@ -4242,10 +4301,12 @@ function load(){
     var labels=data.map(function(x){return x.date?x.date.slice(5):'';});
     var totals=data.map(function(x){return x.total_usd||0;});
 
-    /* average daily earning starts where the history chart starts */
-    var first=data[0];
-    HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
     HIST=data;
+    /* The chart still draws the whole record; the average a day is measured from the first
+       day that record counted everything (see CFG.recordSteps), because a jump caused by the
+       counting is not money earned. */
+    var first=rateBase()||data[0];
+    HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
     updatePeak();
     buildCompound();
     updateAvgDaily();
