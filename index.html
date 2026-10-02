@@ -3858,7 +3858,7 @@ function askFacts(){
     return {from:b.date,base:b.total_usd,delta:LAST_TOTAL-b.total_usd,
             pct:(LAST_TOTAL-b.total_usd)/b.total_usd*100};
   };
-  /* averaged over the window the figure is honest for, not the whole record */
+  /* the average a day, over the whole record */
   f.avgFrom=HIST_START?HIST_START.dateStr:CFG.startDate;
   f.avgDays=HIST_START?Math.max(1,Math.floor((Date.now()-HIST_START.time)/86400000)):0;
   f.avgDaily=(HIST_START&&f.avgDays>0)?(LAST_TOTAL-HIST_START.total)/((Date.now()-HIST_START.time)/86400000):0;
@@ -4037,8 +4037,9 @@ var ASK={
       +"Started at "+fmt(f.startCombined)+" on "+f.startDate+" ("+money(f.startValue)+" tracked + "
       +fmt(vaultAt(f.startDate))+" vault), now "+fmt(f.total)+"\n"
       +askSignedBig(f.gain)+" overall, "+askPct(f.startCombined?f.gain/f.startCombined*100:0)+".\n"
-      +"<span class=\"hint\">Part of that rise is assets the record only began counting later — "
-      +"which is why the pace is measured from "+f.avgFrom+".</span>";},
+      +"<span class=\"hint\">Part of that rise is assets the record only began counting later, on "
+      +"2026-08-01 and 2026-09-09 — the compounding card is the one figure measured from a record "
+      +"that already held everything.</span>";},
 
   /* one implementation, three chips — the lookback is the only thing that differs */
   change:function(f,n){
@@ -4324,10 +4325,9 @@ function load(){
     var totals=data.map(function(x){return x.total_usd||0;});
 
     HIST=data;
-    /* The chart still draws the whole record; the average a day is measured from the first
-       day that record counted everything (see CFG.recordSteps), because a jump caused by the
-       counting is not money earned. */
-    var first=rateBase()||data[0];
+    /* Average daily earning runs from inception, the first day of the record — the same
+       starting line the header's ETA counts from. */
+    var first=data[0];
     HIST_START={time:new Date(first.date+'T00:00:00Z').getTime(),total:first.total_usd||0,dateStr:first.date};
     updatePeak();
     buildCompound();
