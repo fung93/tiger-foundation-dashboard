@@ -3406,19 +3406,13 @@ function updatePeak(){
 var COMPOUND_CHART=null,PACE_IDX=0;
 var PACES=[{k:'Your pace',f:1},{k:'Half pace',f:0.5},{k:'Quarter pace',f:0.25}];
 try{PACE_IDX=parseInt(localStorage.getItem('paceIdx'),10)||0;}catch(e){}
-/* The first point the record can be trusted to compare with today: the day after the last
-   counting step, since every point before it was missing something today's figure includes. */
-function rateBase(){
-  if(!HIST||!HIST.length)return null;
-  var steps=CFG.recordSteps||[],after='';
-  steps.forEach(function(st){if(st.from>after)after=st.from;});
-  for(var i=0;i<HIST.length;i++)if(HIST[i].date>after)return HIST[i];
-  return null;
-}
+/* Measured over the whole record, from inception — the same span the header's ETA and the
+   average a day are read from, so the three never disagree about which days they cover.
+   CFG.recordSteps names the days inside that span where the record started counting things
+   it already held; the card says so under the chart rather than quietly leaving them out. */
 function compoundFacts(){
   if(!HIST||!HIST.length||LAST_TOTAL===null)return null;
-  var f=rateBase();
-  if(!f)return null;
+  var f=HIST[0];
   var start=(f.total_usd||0)+vaultAt(f.date),now=LAST_TOTAL+CFG.coldVault;
   if(!(start>0)||!(now>0))return null;
   var days=Math.max(1,Math.round((Date.now()-new Date(f.date+'T00:00:00Z').getTime())/86400000));
@@ -3428,6 +3422,15 @@ function compoundFacts(){
   /* five years to double is not a pace worth projecting from */
   if(dbl===null||dbl>1825)return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:null,flat:true};
   return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:dbl};
+}
+/* The days inside the measured span where the record began counting something already owned.
+   Stated rather than removed: the rate covers them, and you should know it does. */
+function stepNote(){
+  var st=(CFG.recordSteps||[]).filter(function(x){return HIST&&HIST.length&&x.from>=HIST[0].date;});
+  if(!st.length)return'';
+  return' Part of the rise is the record catching up with itself — '
+    +st.map(function(x){return x.from+' ('+x.note+')';}).join(' and ')
+    +' added what was already held.';
 }
 /* days from now to a figure at the measured pace, or null if the pace never gets there */
 function daysTo(c,value){
@@ -3446,7 +3449,7 @@ function buildCompound(){
     /* no pace, no bars — clear them rather than leave the last good projection standing */
     if(COMPOUND_CHART){COMPOUND_CHART.data.labels=[];COMPOUND_CHART.data.datasets[0].data=[];COMPOUND_CHART.update('none');}
     document.getElementById('compoundNote').innerHTML=c
-      ? 'Measured since <b>'+c.from+'</b>, the first day the record counted every chain: <b>'
+      ? 'Measured from <b>'+c.from+'</b>: <b>'
         +fmt(c.start)+'</b> to <b>'+fmt(c.now)+'</b> over '+c.days+' days — '
         +(c.rate>0?'too flat to double inside five years':'going backwards')+', so there is no '
         +'doubling to project. The header\'s ETA still stands: it reads the total\'s gain a day '
@@ -3474,9 +3477,7 @@ function buildCompound(){
     +((Math.pow(1+c.paceRate,30)-1)*100).toFixed(1)+'% a month';
   document.getElementById('compoundNote').innerHTML=
     'Measured, not assumed: <b>'+fmt(c.start)+'</b> on '+c.from+' to <b>'+fmt(c.now)+'</b> today — '
-    +c.days+' days at <b>+'+(c.rate*100).toFixed(2)+'% a day</b>, vault included. '
-    +'<span style="opacity:.75">'+c.from+' is the first day the record counted every chain; '
-    +'earlier days are left out because what changed then was the counting, not the money.</span>';
+    +c.days+' days at <b>+'+(c.rate*100).toFixed(2)+'% a day</b>, vault included.';
   var toTarget=daysTo(c,CFG.target);
   var targetLine=toTarget>0
     ? 'At this compounding pace the '+fmt(CFG.target)+' target lands around <b>'
@@ -3485,8 +3486,8 @@ function buildCompound(){
   document.getElementById('compoundFoot').innerHTML=targetLine
     +'<span style="opacity:.75">Each bar is double the one before it — that is compounding, not a forecast. '
     +'It assumes the pace holds and that nothing is added or taken out. '
-    +'Measured over '+c.days+' days — a short rope: the fewer the days, the more one good week moves it. '
-    +'The header\'s ETA is the plainer sum: what the total has gained a day since the record began.</span>';
+    +'The header\'s ETA is the plainer sum: what the total has gained a day, carried straight out.'
+    +stepNote()+'</span>';
   if(COMPOUND_CHART){
     COMPOUND_CHART.data.labels=labels;
     COMPOUND_CHART.data.datasets[0].data=values;
