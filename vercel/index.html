@@ -2976,7 +2976,7 @@ function arcV4Tails(){
       },Promise.resolve()).then(function(){return txs;});
     });
   }).then(function(txs){
-    var days={},tails={},liq={};
+    var days={},tails={},liq={},lastTs={};
     txs.forEach(function(t){
       var o=t.o,r=t.r,d0=arcDp(o.token0,o.d0),d1=arcDp(o.token1,o.d1);
       var had=BigInt(liq[o.uid]!==undefined?liq[o.uid]:(o.v4_liq||0));
@@ -2995,7 +2995,8 @@ function arcV4Tails(){
         f0=Math.max(0,t.dL>0n?q0-r.net[0]:-r.net[0]-q0);
         f1=Math.max(0,t.dL>0n?q1-r.net[1]:-r.net[1]-q1);
       }
-      var tl=tails[o.uid]||(tails[o.uid]={in:0,out:0,topup:0});
+      var tl=tails[o.uid]||(tails[o.uid]={in:0,out:0,topup:0,fees:0});
+      if(r.ts>(lastTs[o.uid]||0))lastTs[o.uid]=r.ts;
       var inUsd=(i0||i1)?pairUsd(i0,i1,m,[CFG.arcUsdc],r.px):0;
       var outUsd=(u0||u1)?pairUsd(u0,u1,m,[CFG.arcUsdc],r.px):0;
       var feeUsd=(f0||f1)?pairUsd(f0,f1,m,[CFG.arcUsdc],r.px):0;
@@ -3006,13 +3007,31 @@ function arcV4Tails(){
         if(had>0n||(o.in_usd||0)>0)tl.topup+=inUsd;
       }
       if(outUsd>0)tl.out+=outUsd;
-      if(feeUsd>0){var k=utc8Date(r.ts*1000);days[k]=(days[k]||0)+feeUsd;}
+      if(feeUsd>0){tl.fees+=feeUsd;var k=utc8Date(r.ts*1000);days[k]=(days[k]||0)+feeUsd;}
     });
     ARCV4_FEES=days;
-    recs.forEach(function(o){
-      var k=posKey(o,'id');
-      if(tails[o.uid])PENDING_TAIL[k]=tails[o.uid];else delete PENDING_TAIL[k];
-    });
+    /* V4 closes were the one thing the live scans never caught: tailsFor() looks for an
+       emptied position on the V3 position manager, which has never heard of a V4 one, so a
+       position closed between runs stayed listed as open — with its last value and an
+       unrealised P&L — until the Action settled it up to six hours later. */
+    return recs.reduce(function(pr,o){
+      return pr.then(function(){
+        var k=posKey(o,'id'),tl=tails[o.uid];
+        if(tl)PENDING_TAIL[k]=tl;else delete PENDING_TAIL[k];
+        if(LP_VALUE[k]!==undefined){delete PENDING_CLOSE[k];return;}
+        /* gone from the live list — concluded only once the position manager itself says it
+           holds no liquidity, so a failed or rate-limited read can never close a position */
+        return arcRpc('eth_call',[{to:CFG.arcV4Posm,
+          data:'0x1efeed33'+pad(BigInt(o.id).toString(16))},'latest']).then(function(x){
+          if(toBig(w(x,0))!==0n)return;
+          /* closing a position pays it out. If no payment has been found — the scan has not
+             reached that block, or a receipt read failed — leave it open rather than conclude
+             it at a total loss; the next pass, or the Action, will have the money. */
+          if(!((tl&&tl.out>0)||(o.out_usd||0)>0))return;
+          PENDING_CLOSE[k]=closeRow(o,'arc',tl||{in:0,out:0,topup:0,fees:0},lastTs[o.uid]);
+        });
+      });
+    },Promise.resolve());
   });
 }
 /* native USDC is logged by its ERC-20 face, in that face's decimals */
