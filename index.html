@@ -751,15 +751,27 @@ function vaultAt(date){
   for(var i=0;i<h.length;i++){ if(!date||h[i].from<=date)v=h[i].usd; }
   return v;
 }
-/* The date the target arrives at the rate the record actually shows. It was worked out from
-   tracking.monthly_roi_pct, which is the whole gain since May over the starting figure — a
-   cumulative return read as a monthly one, which put a $10,000 target under a month away. */
+/* How much the whole portfolio, vault included, has gained a day since the record began —
+   the total's own increment, spread evenly over every day of the record. A straight line,
+   not a compound rate: it is what the headline ETA is read from. */
+function incSinceInception(){
+  if(!HIST||!HIST.length||LAST_TOTAL===null)return null;
+  var f=HIST[0],start=(f.total_usd||0)+vaultAt(f.date),now=LAST_TOTAL+CFG.coldVault;
+  var days=(Date.now()-new Date(f.date+'T00:00:00Z').getTime())/86400000;
+  if(!(days>0))return null;
+  return{from:f.date,start:start,now:now,days:days,perDay:(now-start)/days};
+}
+/* The date the target arrives if the total keeps gaining what it has gained a day so far.
+   It was worked out from tracking.monthly_roi_pct, which is the whole gain since May over
+   the starting figure — a cumulative return read as a monthly one, which put a $10,000
+   target under a month away. */
 function calcEta(current,target){
   if(current>=target)return'&#127881; Target reached!';
-  var c=compoundFacts();
-  if(!c)return'—';
-  var n=daysTo(c,target);
-  if(n===null||!isFinite(n))return'Not on track';
+  var i=incSinceInception();
+  if(!i)return'—';
+  if(!(i.perDay>0))return'Not on track';
+  var n=(target-i.now)/i.perDay;
+  if(!isFinite(n)||n<0)return'Not on track';
   var when=new Date(Date.now()+n*86400000);
   return when.toLocaleDateString('en-US',{month:'short',year:'numeric'})
     +'<span style="color:var(--dim);font-size:10px"> &#183; '+Math.round(n)+'d</span>';
@@ -3412,8 +3424,9 @@ function compoundFacts(){
   var days=Math.max(1,Math.round((Date.now()-new Date(f.date+'T00:00:00Z').getTime())/86400000));
   var rate=Math.pow(now/start,1/days)-1;                 /* measured, compounded daily */
   var pace=PACES[PACE_IDX%PACES.length],r=rate*pace.f;   /* a slower pace is a slower daily rate */
-  if(!(r>0))return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:null,flat:true};
-  var dbl=Math.log(2)/Math.log(1+r);
+  var dbl=r>0?Math.log(2)/Math.log(1+r):null;
+  /* five years to double is not a pace worth projecting from */
+  if(dbl===null||dbl>1825)return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:null,flat:true};
   return{from:f.date,start:start,now:now,days:days,rate:rate,paceRate:r,pace:pace,dbl:dbl};
 }
 /* days from now to a figure at the measured pace, or null if the pace never gets there */
@@ -3434,8 +3447,10 @@ function buildCompound(){
     if(COMPOUND_CHART){COMPOUND_CHART.data.labels=[];COMPOUND_CHART.data.datasets[0].data=[];COMPOUND_CHART.update('none');}
     document.getElementById('compoundNote').innerHTML=c
       ? 'Measured since <b>'+c.from+'</b>, the first day the record counted every chain: <b>'
-        +fmt(c.start)+'</b> to <b>'+fmt(c.now)+'</b> over '+c.days+' days. Flat or falling, so there is '
-        +'no doubling to project.'
+        +fmt(c.start)+'</b> to <b>'+fmt(c.now)+'</b> over '+c.days+' days — '
+        +(c.rate>0?'too flat to double inside five years':'going backwards')+', so there is no '
+        +'doubling to project. The header\'s ETA still stands: it reads the total\'s gain a day '
+        +'since the record began, not this window.'
       : '';
     document.getElementById('compoundFoot').innerHTML='';
     return;
@@ -3464,13 +3479,14 @@ function buildCompound(){
     +'earlier days are left out because what changed then was the counting, not the money.</span>';
   var toTarget=daysTo(c,CFG.target);
   var targetLine=toTarget>0
-    ? 'At this pace the '+fmt(CFG.target)+' target lands around <b>'
+    ? 'At this compounding pace the '+fmt(CFG.target)+' target lands around <b>'
       +new Date(Date.now()+toTarget*86400000).toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</b>. '
     : 'The '+fmt(CFG.target)+' target is already behind you. ';
   document.getElementById('compoundFoot').innerHTML=targetLine
     +'<span style="opacity:.75">Each bar is double the one before it — that is compounding, not a forecast. '
     +'It assumes the pace holds and that nothing is added or taken out. '
-    +'Measured over '+c.days+' days — a short rope: the fewer the days, the more one good week moves it.</span>';
+    +'Measured over '+c.days+' days — a short rope: the fewer the days, the more one good week moves it. '
+    +'The header\'s ETA is the plainer sum: what the total has gained a day since the record began.</span>';
   if(COMPOUND_CHART){
     COMPOUND_CHART.data.labels=labels;
     COMPOUND_CHART.data.datasets[0].data=values;
@@ -3810,7 +3826,12 @@ function askFacts(){
   f.roi=cf&&cf.paceRate>0?Math.round((Math.pow(1+cf.rate,30)-1)*1000)/10:0;
   f.rateFrom=cf?cf.from:null;
   f.rateDays=cf?cf.days:0;
-  f.etaDays=cf?daysTo(cf,CFG.target):null;
+  /* the headline ETA's own basis: the total's increase a day since inception */
+  var inc=incSinceInception();
+  f.incPerDay=inc?inc.perDay:0;
+  f.incFrom=inc?inc.from:CFG.startDate;
+  f.incDays=inc?Math.floor(inc.days):0;
+  f.etaDays=(inc&&inc.perDay>0)?(CFG.target-inc.now)/inc.perDay:null;
   f.startDate=CFG.startDate; f.startValue=CFG.startValue;
   /* how long the record has been running, which is not the window the pace is measured
      over — HIST_START moved to the first complete day, this did not */
@@ -4004,11 +4025,12 @@ var ASK={
       +"Now: "+fmt(f.total)+"\nTarget: "+fmt(f.target)+"\nStill to find: <b>"+fmt(f.left)+"</b>";},
 
   eta:function(f){
-    if(f.avgDaily<=0)return "Can't project — the average daily change isn't positive right now.";
-    var d=Math.ceil(f.left/f.avgDaily);
-    return "About <b>"+d+" days</b> at "+money(f.avgDaily)+"/day, so roughly "
+    if(!(f.incPerDay>0))return "Can't project — the total isn't rising on average right now.";
+    var d=Math.ceil(f.left/f.incPerDay);
+    return "About <b>"+d+" days</b> at "+money(f.incPerDay)+"/day, so roughly "
       +new Date(Date.now()+d*86400000).toISOString().slice(0,10)+".\n"
-      +"<span class=\"hint\">Straight line from the average since "+f.avgFrom+". It assumes nothing changes, which it will.</span>";},
+      +"<span class=\"hint\">The total's own increase since "+f.incFrom+" ("+f.incDays+" days), spread evenly. "
+      +"It assumes nothing changes, which it will.</span>";},
 
   daily:function(f){
     return "Average "+askSigned(f.avgDaily)+" a day since "+f.avgFrom+" ("+f.avgDays+" days).\n\n"
