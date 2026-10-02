@@ -1,7 +1,7 @@
 {
   "tz": "UTC+8",
   "start_date": "2026-08-01",
-  "last_block": 44217771,
+  "last_block": 44234104,
   "days": {
     "2026-08-01": {
       "kat": 3393.61,
@@ -238,7 +238,7 @@
         ]
       },
       "katana": {
-        "last_block": 44217778,
+        "last_block": 44234111,
         "owed": {},
         "meta": {
           "422530": {
@@ -420,7 +420,7 @@
         "ids": []
       },
       "arc": {
-        "last_block": 23911949,
+        "last_block": 23944137,
         "ids": [],
         "owed": {},
         "meta": {}
