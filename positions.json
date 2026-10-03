@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 44234104,
+  "last_block": 44253371,
   "open": {},
   "closed": [
     {
@@ -488,7 +488,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 23944137,
+    "last_block": 23982120,
     "open": {
       "arc:v4:281343": {
         "uid": "arc:v4:281343",
