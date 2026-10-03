@@ -1,14 +1,14 @@
 {
-  "last_updated": "2026-10-03T02:56:31.374Z",
+  "last_updated": "2026-10-03T10:49:30.801Z",
   "wealth_target_usdc": 10000,
   "tracking": {
     "start_date": "2026-05-02",
     "start_value_usd": 502.29,
-    "current_value_usd": 2390.17,
-    "value_gain_usd": 1887.88,
-    "kat_price": 0.004777635776400201,
+    "current_value_usd": 2375.33,
+    "value_gain_usd": 1873.04,
+    "kat_price": 0.004745715724587097,
     "kat_tokens_claimed": 84937,
-    "monthly_roi_pct": 375.85,
+    "monthly_roi_pct": 372.9,
     "days_elapsed": 154
   },
   "chains": {
@@ -21,17 +21,17 @@
           "tokens": {
             "ETH": {
               "balance": 0.000989261186152062,
-              "priceUSD": 2683.6746304009544,
-              "valueUSD": 2.65
+              "priceUSD": 2689.4919806829275,
+              "valueUSD": 2.66
             },
             "KAT": {
               "balance": 20601.788154521648,
-              "priceUSD": 0.004777635776400201,
-              "valueUSD": 98.43
+              "priceUSD": 0.004745715724587097,
+              "valueUSD": 97.77
             },
             "WETH": {
               "balance": 0,
-              "priceUSD": 2683.6746304009544,
+              "priceUSD": 2689.4919806829275,
               "valueUSD": 0
             },
             "USDC": {
@@ -46,14 +46,14 @@
             },
             "avKAT": {
               "balance": 0,
-              "priceUSD": 0.006465420934376955,
+              "priceUSD": 0.006422224554226282,
               "valueUSD": 0
             }
           },
-          "total_usd": 120.04
+          "total_usd": 119.39
         }
       },
-      "onchain_usd": 120.04,
+      "onchain_usd": 119.39,
       "merkl_rewards": {
         "total_usd": 0,
         "rewards": []
@@ -67,17 +67,17 @@
           "collateral": {
             "amount": 102921.67418144808,
             "token": "avKAT",
-            "usd": 665.43
+            "usd": 660.99
           },
           "debt": {
-            "amount": 100240.85845131027,
+            "amount": 100246.52730738834,
             "token": "KAT",
-            "usd": 478.91
+            "usd": 475.74
           },
           "lltv": "77%",
           "avkat_rate": 1.353267858197522,
-          "value_usd": 186.52,
-          "note": "Net 39,040 KAT = $186.52 · avKAT rate 1.3533"
+          "value_usd": 185.24,
+          "note": "Net 39,034 KAT = $185.24 · avKAT rate 1.3533"
         },
         {
           "type": "Staking",
@@ -87,12 +87,12 @@
             "amount": 257871.86115585803,
             "token": "vKAT"
           },
-          "value_usd": 1232.02,
-          "note": "257,872 vKAT = $1232.02 · backed 1:1 by locked KAT · 60d cooldown to exit (auto-detected on-chain)"
+          "value_usd": 1223.79,
+          "note": "257,872 vKAT = $1223.79 · backed 1:1 by locked KAT · 60d cooldown to exit (auto-detected on-chain)"
         }
       ],
       "lp_total_usd": 0,
-      "total_usd": 1538.58,
+      "total_usd": 1528.42,
       "native_token": "KAT",
       "color": "#f59e0b"
     },
@@ -105,7 +105,7 @@
           "tokens": {
             "ETH": {
               "balance": 0.00146678886273863,
-              "priceUSD": 2683.6746304009544,
+              "priceUSD": 2689.4919806829275,
               "valueUSD": 3.94
             },
             "USDG": {
@@ -115,9 +115,9 @@
             }
           }
         },
-        "total_usd": 26.55816805908633
+        "total_usd": 26.56670088369058
       },
-      "onchain_usd": 26.55816805908633,
+      "onchain_usd": 26.56670088369058,
       "lp_positions": [
         {
           "type": "LP",
@@ -138,13 +138,13 @@
           "range_status": "below",
           "staked": false,
           "apr": null,
-          "value_usd": 651.87,
+          "value_usd": 652.72,
           "note": "NFT #1273105 — 0.00 USDG + 7.9673 CRCL"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 651.87,
-      "total_usd": 678.4281680590864,
+      "lp_total_usd": 652.72,
+      "total_usd": 679.2867008836906,
       "live": true,
       "native_token": "ETH",
       "color": "#00c805"
@@ -163,14 +163,14 @@
             },
             "ARGUS": {
               "balance": 211.66112965802665,
-              "priceUSD": 0.016445461502028,
-              "valueUSD": 3.48
+              "priceUSD": 0.015137177323859639,
+              "valueUSD": 3.2
             }
           }
         },
-        "total_usd": 3.51
+        "total_usd": 3.24
       },
-      "onchain_usd": 3.51,
+      "onchain_usd": 3.24,
       "merkl_rewards": {
         "total_usd": 0,
         "rewards": []
@@ -187,14 +187,14 @@
           "range_status": "in",
           "staked": false,
           "apr": null,
-          "value_usd": 169.54,
-          "fees_usd": 2.22,
-          "note": "V4 #281343 — 118.16 USDC + 3,122 ARGUS incl. $2.22 unclaimed fees"
+          "value_usd": 164.27,
+          "fees_usd": 2.87,
+          "note": "V4 #281343 — 92.90 USDC + 4,783 ARGUS incl. $2.87 unclaimed fees"
         }
       ],
       "defi_positions": [],
-      "lp_total_usd": 169.54,
-      "total_usd": 173.05,
+      "lp_total_usd": 164.27,
+      "total_usd": 167.51,
       "live": true,
       "native_token": "USDC",
       "color": "#5b9cff",
@@ -215,7 +215,7 @@
         }
       ],
       "staked_ids": [],
-      "last_block": 23982120
+      "last_block": 24038049
     },
     "solana": {
       "name": "Solana",
@@ -225,7 +225,7 @@
       "balances": {
         "SOL": {
           "balance": 0.000938791,
-          "priceUSD": 119.06,
+          "priceUSD": 119.48,
           "valueUSD": 0.11
         },
         "USDC": {
@@ -245,13 +245,13 @@
     }
   },
   "summary": {
-    "grand_total_usd": 2390.17,
-    "katana_usd": 1538.58,
+    "grand_total_usd": 2375.33,
+    "katana_usd": 1528.42,
     "solana_usd": 0.11,
-    "robinhood_usd": 678.43,
-    "arc_usd": 173.05,
-    "onchain_usd": 150.22,
-    "lp_usd": 821.41,
+    "robinhood_usd": 679.29,
+    "arc_usd": 167.51,
+    "onchain_usd": 149.31,
+    "lp_usd": 816.99,
     "merkl_usd": 0,
     "total_defi_positions": 2,
     "chains_count": 4
@@ -271,7 +271,7 @@
       "range_status": "below",
       "staked": false,
       "apr": null,
-      "value_usd": 651.87,
+      "value_usd": 652.72,
       "note": "NFT #1273105 — 0.00 USDG + 7.9673 CRCL"
     },
     {
@@ -285,9 +285,9 @@
       "range_status": "in",
       "staked": false,
       "apr": null,
-      "value_usd": 169.54,
-      "fees_usd": 2.22,
-      "note": "V4 #281343 — 118.16 USDC + 3,122 ARGUS incl. $2.22 unclaimed fees"
+      "value_usd": 164.27,
+      "fees_usd": 2.87,
+      "note": "V4 #281343 — 92.90 USDC + 4,783 ARGUS incl. $2.87 unclaimed fees"
     }
   ],
   "defi_positions": [
@@ -298,17 +298,17 @@
       "collateral": {
         "amount": 102921.67418144808,
         "token": "avKAT",
-        "usd": 665.43
+        "usd": 660.99
       },
       "debt": {
-        "amount": 100240.85845131027,
+        "amount": 100246.52730738834,
         "token": "KAT",
-        "usd": 478.91
+        "usd": 475.74
       },
       "lltv": "77%",
       "avkat_rate": 1.353267858197522,
-      "value_usd": 186.52,
-      "note": "Net 39,040 KAT = $186.52 · avKAT rate 1.3533"
+      "value_usd": 185.24,
+      "note": "Net 39,034 KAT = $185.24 · avKAT rate 1.3533"
     },
     {
       "type": "Staking",
@@ -318,13 +318,13 @@
         "amount": 257871.86115585803,
         "token": "vKAT"
       },
-      "value_usd": 1232.02,
-      "note": "257,872 vKAT = $1232.02 · backed 1:1 by locked KAT · 60d cooldown to exit (auto-detected on-chain)"
+      "value_usd": 1223.79,
+      "note": "257,872 vKAT = $1223.79 · backed 1:1 by locked KAT · 60d cooldown to exit (auto-detected on-chain)"
     }
   ],
   "meteora_refs": [],
   "usdc_ata": "ED4qHSWBm2qUauEez1DejEzShkwEKA8a66aZdtFPjMpS",
   "staked_lp_ids": [],
-  "onchain_usd": 150.22,
-  "total_usd": 2390.17
+  "onchain_usd": 149.31,
+  "total_usd": 2375.33
 }
