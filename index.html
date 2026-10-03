@@ -840,6 +840,8 @@ var CFG={
          there is no LP, rising to three when there is (ids, positions, pool price). The
          per-position metadata is fetched once and cached in RH_META rather than re-read. */
   rhRpcs:['https://rpc.mainnet.chain.robinhood.com'],
+  /* the widest eth_getLogs range this node answers — it dropped from 4,000,000 to this */
+  rhLogSpan:100000,
   rhNpm:'0x73991a25c818bf1f1128deaab1492d45638de0d3',      /* Uniswap V3 Positions NFT-V1 */
   rhFactory:'0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
   /* Allowlist, deliberately — NOT everything the wallet holds. Unsolicited airdrops are
@@ -2359,7 +2361,7 @@ function paidToUs(l,tokens,receipt){
 var FEE_CHAINS=[
   {key:'katana',name:'Katana',color:'#f59e0b',call:function(m,p){return rpc(m,p);},npm:CFG.npm,span:100000,
    stable:[CFG.tokens.USDC.a,CFG.tokens.USDT.a]},
-  {key:'robinhood',name:'Robinhood',color:'#00c805',call:function(m,p){return rhRpc(m,p);},npm:CFG.rhNpm,span:4000000,
+  {key:'robinhood',name:'Robinhood',color:'#00c805',call:function(m,p){return rhRpc(m,p);},npm:CFG.rhNpm,span:CFG.rhLogSpan,
    stable:Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
      .map(function(k){return CFG.rhTokens[k].a;})},
   {key:'arc',name:'Arc',color:'#5b9cff',call:function(m,p){return arcRpc(m,p);},npm:CFG.arcNpm,span:10000,
@@ -2714,13 +2716,28 @@ function pairUsd(a0,a1,m,stable,px){
   if(st[m.token1.toLowerCase()])return a1+a0*px;
   return null;
 }
+/* The sqrtPrice of the pool's last swap at or before a block. Robinhood keeps no archive
+   state, so a price has to be read from the swap history, and the node answers only a
+   narrow range at a time — so this walks back one window per try instead of widening. */
+function rhLastSwap(pool,blk,windows){
+  var step=function(i){
+    if(i>=(windows||6))return Promise.resolve(null);
+    var hi=blk-i*CFG.rhLogSpan;
+    if(hi<=0)return Promise.resolve(null);
+    var lo=Math.max(0,hi-CFG.rhLogSpan);
+    return rhRpc('eth_getLogs',[{address:pool,topics:[RH_SWAP_TOPIC],
+      fromBlock:'0x'+lo.toString(16),toBlock:'0x'+hi.toString(16)}])
+      .then(function(sw){return sw.length?toBig(w(sw[sw.length-1].data,2)):step(i+1);});
+  };
+  return step(0);
+}
 function rhOpenInfo(p){
   var m=p.meta,idT='0x'+pad(BigInt(p.token_id).toString(16)),blk,a0,a1;
   var stable=Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
     .map(function(k){return CFG.rhTokens[k].a;});
   /* newest first, in steps: a new position is almost always in the first, and one wide query
      can time out on this chain's node */
-  var steps=[[0,250000],[250000,1000000],[1000000,4000000]];
+  var steps=[[0,100000],[100000,200000],[200000,300000],[300000,400000]];
   var back=function(latest,i){
     if(i>=steps.length)return Promise.resolve([]);
     return rhRpc('eth_getLogs',[{address:CFG.rhNpm,topics:[CFG.incTopic,idT],
@@ -2732,14 +2749,8 @@ function rhOpenInfo(p){
     var l=logs[0];blk=parseInt(l.blockNumber,16);
     a0=Number(toBig(w(l.data,1)))/Math.pow(10,m.d0);a1=Number(toBig(w(l.data,2)))/Math.pow(10,m.d1);
     /* no archive state on this chain — the pool's last swap at or before the block prices it */
-    var swapAt=function(spans){
-      if(!spans.length)return Promise.resolve(null);
-      return rhRpc('eth_getLogs',[{address:m.pool,topics:[RH_SWAP_TOPIC],
-        fromBlock:'0x'+Math.max(0,blk-spans[0]).toString(16),toBlock:'0x'+blk.toString(16)}])
-        .then(function(sw){return sw.length?toBig(w(sw[sw.length-1].data,2)):swapAt(spans.slice(1));});
-    };
     /* the block time, because this chain leaves it at 0x0 on its logs */
-    return Promise.all([swapAt([50000,500000]),rhRpc('eth_getBlockByNumber',['0x'+blk.toString(16),false])]);
+    return Promise.all([rhLastSwap(m.pool,blk),rhRpc('eth_getBlockByNumber',['0x'+blk.toString(16),false])]);
   }).then(function(r){
     if(!r||r[0]===null)return null;
     var usd=pairUsd(a0,a1,m,stable,poolPrice(r[0],m.d0,m.d1));
@@ -2858,13 +2869,7 @@ function chainPriceAt(chain,o){
   };
   /* no archive state on Robinhood — the pool's last swap at or before the block prices it */
   return function(blk){
-    var swapAt=function(spans){
-      if(!spans.length)return Promise.resolve(null);
-      return rhRpc('eth_getLogs',[{address:o.pool,topics:[RH_SWAP_TOPIC],
-        fromBlock:'0x'+Math.max(0,blk-spans[0]).toString(16),toBlock:'0x'+blk.toString(16)}])
-        .then(function(sw){return sw.length?toBig(w(sw[sw.length-1].data,2)):swapAt(spans.slice(1));});
-    };
-    return swapAt([50000,500000]).then(function(sq){return sq===null?null:poolPrice(sq,o.d0,o.d1);});
+    return rhLastSwap(o.pool,blk).then(function(sq){return sq===null?null:poolPrice(sq,o.d0,o.d1);});
   };
 }
 function scanLedgerTails(){
@@ -2895,7 +2900,7 @@ function tailsFor(ch){
   if(!recs.length)return Promise.resolve();
   var call=ch==='arc'?arcRpc:rhRpc;
   var npm=ch==='arc'?CFG.arcNpm:CFG.rhNpm;
-  var span=ch==='arc'?10000:1000000;              /* what each chain's node will answer */
+  var span=ch==='arc'?10000:CFG.rhLogSpan;        /* what each chain's node will answer */
   var stable=ch==='arc'?[CFG.arcUsdc]
     :Object.keys(CFG.rhTokens).filter(function(k){return CFG.rhTokens[k].stable;})
       .map(function(k){return CFG.rhTokens[k].a;});

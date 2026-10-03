@@ -15,6 +15,11 @@ const CFG = {
      note in index.html. No archive state here, and the public RPC rate-limits hard, so the
      Action reads it in a single multicall exactly as the browser does. */
   rhRpc: 'https://rpc.mainnet.chain.robinhood.com',
+  /* The widest eth_getLogs range this node answers. It used to take 4,000,000 blocks and now
+     refuses anything over 100,000 ("query spans N blocks, but only 100000 are allowed"),
+     which froze the Robinhood ledger and fee record from 2026-09-29 until this was found.
+     rhLogs() splits a window that is still refused, so a further cut needs no code change. */
+  rhLogSpan: 100000,
   rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
   rhFactory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
   rhTokens: { USDG: { a: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', d: 6, stable: true } },
@@ -432,9 +437,8 @@ async function robinhoodFees(fees, led) {
     blockTime: async (l, blk) => rhBlockTime(blk),
   };
   const topics = [[DEC_TOPIC, COL_TOPIC], ids.map((id) => '0x' + pad(BigInt(id).toString(16)))];
-  /* filtered queries are allowed wide ranges here; 4M blocks is well inside what answers */
-  for (let from = st.last_block ? st.last_block + 1 : CFG.rhStartBlock; from <= latest; from += 4000000) {
-    const to = Math.min(from + 3999999, latest);
+  for (let from = st.last_block ? st.last_block + 1 : CFG.rhStartBlock; from <= latest; from += CFG.rhLogSpan) {
+    const to = Math.min(from + CFG.rhLogSpan - 1, latest);
     const logs = await rhLogs({ address: CFG.rhNpm, topics, fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16) });
     await v3FeePass('robinhood', logs, st, fees, io);
     st.last_block = to;
@@ -924,7 +928,8 @@ async function rhLogs(params) {
   try {
     return await rhCall('eth_getLogs', [params]);
   } catch (e) {
-    if (!/deadline|timeout|timed out/i.test(e.message)) throw e;
+    /* too slow, or too wide: both are answered by asking for less */
+    if (!/deadline|timeout|timed out|spans|allowed|range/i.test(e.message)) throw e;
     const from = parseInt(params.fromBlock, 16);
     const to = params.toBlock === 'latest' ? parseInt(await rhCall('eth_blockNumber', []), 16) : parseInt(params.toBlock, 16);
     if (!(to - from > 20000)) throw e;
@@ -971,10 +976,14 @@ async function rhBlockTime(block) {
 
 /* price of token1 in token0 terms at a block, from the pool's own swap history */
 async function rhPriceAt(pool, block, d0, d1) {
-  /* widen until a swap is found — a quiet pool may not trade for a while */
-  for (const span of [50000, 500000, 4000000]) {
+  /* back a window at a time until a swap is found — a quiet pool may not trade for a while,
+     and no single query may be wider than the node allows */
+  for (let back = 0; back < 4000000; back += CFG.rhLogSpan) {
+    const hi = block - back;
+    if (hi <= 0) break;
+    const lo = Math.max(0, hi - CFG.rhLogSpan);
     const logs = await rhLogs({ address: pool, topics: [RH_SWAP_TOPIC],
-      fromBlock: '0x' + Math.max(0, block - span).toString(16), toBlock: '0x' + block.toString(16) });
+      fromBlock: '0x' + lo.toString(16), toBlock: '0x' + hi.toString(16) });
     if (logs.length) {
       const last = logs[logs.length - 1];
       const sqrtP = toBig(w(last.data, 2));
@@ -1050,8 +1059,8 @@ async function rhBuildLedger(prevLedger) {
   let from = led.last_block ? led.last_block + 1 : CFG.rhStartBlock;
   let reached = from - 1;
   try {
-    for (; from <= latest; from += 4000000) {
-      const to = Math.min(from + 3999999, latest);
+    for (; from <= latest; from += CFG.rhLogSpan) {
+      const to = Math.min(from + CFG.rhLogSpan - 1, latest);
       /* all or nothing, as on Arc: a window that fails part-way puts every position back as
          it stood, so the next run replays it without counting its first half twice */
       const before = JSON.stringify(led.open);
