@@ -805,10 +805,13 @@ var CFG={
     WETH:{a:'0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62',d:18},
     USDC:{a:'0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36',d:6},
     USDT:{a:'0x2DCa96907fde857dd3D816880A0df407eeB2D2F2',d:6},
-    avKAT:{a:'0x7231dbaCdFc968E07656D12389AB20De82FbfCeB',d:18}
+    avKAT:{a:'0x7231dbaCdFc968E07656D12389AB20De82FbfCeB',d:18},
+    WBTC:{a:'0x0913da6Da4b42f538B445599b46Bb4622342Cf52',d:8}
   },
   poolKatUsdc:'0x10045367E619Caae6f60CC80046c43c6cD55f629',
   poolWethUsdc:'0x2A2C512beAA8eB15495726C235472D82EFFB7A6B',
+  /* vbWBTC/vbUSDC 0.05% — the pool the staked position sits in prices its own BTC leg */
+  poolWbtcUsdc:'0x744676b3cEd942D78f9b8E9cd22246dB5C32395c',
   /* publicnode listed twice: it's the only browser-friendly endpoint, so a transient
      stall gets a second chance after mainnet-beta rejects browser origins instantly */
   solRpcs:['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'],
@@ -1088,7 +1091,8 @@ function getKatanaLive(stakedLpIds){
     {to:CFG.morpho,data:'0x93c52062'+CFG.marketId.slice(2)+pad(W)}, /* 8 position(id,user) */
     {to:CFG.morpho,data:'0x5c60e39a'+CFG.marketId.slice(2)},        /* 9 market(id) */
     {to:CFG.npm,  data:'0x70a08231'+pad(W)},                 /* 10 NFT count */
-    {to:CFG.vkatNft,data:'0x70a08231'+pad(W)}                /* 11 vKAT lock count */
+    {to:CFG.vkatNft,data:'0x70a08231'+pad(W)},               /* 11 vKAT lock count */
+    {to:CFG.poolWbtcUsdc,data:'0x3850c7bd'}                  /* 12 slot0 WBTC/USDC */
   ];
   return Promise.all([rpc('eth_getBalance',[CFG.wallet,'latest']),multicall(calls)])
   .then(function(rr){
@@ -1107,6 +1111,8 @@ function getKatanaLive(stakedLpIds){
     var katPrice=katPerUsdc>0?1/katPerUsdc:0;
     var wethPerUsdc=poolPrice(toBig(w(r[7].data,0)),6,18);
     var ethPrice=wethPerUsdc>0?1/wethPerUsdc:0;
+    /* this pool is the other way round — vbWBTC is token0 — so no reciprocal */
+    var btcPrice=(r[12]&&r[12].ok)?poolPrice(toBig(w(r[12].data,0)),8,6):0;
     /* morpho */
     var borrowShares=toBig(w(r[8].data,1));
     var collateral=Number(toBig(w(r[8].data,2)))/1e18;
@@ -1207,14 +1213,15 @@ function getKatanaLive(stakedLpIds){
             priceOf[T.USDC.a.toLowerCase()]=1;priceOf[T.USDT.a.toLowerCase()]=1;
             priceOf[T.KAT.a.toLowerCase()]=katPrice;priceOf[T.WETH.a.toLowerCase()]=ethPrice;
             priceOf[T.avKAT.a.toLowerCase()]=katPrice*avkatRate;
+            priceOf[T.WBTC.a.toLowerCase()]=btcPrice;
             var decOf={};
             decOf[T.USDC.a.toLowerCase()]=6;decOf[T.USDT.a.toLowerCase()]=6;
             decOf[T.KAT.a.toLowerCase()]=18;decOf[T.WETH.a.toLowerCase()]=18;
-            decOf[T.avKAT.a.toLowerCase()]=18;
+            decOf[T.avKAT.a.toLowerCase()]=18;decOf[T.WBTC.a.toLowerCase()]=8;
             var symOf={};
             symOf[T.USDC.a.toLowerCase()]='vbUSDC';symOf[T.USDT.a.toLowerCase()]='vbUSDT';
             symOf[T.KAT.a.toLowerCase()]='KAT';symOf[T.WETH.a.toLowerCase()]='vbETH';
-            symOf[T.avKAT.a.toLowerCase()]='avKAT';
+            symOf[T.avKAT.a.toLowerCase()]='avKAT';symOf[T.WBTC.a.toLowerCase()]='vbWBTC';
             var lps=[];
             for(var i=0;i<active.length;i++){
               var p=active[i],si=i*5;
@@ -1251,7 +1258,8 @@ function getKatanaLive(stakedLpIds){
                 value_usd:val,apr:null,staked:p.staked,
                 token_id:String(p.tokenId),   /* lets the ledger price an open position */
                 range_status:range,
-                note:'NFT #'+p.tokenId+(p.staked?' · STAKED':'')+' — '+h0.toFixed(2)+' '+(symOf[t0]||'?')+' + '+fmtN(h1,0)+' '+(symOf[t1]||'?')+' (live on-chain)'
+                /* arcAmt, not two decimals: a vbWBTC leg is a few thousandths of a coin */
+                note:'NFT #'+p.tokenId+(p.staked?' · STAKED':'')+' — '+arcAmt(h0)+' '+(symOf[t0]||'?')+' + '+arcAmt(h1)+' '+(symOf[t1]||'?')+' (live on-chain)'
               });
             }
             return lockP.then(function(vkat){

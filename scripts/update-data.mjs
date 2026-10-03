@@ -60,9 +60,13 @@ const CFG = {
     USDC:  { a: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36', d: 6 },
     USDT:  { a: '0x2DCa96907fde857dd3D816880A0df407eeB2D2F2', d: 6 },
     avKAT: { a: '0x7231dbaCdFc968E07656D12389AB20De82FbfCeB', d: 18 },
+    WBTC:  { a: '0x0913da6Da4b42f538B445599b46Bb4622342Cf52', d: 8 },
   },
   poolKatUsdc: '0x10045367E619Caae6f60CC80046c43c6cD55f629',
   poolWethUsdc: '0x2A2C512beAA8eB15495726C235472D82EFFB7A6B',
+  /* vbWBTC/vbUSDC 0.05% — the pool the position itself sits in, so it prices its own BTC leg
+     exactly as poolKatUsdc prices KAT. token0 is vbWBTC (8dp), token1 vbUSDC (6dp). */
+  poolWbtcUsdc: '0x744676b3cEd942D78f9b8E9cd22246dB5C32395c',
   solRpcs: ['https://api.mainnet-beta.solana.com', 'https://solana-rpc.publicnode.com'],
   dlmmProgram: 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
   solMint: 'So11111111111111111111111111111111111111112',
@@ -455,17 +459,31 @@ const DEC_TOPIC = '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2
 const COL_TOPIC = '0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01';
 
 const pxCache = new Map();
-async function katPriceAtBlock(block) {
-  if (pxCache.has(block)) return pxCache.get(block);
-  const r = await rpc('eth_call', [{ to: CFG.poolKatUsdc, data: '0x3850c7bd' }, block]);
-  const raw = Number(toBig(w(r, 0))) ** 2 / 2 ** 192;               // token1/token0 in raw units
-  const p = 1 / (raw * 10 ** (CFG.tokens.USDC.d - CFG.tokens.KAT.d));
-  pxCache.set(block, p);
+/* token1 per token0 in human units, from a pool's own state at a block — Katana keeps
+   archive state, so an event can be priced at the block it happened in. */
+async function poolPxAt(pool, d0, d1, block) {
+  const key = pool + '@' + block;
+  if (pxCache.has(key)) return pxCache.get(key);
+  const r = await rpc('eth_call', [{ to: pool, data: '0x3850c7bd' }, block]);
+  const p = poolPrice(toBig(w(r, 0)), d0, d1);
+  pxCache.set(key, p);
   return p;
 }
+const poolCache = new Map();
+async function poolFor(t0, t1, fee) {
+  const key = [t0, t1, fee].join(':').toLowerCase();
+  if (!poolCache.has(key))
+    poolCache.set(key, toAddr(w(await rpc('eth_call', [{ to: CFG.factory,
+      data: '0x1698ee82' + pad(t0) + pad(t1) + pad(fee.toString(16)) }, 'latest']), 0)));
+  return poolCache.get(key);
+}
+const KAT_STABLE = (sym) => sym === 'USDC' || sym === 'USDT';
+const KAT_LABEL = { USDC: 'vbUSDC', USDT: 'vbUSDT', WETH: 'vbETH', WBTC: 'vbWBTC', KAT: 'KAT', avKAT: 'avKAT' };
 
-/* Replay one position's events into USD in / USD out. */
-async function lifecycle(tokenId, fromBlock) {
+/* Replay one position's events into USD in / USD out. The pair is whatever the position
+   holds: one stable leg anchors the value, the other leg is priced by the position's own
+   pool at the block of each event. */
+async function lifecycle(tokenId, fromBlock, m) {
   const logs = await rpc('eth_getLogs', [{
     fromBlock: '0x' + fromBlock.toString(16), toBlock: 'latest', address: CFG.npm,
     topics: [null, '0x' + pad(tokenId.toString(16))],
@@ -475,11 +493,12 @@ async function lifecycle(tokenId, fromBlock) {
     const t = l.topics[0];
     if (t !== INC_TOPIC && t !== DEC_TOPIC && t !== COL_TOPIC) continue;
     /* all three carry (_, amount0, amount1) — word0 is liquidity or recipient */
-    const a0 = Number(toBig(w(l.data, 1))) / 10 ** CFG.tokens.USDC.d;
-    const a1 = Number(toBig(w(l.data, 2))) / 10 ** CFG.tokens.KAT.d;
+    const a0 = Number(toBig(w(l.data, 1))) / 10 ** m.d0;
+    const a1 = Number(toBig(w(l.data, 2))) / 10 ** m.d1;
     if (!a0 && !a1) continue;
     const ts = Number(BigInt(l.blockTimestamp));
-    const usd = a0 + a1 * (await katPriceAtBlock(l.blockNumber));
+    const px = await poolPxAt(m.pool, m.d0, m.d1, l.blockNumber);   // token1 per token0
+    const usd = m.stable0 ? a0 + (px ? a1 / px : 0) : a1 + a0 * px;
     if (t === INC_TOPIC) {
       if (inUsd > 0) topupUsd += usd;           /* added to a position already open */
       inUsd += usd;
@@ -488,7 +507,7 @@ async function lifecycle(tokenId, fromBlock) {
     else if (t === COL_TOPIC) {
       /* principal and fees both exit via Collect — but only what came back to this wallet is
          ours; a staked position's fees go to the Katana DAO (see paidToUs) */
-      if (await paidToUs(l, [CFG.tokens.USDC.a, CFG.tokens.KAT.a], (h) => rpc('eth_getTransactionReceipt', [h]))) outUsd += usd;
+      if (await paidToUs(l, [m.t0, m.t1], (h) => rpc('eth_getTransactionReceipt', [h]))) outUsd += usd;
     }
     else closeTs = ts;                          // DecreaseLiquidity — the last one closes it
   }
@@ -562,15 +581,21 @@ async function updatePositions(W) {
         if (!res[i].ok) continue;
         const k = String(ids[i]);
         const d = res[i].data;
-        const sym0 = symOf(toAddr(w(d, 2))), sym1 = symOf(toAddr(w(d, 3)));
-        /* only the vbUSDC/KAT pool can be priced from poolKatUsdc — skip anything else
-           rather than book a wrong number */
-        if (sym0 !== 'USDC' || sym1 !== 'KAT') { console.warn(`position #${k}: unpriceable pair, skipped`); continue; }
-        const pair = 'vbUSDC / KAT';
-        const poolFee = parseInt(w(d, 4), 16) / 10000 + '%';
+        const t0 = toAddr(w(d, 2)), t1 = toAddr(w(d, 3));
+        const sym0 = symOf(t0), sym1 = symOf(t1);
+        /* both legs must be known and exactly one of them a stable: that one anchors the
+           value and the pool prices the other. Anything else is skipped rather than guessed. */
+        if (!sym0 || !sym1 || KAT_STABLE(sym0) === KAT_STABLE(sym1)) {
+          console.warn(`position #${k}: unpriceable pair, skipped`); continue;
+        }
+        const fee = parseInt(w(d, 4), 16);
+        const m = { t0, t1, d0: CFG.tokens[sym0].d, d1: CFG.tokens[sym1].d,
+          stable0: KAT_STABLE(sym0), pool: await poolFor(t0, t1, fee) };
+        const pair = `${KAT_LABEL[sym0] || sym0} / ${KAT_LABEL[sym1] || sym1}`;
+        const poolFee = fee / 10000 + '%';
         const liq = toBig(w(d, 7));
         if (liq === 0n) {
-          const lc = await lifecycle(ids[i], cand.get(k));
+          const lc = await lifecycle(ids[i], cand.get(k), m);
           if (lc.openTs === null) { console.warn(`position #${k}: opened before scan window, skipped`); continue; }
           p.closed.push({
             id: k, pair, pool_fee: poolFee,
@@ -585,7 +610,7 @@ async function updatePositions(W) {
         } else {
           /* still open: replay the deposit side so the dashboard can list it alongside the
              closed ones. Recomputed each run, so topping a position up is picked up. */
-          const lc = await lifecycle(ids[i], cand.get(k));
+          const lc = await lifecycle(ids[i], cand.get(k), m);
           p.open[k] = {
             pair, pool_fee: poolFee, opened_block: cand.get(k),
             opened: lc.openTs ? dayKey(lc.openTs) : null,
@@ -626,6 +651,7 @@ async function getKatana(prevStakedIds) {
     { to: CFG.morpho, data: '0x5c60e39a' + CFG.marketId.slice(2) },          // market
     { to: CFG.npm, data: '0x70a08231' + pad(W) }, // NFT count
     { to: CFG.vkatNft, data: '0x70a08231' + pad(W) }, // vKAT lock count
+    { to: CFG.poolWbtcUsdc, data: '0x3850c7bd' }, // slot0 — last, so every index above holds
   ];
   const [ethHex, r] = await Promise.all([rpc('eth_getBalance', [CFG.wallet, 'latest']), multicall(calls)]);
   const ethBal = Number(BigInt(ethHex)) / 1e18;
@@ -639,6 +665,8 @@ async function getKatana(prevStakedIds) {
   const avkatRate = Number(toBig(w(r[5].data, 0))) / 1e18;
   const katPrice = 1 / poolPrice(toBig(w(r[6].data, 0)), 6, 18);
   const ethPrice = 1 / poolPrice(toBig(w(r[7].data, 0)), 6, 18);
+  /* this pool is the other way round — vbWBTC first — so the price needs no reciprocal */
+  const btcPrice = r[12]?.ok ? poolPrice(toBig(w(r[12].data, 0)), 8, 6) : 0;
   const borrowShares = toBig(w(r[8].data, 1));
   const collateral = Number(toBig(w(r[8].data, 2))) / 1e18;
   const totBA = toBig(w(r[9].data, 2)), totBS = toBig(w(r[9].data, 3));
@@ -704,9 +732,10 @@ async function getKatana(prevStakedIds) {
   })) : [];
 
   const lc = (s) => s.toLowerCase();
-  const priceOf = { [lc(T.USDC.a)]: 1, [lc(T.USDT.a)]: 1, [lc(T.KAT.a)]: katPrice, [lc(T.WETH.a)]: ethPrice, [lc(T.avKAT.a)]: katPrice * avkatRate };
-  const decOf = { [lc(T.USDC.a)]: 6, [lc(T.USDT.a)]: 6, [lc(T.KAT.a)]: 18, [lc(T.WETH.a)]: 18, [lc(T.avKAT.a)]: 18 };
-  const symOf = { [lc(T.USDC.a)]: 'vbUSDC', [lc(T.USDT.a)]: 'vbUSDT', [lc(T.KAT.a)]: 'KAT', [lc(T.WETH.a)]: 'vbETH', [lc(T.avKAT.a)]: 'avKAT' };
+  const amt = (x) => (x >= 1000 ? Math.round(x).toLocaleString('en-US') : x >= 1 ? x.toFixed(2) : x.toFixed(6));
+  const priceOf = { [lc(T.USDC.a)]: 1, [lc(T.USDT.a)]: 1, [lc(T.KAT.a)]: katPrice, [lc(T.WETH.a)]: ethPrice, [lc(T.avKAT.a)]: katPrice * avkatRate, [lc(T.WBTC.a)]: btcPrice };
+  const decOf = { [lc(T.USDC.a)]: 6, [lc(T.USDT.a)]: 6, [lc(T.KAT.a)]: 18, [lc(T.WETH.a)]: 18, [lc(T.avKAT.a)]: 18, [lc(T.WBTC.a)]: 8 };
+  const symOf = { [lc(T.USDC.a)]: 'vbUSDC', [lc(T.USDT.a)]: 'vbUSDT', [lc(T.KAT.a)]: 'KAT', [lc(T.WETH.a)]: 'vbETH', [lc(T.avKAT.a)]: 'avKAT', [lc(T.WBTC.a)]: 'vbWBTC' };
 
   const lps = [];
   active.forEach((p, j) => {
@@ -742,7 +771,8 @@ async function getKatana(prevStakedIds) {
       value_usd: round2(val), apr: null, staked: p.staked,
       token_id: String(p.tokenId),   // lets the position ledger price an open position
       range_status: range,
-      note: `NFT #${p.tokenId}${p.staked ? ' · STAKED' : ''} — ${h0.toFixed(2)} ${symOf[t0]} + ${Math.round(h1).toLocaleString('en-US')} ${symOf[t1]} (auto-detected on-chain)`,
+      /* a few thousandths of a vbWBTC must not print as 0.00 */
+      note: `NFT #${p.tokenId}${p.staked ? ' · STAKED' : ''} — ${amt(h0)} ${symOf[t0]} + ${amt(h1)} ${symOf[t1]} (auto-detected on-chain)`,
     });
   });
 
