@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 44281746,
+  "last_block": 44291335,
   "open": {},
   "closed": [
     {
@@ -355,40 +355,33 @@
     }
   ],
   "robinhood": {
-    "last_block": 74794082,
-    "open": {
-      "1273105": {
+    "last_block": 79119393,
+    "open": {},
+    "closed": [
+      {
         "id": "1273105",
         "chain": "robinhood",
-        "token0": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
-        "token1": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
-        "fee": 3000,
-        "opened_block": 69718519,
-        "in0": 493.630782,
-        "in1": 2.5624221255056523,
-        "out0": 8.384203000000001,
-        "out1": 0.10055221791777302,
-        "in_usd": 736.313059123145,
-        "out_usd": 17.561935992276386,
-        "fees_usd": 17.561935992276386,
-        "owed0": "0",
-        "owed1": "0",
-        "d0": 6,
-        "s0": "USDG",
-        "d1": 18,
-        "s1": "CRCL",
-        "pool": "0x654e4143e82a5824445ade0824351c2a9acd95a8",
         "pair": "USDG / CRCL",
         "pool_fee": "0.3%",
-        "opened_ts": 1790086523,
+        "pool": "0x654e4143e82a5824445ade0824351c2a9acd95a8",
+        "token0": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "token1": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+        "d0": 6,
+        "d1": 18,
+        "s0": "USDG",
+        "s1": "CRCL",
+        "opened_block": 69718519,
         "opened": "2026-09-22",
-        "last_block": 73990929,
-        "last_ts": 1790517384,
+        "opened_ts": 1790086523,
+        "closed": "2026-10-03",
+        "closed_ts": 1791032531,
         "open_value_usd": 736.31,
-        "withdrawn_usd": 17.56
-      }
-    },
-    "closed": [
+        "close_value_usd": 671.55,
+        "topup_usd": 0,
+        "pnl_usd": -64.77,
+        "pnl_pct": -8.8,
+        "fees_usd": 18.11
+      },
       {
         "id": "1230033",
         "chain": "robinhood",
@@ -488,7 +481,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 24038049,
+    "last_block": 24057004,
     "open": {
       "arc:v4:281343": {
         "uid": "arc:v4:281343",
