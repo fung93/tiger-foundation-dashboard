@@ -1223,6 +1223,7 @@ function getKatanaLive(stakedLpIds){
             symOf[T.KAT.a.toLowerCase()]='KAT';symOf[T.WETH.a.toLowerCase()]='vbETH';
             symOf[T.avKAT.a.toLowerCase()]='avKAT';symOf[T.WBTC.a.toLowerCase()]='vbWBTC';
             var lps=[];
+            UNTRACKED_LIVE=UNTRACKED_LIVE.filter(function(u){return u.chain!=='katana';});
             for(var i=0;i<active.length;i++){
               var p=active[i],si=i*5;
               if(!slotRes[si]||!slotRes[si].ok)continue;
@@ -1246,7 +1247,10 @@ function getKatanaLive(stakedLpIds){
               if(curTick<p.tickLo)range=isStable(t0)?'above':'below';
               else if(curTick>p.tickHi)range=isStable(t1)?'above':'below';
               var d0=decOf[t0],d1=decOf[t1];
-              if(d0===undefined||d1===undefined)continue; /* unknown token */
+              if(d0===undefined||d1===undefined){                /* unknown token */
+                noteUntracked('katana',p.tokenId,'token not in the Katana list',{token0:t0,token1:t1});
+                continue;
+              }
               var h0=amts[0]/Math.pow(10,d0)+Number(fee0)/Math.pow(10,d0);
               var h1=amts[1]/Math.pow(10,d1)+Number(fee1)/Math.pow(10,d1);
               var val=h0*(priceOf[t0]||0)+h1*(priceOf[t1]||0);
@@ -2588,6 +2592,22 @@ function closeClaims(){document.getElementById('claimsModal').classList.remove('
    positions.json is written by the 6h Action; the live scan below catches anything closed
    since, so a position closed minutes ago shows up on this refresh. */
 var POSITIONS=null,LIVE_POSITIONS=null,BLK_CACHE={};
+/* Positions the wallet holds that this pass could not value — an unlisted token, a pair with
+   no stable leg. A drop like this used to be a `continue` and nothing more, which is how a
+   staked vbWBTC position stayed off the dashboard while the money sat in it. Every drop is
+   recorded here and said out loud under the positions, so the next one announces itself. */
+var UNTRACKED_LIVE=[];
+function noteUntracked(chain,id,reason,extra){
+  if(UNTRACKED_LIVE.some(function(u){return u.chain===chain&&String(u.id)===String(id);}))return;
+  var row={chain:chain,id:String(id),reason:reason};
+  if(extra){for(var k in extra)row[k]=extra[k];}
+  UNTRACKED_LIVE.push(row);
+}
+/* what the page knows about now: this pass if it has run, else the snapshot's own list */
+function untrackedNow(){
+  if(UNTRACKED_LIVE.length)return UNTRACKED_LIVE;
+  return(LAST_DATA&&LAST_DATA.untracked)||[];
+}
 /* current market value and range status per open LP token id, refreshed every load */
 var LP_VALUE={},LP_RANGE={};
 
@@ -3853,9 +3873,30 @@ function render(d,isLive){
       dl+='</div>';
     });
   });
-  document.getElementById('defiList').innerHTML=dl||'<p style="color:var(--dim);font-size:14px;padding:12px">No active positions</p>';
+  document.getElementById('defiList').innerHTML=(untrackedNote()+dl)
+    ||'<p style="color:var(--dim);font-size:14px;padding:12px">No active positions</p>';
 
   if(isLive)liveRendered=true;
+}
+
+/* A position the wallet holds but the page cannot value is worth more on screen than in a
+   console line: it is money that would otherwise be missing from every total without a word. */
+function untrackedNote(){
+  var u=untrackedNow();
+  if(!u.length)return'';
+  var CH={katana:'Katana',robinhood:'Robinhood',arc:'Arc',solana:'Solana'};
+  return'<div class="pos-card" style="border-color:var(--red)">'
+    +'<div class="pos-head"><span class="pos-proto" style="color:var(--red)">Not counted</span>'
+    +'<span><span class="hf" style="background:rgba(239,68,68,.15);color:var(--red)">'
+    +u.length+' position'+(u.length>1?'s':'')+'</span></span></div>'
+    +u.map(function(x){
+      return'<div class="pos-row"><span class="pos-label">#'+x.id+' <span style="font-size:11px;opacity:.75">'
+        +(CH[x.chain]||x.chain)+'</span></span><span class="pos-val" style="color:var(--red);font-size:11px">'
+        +x.reason+'</span></div>';
+    }).join('')
+    +'<div class="health-note" style="padding-top:8px">Held on-chain but left out of every total — '
+    +'its token is not on the list the dashboard prices from. Tell Claude the pool and it gets added.</div>'
+    +'</div>';
 }
 
 /* ============ Ask the Tiger ============ */

@@ -10,6 +10,18 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/* Positions the wallet really holds that this run could not value — an unlisted token, a
+   pair with no stable leg to anchor it. They used to be dropped with a console line nobody
+   reads, which is how a staked vbWBTC position sat unseen: the money was there, the
+   dashboard simply did not mention it. Now every drop is carried into data.json and the
+   page says so on screen, so the next unlisted token announces itself. */
+const UNTRACKED = [];
+function noteUntracked(chain, id, reason, extra) {
+  if (UNTRACKED.some((u) => u.chain === chain && String(u.id) === String(id))) return;
+  UNTRACKED.push({ chain, id: String(id), reason, ...(extra || {}) });
+  console.warn(`  UNTRACKED ${chain} #${id}: ${reason}`);
+}
+
 const CFG = {
   /* Robinhood Chain (4663). Addresses discovered on-chain, not from docs — see the same
      note in index.html. No archive state here, and the public RPC rate-limits hard, so the
@@ -586,7 +598,9 @@ async function updatePositions(W) {
         /* both legs must be known and exactly one of them a stable: that one anchors the
            value and the pool prices the other. Anything else is skipped rather than guessed. */
         if (!sym0 || !sym1 || KAT_STABLE(sym0) === KAT_STABLE(sym1)) {
-          console.warn(`position #${k}: unpriceable pair, skipped`); continue;
+          noteUntracked('katana', k, !sym0 || !sym1 ? 'token not in the Katana list'
+            : 'pair has no single stable leg to price against', { token0: t0, token1: t1 });
+          continue;
         }
         const fee = parseInt(w(d, 4), 16);
         const m = { t0, t1, d0: CFG.tokens[sym0].d, d1: CFG.tokens[sym1].d,
@@ -744,7 +758,10 @@ async function getKatana(prevStakedIds) {
     const sqrtP = toBig(w(slotRes[i].data, 0));
     const [a0, a1] = v3Amounts(p.liq, p.tickLo, p.tickHi, sqrtP);
     const t0 = lc(p.token0), t1 = lc(p.token1);
-    if (decOf[t0] === undefined || decOf[t1] === undefined) return;
+    if (decOf[t0] === undefined || decOf[t1] === undefined) {
+      noteUntracked('katana', p.tokenId, 'token not in the Katana list', { token0: t0, token1: t1 });
+      return;
+    }
     const curTick0 = Number(toSigned(w(slotRes[i].data, 1)));
     let f0 = p.owed0, f1 = p.owed1;
     if (slotRes[i + 1]?.ok && slotRes[i + 2]?.ok && slotRes[i + 3]?.ok && slotRes[i + 4]?.ok) {
@@ -2084,7 +2101,10 @@ const data = {
     katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: round2(rhTotal), arc_usd: arcTotal,
     onchain_usd: onchainAll, lp_usd: lpAll, merkl_usd: pendingAll,
     total_defi_positions: defiPositions.length, chains_count: 4,
+    untracked_count: UNTRACKED.length,
   },
+  /* held but not valued — the page shows these so a silent gap cannot open again */
+  untracked: UNTRACKED,
   merkl_rewards: merkl,
   lp_positions: [...kat.lps, ...sol.lps,
     ...rh.lps.map((l) => { const c = { ...l }; Object.keys(c).forEach((k) => k[0] === '_' && delete c[k]); return c; }),
