@@ -2591,22 +2591,45 @@ var POSITIONS=null,LIVE_POSITIONS=null,BLK_CACHE={};
 /* current market value and range status per open LP token id, refreshed every load */
 var LP_VALUE={},LP_RANGE={};
 
-/* KAT price and timestamp at a historical block, memoised per block */
-function blockInfo(block){
-  if(BLK_CACHE[block])return BLK_CACHE[block];
-  BLK_CACHE[block]=Promise.all([
-    rpc('eth_call',[{to:CFG.poolKatUsdc,data:'0x3850c7bd'},block]),
+/* A pool's own price and the block's timestamp at a historical block, memoised. Katana keeps
+   archive state, so each event is priced by the pool the position sits in — one pool is no
+   longer assumed, since a wallet can hold vbWBTC/vbUSDC as readily as vbUSDC/KAT. */
+function blockInfo(block,m){
+  var key=m.pool+'@'+block;
+  if(BLK_CACHE[key])return BLK_CACHE[key];
+  BLK_CACHE[key]=Promise.all([
+    rpc('eth_call',[{to:m.pool,data:'0x3850c7bd'},block]),
     rpc('eth_getBlockByNumber',[block,false])
   ]).then(function(r){
-    var raw=Math.pow(Number(toBig(w(r[0],0))),2)/Math.pow(2,192); /* token1/token0, raw units */
-    return{px:1/(raw*Math.pow(10,CFG.tokens.USDC.d-CFG.tokens.KAT.d)),
+    return{px:poolPrice(toBig(w(r[0],0)),m.d0,m.d1),   /* token1 per token0, human units */
            ts:Number(BigInt(r[1].timestamp))};
   });
-  return BLK_CACHE[block];
+  return BLK_CACHE[key];
+}
+/* The Katana tokens the page can price, and which of them anchor a pair's value. */
+function katTokenOf(a){
+  a=String(a).toLowerCase();
+  var T=CFG.tokens;
+  for(var k in T)if(T[k].a.toLowerCase()===a)return{sym:k,d:T[k].d,
+    stable:k==='USDC'||k==='USDT',label:KAT_LABEL[k]||k};
+  return null;
+}
+var KAT_LABEL={USDC:'vbUSDC',USDT:'vbUSDT',WETH:'vbETH',WBTC:'vbWBTC',KAT:'KAT',avKAT:'avKAT'};
+/* Everything a replay needs about a position: both legs and the pool that prices them.
+   One stable leg anchors the value; a pair without exactly one is left to the Action. */
+function katPairMeta(d){
+  var t0=toAddr(w(d,2)),t1=toAddr(w(d,3)),fee=parseInt(w(d,4),16);
+  var i0=katTokenOf(t0),i1=katTokenOf(t1);
+  if(!i0||!i1||i0.stable===i1.stable)return Promise.resolve(null);
+  return rpc('eth_call',[{to:CFG.factory,
+    data:'0x1698ee82'+padAddr(t0)+padAddr(t1)+pad(fee.toString(16))},'latest']).then(function(r){
+    return{token0:t0,token1:t1,d0:i0.d,d1:i1.d,stable0:i0.stable,pool:toAddr(w(r,0)),
+      pair:i0.label+' / '+i1.label,pool_fee:(fee/10000)+'%'};
+  });
 }
 
 /* Replay one position's events into USD in / USD out */
-function posLifecycle(tokenId,fromBlock){
+function posLifecycle(tokenId,fromBlock,m){
   return rpc('eth_getLogs',[{fromBlock:'0x'+fromBlock.toString(16),toBlock:'latest',
     address:CFG.npm,topics:[null,'0x'+pad(tokenId.toString(16))]}]).then(function(logs){
     var acts=[];
@@ -2614,8 +2637,8 @@ function posLifecycle(tokenId,fromBlock){
       var t=l.topics[0];
       if(t!==CFG.incTopic&&t!==CFG.decTopic&&t!==CFG.colTopic)return;
       /* all three carry (_, amount0, amount1) — word 0 is liquidity or recipient */
-      var a0=Number(toBig(w(l.data,1)))/Math.pow(10,CFG.tokens.USDC.d);
-      var a1=Number(toBig(w(l.data,2)))/Math.pow(10,CFG.tokens.KAT.d);
+      var a0=Number(toBig(w(l.data,1)))/Math.pow(10,m.d0);
+      var a1=Number(toBig(w(l.data,2)))/Math.pow(10,m.d1);
       if(!a0&&!a1)return;
       acts.push({t:t,a0:a0,a1:a1,block:l.blockNumber,log:l});
     });
@@ -2623,15 +2646,16 @@ function posLifecycle(tokenId,fromBlock){
        Katana DAO (see paidToUs) */
     return Promise.all(acts.map(function(a){
       return a.t===CFG.colTopic
-        ? paidToUs(a.log,[CFG.tokens.USDC.a,CFG.tokens.KAT.a],function(h){return rpc('eth_getTransactionReceipt',[h]);})
+        ? paidToUs(a.log,[m.token0,m.token1],function(h){return rpc('eth_getTransactionReceipt',[h]);})
         : true;
     })).then(function(ours){
       acts=acts.filter(function(a,i){return ours[i];});
-      return Promise.all(acts.map(function(a){return blockInfo(a.block);}));
+      return Promise.all(acts.map(function(a){return blockInfo(a.block,m);}));
     }).then(function(bi){
       var inUsd=0,outUsd=0,openTs=null,closeTs=null;
       acts.forEach(function(a,i){
-        var usd=a.a0+a.a1*bi[i].px;
+        /* the stable leg anchors it: the other side is worth what the pool says it is */
+        var usd=m.stable0?a.a0+(bi[i].px?a.a1/bi[i].px:0):a.a1+a.a0*bi[i].px;
         if(a.t===CFG.incTopic){inUsd+=usd;if(openTs===null)openTs=bi[i].ts;}
         else if(a.t===CFG.colTopic)outUsd+=usd;   /* principal and fees both exit via Collect */
         else closeTs=bi[i].ts;                    /* DecreaseLiquidity — the last one closes it */
@@ -2663,22 +2687,24 @@ function scanLivePositions(known){
     if(!ids.length)return{closed:[],open:[]};
     return multicall(ids.map(function(k){return{to:CFG.npm,data:'0x99fbab88'+pad(BigInt(k).toString(16))};}))
       .then(function(res){
-        var shut=[],live=[];
+        var shut=[],live=[],metas=[];
         ids.forEach(function(k,i){
           if(!res[i].ok)return;
           var d=res[i].data;
-          /* only the vbUSDC/KAT pool can be priced from poolKatUsdc — skip anything else
-             rather than show a wrong number */
-          if(toAddr(w(d,2)).toLowerCase()!==CFG.tokens.USDC.a.toLowerCase())return;
-          if(toAddr(w(d,3)).toLowerCase()!==CFG.tokens.KAT.a.toLowerCase())return;
-          var e={id:k,fee:parseInt(w(d,4),16)/10000+'%'};
+          var e={id:k,d:d};
           if(toBig(w(d,7))===BigInt(0))shut.push(e);
           else if(!om[k])live.push(e);  /* already-known open ones keep the Action's figures */
         });
+        /* describe each pair once; an unpriceable one drops out here rather than later */
+        return Promise.all(shut.concat(live).map(function(e){
+          return katPairMeta(e.d).then(function(m){e.m=m;});
+        })).then(function(){
+        shut=shut.filter(function(e){return e.m;});
+        live=live.filter(function(e){return e.m;});
         function replay(c,isOpen){
-          return posLifecycle(BigInt(c.id),cand[c.id]).then(function(lc){
+          return posLifecycle(BigInt(c.id),cand[c.id],c.m).then(function(lc){
             if(lc.openTs===null)return null;  /* opened before the window — the Action books it */
-            var base={id:c.id,pair:'vbUSDC / KAT',pool_fee:c.fee,
+            var base={id:c.id,pair:c.m.pair,pool_fee:c.m.pool_fee,
               opened:utc8Date(lc.openTs*1000),opened_ts:lc.openTs,
               open_value_usd:Math.round(lc.inUsd*100)/100};
             if(isOpen)return base;
@@ -2696,6 +2722,7 @@ function scanLivePositions(known){
           Promise.all(shut.map(function(c){return replay(c,false);})).then(keep),
           Promise.all(live.map(function(c){return replay(c,true);})).then(keep)
         ]).then(function(r){return{closed:r[0],open:r[1]};});
+        });
       });
   });
 }
