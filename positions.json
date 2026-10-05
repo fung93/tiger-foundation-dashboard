@@ -1,18 +1,32 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 44462533,
+  "last_block": 44500120,
   "open": {
-    "465354": {
+    "465604": {
       "pair": "vbWBTC / vbUSDC",
       "pool_fee": "0.05%",
-      "opened_block": 44429393,
+      "opened_block": 44472891,
       "opened": "2026-10-05",
-      "opened_ts": 1791172204,
-      "open_value_usd": 701.38,
+      "opened_ts": 1791215702,
+      "open_value_usd": 652.68,
       "topup_usd": 0
     }
   },
   "closed": [
+    {
+      "id": "465354",
+      "pair": "vbWBTC / vbUSDC",
+      "pool_fee": "0.05%",
+      "opened": "2026-10-05",
+      "opened_ts": 1791172204,
+      "closed": "2026-10-05",
+      "closed_ts": 1791214872,
+      "open_value_usd": 701.38,
+      "close_value_usd": 695.19,
+      "topup_usd": 0,
+      "pnl_usd": -6.19,
+      "pnl_pct": -0.88
+    },
     {
       "id": "465194",
       "pair": "vbWBTC / vbUSDC",
@@ -393,7 +407,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 80805216,
+    "last_block": 81174394,
     "open": {},
     "closed": [
       {
@@ -519,7 +533,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 24394372,
+    "last_block": 24467937,
     "open": {
       "arc:v4:281343": {
         "uid": "arc:v4:281343",
@@ -528,11 +542,11 @@
         "chain": "arc",
         "opened_block": 23818641,
         "in_usd": 163.5533712549809,
-        "out_usd": 4.242010485596619,
+        "out_usd": 5.491575456423046,
         "in0": 99.706929,
         "in1": 4143.166400049263,
-        "out0": 2.098978,
-        "out1": 151.30652319311147,
+        "out0": 2.7229829999999997,
+        "out1": 195.80071390016954,
         "staked": false,
         "token0": "0x3600000000000000000000000000000000000000",
         "token1": "0xece5ca8bf9220718e5727754026757512212cb3c",
@@ -549,10 +563,10 @@
         "protocol": "Uniswap V4",
         "opened_ts": 1790913239,
         "opened": "2026-10-02",
-        "last_block": 24208782,
-        "last_ts": 1791111184,
+        "last_block": 24400179,
+        "last_ts": 1791208297,
         "v4_liq": "4160180539242119",
-        "fees_usd": 4.242010485596619
+        "fees_usd": 5.491575456423046
       }
     },
     "closed": [
