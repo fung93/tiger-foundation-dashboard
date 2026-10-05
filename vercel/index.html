@@ -13,8 +13,92 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='13' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='51' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='13' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='51' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='32' cy='36' r='26' fill='%23f59e0b'/%3E%3Crect x='30.4' y='11' width='3.2' height='9' rx='1.6' fill='%237c2d12'/%3E%3Crect x='23.2' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(-10 24.7 16)'/%3E%3Crect x='37.8' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(10 39.3 16)'/%3E%3Crect x='7' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='8' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Cellipse cx='32' cy='47' rx='12' ry='9.5' fill='%23fff7ed'/%3E%3Ccircle cx='22.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='41.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='21.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Ccircle cx='40.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Cpath d='M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z' fill='%239a3412'/%3E%3Cpath d='M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1' stroke='%239a3412' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='15.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3Cellipse cx='48.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+/* Read the saved theme before anything is drawn: set on <html> in the head, the page opens
+   in the chosen skin with no flash of the other one. Nothing else runs this early. */
+(function(){try{
+  var t=localStorage.getItem('tf_theme');
+  if(t==='slate'){document.documentElement.setAttribute('data-theme','slate');
+    var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0a0c11');}
+}catch(e){}})();
+</script>
 <style>
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
+
+/* ================= Slate: dark, silver, glass =================
+   A second skin, not a second page. Every colour on the dashboard already comes from the
+   variables above, so the theme redefines those and then does three more things: takes the
+   photographic background and the drawn characters out, replaces the amber with brushed
+   silver, and gives each panel a real glass edge — a translucent fill, a hairline border and
+   a lit top edge, which is what makes glass read as glass rather than as grey.
+   Chosen in the header, remembered in this browser, and applied before the first paint so
+   the page never flashes the other theme on the way in. */
+:root[data-theme="slate"]{
+  --bg:#0a0c11;--card:#12151c;--border:rgba(255,255,255,.10);
+  --text:#e7eaf0;--dim:#8b94a6;
+  --accent:#b8c3d4;      /* brushed silver, where amber used to lead */
+  --gold:#e3e9f2;        /* the brighter end of the same metal, for headline figures */
+  --green:#3ecf8e;--red:#f0656f;--blue:#8ab4f8;--purple:#b9a7f5;--sol:#a5b0ff;
+  /* one place for the glass recipe, so every panel uses the same one */
+  --glass:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.022));
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.10);
+  --glass-drop:0 18px 36px -26px rgba(0,0,0,.95);
+}
+/* no photograph behind the page: a slow metal gradient instead */
+:root[data-theme="slate"] body::before{
+  background:
+    radial-gradient(1100px 620px at 18% -12%,rgba(176,190,210,.11),transparent 62%),
+    radial-gradient(900px 520px at 102% 2%,rgba(120,135,160,.10),transparent 58%),
+    linear-gradient(180deg,#0c0f15 0%,#090b10 55%,#07090d 100%);
+  filter:none}
+:root[data-theme="slate"] body::after{background:none}
+/* the drawn characters belong to the other theme */
+:root[data-theme="slate"] .hero::before,
+:root[data-theme="slate"] .hero-photo-wrap,
+:root[data-theme="slate"] .moon,
+:root[data-theme="slate"] .brand-mark .tiger-calm,
+:root[data-theme="slate"] .brand-mark .tiger-angry{display:none}
+:root[data-theme="slate"] .brand-mark .mark-pro{display:block}
+/* the rocket becomes a machined marker: same job, no cartoon */
+:root[data-theme="slate"] .rocket img{display:none}
+:root[data-theme="slate"] .rocket{width:3px;height:26px;bottom:9px;
+  background:linear-gradient(180deg,#eef2f7,rgba(238,242,247,.15));border-radius:3px;
+  box-shadow:0 0 10px rgba(226,232,240,.45)}
+/* panels */
+:root[data-theme="slate"] .hdr{
+  background:linear-gradient(180deg,rgba(20,23,30,.88),rgba(11,13,18,.88));
+  border-bottom:1px solid rgba(255,255,255,.10)}
+:root[data-theme="slate"] .hdr h1 .t{color:#eef2f7}
+:root[data-theme="slate"] .hdr h1 .f{color:#8b94a6}
+:root[data-theme="slate"] .hero,
+:root[data-theme="slate"] .c,
+:root[data-theme="slate"] .chain-row,
+:root[data-theme="slate"] .pos-card{
+  background:var(--glass);border:1px solid var(--border);
+  box-shadow:var(--glass-edge),var(--glass-drop)}
+:root[data-theme="slate"] .pos-card{border-color:rgba(255,255,255,.08)}
+:root[data-theme="slate"] .progress-bg{background:rgba(255,255,255,.07)}
+:root[data-theme="slate"] .progress-fill{background:linear-gradient(90deg,#7e8a9e,#e3e9f2)}
+:root[data-theme="slate"] .hf.gold{background:rgba(226,232,240,.10);color:var(--gold)}
+:root[data-theme="slate"] .cur-btn:hover,
+:root[data-theme="slate"] .theme-btn:hover{color:var(--gold);
+  border-color:rgba(226,232,240,.35);background:rgba(226,232,240,.10)}
+/* the metal reads as metal only if the type is quieter than the amber theme's */
+:root[data-theme="slate"] .sec-title{color:#aab4c4}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-theme="slate"] .c,:root[data-theme="slate"] .chain-row{transition:box-shadow .2s,border-color .2s}
+  :root[data-theme="slate"] .c:hover,:root[data-theme="slate"] .chain-row:hover{
+    border-color:rgba(255,255,255,.16);box-shadow:var(--glass-edge),0 22px 44px -26px rgba(0,0,0,1)}
+}
+/* the switch itself, beside the clock */
+.hdr-right{display:flex;align-items:center;gap:14px}
+.theme-btn{flex:none;font:inherit;font-size:11px;font-weight:700;letter-spacing:1px;
+  padding:6px 12px;border-radius:999px;cursor:pointer;text-transform:uppercase;
+  color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
+  transition:color .15s,border-color .15s,background .15s;
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.theme-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
+@media(max-width:768px){.theme-btn{padding:5px 10px;font-size:10px}}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
@@ -436,10 +520,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 <div class="hdr">
   <div class="hdr-inner">
     <div class="hdr-brand">
-      <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
+      <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="mark-pro" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true" style="display:none"><defs><linearGradient id="mpg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2f5f9"/><stop offset=".5" stop-color="#9aa6b8"/><stop offset="1" stop-color="#5b6577"/></linearGradient></defs><path d="M32 3.5 56.5 17v30L32 60.5 7.5 47V17z" fill="none" stroke="url(#mpg)" stroke-width="2.4" stroke-linejoin="round"/><path d="M32 13.5 47 22v20l-15 8.5L17 42V22z" fill="rgba(226,232,240,.07)" stroke="rgba(226,232,240,.35)" stroke-width="1"/><path d="M24 40V25.5h4.6c3.6 0 5.6 1.9 5.6 5 0 3.1-2 5-5.6 5H28V40z" fill="url(#mpg)"/><path d="M34.5 25.5H42v3.2h-2.1V40h-3.3V28.7H34.5z" fill="url(#mpg)" opacity=".85"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
       <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
-    <div class="ts" id="lastUpdated">Loading...</div>
+    <div class="hdr-right">
+      <button class="theme-btn" id="themeBtn" type="button" title="Switch theme">Theme</button>
+      <div class="ts" id="lastUpdated">Loading...</div>
+    </div>
   </div>
 </div>
 
@@ -3475,6 +3562,42 @@ function updatePeak(){
   document.getElementById('peakDate').textContent='on '+peakDate+' (incl vault)';
 }
 
+/* ---- themes ----
+   Two skins over one set of variables: Tiger (the drawn one) and Slate (dark, silver, glass).
+   The charts are the one place colour is not a CSS variable — Chart.js holds its own copy —
+   so each theme states its ink here and the charts are rebuilt when the theme changes. */
+var THEME_KEY='tf_theme';
+function themeNow(){return document.documentElement.getAttribute('data-theme')==='slate'?'slate':'tiger';}
+function themeInk(){
+  return themeNow()==='slate'
+    ? {line:'rgba(226,232,240,.92)',fill:'rgba(203,213,225,.12)',tick:'#8b94a6',
+       grid:'rgba(255,255,255,.05)',tip:'rgba(16,19,25,.97)',tipEdge:'#8b94a6',
+       barNow:'rgba(226,232,240,.85)',barNowEdge:'rgba(242,245,249,1)',
+       bar:function(i){return'rgba(176,190,210,'+(0.42-i*0.05)+')';},barEdge:'rgba(203,213,225,.7)',
+       value:'#cfd6e2'}
+    : {line:'rgba(245,158,11,0.9)',fill:'rgba(245,158,11,0.14)',tick:'#5a6a8a',
+       grid:'rgba(255,255,255,.03)',tip:'rgba(15,22,35,0.96)',tipEdge:'#f59e0b',
+       barNow:'rgba(245,158,11,0.85)',barNowEdge:'rgba(245,158,11,1)',
+       bar:function(i){return'rgba(251,191,36,'+(0.5-i*0.055)+')';},barEdge:'rgba(251,191,36,0.75)',
+       value:'#fbbf24'};
+}
+function applyTheme(t,save){
+  if(t==='slate')document.documentElement.setAttribute('data-theme','slate');
+  else document.documentElement.removeAttribute('data-theme');
+  var m=document.querySelector('meta[name="theme-color"]');
+  if(m)m.setAttribute('content',t==='slate'?'#0a0c11':'#0f1623');
+  var b=document.getElementById('themeBtn');
+  if(b){b.textContent=t==='slate'?'Slate':'Tiger';
+        b.title=t==='slate'?'Slate theme — tap for Tiger':'Tiger theme — tap for Slate';}
+  if(save){try{localStorage.setItem(THEME_KEY,t);}catch(e){}}
+  /* Chart.js keeps its own colours, so the charts are rebuilt rather than recoloured */
+  if(CHART){CHART.destroy();CHART=null;}
+  if(COMPOUND_CHART){COMPOUND_CHART.destroy();COMPOUND_CHART=null;}
+  drawHistory();
+  buildCompound();
+  placeRocket();
+}
+
 /* ---- the power of compounding ----
    The rate is measured, never assumed: total wealth on the first day of the record (the
    portfolio plus the vault as it stood then) against total wealth now, turned into a daily
@@ -3538,14 +3661,15 @@ function buildCompound(){
     return;
   }
   /* five doublings ahead: enough to show the shape, short enough to stay this side of fantasy */
+  var INK=themeInk();
   var labels=[],values=[],colors=[],borders=[];
   for(var i=0;i<=5;i++){
     var when=new Date(Date.now()+i*c.dbl*86400000);
     var month=when.toLocaleDateString('en-US',{month:'short',year:'numeric'});
     labels.push([i===0?'Now':'\u00d7'+Math.pow(2,i),month]);
     values.push(c.now*Math.pow(2,i));
-    colors.push(i===0?'rgba(245,158,11,0.85)':'rgba(251,191,36,'+(0.5-i*0.055)+')');
-    borders.push(i===0?'rgba(245,158,11,1)':'rgba(251,191,36,0.75)');
+    colors.push(i===0?INK.barNow:INK.bar(i));
+    borders.push(i===0?INK.barNowEdge:INK.barEdge);
   }
   var eta=document.getElementById('targetEta');
   if(eta&&LAST_TOTAL!==null)eta.innerHTML=calcEta(LAST_TOTAL+CFG.coldVault,CFG.target);
@@ -3582,14 +3706,14 @@ function buildCompound(){
       layout:{padding:{top:22}},          /* room for the figure written above each bar */
       plugins:{
         legend:{display:false},
-        tooltip:{backgroundColor:'rgba(15,22,35,0.96)',titleColor:'#e8edf5',bodyColor:'#e8edf5',
-          borderColor:'#fbbf24',borderWidth:1,padding:10,
+        tooltip:{backgroundColor:INK.tip,titleColor:'#e8edf5',bodyColor:'#e8edf5',
+          borderColor:INK.tipEdge,borderWidth:1,padding:10,
           callbacks:{title:function(x){return x[0].label.replace(',',' · ');},
             label:function(ctx){return' '+fmt(ctx.raw);}}}
       },
       scales:{
-        x:{grid:{display:false},ticks:{color:'#5a6a8a',font:{size:10}}},
-        y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a8a',font:{size:10},
+        x:{grid:{display:false},ticks:{color:INK.tick,font:{size:10}}},
+        y:{grid:{color:INK.grid},ticks:{color:INK.tick,font:{size:10},
           callback:function(v){return fmtAxis(v);}}}
       }
     },
@@ -3599,7 +3723,7 @@ function buildCompound(){
         var ctx=ch.ctx;
         ctx.save();
         ctx.font='600 10px ui-monospace,monospace';
-        ctx.fillStyle='#fbbf24';
+        ctx.fillStyle=themeInk().value;
         ctx.textAlign='center';
         ch.getDatasetMeta(0).data.forEach(function(bar,i){
           ctx.fillText(fmtAxis(ch.data.datasets[0].data[i]),bar.x,bar.y-6);
@@ -4437,6 +4561,12 @@ function load(){
     updateRoiToggle();
     buildMonthly();
     document.getElementById('csvBtn').onclick=downloadCsv;
+    /* the theme switch: whatever is on now, the button offers the other one */
+    var tb=document.getElementById('themeBtn');
+    if(tb){
+      applyTheme(themeNow(),false);        /* label the button for the theme already applied */
+      tb.onclick=function(){applyTheme(themeNow()==='slate'?'tiger':'slate',true);};
+    }
     /* tap the card for a slower pace — the same measurement, a longer clock */
     var cc=document.getElementById('compoundCard');
     if(cc)cc.onclick=function(){
@@ -4455,13 +4585,27 @@ function load(){
       updateAvgDaily();
     };
 
-    CHART=new Chart(document.getElementById('historyChart').getContext('2d'),{
+    drawHistory();
+    syncTodayPoint();   /* live data may already have arrived while history was loading */
+  });
+}
+
+/* The history line, drawn from HIST in whichever theme is on. Rebuilt rather than recoloured
+   when the theme changes: Chart.js copies its colours in at construction. */
+function drawHistory(){
+  var el=document.getElementById('historyChart');
+  if(!el||typeof Chart==='undefined'||!HIST||!HIST.length)return;
+  var labels=HIST.map(function(x){return x.date?x.date.slice(5):'';});
+  var totals=HIST.map(function(x){return cv(x.total_usd||0);});
+  var INK=themeInk();
+  if(CHART){CHART.destroy();CHART=null;}
+  CHART=new Chart(el.getContext('2d'),{
       type:'line',
       data:{
         labels:labels,
         datasets:[
           {label:'Total',data:totals,
-            borderColor:'rgba(245,158,11,0.9)',backgroundColor:'rgba(245,158,11,0.14)',
+            borderColor:INK.line,backgroundColor:INK.fill,
             borderWidth:2,fill:true,tension:0.3,pointRadius:0,pointHoverRadius:4}
         ]
       },
@@ -4471,23 +4615,21 @@ function load(){
         plugins:{
           legend:{display:false},
           tooltip:{
-            backgroundColor:'rgba(15,22,35,0.96)',
+            backgroundColor:INK.tip,
             titleColor:'#e8edf5',bodyColor:'#e8edf5',
-            borderColor:'#f59e0b',borderWidth:1,padding:10,
+            borderColor:INK.tipEdge,borderWidth:1,padding:10,
             callbacks:{
               label:function(ctx){return' Total: '+fmt(ctx.raw);}
             }
           }
         },
         scales:{
-          x:{grid:{color:'rgba(255,255,255,.03)'},
-            ticks:{color:'#5a6a8a',font:{size:10},maxTicksLimit:12}},
-          y:{grid:{color:'rgba(255,255,255,.03)'},
-            ticks:{color:'#5a6a8a',font:{size:10},callback:function(v){return fmtAxis(v);}}}
+          x:{grid:{color:INK.grid},
+            ticks:{color:INK.tick,font:{size:10},maxTicksLimit:12}},
+          y:{grid:{color:INK.grid},
+            ticks:{color:INK.tick,font:{size:10},callback:function(v){return fmtAxis(v);}}}
         }
       }
-    });
-    syncTodayPoint();   /* live data may already have arrived while history was loading */
   });
 }
 
