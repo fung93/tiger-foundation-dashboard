@@ -97,10 +97,25 @@
 /* the hero wears the lining on its top edge, where the light would catch it */
 :root[data-theme="slate"] .hero{border-color:rgba(201,168,106,.22);
   box-shadow:inset 0 1px 0 rgba(232,210,160,.30),var(--glass-drop)}
-/* the figure the page exists for: silver that finishes in gold */
+/* The figure the page exists for, struck in metal. Several stops rather than two: polished
+   silver, a shadowed edge, champagne, deep gold, then silver again — the alternation is what
+   makes a flat fill read as a bevelled surface. The band is twice the width of the text and
+   drifts across it, so the metal catches the light as you watch; a reader who has asked for
+   less motion gets the same metal, held still. */
 :root[data-theme="slate"] .wealth-total{
-  background:linear-gradient(100deg,#f2f5f9 0%,#dce3ec 42%,var(--lining-hi) 76%,var(--lining) 100%);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  background:linear-gradient(100deg,
+    #ffffff 0%,#dfe7f1 10%,#aab6c6 20%,
+    #f3ead3 31%,var(--lining-hi) 40%,var(--lining) 50%,#a8864c 57%,
+    #e9eef5 68%,#ffffff 74%,#c7d1de 82%,
+    var(--lining-hi) 92%,var(--lining) 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 10px rgba(201,168,106,.22));
+  animation:sheen 9s ease-in-out infinite}
+@keyframes sheen{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@media(prefers-reduced-motion:reduce){
+  :root[data-theme="slate"] .wealth-total{animation:none;background-position:28% 50%}
+}
 /* the road to the target, and the marker riding it */
 :root[data-theme="slate"] .progress-fill{background:linear-gradient(90deg,#7e8a9e 0%,#cfd7e3 62%,var(--lining-hi) 100%)}
 :root[data-theme="slate"] .rocket{background:linear-gradient(180deg,var(--lining-hi),rgba(201,168,106,.15));
