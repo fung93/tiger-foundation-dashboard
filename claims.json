@@ -1,7 +1,7 @@
 {
   "tz": "UTC+8",
   "start_date": "2026-08-01",
-  "last_block": 44515979,
+  "last_block": 44546747,
   "days": {
     "2026-08-01": {
       "kat": 3393.61,
@@ -197,7 +197,7 @@
     },
     "state": {
       "robinhood": {
-        "last_block": 81329820,
+        "last_block": 81628902,
         "owed": {},
         "meta": {
           "1099863": {
@@ -245,7 +245,7 @@
         ]
       },
       "katana": {
-        "last_block": 44515987,
+        "last_block": 44546766,
         "owed": {},
         "meta": {
           "422530": {
@@ -457,10 +457,26 @@
             "token1": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
             "d0": 8,
             "d1": 6
+          },
+          "465870": {
+            "pool": "0x10045367e619caae6f60cc80046c43c6cd55f629",
+            "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+            "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+            "d0": 6,
+            "d1": 18
+          },
+          "465886": {
+            "pool": "0x10045367e619caae6f60cc80046c43c6cd55f629",
+            "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+            "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+            "d0": 6,
+            "d1": 18
           }
         },
         "ids": [
           "465734",
+          "465886",
+          "465870",
           "465604",
           "465354",
           "465194",
@@ -468,7 +484,7 @@
         ]
       },
       "arc": {
-        "last_block": 24499190,
+        "last_block": 24559839,
         "ids": [],
         "owed": {},
         "meta": {}
