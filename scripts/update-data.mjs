@@ -786,6 +786,10 @@ async function getKatana(prevStakedIds) {
       type: 'LP', protocol: 'SushiSwap V3',
       pair: `${symOf[t0]} / ${symOf[t1]}`, pool_fee: `${p.fee / 10000}%`,
       value_usd: round2(val), apr: null, staked: p.staked,
+      /* uncollected trading fees inside the position. On a staked position these are swept
+         to the Katana DAO, not to this wallet — the page says so where it shows them. */
+      fees_usd: round2(Number(f0) / 10 ** decOf[t0] * (priceOf[t0] || 0)
+                     + Number(f1) / 10 ** decOf[t1] * (priceOf[t1] || 0)),
       token_id: String(p.tokenId),   // lets the position ledger price an open position
       range_status: range,
       /* a few thousandths of a vbWBTC must not print as 0.00 */
