@@ -3943,15 +3943,15 @@ function render(d,isLive){
       my.innerHTML='<span style="color:var(--gold);font-weight:700">'+fmtN(by.apy,0)+'% APY</span>'
         +' <span style="opacity:.8">vbWBTC LP</span><br>'
         +'<span class="'+(by.net>=0?'up':'down')+'">'+fmtSigned(by.net)+'</span>'
-        +' <span style="opacity:.75">on '+curSym()+fmtN(cv(by.avg),0)+' &#183; '+by.days.toFixed(1)+'d</span>'
-        +(by.fees>=0.005?'<br><span style="opacity:.7">'+money(by.fees)+' fees &#8594; DAO</span>':'');
+        +' <span style="opacity:.75">on '+curSym()+fmtN(cv(by.avg),0)+'</span>';
       my.title='Merkl rewards '+money(by.rewards)+' (pending '+money(by.pending)
         +(by.claimed?', claimed '+money(by.claimed):'')+')'
         +'\nTrading P&L '+fmtSigned(by.realised+by.unreal)+' across '+by.n+' positions'
         +'\nAverage capital at work '+fmt(by.avg)+' over '+by.days.toFixed(2)+' days'
         +'\nRewards alone annualise to '+fmtN(by.rewardApy,0)+'%'
         +'\nAnnualised simply, not compounded. A staked position\'s trading fees are'
-        +'\ncollected to the Katana DAO, so they are not counted as yours.';
+        +'\ncollected to the Katana DAO, so they are not counted as yours'
+        +(by.fees>=0.005?' \u2014 '+money(by.fees)+' is accruing to them now.':'.');
     }
   }
 
