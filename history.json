@@ -1113,24 +1113,26 @@
     {
       "date": "2026-10-03",
       "timestamp": "2026-10-03T20:21:10.691Z",
-      "onchain_usd": 108.06,
+      "onchain_usd": 128.5,
       "pending_usd": 3.9,
       "lp_usd": 845.01,
       "solana_usd": 0.11,
       "robinhood_usd": 3.91,
       "arc_usd": 165.43,
-      "total_usd": 2373.75
+      "total_usd": 2394.19,
+      "repaired": "vbWBTC holdings the tracker missed, added back from chain state at this block"
     },
     {
       "date": "2026-10-04",
       "timestamp": "2026-10-04T20:39:12.639Z",
-      "onchain_usd": 145.66,
+      "onchain_usd": 166.26,
       "pending_usd": 18.44,
       "lp_usd": 845.23,
       "solana_usd": 0.11,
       "robinhood_usd": 3.92,
       "arc_usd": 200.06,
-      "total_usd": 2433.51
+      "total_usd": 2454.11,
+      "repaired": "vbWBTC holdings the tracker missed, added back from chain state at this block"
     },
     {
       "date": "2026-10-05",
@@ -1146,13 +1148,14 @@
     {
       "date": "2026-10-06",
       "timestamp": "2026-10-06T22:02:06.603Z",
-      "onchain_usd": 47.31,
+      "onchain_usd": 53.37,
       "pending_usd": 49.45,
       "lp_usd": 941.68,
       "solana_usd": 0.11,
       "robinhood_usd": 3.91,
       "arc_usd": 193.62,
-      "total_usd": 2443.36
+      "total_usd": 2449.42,
+      "repaired": "vbWBTC holdings the tracker missed, added back from chain state at this block"
     },
     {
       "date": "2026-10-07",
@@ -1168,24 +1171,25 @@
     {
       "date": "2026-10-08",
       "timestamp": "2026-10-08T22:39:45.293Z",
-      "onchain_usd": 113.97,
+      "onchain_usd": 818.03,
       "pending_usd": 75.9,
       "lp_usd": 154,
       "solana_usd": 0.1,
       "robinhood_usd": 3.58,
       "arc_usd": 172.28,
-      "total_usd": 1665.84
+      "total_usd": 2369.9,
+      "repaired": "vbWBTC holdings the tracker missed, added back from chain state at this block"
     },
     {
       "date": "2026-10-09",
-      "timestamp": "2026-10-09T12:17:48.165Z",
-      "onchain_usd": 114.37,
-      "pending_usd": 86.19,
-      "lp_usd": 150.26,
+      "timestamp": "2026-10-09T13:19:00.354Z",
+      "onchain_usd": 118.4,
+      "pending_usd": 86.35,
+      "lp_usd": 850.32,
       "solana_usd": 0.1,
-      "robinhood_usd": 3.67,
-      "arc_usd": 167.9,
-      "total_usd": 1688.21
+      "robinhood_usd": 3.66,
+      "arc_usd": 167.39,
+      "total_usd": 2400.82
     }
   ]
 }

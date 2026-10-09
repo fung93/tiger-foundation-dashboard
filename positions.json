@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 44805442,
+  "last_block": 44809119,
   "open": {
     "467807": {
       "pair": "vbWBTC / vbUSDC",
@@ -547,7 +547,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 84150034,
+    "last_block": 84186214,
     "open": {},
     "closed": [
       {
@@ -673,7 +673,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 25069644,
+    "last_block": 25076897,
     "open": {
       "arc:v4:281343": {
         "uid": "arc:v4:281343",
