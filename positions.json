@@ -1,7 +1,17 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 44756357,
-  "open": {},
+  "last_block": 44774488,
+  "open": {
+    "467624": {
+      "pair": "vbWBTC / vbUSDC",
+      "pool_fee": "0.05%",
+      "opened_block": 44764204,
+      "opened": "2026-10-09",
+      "opened_ts": 1791507015,
+      "open_value_usd": 684.62,
+      "topup_usd": 0
+    }
+  },
   "closed": [
     {
       "id": "467341",
@@ -509,7 +519,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 83672120,
+    "last_block": 83849377,
     "open": {},
     "closed": [
       {
@@ -635,7 +645,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 24972897,
+    "last_block": 25008633,
     "open": {
       "arc:v4:281343": {
         "uid": "arc:v4:281343",
