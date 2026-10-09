@@ -1218,12 +1218,10 @@ function meteoraPosition(ref){
 function getKatanaLive(stakedLpIds){
   var W=CFG.wallet.replace(/^0x/,'');
   var T=CFG.tokens;
-  var calls=[
-    {to:T.KAT.a,  data:'0x70a08231'+pad(W)},                 /* 0 balKAT */
-    {to:T.WETH.a, data:'0x70a08231'+pad(W)},                 /* 1 balWETH */
-    {to:T.USDC.a, data:'0x70a08231'+pad(W)},                 /* 2 balUSDC */
-    {to:T.USDT.a, data:'0x70a08231'+pad(W)},                 /* 3 balUSDT */
-    {to:T.avKAT.a,data:'0x70a08231'+pad(W)},                 /* 4 balAvKAT */
+  var TKEYS=Object.keys(T);
+  var calls=TKEYS.map(function(k){return{to:T[k].a,data:'0x70a08231'+pad(W)};}).concat([
+    /* A balance for every listed token, driven by the list. Five hard-coded names are what
+       let vbWBTC be priced inside an LP and counted as nothing in the wallet. */
     {to:T.avKAT.a,data:'0x07a2d13a'+pad('de0b6b3a7640000')}, /* 5 convertToAssets(1e18) */
     {to:CFG.poolKatUsdc, data:'0x3850c7bd'},                 /* 6 slot0 KAT/USDC */
     {to:CFG.poolWethUsdc,data:'0x3850c7bd'},                 /* 7 slot0 WETH/USDC */
@@ -1231,37 +1229,33 @@ function getKatanaLive(stakedLpIds){
     {to:CFG.morpho,data:'0x5c60e39a'+CFG.marketId.slice(2)},        /* 9 market(id) */
     {to:CFG.npm,  data:'0x70a08231'+pad(W)},                 /* 10 NFT count */
     {to:CFG.vkatNft,data:'0x70a08231'+pad(W)},               /* 11 vKAT lock count */
-    {to:CFG.poolWbtcUsdc,data:'0x3850c7bd'}                  /* 12 slot0 WBTC/USDC */
-  ];
+    {to:CFG.poolWbtcUsdc,data:'0x3850c7bd'}                  /* slot0 WBTC/USDC */
+  ]);
+  var B=TKEYS.length;    /* every index below counts from the end of the balances */
   return Promise.all([rpc('eth_getBalance',[CFG.wallet,'latest']),multicall(calls)])
   .then(function(rr){
     var ethBal=Number(BigInt(rr[0]))/1e18;
     var r=rr[1];
-    var bal={
-      KAT:  Number(toBig(w(r[0].data,0)))/1e18,
-      WETH: Number(toBig(w(r[1].data,0)))/1e18,
-      USDC: Number(toBig(w(r[2].data,0)))/1e6,
-      USDT: Number(toBig(w(r[3].data,0)))/1e6,
-      avKAT:Number(toBig(w(r[4].data,0)))/1e18
-    };
-    var avkatRate=Number(toBig(w(r[5].data,0)))/1e18;
+    var bal={};
+    TKEYS.forEach(function(k,i){bal[k]=r[i]&&r[i].ok?Number(toBig(w(r[i].data,0)))/Math.pow(10,T[k].d):0;});
+    var avkatRate=Number(toBig(w(r[B].data,0)))/1e18;
     /* USDC is token0 in both pools → price(token1 in USDC) */
-    var katPerUsdc=poolPrice(toBig(w(r[6].data,0)),6,18);
+    var katPerUsdc=poolPrice(toBig(w(r[B+1].data,0)),6,18);
     var katPrice=katPerUsdc>0?1/katPerUsdc:0;
-    var wethPerUsdc=poolPrice(toBig(w(r[7].data,0)),6,18);
+    var wethPerUsdc=poolPrice(toBig(w(r[B+2].data,0)),6,18);
     var ethPrice=wethPerUsdc>0?1/wethPerUsdc:0;
     /* this pool is the other way round — vbWBTC is token0 — so no reciprocal */
-    var btcPrice=(r[12]&&r[12].ok)?poolPrice(toBig(w(r[12].data,0)),8,6):0;
+    var btcPrice=(r[B+7]&&r[B+7].ok)?poolPrice(toBig(w(r[B+7].data,0)),8,6):0;
     /* morpho */
-    var borrowShares=toBig(w(r[8].data,1));
-    var collateral=Number(toBig(w(r[8].data,2)))/1e18;
-    var totBorrowAssets=toBig(w(r[9].data,2));
-    var totBorrowShares=toBig(w(r[9].data,3));
+    var borrowShares=toBig(w(r[B+3].data,1));
+    var collateral=Number(toBig(w(r[B+3].data,2)))/1e18;
+    var totBorrowAssets=toBig(w(r[B+4].data,2));
+    var totBorrowShares=toBig(w(r[B+4].data,3));
     var debt=totBorrowShares>0n?Number(borrowShares*totBorrowAssets/totBorrowShares)/1e18:0;
-    var nftCount=Number(toBig(w(r[10].data,0)));
+    var nftCount=Number(toBig(w(r[B+5].data,0)));
     if(nftCount>200)nftCount=200;
     /* vKAT staking locks: enumerate lock NFTs, then read locked() amounts from the escrow */
-    var lockCount=Number(toBig(w(r[11].data,0)));
+    var lockCount=Number(toBig(w(r[B+6].data,0)));
     if(lockCount>20)lockCount=20;
     var lockP=Promise.resolve({totalKat:0,ids:[]});
     if(lockCount>0){
@@ -1302,7 +1296,12 @@ function getKatanaLive(stakedLpIds){
 
     var stakedP=liveP.then(function(live){
       var seen={};
-      (stakedLpIds||[]).concat(live).forEach(function(x){seen[BigInt(x).toString()]=1;});
+      /* the ledger's open positions count as candidates too, so a failed log sweep cannot
+         hide a staked position the Action has already booked */
+      var fromLedger=Object.keys((POSITIONS&&POSITIONS.open)||{});
+      (stakedLpIds||[]).concat(live).concat(fromLedger).forEach(function(x){
+        try{seen[BigInt(x).toString()]=1;}catch(e){}
+      });
       var sIds=Object.keys(seen).map(function(s){return BigInt(s);});
       if(!sIds.length)return[];
       /* keep only what the staker still holds, so unstaked ones drop out immediately */
@@ -1409,7 +1408,7 @@ function getKatanaLive(stakedLpIds){
               });
             }
             return lockP.then(function(vkat){
-              return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,
+              return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,btcPrice:btcPrice,
                 morpho:{collateral:collateral,debt:debt},lps:lps,vkat:vkat};
             });
           });
@@ -2078,8 +2077,11 @@ function loadLive(refs,snap){
         return{eth:0,tokens:rs.tokens||[],walletUsd:rs.onchain_usd||0,
                lpCount:0,lps:rs.lp_positions||[],fromSnapshot:true};
       });
-      var katWalletUsd=kat.ethBal*kat.ethPrice+kat.bal.KAT*kat.katPrice+kat.bal.WETH*kat.ethPrice
-        +kat.bal.USDC+kat.bal.USDT+kat.bal.avKAT*kat.katPrice*kat.avkatRate;
+      var katPx=function(k){return k==='USDC'||k==='USDT'?1
+        :k==='KAT'?kat.katPrice:k==='avKAT'?kat.katPrice*kat.avkatRate
+        :k==='WETH'?kat.ethPrice:k==='WBTC'?(kat.btcPrice||0):0;};
+      var katWalletUsd=kat.ethBal*kat.ethPrice
+        +Object.keys(kat.bal).reduce(function(a,k){return a+kat.bal[k]*katPx(k);},0);
       var katLpUsd=0;kat.lps.forEach(function(l){katLpUsd+=l.value_usd;});
       var colKat=kat.morpho.collateral*kat.avkatRate;
       var morphoNet=(colKat-kat.morpho.debt)*kat.katPrice;

@@ -61,6 +61,11 @@ const CFG = {
   votingEscrow: '0x4d6fC15Ca6258b168225D283262743C623c13Ead', // locked(tokenId) lives here
   lpStaker: '0xbe12e1b5c4859a3d141412748279b67458f729e9',     // Sushi V3 LP NFTs are held here when staked
   logWindow: 150000,                                          // ~3d of blocks; >> the 6h run cadence
+  /* The staked-LP sweep is the one query whose answer is wide, and Katana's node now caps it
+     at 1,000 blocks. It only has to cover the gap since the last run — the ledger supplies
+     everything older — so 30 chunks of 1,000 is a day's worth of cover for a 6-hourly job. */
+  stakedScanChunk: 1000,
+  stakedScanSpan: 30000,
   logBootstrapWindow: 1500000,                                // ~1 month, only when nothing is persisted yet
   logChunk: 100000,                                           // keep each eth_getLogs request small enough for public RPCs
   factory: '0x203e8740894c8955cB8950759876d7E7E45E04c1',
@@ -193,24 +198,37 @@ const dvU128 = (d, off) => dvU64(d, off) + (dvU64(d, off + 8) << 64n);
    the proxy exposes no per-user enumeration. Union previously-known ids with ids seen
    moving wallet->staker in recent logs, then keep only those the staker still owns. */
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+/* Which position NFTs the staker is holding for this wallet.
+   This used to be answered by sweeping Transfer logs, and on 2026-10-08 Katana's public node
+   began refusing the query — "Log response size exceeded. Maximum allowed number of requested
+   blocks is 1000" — which left the list empty and took a $700 staked position off the
+   dashboard for a day. A log sweep is now the last of three sources, not the only one:
+     1. what the last run persisted,
+     2. what the position ledger says is open — written by this same script, so it knows,
+     3. a narrow sweep of the blocks since the last run, newest window first.
+   Every candidate is then checked against ownerOf, so a wrong guess costs nothing and an
+   unstaked position drops out by itself. */
 async function discoverStakedLp(W, prevIds) {
   const known = new Set((prevIds || []).map(String));
   try {
+    const led = JSON.parse(readFileSync(join(ROOT, 'positions.json'), 'utf8'));
+    for (const k of Object.keys(led.open || {})) known.add(String(k));
+  } catch { /* no ledger yet — the other two sources still apply */ }
+  try {
     const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
-    /* First run has nothing persisted, so sweep far enough back to catch older stakes;
-       afterwards the rolling window only needs to cover the gap between runs. */
-    const span = known.size ? CFG.logWindow : CFG.logBootstrapWindow;
-    const start = Math.max(0, latest - span);
-    for (let from = start; from <= latest; from += CFG.logChunk) {
-      const to = Math.min(from + CFG.logChunk - 1, latest);
+    /* newest first: if the node gives up part way, what is lost is the oldest stake, never
+       the one opened an hour ago */
+    for (let to = latest; to > latest - CFG.stakedScanSpan; to -= CFG.stakedScanChunk) {
+      const from = Math.max(0, to - CFG.stakedScanChunk + 1);
       const logs = await rpc('eth_getLogs', [{
         fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16), address: CFG.npm,
         topics: [TRANSFER_TOPIC, '0x' + pad(W), '0x' + pad(CFG.lpStaker.replace(/^0x/, ''))],
       }]);
       for (const l of logs) known.add(String(BigInt(l.topics[3])));
+      if (from === 0) break;
     }
   } catch (e) {
-    console.warn('staked-LP log scan failed, using known ids only:', e.message);
+    console.warn('staked-LP log scan stopped early, using the ledger and the stored ids:', e.message);
   }
   const idsArr = [...known].map((s) => BigInt(s));
   if (!idsArr.length) return [];
@@ -652,12 +670,13 @@ async function updatePositions(W) {
 async function getKatana(prevStakedIds) {
   const W = CFG.wallet.replace(/^0x/, '');
   const T = CFG.tokens;
+  /* One balance call per listed token, driven by the list itself. Hard-coding five names
+     here is what let vbWBTC be priced inside an LP and counted as nothing in the wallet:
+     between two re-ranges on 2026-10-08 the wallet held 0.00867 vbWBTC — $723 — and the
+     dashboard reported zero. Adding a token to CFG.tokens now counts it everywhere. */
+  const TKEYS = Object.keys(T);
   const calls = [
-    { to: T.KAT.a, data: '0x70a08231' + pad(W) },
-    { to: T.WETH.a, data: '0x70a08231' + pad(W) },
-    { to: T.USDC.a, data: '0x70a08231' + pad(W) },
-    { to: T.USDT.a, data: '0x70a08231' + pad(W) },
-    { to: T.avKAT.a, data: '0x70a08231' + pad(W) },
+    ...TKEYS.map((k) => ({ to: T[k].a, data: '0x70a08231' + pad(W) })),
     { to: T.avKAT.a, data: '0x07a2d13a' + pad('de0b6b3a7640000') }, // convertToAssets(1e18)
     { to: CFG.poolKatUsdc, data: '0x3850c7bd' },  // slot0
     { to: CFG.poolWethUsdc, data: '0x3850c7bd' }, // slot0
@@ -669,28 +688,24 @@ async function getKatana(prevStakedIds) {
   ];
   const [ethHex, r] = await Promise.all([rpc('eth_getBalance', [CFG.wallet, 'latest']), multicall(calls)]);
   const ethBal = Number(BigInt(ethHex)) / 1e18;
-  const bal = {
-    KAT: Number(toBig(w(r[0].data, 0))) / 1e18,
-    WETH: Number(toBig(w(r[1].data, 0))) / 1e18,
-    USDC: Number(toBig(w(r[2].data, 0))) / 1e6,
-    USDT: Number(toBig(w(r[3].data, 0))) / 1e6,
-    avKAT: Number(toBig(w(r[4].data, 0))) / 1e18,
-  };
-  const avkatRate = Number(toBig(w(r[5].data, 0))) / 1e18;
-  const katPrice = 1 / poolPrice(toBig(w(r[6].data, 0)), 6, 18);
-  const ethPrice = 1 / poolPrice(toBig(w(r[7].data, 0)), 6, 18);
+  const bal = {};
+  TKEYS.forEach((k, i) => { bal[k] = r[i].ok ? Number(toBig(w(r[i].data, 0))) / 10 ** T[k].d : 0; });
+  const B = TKEYS.length;          // everything after the balances is indexed from here
+  const avkatRate = Number(toBig(w(r[B].data, 0))) / 1e18;
+  const katPrice = 1 / poolPrice(toBig(w(r[B + 1].data, 0)), 6, 18);
+  const ethPrice = 1 / poolPrice(toBig(w(r[B + 2].data, 0)), 6, 18);
   /* this pool is the other way round — vbWBTC first — so the price needs no reciprocal */
-  const btcPrice = r[12]?.ok ? poolPrice(toBig(w(r[12].data, 0)), 8, 6) : 0;
-  const borrowShares = toBig(w(r[8].data, 1));
-  const collateral = Number(toBig(w(r[8].data, 2))) / 1e18;
-  const totBA = toBig(w(r[9].data, 2)), totBS = toBig(w(r[9].data, 3));
+  const btcPrice = r[B + 7]?.ok ? poolPrice(toBig(w(r[B + 7].data, 0)), 8, 6) : 0;
+  const borrowShares = toBig(w(r[B + 3].data, 1));
+  const collateral = Number(toBig(w(r[B + 3].data, 2))) / 1e18;
+  const totBA = toBig(w(r[B + 4].data, 2)), totBS = toBig(w(r[B + 4].data, 3));
   const debt = totBS > 0n ? Number(borrowShares * totBA / totBS) / 1e18 : 0;
-  let nftCount = Number(toBig(w(r[10].data, 0)));
+  let nftCount = Number(toBig(w(r[B + 5].data, 0)));
   if (nftCount > 200) nftCount = 200;
 
   // vKAT staking locks: enumerate lock NFTs, read locked() amounts from the escrow
   let vkat = { totalKat: 0, ids: [] };
-  let lockCount = Number(toBig(w(r[11].data, 0)));
+  let lockCount = Number(toBig(w(r[B + 6].data, 0)));
   if (lockCount > 20) lockCount = 20;
   if (lockCount > 0) {
     try {
@@ -797,7 +812,7 @@ async function getKatana(prevStakedIds) {
     });
   });
 
-  return { ethBal, bal, avkatRate, katPrice, ethPrice, morpho: { collateral, debt }, lps, vkat,
+  return { ethBal, bal, avkatRate, katPrice, ethPrice, btcPrice, morpho: { collateral, debt }, lps, vkat,
     stakedLpIds: stakedIds.map((x) => String(x)) };
 }
 
@@ -1974,9 +1989,12 @@ for (const lp of kat.lps) {
   if (aprMap[key] !== undefined) lp.apr = round2(aprMap[key]);
 }
 
-const katWalletUsd = round2(
-  kat.ethBal * kat.ethPrice + kat.bal.KAT * kat.katPrice + kat.bal.WETH * kat.ethPrice +
-  kat.bal.USDC + kat.bal.USDT + kat.bal.avKAT * kat.katPrice * kat.avkatRate);
+/* every listed token at its own price, so a new one counts the moment it is listed */
+const katPriceOf = (k) => (k === 'USDC' || k === 'USDT' ? 1
+  : k === 'KAT' ? kat.katPrice : k === 'avKAT' ? kat.katPrice * kat.avkatRate
+  : k === 'WETH' ? kat.ethPrice : k === 'WBTC' ? kat.btcPrice : 0);
+const katWalletUsd = round2(kat.ethBal * kat.ethPrice
+  + Object.keys(kat.bal).reduce((s2, k) => s2 + kat.bal[k] * katPriceOf(k), 0));
 const katLpUsd = round2(kat.lps.reduce((s, l) => s + l.value_usd, 0));
 const colKat = kat.morpho.collateral * kat.avkatRate;
 const morphoNet = round2(Math.max(0, (colKat - kat.morpho.debt) * kat.katPrice));
@@ -1992,6 +2010,13 @@ const lpUsd = round2(katLpUsd + solLpUsd);
 /* every chain — what the headline, the tracking figure and the history series all use.
    `grand` alone is Katana + Solana, and the history was written from it for eight days after
    Robinhood arrived, which charted a transfer between chains as a $470 loss. */
+/* The guard that would have caught this in an hour rather than a day: the ledger knows what
+   is open, so anything open that produced no LP row is named rather than silently missing. */
+for (const [id, o] of Object.entries(positions.open || {})) {
+  if (!kat.lps.some((l) => String(l.token_id) === String(id)))
+    noteUntracked('katana', id, 'open in the ledger but not valued this run — ' + (o.pair || 'LP'));
+}
+
 const grandAll = round2(grand + rhTotal + arcTotal);
 const onchainAll = round2(onchainUsd + rh.walletUsd + arcWalletUsd);
 const lpAll = round2(lpUsd + rhLpUsd + arcLpUsd);
@@ -2037,11 +2062,8 @@ const data = {
       name: 'Katana', chain_id: 747474, explorer: 'https://explorer.katana.network',
       wallet: { balances: { tokens: {
         ETH: tok(kat.ethBal, kat.ethPrice, kat.ethBal * kat.ethPrice),
-        KAT: tok(kat.bal.KAT, kat.katPrice, kat.bal.KAT * kat.katPrice),
-        WETH: tok(kat.bal.WETH, kat.ethPrice, kat.bal.WETH * kat.ethPrice),
-        USDC: tok(kat.bal.USDC, 1, kat.bal.USDC),
-        USDT: tok(kat.bal.USDT, 1, kat.bal.USDT),
-        avKAT: tok(kat.bal.avKAT, kat.katPrice * kat.avkatRate, kat.bal.avKAT * kat.katPrice * kat.avkatRate),
+        ...Object.fromEntries(Object.keys(kat.bal).map((k) =>
+          [k, tok(kat.bal[k], katPriceOf(k), kat.bal[k] * katPriceOf(k))])),
       }, total_usd: katWalletUsd } },
       onchain_usd: katWalletUsd,
       merkl_rewards: merkl,
@@ -2116,7 +2138,8 @@ const data = {
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
   usdc_ata: sol.usdcAta,
-  staked_lp_ids: kat.stakedLpIds,
+  /* an empty answer never overwrites a good one: a failed sweep must not erase the list */
+  staked_lp_ids: (kat.stakedLpIds && kat.stakedLpIds.length) ? kat.stakedLpIds : prevStakedIds,
   onchain_usd: onchainAll,
   total_usd: grandAll,
 };
