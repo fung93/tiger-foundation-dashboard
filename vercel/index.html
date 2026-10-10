@@ -13,141 +13,9 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='13' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='51' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='13' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='51' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='32' cy='36' r='26' fill='%23f59e0b'/%3E%3Crect x='30.4' y='11' width='3.2' height='9' rx='1.6' fill='%237c2d12'/%3E%3Crect x='23.2' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(-10 24.7 16)'/%3E%3Crect x='37.8' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(10 39.3 16)'/%3E%3Crect x='7' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='8' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Cellipse cx='32' cy='47' rx='12' ry='9.5' fill='%23fff7ed'/%3E%3Ccircle cx='22.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='41.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='21.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Ccircle cx='40.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Cpath d='M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z' fill='%239a3412'/%3E%3Cpath d='M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1' stroke='%239a3412' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='15.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3Cellipse cx='48.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script>
-/* Read the saved theme before anything is drawn: set on <html> in the head, the page opens
-   in the chosen skin with no flash of the other one. Nothing else runs this early. */
-(function(){try{
-  var t=localStorage.getItem('tf_theme');
-  if(t==='slate'){document.documentElement.setAttribute('data-theme','slate');
-    var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0a0c11');}
-}catch(e){}})();
-</script>
 <style>
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
 
-/* ================= Slate: dark, silver, glass =================
-   A second skin, not a second page. Every colour on the dashboard already comes from the
-   variables above, so the theme redefines those and then does three more things: takes the
-   photographic background and the drawn characters out, replaces the amber with brushed
-   silver, and gives each panel a real glass edge — a translucent fill, a hairline border and
-   a lit top edge, which is what makes glass read as glass rather than as grey.
-   Chosen in the header, remembered in this browser, and applied before the first paint so
-   the page never flashes the other theme on the way in. */
-:root[data-theme="slate"]{
-  --bg:#0a0c11;--card:#12151c;--border:rgba(255,255,255,.10);
-  --text:#e7eaf0;--dim:#8b94a6;
-  --accent:#b8c3d4;      /* brushed silver, where amber used to lead */
-  --gold:#e3e9f2;        /* the brighter end of the same metal, for headline figures */
-  --green:#3ecf8e;--red:#f0656f;--blue:#8ab4f8;--purple:#b9a7f5;--sol:#a5b0ff;
-  /* Antique gold, kept for the lining and nothing else: the edge of a panel, the mark beside
-     a heading, the figure the whole page is about. Not the amber of the other theme — that
-     colour leads, and here the silver leads and the gold finishes. Data keeps its own
-     colours, so a gain is never gold and a loss is never brass. */
-  --lining:#c9a86a;--lining-hi:#e8d2a0;--lining-dim:rgba(201,168,106,.35);
-  /* The struck-metal sweep, written once: the wordmark and the headline figure wear the same
-     one, in the same direction as the progress bar, so the three line up down the page. */
-  --metal:linear-gradient(90deg,
-    #f4f7fb 0%,#c3cedc 14%,#f2f6fa 26%,#aeb9c8 38%,
-    #e4d8bb 52%,#e8d2a0 66%,#c9a86a 84%,#a8864c 100%);
-  /* one place for the glass recipe, so every panel uses the same one */
-  --glass:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.022));
-  --glass-edge:inset 0 1px 0 rgba(255,255,255,.10);
-  --glass-drop:0 18px 36px -26px rgba(0,0,0,.95);
-}
-/* no photograph behind the page: a slow metal gradient instead */
-:root[data-theme="slate"] body::before{
-  background:
-    radial-gradient(1100px 620px at 18% -12%,rgba(176,190,210,.11),transparent 62%),
-    radial-gradient(900px 520px at 102% 2%,rgba(120,135,160,.10),transparent 58%),
-    linear-gradient(180deg,#0c0f15 0%,#090b10 55%,#07090d 100%);
-  filter:none}
-:root[data-theme="slate"] body::after{background:none}
-/* the drawn characters belong to the other theme */
-:root[data-theme="slate"] .hero::before,
-:root[data-theme="slate"] .hero-photo-wrap,
-:root[data-theme="slate"] .moon,
-:root[data-theme="slate"] .brand-mark .tiger-calm,
-:root[data-theme="slate"] .brand-mark .tiger-angry{display:none}
-:root[data-theme="slate"] .brand-mark .mark-pro{display:block}
-/* the rocket becomes a machined marker: same job, no cartoon */
-:root[data-theme="slate"] .rocket img{display:none}
-:root[data-theme="slate"] .rocket{width:3px;height:26px;bottom:9px;
-  background:linear-gradient(180deg,#eef2f7,rgba(238,242,247,.15));border-radius:3px;
-  box-shadow:0 0 10px rgba(226,232,240,.45)}
-/* panels */
-:root[data-theme="slate"] .hdr{
-  background:linear-gradient(180deg,rgba(20,23,30,.88),rgba(11,13,18,.88));
-  border-bottom:1px solid rgba(255,255,255,.10)}
-/* The name wears the same metal. The gradient is painted on the h1 so it runs once across
-   both words — TIGER in the silver, FOUNDATION in the gold — and the box is shrunk to the
-   text so the sweep is not stretched across the empty header beside it. */
-:root[data-theme="slate"] .hdr h1{display:inline-block;width:-moz-fit-content;width:fit-content;
-  background:var(--metal);-webkit-background-clip:text;background-clip:text;
-  -webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 1px 6px rgba(201,168,106,.20))}
-:root[data-theme="slate"] .hdr h1 .t,
-:root[data-theme="slate"] .hdr h1 .f{color:inherit;-webkit-text-fill-color:transparent}
-:root[data-theme="slate"] .hero,
-:root[data-theme="slate"] .c,
-:root[data-theme="slate"] .chain-row,
-:root[data-theme="slate"] .pos-card{
-  background:var(--glass);border:1px solid var(--border);
-  box-shadow:var(--glass-edge),var(--glass-drop)}
-:root[data-theme="slate"] .pos-card{border-color:rgba(255,255,255,.08)}
-:root[data-theme="slate"] .progress-bg{background:rgba(255,255,255,.07)}
-:root[data-theme="slate"] .progress-fill{background:linear-gradient(90deg,#7e8a9e,#e3e9f2)}
-:root[data-theme="slate"] .hf.gold{background:rgba(226,232,240,.10);color:var(--gold)}
-/* the metal reads as metal only if the type is quieter than the amber theme's */
-:root[data-theme="slate"] .sec-title{color:#aab4c4}
-/* ---- the gold lining ---- */
-/* one hairline under the header, the page's own frame */
-:root[data-theme="slate"] .hdr{border-bottom:1px solid var(--lining-dim)}
-/* the mark beside every heading */
-:root[data-theme="slate"] .sec-title::before{
-  background:linear-gradient(180deg,var(--lining-hi),var(--lining));
-  box-shadow:0 0 8px rgba(201,168,106,.35)}
-/* the hero wears the lining on its top edge, where the light would catch it */
-:root[data-theme="slate"] .hero{border-color:rgba(201,168,106,.22);
-  box-shadow:inset 0 1px 0 rgba(232,210,160,.30),var(--glass-drop)}
-/* The figure the page exists for, struck in metal and still. It runs the same way the
-   progress bar below it runs — 90deg, left to right, silver into gold — so the two read as
-   one movement across the card rather than two gradients at odds. Several stops rather than
-   two: the silver highlights early are what make a flat fill look bevelled, and the warm end
-   lands where the bar's own gold lands. */
-:root[data-theme="slate"] .wealth-total{
-  background:var(--metal);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 2px 10px rgba(201,168,106,.22))}
-/* the road to the target, and the marker riding it */
-:root[data-theme="slate"] .progress-fill{background:linear-gradient(90deg,#7e8a9e 0%,#cfd7e3 62%,var(--lining-hi) 100%)}
-:root[data-theme="slate"] .rocket{background:linear-gradient(180deg,var(--lining-hi),rgba(201,168,106,.15));
-  box-shadow:0 0 10px rgba(232,210,160,.5)}
-/* the vault is gold by nature; so is anything already badged gold */
-:root[data-theme="slate"] .cv.gold{color:var(--lining-hi)}
-:root[data-theme="slate"] .hf.gold{background:rgba(201,168,106,.14);color:var(--lining-hi)}
-/* the target ETA, the one figure in the header that is a promise rather than a fact */
-:root[data-theme="slate"] #targetEta{color:var(--lining-hi)!important}
-:root[data-theme="slate"] .progress-label .pct{color:var(--lining-hi)}
-/* buttons answer in gold, so the page has one accent colour for "you can press this" */
-:root[data-theme="slate"] .cur-btn:hover,
-:root[data-theme="slate"] .theme-btn:hover{color:var(--lining-hi);
-  border-color:rgba(201,168,106,.55);background:rgba(201,168,106,.12)}
-:root[data-theme="slate"] .c:hover,:root[data-theme="slate"] .chain-row:hover{
-  border-color:rgba(201,168,106,.28)}
-@media(prefers-reduced-motion:no-preference){
-  :root[data-theme="slate"] .c,:root[data-theme="slate"] .chain-row{transition:box-shadow .2s,border-color .2s}
-  :root[data-theme="slate"] .c:hover,:root[data-theme="slate"] .chain-row:hover{
-    border-color:rgba(255,255,255,.16);box-shadow:var(--glass-edge),0 22px 44px -26px rgba(0,0,0,1)}
-}
-/* the switch itself, beside the clock */
-.hdr-right{display:flex;align-items:center;gap:14px}
-.theme-btn{flex:none;font:inherit;font-size:11px;font-weight:700;letter-spacing:1px;
-  padding:6px 12px;border-radius:999px;cursor:pointer;text-transform:uppercase;
-  color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
-  transition:color .15s,border-color .15s,background .15s;
-  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
-.theme-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
-@media(max-width:768px){.theme-btn{padding:5px 10px;font-size:10px}}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
@@ -168,7 +36,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* clicks land on the button, never on a path inside the artwork */
 .brand-mark svg{display:block;pointer-events:none}
 .brand-mark .tiger-angry{display:none}
-.brand-mark .mark-pro{display:none}            /* the Slate mark, shown by that theme alone */
 .brand-mark.angry .tiger-calm{display:none}
 .brand-mark.angry .tiger-angry{display:block}
 /* no ring for a mouse tap, but keyboard focus still has to be visible */
@@ -572,13 +439,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 <div class="hdr">
   <div class="hdr-inner">
     <div class="hdr-brand">
-      <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="mark-pro" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="mpSil" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".34" stop-color="#d2dae6"/><stop offset=".63" stop-color="#8d98a9"/><stop offset="1" stop-color="#e2e8f1"/></linearGradient><linearGradient id="mpSteel" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#808b9e"/><stop offset=".55" stop-color="#4b5466"/><stop offset="1" stop-color="#2a303d"/></linearGradient><linearGradient id="mpGlint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8d2a0"/><stop offset="1" stop-color="#c9a86a"/></linearGradient></defs><path d="M15 16 L6.5 1 L27 9.5 Z" fill="url(#mpSteel)"/><path d="M49 16 L57.5 1 L37 9.5 Z" fill="url(#mpSteel)"/><path d="M15.6 14.4 L10.6 4.6 L23.4 10.6 Z" fill="url(#mpSil)" opacity=".7"/><path d="M48.4 14.4 L53.4 4.6 L40.6 10.6 Z" fill="url(#mpSil)" opacity=".7"/><path d="M32 8 L50 15 L52 33 L43 47 L32 56 L21 47 L12 33 L14 15 Z" fill="url(#mpSil)"/><path d="M32 8 L50 15 L52 33 L43 47 L32 56 Z" fill="url(#mpSteel)" opacity=".5"/><path d="M17 18.6 L27.4 23.8 L24.2 26 L15.4 21.6 Z" fill="#161b26" opacity=".88"/><path d="M47 18.6 L36.6 23.8 L39.8 26 L48.6 21.6 Z" fill="#161b26" opacity=".88"/><path d="M13.2 27 L20.8 30.6 L19.8 33 L12.6 30 Z" fill="#161b26" opacity=".6"/><path d="M50.8 27 L43.2 30.6 L44.2 33 L51.4 30 Z" fill="#161b26" opacity=".6"/><path d="M15 36.5 L22 38.6 L21 41 L14.6 39.2 Z" fill="#161b26" opacity=".45"/><path d="M49 36.5 L42 38.6 L43 41 L49.4 39.2 Z" fill="#161b26" opacity=".45"/><path d="M19.4 28.4 L28.6 32 L26.4 35.6 L18.4 32 Z" fill="#0d1017"/><path d="M44.6 28.4 L35.4 32 L37.6 35.6 L45.6 32 Z" fill="#0d1017"/><path d="M20.8 31.6 L26.2 33.7 L25.7 34.6 L20.4 32.5 Z" fill="url(#mpGlint)"/><path d="M43.2 31.6 L37.8 33.7 L38.3 34.6 L43.6 32.5 Z" fill="url(#mpGlint)"/><path d="M32 38 L25.4 43.2 L32 50.6 L38.6 43.2 Z" fill="url(#mpSil)"/><path d="M28.5 40.4 L35.5 40.4 L32 44.6 Z" fill="#0d1017"/><path d="M32 44.8 L32 50" stroke="#0d1017" stroke-width="1.2" stroke-linecap="round"/><path d="M32 8 L50 15 L52 33 L43 47 L32 56 L21 47 L12 33 L14 15 Z" fill="none" stroke="rgba(236,242,250,.55)" stroke-width="1.2" stroke-linejoin="round"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
+      <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
       <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
-    <div class="hdr-right">
-      <button class="theme-btn" id="themeBtn" type="button" title="Switch theme">Theme</button>
-      <div class="ts" id="lastUpdated">Loading...</div>
-    </div>
+    <div class="ts" id="lastUpdated">Loading...</div>
   </div>
 </div>
 
@@ -3683,40 +3547,14 @@ function updatePeak(){
   document.getElementById('peakDate').textContent='on '+peakDate+' (incl vault)';
 }
 
-/* ---- themes ----
-   Two skins over one set of variables: Tiger (the drawn one) and Slate (dark, silver, glass).
-   The charts are the one place colour is not a CSS variable — Chart.js holds its own copy —
-   so each theme states its ink here and the charts are rebuilt when the theme changes. */
-var THEME_KEY='tf_theme';
-function themeNow(){return document.documentElement.getAttribute('data-theme')==='slate'?'slate':'tiger';}
+/* The ink the charts draw with. Chart.js copies colours in at construction rather than
+   reading them from CSS, so the palette lives here beside the charts that use it. */
 function themeInk(){
-  return themeNow()==='slate'
-    ? {line:'rgba(226,232,240,.92)',fill:'rgba(203,213,225,.12)',tick:'#8b94a6',
-       grid:'rgba(255,255,255,.05)',tip:'rgba(16,19,25,.97)',tipEdge:'#8b94a6',
-       barNow:'rgba(226,232,240,.85)',barNowEdge:'rgba(242,245,249,1)',
-       bar:function(i){return'rgba(176,190,210,'+(0.42-i*0.05)+')';},barEdge:'rgba(203,213,225,.7)',
-       value:'#cfd6e2'}
-    : {line:'rgba(245,158,11,0.9)',fill:'rgba(245,158,11,0.14)',tick:'#5a6a8a',
-       grid:'rgba(255,255,255,.03)',tip:'rgba(15,22,35,0.96)',tipEdge:'#f59e0b',
-       barNow:'rgba(245,158,11,0.85)',barNowEdge:'rgba(245,158,11,1)',
-       bar:function(i){return'rgba(251,191,36,'+(0.5-i*0.055)+')';},barEdge:'rgba(251,191,36,0.75)',
-       value:'#fbbf24'};
-}
-function applyTheme(t,save){
-  if(t==='slate')document.documentElement.setAttribute('data-theme','slate');
-  else document.documentElement.removeAttribute('data-theme');
-  var m=document.querySelector('meta[name="theme-color"]');
-  if(m)m.setAttribute('content',t==='slate'?'#0a0c11':'#0f1623');
-  var b=document.getElementById('themeBtn');
-  if(b){b.textContent=t==='slate'?'Slate':'Tiger';
-        b.title=t==='slate'?'Slate theme — tap for Tiger':'Tiger theme — tap for Slate';}
-  if(save){try{localStorage.setItem(THEME_KEY,t);}catch(e){}}
-  /* Chart.js keeps its own colours, so the charts are rebuilt rather than recoloured */
-  if(CHART){CHART.destroy();CHART=null;}
-  if(COMPOUND_CHART){COMPOUND_CHART.destroy();COMPOUND_CHART=null;}
-  drawHistory();
-  buildCompound();
-  placeRocket();
+  return{line:'rgba(245,158,11,0.9)',fill:'rgba(245,158,11,0.14)',tick:'#5a6a8a',
+    grid:'rgba(255,255,255,.03)',tip:'rgba(15,22,35,0.96)',tipEdge:'#f59e0b',
+    barNow:'rgba(245,158,11,0.85)',barNowEdge:'rgba(245,158,11,1)',
+    bar:function(i){return'rgba(251,191,36,'+(0.5-i*0.055)+')';},barEdge:'rgba(251,191,36,0.75)',
+    value:'#fbbf24'};
 }
 
 /* ---- the power of compounding ----
@@ -4585,13 +4423,6 @@ document.addEventListener('visibilitychange',function(){
 
 /* ============ boot ============ */
 function load(){
-  /* label the switch with the theme already applied in the head, before any data lands —
-     otherwise the button reads "Theme" until history.json arrives */
-  var tb0=document.getElementById('themeBtn');
-  if(tb0){
-    applyTheme(themeNow(),false);
-    tb0.onclick=function(){applyTheme(themeNow()==='slate'?'tiger':'slate',true);};
-  }
   /* Currency first, and off to one side: the page renders in whatever was last chosen using
      the cached rate, and refreshes the rate in the background. A failed fetch costs nothing
      — the cached rate stands, and only a first-ever run without one falls back to USD. */
@@ -4708,12 +4539,6 @@ function load(){
     updateRoiToggle();
     buildMonthly();
     document.getElementById('csvBtn').onclick=downloadCsv;
-    /* the theme switch: whatever is on now, the button offers the other one */
-    var tb=document.getElementById('themeBtn');
-    if(tb){
-      applyTheme(themeNow(),false);        /* label the button for the theme already applied */
-      tb.onclick=function(){applyTheme(themeNow()==='slate'?'tiger':'slate',true);};
-    }
     /* tap the card for a slower pace — the same measurement, a longer clock */
     var cc=document.getElementById('compoundCard');
     if(cc)cc.onclick=function(){
