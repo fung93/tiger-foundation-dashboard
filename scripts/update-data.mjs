@@ -1864,7 +1864,7 @@ async function getSolana() {
 async function getMerkl(katPrice, chainId = 747474) {
   try {
     const arr = await (await fetch(`${CFG.merklApi}/users/${CFG.wallet}/rewards?chainId=${chainId}`)).json();
-    let totalUsd = 0;
+    let totalUsd = 0, lpUsd = 0;
     const rewards = [];
     for (const chain of arr || []) {
       for (const rw of chain.rewards || []) {
@@ -1875,12 +1875,19 @@ async function getMerkl(katPrice, chainId = 747474) {
         const sym = rw.token?.symbol || '?';
         const px = rw.token?.price || (sym === 'KAT' ? katPrice : 0);
         totalUsd += amt * px;
+        /* Two different things arrive through Merkl: SUSHI campaigns pay staked liquidity,
+           Aragon bribes pay the vKAT vote. Only the first is an LP's earnings, so it is
+           counted separately and the page's LP yield uses that figure alone. */
+        for (const br of rw.breakdowns || []) {
+          const b = BigInt(br.amount || '0') - BigInt(br.claimed || '0') + BigInt(br.pending || '0');
+          if (b > 0n && String(br.reason || '').startsWith('SUSHI')) lpUsd += Number(b) / 10 ** dec * px;
+        }
         rewards.push({ symbol: sym, amount: amt, usd: round2(amt * px) });
       }
     }
-    return { total_usd: round2(totalUsd), rewards };
+    return { total_usd: round2(totalUsd), lp_usd: round2(lpUsd), rewards };
   } catch {
-    return { total_usd: 0, rewards: [] };
+    return { total_usd: 0, lp_usd: 0, rewards: [] };
   }
 }
 async function getAprs() {

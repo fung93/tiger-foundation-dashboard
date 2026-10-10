@@ -2006,7 +2006,7 @@ function getMerklLive(katPrice,fallback,chainId){
   return fT(CFG.merklApi+'/users/'+CFG.wallet+'/rewards?chainId='+(chainId||747474))
     .then(function(r){return r.json();})
     .then(function(arr){
-      var totalUsd=0,rewards=[];
+      var totalUsd=0,lpUsd=0,rewards=[];
       (arr||[]).forEach(function(chain){
         (chain.rewards||[]).forEach(function(rw){
           var dec=(rw.token&&rw.token.decimals)||18;
@@ -2016,10 +2016,18 @@ function getMerklLive(katPrice,fallback,chainId){
           var sym=(rw.token&&rw.token.symbol)||'?';
           var px=(rw.token&&rw.token.price)||(sym==='KAT'?katPrice:0);
           totalUsd+=amt*px;
+          /* Not all of it is the LP's. Merkl pays this wallet from two places: the SUSHI
+             campaigns that reward staked liquidity, and Aragon bribes earned by the vKAT
+             vote. Only the first belongs to an LP's return, so it is totted up separately. */
+          (rw.breakdowns||[]).forEach(function(br){
+            var b=BigInt(br.amount||'0')-BigInt(br.claimed||'0')+BigInt(br.pending||'0');
+            if(b<=0n)return;
+            if(String(br.reason||'').indexOf('SUSHI')===0)lpUsd+=Number(b)/Math.pow(10,dec)*px;
+          });
           rewards.push({symbol:sym,amount:amt,usd:amt*px});
         });
       });
-      return{total_usd:totalUsd,rewards:rewards};
+      return{total_usd:totalUsd,lp_usd:lpUsd,rewards:rewards};
     })
     .catch(function(){return fallback||{total_usd:0,rewards:[]};});
 }
@@ -2649,11 +2657,12 @@ function liveFeeWindow(c,st,logs){
    is a number about the calendar rather than about the position. */
 function lpBookYield(pair){
   if(!POSITIONS)return null;
-  var nowS=Date.now()/1000,capSec=0,realised=0,unreal=0,fees=0,n=0;
+  var nowS=Date.now()/1000,capSec=0,heldSec=0,realised=0,unreal=0,fees=0,n=0;
   var first=Infinity,last=0;
   (POSITIONS.closed||[]).forEach(function(c){
     if(c.pair!==pair||!c.opened_ts||!c.closed_ts)return;
     capSec+=(c.open_value_usd||0)*Math.max(0,c.closed_ts-c.opened_ts);
+    heldSec+=Math.max(0,c.closed_ts-c.opened_ts);
     realised+=c.pnl_usd||0;n++;
     first=Math.min(first,c.opened_ts);last=Math.max(last,c.closed_ts);
   });
@@ -2661,8 +2670,12 @@ function lpBookYield(pair){
   Object.keys(op).forEach(function(k){
     var o=op[k];
     if(o.pair!==pair||!o.opened_ts)return;
-    var val=LP_VALUE[k]!==undefined?LP_VALUE[k]:(o.open_value_usd||0);
+    var lpRow=((LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.lp_positions)||[])
+      .filter(function(x){return x.token_id===k;})[0];
+    /* marked without the fees accruing to the DAO: they are not his to count */
+    var val=(LP_VALUE[k]!==undefined?LP_VALUE[k]:(o.open_value_usd||0))-((lpRow&&lpRow.fees_usd)||0);
     capSec+=(o.open_value_usd||0)*Math.max(0,nowS-o.opened_ts);
+    heldSec+=Math.max(0,nowS-o.opened_ts);
     unreal+=val-(o.open_value_usd||0);n++;
     first=Math.min(first,o.opened_ts);last=nowS;
     var lp=((LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.lp_positions)||[])
@@ -2670,11 +2683,16 @@ function lpBookYield(pair){
     if(lp&&lp.fees_usd)fees+=lp.fees_usd;
   });
   if(!n||!isFinite(first)||!(last>first))return null;
-  var days=(last-first)/86400,avg=capSec/(last-first);
+  /* Measured over the time the money was actually in a pool, not the wall clock. The rate is
+     the same either way — fewer dollars for longer is the same dollar-days — but the figure
+     on the card then reads as the position size rather than an average diluted by the hours
+     between re-ranges. */
+  var days=heldSec/86400,avg=heldSec>0?capSec/heldSec:0;
   if(!(avg>0)||!(days>0))return null;
   /* rewards earned over the same window: what Merkl still holds, plus anything claimed since */
-  var pending=(LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.merkl_rewards
-    &&LAST_DATA.chains.katana.merkl_rewards.total_usd)||0;
+  /* the LP's share of what Merkl holds, falling back to the total on an older snapshot */
+  var mk=(LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.merkl_rewards)||{};
+  var pending=(mk.lp_usd!==undefined?mk.lp_usd:mk.total_usd)||0;
   var claimed=0,cd=(CLAIMS&&CLAIMS.days)||{};
   Object.keys(cd).forEach(function(d){
     if(new Date(d+'T00:00:00Z').getTime()/1000>=first-86400)claimed+=cd[d].value_usd||0;
