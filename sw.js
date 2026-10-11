@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v58';   /* the Slate theme and its switch are gone */
+var CACHE_VERSION = 'tiger-v59';   /* the LP range widget page, and /api kept out of the cache */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -70,15 +70,24 @@ self.addEventListener('fetch', function (e) {
 
   var url = new URL(req.url);
 
-  /* Navigations → serve cached shell, refresh in background */
+  /* Navigations → serve cached shell, refresh in background.
+     Only the dashboard belongs under /index.html. This used to copy whatever document was
+     navigated to over the cached shell, so one visit to /widget.html left an offline
+     visitor looking at the widget where the dashboard should be. */
   if (req.mode === 'navigate') {
+    var isShell = url.origin === self.location.origin &&
+      (url.pathname === '/' || url.pathname === '/index.html');
     e.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(SHELL_CACHE).then(function (c) { c.put('/index.html', copy); });
+        if (isShell && res && res.ok) {
+          var copy = res.clone();
+          caches.open(SHELL_CACHE).then(function (c) { c.put('/index.html', copy); });
+        }
         return res;
       }).catch(function () {
-        return caches.match('/index.html');
+        return caches.match(isShell ? '/index.html' : req).then(function (hit) {
+          return hit || caches.match('/index.html');
+        });
       })
     );
     return;
@@ -89,8 +98,14 @@ self.addEventListener('fetch', function (e) {
   var isData = url.pathname === '/data.json' || url.pathname === '/history.json' ||
                url.pathname === '/claims.json' || url.pathname === '/positions.json';
   var isCrossOrigin = url.origin !== self.location.origin;
-  if (isData || (isCrossOrigin && url.href.indexOf('cdn.jsdelivr.net') === -1)) {
-    var cacheKey = isData ? url.origin + url.pathname : req.url;
+  /* /api/* reads the chain on every request — the widget's whole point is that the price is
+     current, so it must never be answered from the cache first. Without this it fell through
+     to the cache-first branch below and would have been frozen at its first response. */
+  var isApi = !isCrossOrigin && url.pathname.indexOf('/api/') === 0;
+  if (isData || isApi || (isCrossOrigin && url.href.indexOf('cdn.jsdelivr.net') === -1)) {
+    var cacheKey = req.url;
+    if (isData) cacheKey = url.origin + url.pathname;
+    else if (isApi) { var k = new URL(req.url); k.searchParams.delete('t'); cacheKey = k.href; }
     e.respondWith(
       fetch(req).then(function (res) {
         if (res && res.ok) {

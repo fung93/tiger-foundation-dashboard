@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>LP Range</title>
+<link rel="icon" href="/icons/icon-192.png">
+<!--
+  LP range widget — one position, at a glance, on a phone's home screen.
+
+  Built for an Android web-page widget (the sort that renders a URL on a 5-minute timer) but
+  it is an ordinary page: it works in a browser tab and as an "add to home screen" shortcut.
+  All the arithmetic is finished by /api/lp, so this file only places what it is handed.
+
+  There is no copy of this under vercel/ — unlike index.html, which is edited there and
+  copied to the root. This page lives at the root only.
+
+  It deliberately does NOT register the service worker: a widget wants the live number, and
+  a page that can be served from a cache is a page that can show yesterday's price.
+
+  Query string:
+    ?pos=<token id>   pin the widget to one position (default: the tightest band)
+    ?size=small       the 2x2 layout — price, bar, net, nothing else
+-->
+<style>
+:root{
+  --bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;
+  --accent:#f59e0b;--green:#10b981;--red:#ef4444;--gold:#fbbf24;
+  /* One knob drives every size, so the card keeps its proportions whether a widget app
+     captures it at 300px or 1100px wide. */
+  --u:clamp(9px,3.4vw,19px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'SF Mono',Monaco,Consolas,monospace;
+  background:var(--bg);color:var(--text);
+  font-size:var(--u);line-height:1.2;
+  -webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;padding:0.5em;
+}
+a.card{
+  /* Fills a widget-shaped capture, but stays a card rather than stretching into a wall of
+     gaps when the page is opened in a browser tab. */
+  flex:1;height:100%;max-height:15em;max-width:48em;
+  display:flex;flex-direction:column;justify-content:space-between;
+  background:var(--card);border:1px solid var(--border);border-radius:0.85em;
+  padding:0.85em 1em;text-decoration:none;color:inherit;
+  gap:0.7em;overflow:hidden;
+}
+
+/* ---- the top line: what this is, and whether it is working ---- */
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:0.5em}
+.pair{font-size:0.82em;font-weight:700;letter-spacing:0.02em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.badge{font-size:0.62em;padding:0.18em 0.5em;border-radius:1em;white-space:nowrap;flex:none;
+  border:1px solid currentColor;letter-spacing:0.03em}
+.in{color:var(--green)}
+.out{color:var(--red)}
+
+/* ---- the range line ---- */
+/* The price label rides above the marker, so the band reserves a line for it — without
+   that the marker is drawn straight through the digits. */
+.band{position:relative;padding-top:1.3em}
+.price{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;
+  font-size:0.78em;font-weight:700;color:var(--gold)}
+.track{position:relative;height:0.42em;border-radius:0.21em;background:#16203a}
+.fill{position:absolute;inset:0;border-radius:inherit;background:rgba(16,185,129,.28)}
+.fill.oor{background:rgba(239,68,68,.25)}
+/* The marker lives inside the track, not beside it, so it stays on the line in every
+   layout — as a sibling it drifted the moment the price label moved into the flow. */
+.mark{position:absolute;top:-0.26em;width:0.17em;height:0.94em;border-radius:0.09em;
+  background:var(--green);transform:translateX(-50%);box-shadow:0 0 0.5em rgba(16,185,129,.6)}
+.mark.oor{background:var(--red);box-shadow:0 0 0.5em rgba(239,68,68,.6)}
+.ends{display:flex;justify-content:space-between;gap:0.4em;margin-top:0.52em;
+  font-size:0.62em;color:var(--dim);white-space:nowrap}
+.ends .mid{color:#7c8aa8;overflow:hidden;text-overflow:ellipsis}
+.ends .mid.near{color:var(--accent)}
+
+/* ---- the three figures ---- */
+.figs{display:flex;gap:0.5em}
+.fig{flex:1;min-width:0}
+.fig .k{font-size:0.6em;color:var(--dim);letter-spacing:0.04em;white-space:nowrap}
+.fig .v{font-size:0.86em;font-weight:700;margin-top:0.12em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.up{color:var(--green)}.down{color:var(--red)}
+
+.foot{font-size:0.56em;color:#3f4c68;display:flex;justify-content:space-between;gap:0.5em}
+.stale{color:var(--accent)}
+
+/* ---- the 2x2 layout: the two things worth a quarter of a screen ---- */
+body.small .top .badge,body.small .ends,body.small .figs .fig.hide,body.small .foot{display:none}
+body.small .figs{gap:0}
+body.small .pair{font-size:0.7em;color:var(--dim);font-weight:400}
+body.small .band{padding-top:0}
+body.small .price{position:static;transform:none;font-size:1.5em;display:block;margin-bottom:0.3em}
+body.small .fig .v{font-size:1.15em}
+
+/* A capture at an odd aspect should not clip the card. */
+@media (max-height:150px){:root{--u:clamp(8px,4.6vh,16px)}}
+</style>
+</head>
+<body>
+<a class="card" id="card" href="/">
+  <div class="top">
+    <div class="pair" id="pair">LP range</div>
+    <div class="badge" id="badge">&middot;&middot;&middot;</div>
+  </div>
+
+  <div class="band">
+    <div class="price" id="price" style="left:50%">$--</div>
+    <div class="track"><div class="fill" id="fill"></div><div class="mark" id="mark" style="left:50%"></div></div>
+    <div class="ends">
+      <span id="lower">$--</span>
+      <span class="mid" id="edges"></span>
+      <span id="upper">$--</span>
+    </div>
+  </div>
+
+  <div class="figs">
+    <div class="fig"><div class="k" id="yk">Rewards</div><div class="v up" id="yv">$--</div></div>
+    <div class="fig hide"><div class="k">IL</div><div class="v" id="il">$--</div></div>
+    <div class="fig"><div class="k">Net</div><div class="v" id="net">$--</div></div>
+  </div>
+
+  <div class="foot"><span id="meta"></span><span id="when"></span></div>
+</a>
+
+<script>
+(function () {
+  var Q = new URLSearchParams(location.search);
+  if (Q.get('size') === 'small') document.body.classList.add('small');
+
+  var el = function (id) { return document.getElementById(id); };
+  var API = '/api/lp' + (Q.get('pos') ? '?pos=' + encodeURIComponent(Q.get('pos')) : '');
+  var lastGood = 0;
+
+  /* The endpoint reads the chain, which takes a second or two. A widget app that snapshots
+     the page on a timer can easily photograph it before that lands, so the last good answer
+     is kept and painted immediately — the age stamp then says how old it is. One slot per
+     pinned position, so two widgets do not overwrite each other. */
+  var KEY = 'tf_lp_widget:' + (Q.get('pos') || 'default');
+  function remember(d) {
+    try { localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+  }
+  function recall() {
+    try {
+      var o = JSON.parse(localStorage.getItem(KEY) || 'null');
+      return o && o.d && o.d.widget ? o : null;
+    } catch (e) { return null; }
+  }
+
+  function paint(d, when) {
+    var W = d.widget;
+    if (!W) { el('badge').textContent = 'no position'; return; }
+    var oor = !W.in_range;
+
+    el('pair').textContent = W.pair;
+    el('badge').textContent = W.status;
+    el('badge').className = 'badge ' + (oor ? 'out' : 'in');
+
+    /* The marker and the price label share one position so they can never disagree. Kept a
+       little off each end, because a label centred on 0% or 100% hangs off the card. */
+    var p = Math.max(3, Math.min(97, W.position_pct));
+    el('mark').style.left = p + '%';
+    el('mark').className = 'mark' + (oor ? ' oor' : '');
+    el('fill').className = 'fill' + (oor ? ' oor' : '');
+    el('price').style.left = p + '%';
+    el('price').textContent = W.price;
+
+    el('lower').textContent = W.lower;
+    el('upper').textContent = W.upper;
+    el('edges').textContent = W.edges;
+    /* Under a quarter of a percent of room is worth a colour: that is minutes, not days. */
+    el('edges').className = 'mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '');
+
+    el('yk').textContent = W.yield_label;
+    el('yv').textContent = W.yield_value;
+    el('il').textContent = W.il;
+    el('il').className = 'v ' + (W.il.charAt(0) === '-' ? 'down' : 'up');
+    el('net').textContent = W.net;
+    el('net').className = 'v ' + (W.net_up ? 'up' : 'down');
+
+    el('meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
+      + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '');
+    lastGood = when || Date.now();
+    stamp(false);
+  }
+
+  /* How old the figures are, in the words a glance needs. A widget that cannot say when it
+     last managed to read the chain is a widget that can quietly lie. */
+  function stamp(failed) {
+    var age = lastGood ? Math.round((Date.now() - lastGood) / 60000) : null;
+    var txt = age === null ? 'no data yet' : age < 1 ? 'just now' : age + 'm ago';
+    el('when').textContent = txt;
+    el('when').className = failed || (age !== null && age > 20) ? 'stale' : '';
+  }
+
+  function load() {
+    fetch(API + (API.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && !d.error && d.widget) { paint(d); remember(d); } else stamp(true);
+      })
+      .catch(function () { stamp(true); });   /* keep the last good numbers on screen */
+  }
+
+  var seed = recall();
+  if (seed) paint(seed.d, seed.t);
+  load();
+  setInterval(load, 60000);
+  /* A widget app may keep this page alive and hidden for hours; refresh the moment it is
+     shown again so what appears on screen is never the number from before the gap. */
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+  setInterval(function () { stamp(false); }, 30000);
+})();
+</script>
+</body>
+</html>
