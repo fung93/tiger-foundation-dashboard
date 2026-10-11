@@ -471,7 +471,11 @@ export default async function handler(req, res) {
       rewards_pending_usd: merkl.lp_usd,
       rewards_all_usd: merkl.total_usd,
       count: rows.length,
+      /* `widget` is the one position a home-screen widget shows, and stays first so a
+         widget maker's JSON path never moves. `widgets` is every open position, for the
+         installed app, which has a whole screen rather than a 4x2 strip. */
       widget: widgetView(pick, merkl.lp_usd),
+      widgets: rows.map((r) => widgetView(r, merkl.lp_usd)),
       positions: rows,
       errors: errors.length ? errors : undefined,
     }, null, 2));

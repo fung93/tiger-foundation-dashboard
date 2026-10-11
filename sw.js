@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v59';   /* the LP range widget page, and /api kept out of the cache */
+var CACHE_VERSION = 'tiger-v60';   /* the LP range widget is installable on its own */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -33,6 +33,13 @@ var SHELL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
+  /* the LP range widget, installable in its own right — precached so the icon opens to
+     the card and its last reading rather than to a browser error when offline */
+  '/widget.html',
+  '/widget.webmanifest',
+  '/icons/lp-192.png',
+  '/icons/lp-512.png',
+  '/icons/lp-maskable-512.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-512.png',

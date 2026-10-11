@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#080c14">
 <title>LP Range</title>
-<link rel="icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/widget.webmanifest">
+<link rel="icon" href="/icons/lp-192.png">
+<link rel="apple-touch-icon" href="/icons/lp-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LP Range">
 <!--
   LP range widget — one position, at a glance, on a phone's home screen.
 
@@ -22,6 +29,7 @@
   Query string:
     ?pos=<token id>   pin the widget to one position (default: the tightest band)
     ?size=small       the 2x2 layout — price, bar, net, nothing else
+    ?all=1            every open position, one card each — what the installed app opens to
 -->
 <style>
 :root{
@@ -49,6 +57,21 @@ a.card{
   padding:0.85em 1em;text-decoration:none;color:inherit;
   gap:0.7em;overflow:hidden;
 }
+
+/* In widget mode the stack must not exist as far as layout is concerned — the card stays a
+   direct flex child of the body so it still fills and centres. */
+.stack{display:contents}
+.appfoot{display:none}
+
+/* ---- the installed app: a whole screen, so every position gets a card ---- */
+body.all .appfoot{display:block}
+body.all{display:block;overflow-y:auto;padding:0.6em;
+  padding-top:max(0.6em,env(safe-area-inset-top));
+  padding-bottom:max(0.6em,env(safe-area-inset-bottom))}
+body.all .stack{display:flex;flex-direction:column;gap:0.6em;max-width:48em;margin:0 auto}
+body.all a.card{height:auto;max-height:none;min-height:9.5em}
+body.all .appfoot{text-align:center;color:#3f4c68;font-size:0.6em;padding:0.9em 0 0.3em}
+body.all .appfoot a{color:var(--dim);text-decoration:none;border-bottom:1px solid #223}
 
 /* ---- the top line: what this is, and whether it is working ---- */
 .top{display:flex;align-items:baseline;justify-content:space-between;gap:0.5em}
@@ -102,37 +125,59 @@ body.small .fig .v{font-size:1.15em}
 </style>
 </head>
 <body>
-<a class="card" id="card" href="/">
-  <div class="top">
-    <div class="pair" id="pair">LP range</div>
-    <div class="badge" id="badge">&middot;&middot;&middot;</div>
-  </div>
-
-  <div class="band">
-    <div class="price" id="price" style="left:50%">$--</div>
-    <div class="track"><div class="fill" id="fill"></div><div class="mark" id="mark" style="left:50%"></div></div>
-    <div class="ends">
-      <span id="lower">$--</span>
-      <span class="mid" id="edges"></span>
-      <span id="upper">$--</span>
+<!-- One card. In app mode it is cloned per position, so everything inside is addressed by
+     class rather than id — an id would stop being unique the moment there are two. -->
+<div class="stack" id="stack">
+  <a class="card" href="/">
+    <div class="top">
+      <div class="pair">LP range</div>
+      <div class="badge">&middot;&middot;&middot;</div>
     </div>
-  </div>
 
-  <div class="figs">
-    <div class="fig"><div class="k" id="yk">Rewards</div><div class="v up" id="yv">$--</div></div>
-    <div class="fig hide"><div class="k">IL</div><div class="v" id="il">$--</div></div>
-    <div class="fig"><div class="k">Net</div><div class="v" id="net">$--</div></div>
-  </div>
+    <div class="band">
+      <div class="price" style="left:50%">$--</div>
+      <div class="track"><div class="fill"></div><div class="mark" style="left:50%"></div></div>
+      <div class="ends">
+        <span class="lower">$--</span>
+        <span class="mid edges"></span>
+        <span class="upper">$--</span>
+      </div>
+    </div>
 
-  <div class="foot"><span id="meta"></span><span id="when"></span></div>
-</a>
+    <div class="figs">
+      <div class="fig"><div class="k yk">Rewards</div><div class="v up yv">$--</div></div>
+      <div class="fig hide"><div class="k">IL</div><div class="v il">$--</div></div>
+      <div class="fig"><div class="k">Net</div><div class="v net">$--</div></div>
+    </div>
+
+    <div class="foot"><span class="meta"></span><span class="when"></span></div>
+  </a>
+</div>
+<div class="appfoot">open LP positions only &middot; <a href="/">the full dashboard</a></div>
 
 <script>
 (function () {
   var Q = new URLSearchParams(location.search);
   if (Q.get('size') === 'small') document.body.classList.add('small');
 
-  var el = function (id) { return document.getElementById(id); };
+  /* App mode: the installed icon opens a whole screen, so it shows every open position
+     rather than the one a 4x2 strip has room for. */
+  var ALL = Q.get('all') === '1' || Q.get('all') === 'true';
+  if (ALL) document.body.classList.add('all');
+
+  var stack = document.getElementById('stack');
+  var TPL = stack.firstElementChild;
+  var cards = [TPL];
+  function cardAt(i) {
+    while (cards.length <= i) {
+      var c = TPL.cloneNode(true);
+      stack.appendChild(c);
+      cards.push(c);
+    }
+    return cards[i];
+  }
+  var q = function (card, cls) { return card.querySelector('.' + cls); };
+
   var API = '/api/lp' + (Q.get('pos') ? '?pos=' + encodeURIComponent(Q.get('pos')) : '');
   var lastGood = 0;
 
@@ -151,39 +196,51 @@ body.small .fig .v{font-size:1.15em}
     } catch (e) { return null; }
   }
 
-  function paint(d, when) {
-    var W = d.widget;
-    if (!W) { el('badge').textContent = 'no position'; return; }
+  /* One position onto one card. */
+  function fill(card, W) {
     var oor = !W.in_range;
 
-    el('pair').textContent = W.pair;
-    el('badge').textContent = W.status;
-    el('badge').className = 'badge ' + (oor ? 'out' : 'in');
+    q(card, 'pair').textContent = W.pair;
+    q(card, 'badge').textContent = W.status;
+    q(card, 'badge').className = 'badge ' + (oor ? 'out' : 'in');
 
     /* The marker and the price label share one position so they can never disagree. Kept a
        little off each end, because a label centred on 0% or 100% hangs off the card. */
     var p = Math.max(3, Math.min(97, W.position_pct));
-    el('mark').style.left = p + '%';
-    el('mark').className = 'mark' + (oor ? ' oor' : '');
-    el('fill').className = 'fill' + (oor ? ' oor' : '');
-    el('price').style.left = p + '%';
-    el('price').textContent = W.price;
+    q(card, 'mark').style.left = p + '%';
+    q(card, 'mark').className = 'mark' + (oor ? ' oor' : '');
+    q(card, 'fill').className = 'fill' + (oor ? ' oor' : '');
+    q(card, 'price').style.left = p + '%';
+    q(card, 'price').textContent = W.price;
 
-    el('lower').textContent = W.lower;
-    el('upper').textContent = W.upper;
-    el('edges').textContent = W.edges;
+    q(card, 'lower').textContent = W.lower;
+    q(card, 'upper').textContent = W.upper;
+    q(card, 'edges').textContent = W.edges;
     /* Under a quarter of a percent of room is worth a colour: that is minutes, not days. */
-    el('edges').className = 'mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '');
+    q(card, 'edges').className = 'mid edges' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '');
 
-    el('yk').textContent = W.yield_label;
-    el('yv').textContent = W.yield_value;
-    el('il').textContent = W.il;
-    el('il').className = 'v ' + (W.il.charAt(0) === '-' ? 'down' : 'up');
-    el('net').textContent = W.net;
-    el('net').className = 'v ' + (W.net_up ? 'up' : 'down');
+    q(card, 'yk').textContent = W.yield_label;
+    q(card, 'yv').textContent = W.yield_value;
+    q(card, 'il').textContent = W.il;
+    q(card, 'il').className = 'v il ' + (W.il.charAt(0) === '-' ? 'down' : 'up');
+    q(card, 'net').textContent = W.net;
+    q(card, 'net').className = 'v net ' + (W.net_up ? 'up' : 'down');
 
-    el('meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
+    q(card, 'meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
       + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '');
+  }
+
+  function paint(d, when) {
+    /* An older cached payload may predate `widgets`, so the single view is the fallback. */
+    var views = ALL ? (d.widgets && d.widgets.length ? d.widgets : [d.widget]) : [d.widget];
+    views = views.filter(Boolean);
+    if (!views.length) { q(cardAt(0), 'badge').textContent = 'no position'; return; }
+
+    views.forEach(function (W, i) { fill(cardAt(i), W); });
+    /* a position closed since the cached payload was written leaves a card behind */
+    for (var i = views.length; i < cards.length; i++) cards[i].style.display = 'none';
+    for (var j = 0; j < views.length; j++) cards[j].style.display = '';
+
     lastGood = when || Date.now();
     stamp(false);
   }
@@ -193,17 +250,28 @@ body.small .fig .v{font-size:1.15em}
   function stamp(failed) {
     var age = lastGood ? Math.round((Date.now() - lastGood) / 60000) : null;
     var txt = age === null ? 'no data yet' : age < 1 ? 'just now' : age + 'm ago';
-    el('when').textContent = txt;
-    el('when').className = failed || (age !== null && age > 20) ? 'stale' : '';
+    var cls = failed || (age !== null && age > 20) ? 'when stale' : 'when';
+    cards.forEach(function (c) {
+      q(c, 'when').textContent = txt;
+      q(c, 'when').className = cls;
+    });
   }
 
+  /* Opening the page fires both the first load and the visibility handler, which fetched
+     twice within a fifth of a second. Harmless on a desktop, wasteful on a phone that does
+     it every time the screen wakes, so a request in flight or barely finished stands. */
+  var inflight = false, lastTry = 0;
   function load() {
-    fetch(API + (API.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' })
+    var now = Date.now();
+    if (inflight || now - lastTry < 3000) return;
+    inflight = true; lastTry = now;
+    fetch(API + (API.indexOf('?') < 0 ? '?' : '&') + 't=' + now, { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        inflight = false;
         if (d && !d.error && d.widget) { paint(d); remember(d); } else stamp(true);
       })
-      .catch(function () { stamp(true); });   /* keep the last good numbers on screen */
+      .catch(function () { inflight = false; stamp(true); });   /* keep the last good numbers */
   }
 
   var seed = recall();

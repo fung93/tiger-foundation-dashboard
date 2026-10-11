@@ -1,0 +1,32 @@
+{
+  "name": "LP Range",
+  "short_name": "LP Range",
+  "description": "Where the price sits inside each liquidity band, with fees, impermanent loss and net profit.",
+  "id": "/widget.html",
+  "start_url": "/widget.html?all=1",
+  "scope": "/widget",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080c14",
+  "theme_color": "#080c14",
+  "icons": [
+    {
+      "src": "/icons/lp-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/lp-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/lp-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
