@@ -1865,29 +1865,41 @@ async function getMerkl(katPrice, chainId = 747474) {
   try {
     const arr = await (await fetch(`${CFG.merklApi}/users/${CFG.wallet}/rewards?chainId=${chainId}`)).json();
     let totalUsd = 0, lpUsd = 0;
-    const rewards = [];
+    const byId = {}, rewards = [];
     for (const chain of arr || []) {
       for (const rw of chain.rewards || []) {
         const dec = rw.token?.decimals ?? 18;
         const unclaimed = BigInt(rw.amount || '0') - BigInt(rw.claimed || '0') + BigInt(rw.pending || '0');
-        if (unclaimed <= 0n) continue;
-        const amt = Number(unclaimed) / 10 ** dec;
         const sym = rw.token?.symbol || '?';
         const px = rw.token?.price || (sym === 'KAT' ? katPrice : 0);
-        totalUsd += amt * px;
+        const amt = Number(unclaimed) / 10 ** dec;
+        if (unclaimed > 0n) {
+          totalUsd += amt * px;
+          rewards.push({ symbol: sym, amount: amt, usd: round2(amt * px) });
+        }
         /* Two different things arrive through Merkl: SUSHI campaigns pay staked liquidity,
            Aragon bribes pay the vKAT vote. Only the first is an LP's earnings, so it is
-           counted separately and the page's LP yield uses that figure alone. */
+           counted separately and the page's LP yield uses that figure alone.
+           A SUSHI reason names the pool and the position NFT it paid for:
+             SUSHI_SWAP_<pool>_<tokenId>~..._SushiStaker_...
+           so each position is credited with exactly what it earned. */
         for (const br of rw.breakdowns || []) {
-          const b = BigInt(br.amount || '0') - BigInt(br.claimed || '0') + BigInt(br.pending || '0');
-          if (b > 0n && String(br.reason || '').startsWith('SUSHI')) lpUsd += Number(b) / 10 ** dec * px;
+          const reason = String(br.reason || '');
+          if (!reason.startsWith('SUSHI')) continue;
+          const open = BigInt(br.amount || '0') - BigInt(br.claimed || '0') + BigInt(br.pending || '0');
+          if (open > 0n) lpUsd += Number(open) / 10 ** dec * px;
+          /* Earned rather than outstanding: `amount` is cumulative and claiming only moves
+             it into `claimed`, so a claim cannot make this figure fall — which is what a
+             rate of return has to be measured on. */
+          const earned = BigInt(br.amount || '0') + BigInt(br.pending || '0');
+          const m = reason.match(/^SUSHI_SWAP_0x[0-9a-fA-F]{40}_(\d+)~/);
+          if (m && earned > 0n) byId[m[1]] = round2((byId[m[1]] || 0) + Number(earned) / 10 ** dec * px);
         }
-        rewards.push({ symbol: sym, amount: amt, usd: round2(amt * px) });
       }
     }
-    return { total_usd: round2(totalUsd), lp_usd: round2(lpUsd), rewards };
+    return { total_usd: round2(totalUsd), lp_usd: round2(lpUsd), earned_by_id: byId, rewards };
   } catch {
-    return { total_usd: 0, lp_usd: 0, rewards: [] };
+    return { total_usd: 0, lp_usd: 0, earned_by_id: {}, rewards: [] };
   }
 }
 async function getAprs() {
