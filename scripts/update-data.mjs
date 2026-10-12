@@ -785,8 +785,13 @@ async function getKatana(prevStakedIds) {
       f1 += accrued(p.liq, v3Inside(curTick0, p.tickLo, p.tickHi, toBig(w(slotRes[i + 2].data, 0)),
         toBig(w(slotRes[i + 3].data, 3)), toBig(w(slotRes[i + 4].data, 3))), p.last1);
     }
-    const h0 = a0 / 10 ** decOf[t0] + Number(f0) / 10 ** decOf[t0];
-    const h1 = a1 / 10 ** decOf[t1] + Number(f1) / 10 ** decOf[t1];
+    /* Uncollected fees count towards what a position is worth only when they are his. A
+       staked Sushi position's fees are collected to the Katana DAO, so folding them in
+       overstated both the position and the portfolio, and turned its P&L positive while
+       the position was actually down. */
+    const mine = p.staked ? 0 : 1;
+    const h0 = a0 / 10 ** decOf[t0] + mine * Number(f0) / 10 ** decOf[t0];
+    const h1 = a1 / 10 ** decOf[t1] + mine * Number(f1) / 10 ** decOf[t1];
     const val = h0 * (priceOf[t0] || 0) + h1 * (priceOf[t1] || 0);
     if (val < 0.5) return;
     /* Out of range? Below tickLower the position is entirely token0, above tickUpper

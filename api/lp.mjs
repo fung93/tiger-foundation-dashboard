@@ -305,8 +305,12 @@ function shape(p) {
   /* Priced through the stable leg: one side of the pair is a dollar, so the other side's
      price is the pool's own. A pair with no stable leg gets its range and nothing more. */
   const priced = !!(T0.stable || T1.stable);
-  const value = priced ? (T1.stable ? p.a0 * px + p.a1 : p.a1 / px + p.a0) : null;
-  const fees = priced ? (T1.stable ? p.fee0 * px + p.fee1 : p.fee1 / px + p.fee0) : null;
+  const usd = (x0, x1) => (T1.stable ? x0 * px + x1 : x1 / px + x0);
+  const liq = priced ? usd(p.a0, p.a1) : null;
+  const fees = priced ? usd(p.fee0, p.fee1) : null;
+  /* Uncollected fees are part of what the position is worth only when they are his. They
+     are on a position he holds; on a staked Sushi position the Katana DAO collects them. */
+  const value = liq === null ? null : liq + (p.feesMine ? fees : 0);
 
   /* Out of range below the floor the position is all of one leg, above the ceiling all of
      the other. Named from the volatile leg's point of view, so "below" always means the
@@ -336,7 +340,9 @@ function shape(p) {
     if (exact) {
       hodl = T1.stable ? i0 * px + i1 : i1 / px + i0;
       market = hodl - capital;
-      il = value - hodl;
+      /* Measured on the liquidity alone. Fees are what compensates for impermanent loss,
+         not part of it, so counting them here would flatter the figure. */
+      il = liq - hodl;
     }
   }
 
@@ -406,9 +412,10 @@ async function merklLp() {
 function widgetView(pos, rewards) {
   if (!pos) return null;
   const R = pos.range;
-  /* The rewards belong to the staked Katana book; an unstaked position earns its own fees. */
+  /* A position he holds keeps its own fees, and those are already inside its P&L. A staked
+     one earns Merkl instead, which is not, so only that gets added on. */
   const mine = pos.fees_mine ? (pos.fees_usd || 0) : rewards;
-  const net = (pos.pnl_usd || 0) + mine;
+  const net = (pos.pnl_usd || 0) + (pos.fees_mine ? 0 : rewards);
   const edge = Math.min(R.to_lower_pct, R.to_upper_pct);
   return {
     pair: pos.pair,

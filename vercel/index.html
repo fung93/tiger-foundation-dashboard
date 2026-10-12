@@ -1253,8 +1253,13 @@ function getKatanaLive(stakedLpIds){
                 noteUntracked('katana',p.tokenId,'token not in the Katana list',{token0:t0,token1:t1});
                 continue;
               }
-              var h0=amts[0]/Math.pow(10,d0)+Number(fee0)/Math.pow(10,d0);
-              var h1=amts[1]/Math.pow(10,d1)+Number(fee1)/Math.pow(10,d1);
+              /* Uncollected fees count towards what a position is worth only when they are
+                 his. A staked position's fees are collected to the Katana DAO, so folding
+                 them in overstated both the position and the portfolio, and turned its P&L
+                 positive while the position was actually down. */
+              var mineF=p.staked?0:1;
+              var h0=amts[0]/Math.pow(10,d0)+mineF*Number(fee0)/Math.pow(10,d0);
+              var h1=amts[1]/Math.pow(10,d1)+mineF*Number(fee1)/Math.pow(10,d1);
               var val=h0*(priceOf[t0]||0)+h1*(priceOf[t1]||0);
               if(val<0.5)continue;
               lps.push({
@@ -2544,10 +2549,9 @@ function lpBookYield(pair){
     var o=op[k];
     if(o.pair!==pair||!o.opened_ts)return;
     ids.push(String(k));
-    var lpRow=((LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.lp_positions)||[])
-      .filter(function(x){return x.token_id===k;})[0];
-    /* marked without the fees accruing to the DAO: they are not his to count */
-    var val=(LP_VALUE[k]!==undefined?LP_VALUE[k]:(o.open_value_usd||0))-((lpRow&&lpRow.fees_usd)||0);
+    /* A staked position's value already leaves out the fees accruing to the DAO, so there
+       is nothing further to deduct here — doing it again took them off twice. */
+    var val=LP_VALUE[k]!==undefined?LP_VALUE[k]:(o.open_value_usd||0);
     capSec+=(o.open_value_usd||0)*Math.max(0,nowS-o.opened_ts);
     heldSec+=Math.max(0,nowS-o.opened_ts);
     unreal+=val-(o.open_value_usd||0);n++;
