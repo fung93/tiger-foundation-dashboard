@@ -511,7 +511,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
         <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
-        <button class="rec-btn" id="claimsBtn" title="LP fee claim record" aria-label="LP fee claim record">
+        <button class="rec-btn" id="claimsBtn" title="Claim record" aria-label="Claim record">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
         </button>
       </div>
@@ -599,7 +599,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   </div>
 </div>
 
-<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="LP fee claim record">
+<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Claim record">
   <div class="modal">
     <div class="modal-head">
       <span class="modal-title">Claim Record</span>
@@ -2320,15 +2320,23 @@ function utc8DayStartSec(k){return Date.parse(k+'T00:00:00Z')/1000-8*3600;}
 /* The 6h Action owns claims.json, so a claim made since the last run would stay invisible
    until the next one. Scan the same Claimed events straight from the browser — same pattern
    as the staked-LP discovery — and overlay the days the scan window covers end to end. */
-function scanLiveClaims(katPrice){
+function scanLiveClaims(katPrice,priceOf){
   var W=CFG.wallet.replace(/^0x/,'');
+  /* Every token a campaign pays in, not KAT alone — a reward taken in vbUSDC used to be
+     recorded as nothing at all. */
+  var TOK={};
+  TOK[CFG.tokens.KAT.a.toLowerCase()]={s:'KAT',d:18,p:katPrice};
+  TOK[CFG.tokens.USDC.a.toLowerCase()]={s:'vbUSDC',d:6,p:1};
+  TOK[CFG.tokens.USDT.a.toLowerCase()]={s:'vbUSDT',d:6,p:1};
+  TOK[CFG.tokens.WBTC.a.toLowerCase()]={s:'vbWBTC',d:8,p:(priceOf&&priceOf.btc)||0};
+  TOK[CFG.tokens.WETH.a.toLowerCase()]={s:'vbETH',d:18,p:(priceOf&&priceOf.eth)||0};
   return rpc('eth_blockNumber',[]).then(function(bn){
     var latest=Number(BigInt(bn));
     var from=Math.max(0,latest-CFG.logWindow);
     return Promise.all([
       rpc('eth_getLogs',[{fromBlock:'0x'+from.toString(16),toBlock:'latest',
         address:CFG.merklDistributor,
-        topics:[CFG.claimedTopic,'0x'+pad(W),'0x'+pad(CFG.tokens.KAT.a.replace(/^0x/,''))]}]),
+        topics:[CFG.claimedTopic,'0x'+pad(W)]}]),
       rpc('eth_getBlockByNumber',['0x'+from.toString(16),false])
     ]);
   }).then(function(r){
@@ -2343,14 +2351,26 @@ function scanLiveClaims(katPrice){
         nums.forEach(function(n,i){ts[n]=Number(BigInt(blocks[i].timestamp));});
         var days={};
         logs.forEach(function(l){
+          var meta=TOK[('0x'+l.topics[2].slice(26)).toLowerCase()];
+          if(!meta)return;                      /* a token with no price is not a figure */
           var sec=l.blockTimestamp?Number(BigInt(l.blockTimestamp)):ts[l.blockNumber];
           var k=utc8Date(sec*1000);
-          var e=days[k]||(days[k]={kat:0,kat_price:katPrice,value_usd:0});
-          e.kat+=Number(BigInt(l.data))/1e18;   /* Claimed carries the delta, not a running total */
+          var e=days[k]||(days[k]={kat:0,kat_price:katPrice,value_usd:0,tokens:{}});
+          /* Claimed carries the delta, not a running total */
+          var amt=Number(BigInt(l.data.slice(0,66)))/Math.pow(10,meta.d);
+          e.tokens[meta.s]=(e.tokens[meta.s]||0)+amt;
+          if(meta.s==='KAT')e.kat+=amt;
         });
         Object.keys(days).forEach(function(k){
-          days[k].kat=Math.round(days[k].kat*100)/100;
-          days[k].value_usd=Math.round(days[k].kat*katPrice*100)/100;
+          var e=days[k],sum=0;e.usd={};
+          Object.keys(e.tokens).forEach(function(sym){
+            var p=TOK[Object.keys(TOK).filter(function(a){return TOK[a].s===sym;})[0]].p;
+            e.tokens[sym]=Math.round(e.tokens[sym]*100)/100;
+            e.usd[sym]=Math.round(e.tokens[sym]*p*100)/100;
+            sum+=e.tokens[sym]*p;
+          });
+          e.kat=Math.round(e.kat*100)/100;
+          e.value_usd=Math.round(sum*100)/100;
         });
         return{days:days,coverStart:coverStart};
       });
@@ -2374,7 +2394,14 @@ function claimDays(){
          was booked at — re-valuing an earlier day at today's price would break the rule that
          each day is worth its own day's KAT price */
       var price=(prev&&prev.kat_price)||lv.kat_price;
-      out[k]={kat:lv.kat,kat_price:price,value_usd:Math.round(lv.kat*price*100)/100};
+      /* Every token the day was paid in, not KAT alone — this used to rebuild the day from
+         the KAT figure and drop a reward claimed in vbUSDC entirely. KAT keeps the price
+         the day was booked at; the rest carry the value the scan put on them. */
+      var tokens=lv.tokens||{},val=0;
+      Object.keys(tokens).forEach(function(sym){
+        val+=(sym==='KAT')?tokens[sym]*price:((lv.usd&&lv.usd[sym])||0);
+      });
+      out[k]={kat:lv.kat,kat_price:price,tokens:tokens,value_usd:Math.round(val*100)/100};
     });
   }
   return out;
@@ -2627,25 +2654,46 @@ function feeTip(d){
 /* The claim record is LP fees only, one row a day, with the chains that paid on a second
    line — a hover title would be invisible on a phone. KAT claims are no longer listed here;
    they still count in the P&L summary of the position record. */
+/* One day's claims broken down by where they came from: the Merkl rewards first, then the
+   LP trading fees by chain. Both are money claimed into this wallet, so they share a column
+   rather than each having one of their own. */
+function claimSplit(r,f){
+  var parts=[];
+  if(r&&(r.value_usd||0)>=0.005)
+    parts.push('<span style="white-space:nowrap"><span style="color:var(--gold)">Rewards</span> '+money(r.value_usd)+'</span>');
+  if(f)parts.push.apply(parts,FEE_CHAINS.filter(function(c){return f[c.key]>=0.005;})
+    .map(function(c){return'<span style="white-space:nowrap"><span style="color:'+c.color+'">'+c.name+'</span> '
+      +money(f[c.key])+'</span>';}));
+  return parts.join(' · ');
+}
+
 function buildClaims(){
   var t=document.getElementById('claimsTable');
   if(!t)return;
   var fees=feeDays();
+  /* Rewards claimed from Merkl, which is what most people mean by a claim — the table
+     showed only LP trading fees, so a day's reward claim appeared as a dash. */
+  var rew=claimDays();
   var today=utc8Date(Date.now());
-  var start=(CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.start_date)||today;
+  /* the table spans whichever record began first, so neither a reward day nor a fee day
+     can fall off the top of it */
+  var fStart=(CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.start_date)||today;
+  var rStart=(CLAIMS&&CLAIMS.start_date)||today;
+  var start=fStart<rStart?fStart:rStart;
   var list=[],d=new Date(start+'T00:00:00Z'),end=new Date(today+'T00:00:00Z');
   while(d<=end){list.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
   list.reverse(); /* newest first */
   var dash='<span style="color:var(--dim)">-</span>';
-  var rows='<tr><th>Date</th><th class="num">LP fees claimed</th></tr>';
-  var totFee={total:0};
+  var rows='<tr><th>Date</th><th class="num">Fees claimed</th></tr>';
+  var totFee={total:0},totRew=0;
   list.forEach(function(k){
-    var f=fees[k];
+    var f=fees[k],r=rew[k];
     if(f)Object.keys(f).forEach(function(ch){totFee[ch]=(totFee[ch]||0)+f[ch];});
-    var hasFee=f&&f.total>=0.005;
+    if(r&&(r.value_usd||0)>=0.005)totRew+=r.value_usd;
+    var day=((r&&r.value_usd)||0)+((f&&f.total)||0);
     rows+='<tr><td style="white-space:nowrap">'+k+(k===today?' <span style="color:var(--dim);font-size:9px">today</span>':'')+'</td>'
-      +'<td class="num">'+(hasFee
-        ?'<span style="color:var(--green)">'+money(f.total)+'</span><span class="fee-split">'+feeSplit(f)+'</span>'
+      +'<td class="num">'+(day>=0.005
+        ?'<span style="color:var(--green)">'+money(day)+'</span><span class="fee-split">'+claimSplit(r,f)+'</span>'
         :dash)+'</td></tr>';
   });
   t.innerHTML=rows;
@@ -2653,11 +2701,13 @@ function buildClaims(){
      scroll. Same fixed column widths as the table above, so the figures line up. */
   var tot=document.getElementById('claimsTotal');
   if(tot){
-    tot.innerHTML=totFee.total>0
+    tot.innerHTML=(totFee.total>0||totRew>0)
       ? '<table class="tbl"><tr><td style="font-weight:700">TOTAL</td>'
-        +'<td class="num" style="font-weight:700"><span style="color:var(--green)">'+money(totFee.total)+'</span>'
-        +'<span class="fee-split" style="font-weight:400">'+feeSplit(totFee)+'</span></td></tr></table>'
-        +'<div class="claims-note">Fees paid into this wallet, valued on the day they were claimed — already part of each position\'s P&amp;L.</div>'
+        +'<td class="num" style="font-weight:700"><span style="color:var(--green)">'+money(totRew+totFee.total)+'</span>'
+        +'<span class="fee-split" style="font-weight:400">'
+          +claimSplit({value_usd:totRew},totFee)+'</span></td></tr></table>'
+        +'<div class="claims-note">Everything claimed into this wallet, valued on the day it was claimed: '
+        +'Merkl rewards, and LP trading fees — the fees are already part of each position\'s P&amp;L.</div>'
       : '';
   }
   capClaimsHeight();   /* re-cap when a live scan adds a day while the window is open */
@@ -4421,7 +4471,7 @@ function refreshLive(){
   var refs=(LAST_SNAP&&LAST_SNAP.meteora_refs)||CFG.meteoraRefs;
   return loadLive(refs,LAST_SNAP).then(function(d){
     render(d,true);
-    return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
+    return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0,{eth:(d.chains&&d.chains.katana&&d.chains.katana.eth_price)||0,btc:(d.chains&&d.chains.katana&&d.chains.katana.btc_price)||0})
       .then(function(res){LIVE_CLAIMS=res;keepingScroll(function(){buildClaims();buildPositions();});})
       .catch(function(e){console.warn('live claim scan failed',e);});
   }).then(function(){
@@ -4486,7 +4536,7 @@ function load(){
         render(d,true);
         /* claims need the live KAT price, so this one does wait — and must never take
            the overlay down if it fails */
-        return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0)
+        return scanLiveClaims((d.tracking&&d.tracking.kat_price)||0,{eth:(d.chains&&d.chains.katana&&d.chains.katana.eth_price)||0,btc:(d.chains&&d.chains.katana&&d.chains.katana.btc_price)||0})
           .then(function(res){LIVE_CLAIMS=res;buildClaims();buildPositions();})
           .then(scanLiveFees)
           .catch(function(e){console.warn('live claim scan failed, using claims.json',e);});

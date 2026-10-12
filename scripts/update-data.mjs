@@ -68,6 +68,7 @@ const CFG = {
   stakedScanSpan: 30000,
   logBootstrapWindow: 1500000,                                // ~1 month, only when nothing is persisted yet
   logChunk: 100000,                                           // keep each eth_getLogs request small enough for public RPCs
+  claimChunk: 300000,                                         // the claim sweep names the contract and the user, so it can go wide
   factory: '0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho: '0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
   marketId: '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
@@ -242,38 +243,97 @@ async function discoverStakedLp(W, prevIds) {
    Claimed events carry exact amounts and timestamps, so day boundaries are exact.
    Only days with claims are stored; the dashboard fills the gaps with "-". */
 const CLAIMED_TOPIC = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
+/* The tokens a Merkl campaign has paid this wallet, by address. A claim in anything not
+   listed here is skipped rather than valued at nothing. */
+const CLAIM_TOKEN = {
+  [CFG.tokens.KAT.a.toLowerCase()]: { s: 'KAT', d: 18 },
+  [CFG.tokens.USDC.a.toLowerCase()]: { s: 'vbUSDC', d: 6 },
+  [CFG.tokens.USDT.a.toLowerCase()]: { s: 'vbUSDT', d: 6 },
+  [CFG.tokens.WBTC.a.toLowerCase()]: { s: 'vbWBTC', d: 8 },
+  [CFG.tokens.WETH.a.toLowerCase()]: { s: 'vbETH', d: 18 },
+};
+const CLAIM_ADDR = Object.fromEntries(Object.entries(CLAIM_TOKEN).map(([a, m]) => [m.s, a]));
+const CLAIM_PRICE = { vbUSDC: 1, vbUSDT: 1 };   /* a dollar is a dollar on any day */
 const dayKey = (tsSec) => new Date((tsSec + CFG.tzOffsetSec) * 1000).toISOString().slice(0, 10);
 
-async function updateClaims(W, katPrice) {
+async function updateClaims(W, priceOf) {
   const path = join(ROOT, 'claims.json');
   const today = dayKey(Math.floor(Date.now() / 1000));
+  const katPrice = priceOf[CFG.tokens.KAT.a.toLowerCase()] || 0;
   let c;
   try { c = JSON.parse(readFileSync(path, 'utf8')); } catch { c = null; }
   if (!c || !c.days) c = { tz: 'UTC+8', start_date: today, last_block: 0, days: {} };
+  /* Version 2 counts a claim in any token. Version 1 asked the node only for KAT, so every
+     reward taken in vbUSDC — three of them, and the whole of 1 October — was recorded as
+     nothing. Rebuilding is a handful of log queries, so the record is simply rewound and
+     scanned again rather than patched. */
+  /* Each day keeps the KAT price it was booked at — re-valuing August at today's price
+     would be a different rule than the one the record was built on — so the rebuild carries
+     those forward. The days it recovers were paid in stablecoins or happened today, so
+     none of them needs a price it does not have. */
+  const booked = {};
+  if (c.claims_version !== 2) {
+    for (const [k, d] of Object.entries(c.days || {})) if (d && d.kat_price) booked[k] = d.kat_price;
+    c.claims_version = 2;
+    c.days = {};
+    c.last_block = 0;
+  }
 
   try {
     const latest = Number(BigInt(await rpc('eth_blockNumber', [])));
-    /* first run: look back far enough to cover start_date; later runs resume from last_block */
-    let from = c.last_block ? c.last_block + 1 : Math.max(0, latest - CFG.logWindow);
     const startSec = Math.floor(Date.parse(c.start_date + 'T00:00:00Z') / 1000) - CFG.tzOffsetSec;
-    for (; from <= latest; from += CFG.logChunk) {
-      const to = Math.min(from + CFG.logChunk - 1, latest);
-      const logs = await rpc('eth_getLogs', [{
-        fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
+    /* Later runs resume from last_block. A rebuild starts at the block the record's own
+       start_date falls on — a rolling window would quietly begin a couple of days back and
+       drop everything older, which is the opposite of rebuilding. */
+    let from;
+    if (c.last_block) from = c.last_block + 1;
+    else {
+      const getTs = async (b) => Number(BigInt(
+        (await rpc('eth_getBlockByNumber', ['0x' + b.toString(16), false])).timestamp));
+      from = await blockAtTs(getTs, startSec, latest);
+      console.log(`  claim record: rebuilding from block ${from} (${c.start_date})`);
+    }
+    /* The node's block limit is on the size of the answer. Naming the contract and the user
+       leaves a handful of logs across months, so the sweep goes wide and falls back to
+       narrow windows only if one is refused. */
+    for (; from <= latest; from += CFG.claimChunk) {
+      const to = Math.min(from + CFG.claimChunk - 1, latest);
+      const ask = (a, b) => rpc('eth_getLogs', [{
+        fromBlock: '0x' + a.toString(16), toBlock: '0x' + b.toString(16),
         address: CFG.merklDistributor,
-        topics: [CLAIMED_TOPIC, '0x' + pad(W), '0x' + pad(CFG.tokens.KAT.a.replace(/^0x/, ''))],
+        /* every token, not only KAT — the reward is paid in whatever the campaign pays in */
+        topics: [CLAIMED_TOPIC, '0x' + pad(W)],
       }]);
+      let logs;
+      try {
+        logs = await ask(from, to);
+      } catch (e) {
+        logs = [];
+        for (let a = from; a <= to; a += CFG.logChunk)
+          logs.push(...await ask(a, Math.min(a + CFG.logChunk - 1, to)));
+      }
       for (const l of logs) {
         const ts = l.blockTimestamp
           ? Number(BigInt(l.blockTimestamp))
           : Number(BigInt((await rpc('eth_getBlockByNumber', [l.blockNumber, false])).timestamp));
         if (ts < startSec) continue; /* record begins at start_date */
         const k = dayKey(ts);
-        const amt = Number(BigInt(l.data)) / 1e18;
-        const d = c.days[k] || (c.days[k] = { kat: 0, kat_price: katPrice, value_usd: 0 });
-        d.kat = round2(d.kat + amt);
-        d.kat_price = katPrice;                    /* that day's price, as seen when recorded */
-        d.value_usd = round2(d.kat * d.kat_price);
+        const token = ('0x' + l.topics[2].slice(26)).toLowerCase();
+        const meta = CLAIM_TOKEN[token];
+        if (!meta) continue;                       /* a token with no price is not a figure */
+        const amt = Number(BigInt(l.data.slice(0, 66))) / 10 ** meta.d;
+        if (!(amt > 0)) continue;
+        const d = c.days[k] || (c.days[k] = {
+          kat: 0, kat_price: booked[k] || katPrice, value_usd: 0, tokens: {},
+        });
+        if (!d.tokens) d.tokens = {};
+        d.tokens[meta.s] = round2((d.tokens[meta.s] || 0) + amt);
+        if (meta.s === 'KAT') d.kat = round2(d.kat + amt);
+        d.value_usd = round2(Object.keys(d.tokens).reduce(function (sum, sym) {
+          const px = sym === 'KAT' ? d.kat_price
+            : (CLAIM_PRICE[sym] !== undefined ? CLAIM_PRICE[sym] : (priceOf[CLAIM_ADDR[sym]] || 0));
+          return sum + d.tokens[sym] * px;
+        }, 0));
       }
     }
     c.last_block = latest;
@@ -1946,7 +2006,13 @@ if (!rh.ok && prevChain('robinhood')) {
 }
 const rhLpUsd = rh.lps.reduce((a, l) => a + (l.value_usd || 0), 0);
 const rhTotal = rh.walletUsd + rhLpUsd;
-const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), kat.katPrice);
+const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), {
+  [CFG.tokens.KAT.a.toLowerCase()]: kat.katPrice,
+  [CFG.tokens.WETH.a.toLowerCase()]: kat.ethPrice,
+  [CFG.tokens.WBTC.a.toLowerCase()]: kat.btcPrice || 0,
+  [CFG.tokens.USDC.a.toLowerCase()]: 1,
+  [CFG.tokens.USDT.a.toLowerCase()]: 1,
+});
 const positions = await updatePositions(CFG.wallet.replace(/^0x/, ''));
 /* Robinhood keeps its own section: its positions are priced from swap history rather than
    archive state, and mixing the two ledgers would hide which method produced a figure. */
@@ -2090,6 +2156,10 @@ const data = {
           [k, tok(kat.bal[k], katPriceOf(k), kat.bal[k] * katPriceOf(k))])),
       }, total_usd: katWalletUsd } },
       onchain_usd: katWalletUsd,
+      /* published so the browser can value a reward claimed in something other than KAT */
+      kat_price: kat.katPrice,
+      eth_price: kat.ethPrice,
+      btc_price: kat.btcPrice || 0,
       merkl_rewards: merkl,
       lp_positions: kat.lps,
       defi_positions: defiPositions,
