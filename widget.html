@@ -146,7 +146,7 @@ body.small .fig .v{font-size:1.15em}
 
     <div class="figs">
       <div class="fig"><div class="k yk">Rewards</div><div class="v up yv">$--</div></div>
-      <div class="fig hide"><div class="k">IL</div><div class="v il">$--</div></div>
+      <div class="fig hide"><div class="k">P&amp;L</div><div class="v pnl">$--</div></div>
       <div class="fig"><div class="k">Net</div><div class="v net">$--</div></div>
     </div>
 
@@ -221,8 +221,8 @@ body.small .fig .v{font-size:1.15em}
 
     q(card, 'yk').textContent = W.yield_label;
     q(card, 'yv').textContent = W.yield_value;
-    q(card, 'il').textContent = W.il;
-    q(card, 'il').className = 'v il ' + (W.il.charAt(0) === '-' ? 'down' : 'up');
+    q(card, 'pnl').textContent = W.pnl;
+    q(card, 'pnl').className = 'v pnl ' + (W.pnl_up ? 'up' : 'down');
     q(card, 'net').textContent = W.net;
     q(card, 'net').className = 'v net ' + (W.net_up ? 'up' : 'down');
 

@@ -425,7 +425,21 @@ function shape(p) {
 
   /* Already paid out counts as money back, not as capital that was never committed. */
   const withdrawn = p.withdrawn || 0;
-  const pnl = priced && value !== null && p.inUsd ? value + withdrawn - p.inUsd : null;
+  /* Three figures that add up, kept apart because they answer different questions.
+
+     P&L is what happened to the money that was put in: the price moving against the
+     capital, plus the impermanent loss of having been an LP while it moved. It is measured
+     on the liquidity alone, so earnings cannot disguise a position that is down.
+
+     Yield is what the position paid out for holding it — its own trading fees, collected
+     and uncollected, or on a staked position the Merkl rewards that replace them.
+
+     Net is simply the two together. */
+  const tradePnl = priced && liq !== null && p.inUsd ? liq - p.inUsd : null;
+  /* His own fees, whether still in the position or already taken out. A staked position
+     earns none — the DAO collects them — and is paid in Merkl instead, which is added
+     where the rewards are known. */
+  const feeYield = p.feesMine ? (fees || 0) + withdrawn : 0;
   const heldDays = p.openedTs ? (Date.now() / 1000 - p.openedTs) / 86400 : null;
   const amounts = {};
   amounts[base] = invert ? p.a1 : p.a0;
@@ -444,6 +458,7 @@ function shape(p) {
     },
     amounts: amounts,
     value_usd: value === null ? null : r2(value),
+    liquidity_usd: liq === null ? null : r2(liq),
     open_value_usd: p.inUsd === undefined || p.inUsd === null ? null : r2(p.inUsd),
     withdrawn_usd: r2(withdrawn),
     entry_checked_usd: entryValue === null ? null : r2(entryValue),
@@ -456,7 +471,9 @@ function shape(p) {
     market_usd: market === null ? null : r2(market),
     il_usd: il === null ? null : r2(il),
     hodl_usd: hodl === null ? null : r2(hodl),
-    pnl_usd: pnl === null ? null : r2(pnl),
+    /* the capital's own move plus the impermanent loss on it — market_usd + il_usd */
+    pnl_usd: tradePnl === null ? null : r2(tradePnl),
+    fee_yield_usd: r2(feeYield),
   };
 }
 
@@ -465,6 +482,7 @@ async function merklLp() {
   try {
     const arr = await (await fetch(CFG.merklApi + '/users/' + CFG.wallet + '/rewards?chainId=747474')).json();
     let total = 0, lp = 0;
+    const byId = {};
     for (const chain of arr || []) {
       for (const rw of chain.rewards || []) {
         const dec = (rw.token && rw.token.decimals) !== undefined ? rw.token.decimals : 18;
@@ -472,29 +490,40 @@ async function merklLp() {
         const un = BigInt(rw.amount || '0') - BigInt(rw.claimed || '0') + BigInt(rw.pending || '0');
         if (un > 0n) total += Number(un) / 10 ** dec * px;
         /* SUSHI campaigns pay staked liquidity; Aragon bribes pay the vKAT vote. Only the
-           first is this LP's earnings. */
+           first is this LP's earnings, and the reason names the position it paid for:
+             SUSHI_SWAP_<pool>_<tokenId>~..._SushiStaker_...
+           so each position is credited with its own rather than the whole pot. */
         for (const br of rw.breakdowns || []) {
+          const reason = String(br.reason || '');
+          if (!reason.startsWith('SUSHI')) continue;
           const b = BigInt(br.amount || '0') - BigInt(br.claimed || '0') + BigInt(br.pending || '0');
-          if (b > 0n && String(br.reason || '').startsWith('SUSHI')) lp += Number(b) / 10 ** dec * px;
+          if (b > 0n) lp += Number(b) / 10 ** dec * px;
+          /* earned, not outstanding: claiming moves `amount` into `claimed` and must not
+             make a position's yield fall */
+          const earned = BigInt(br.amount || '0') + BigInt(br.pending || '0');
+          const m = reason.match(/^SUSHI_SWAP_0x[0-9a-fA-F]{40}_(\d+)~/);
+          if (m && earned > 0n) byId[m[1]] = r2((byId[m[1]] || 0) + Number(earned) / 10 ** dec * px);
         }
       }
     }
-    return { total_usd: r2(total), lp_usd: r2(lp) };
-  } catch { return { total_usd: 0, lp_usd: 0, error: true }; }
+    return { total_usd: r2(total), lp_usd: r2(lp), earned_by_id: byId };
+  } catch { return { total_usd: 0, lp_usd: 0, earned_by_id: {}, error: true }; }
 }
 
 /* ---------- the widget's own view ----------
    One position, every field already a string. A widget maker should need to do nothing
    but place these. */
-function widgetView(pos, rewards) {
+function widgetView(pos, merkl) {
   if (!pos) return null;
   const R = pos.range;
-  /* A position he holds keeps its own fees, and those are already inside its P&L. A staked
-     one earns Merkl instead, which is not, so only that gets added on. */
-  const mine = pos.fees_mine ? (pos.fees_usd || 0) : rewards;
-  const net = (pos.pnl_usd || 0) + (pos.fees_mine ? 0 : rewards);
-  /* A position the ledger has not reached yet has no cost to measure against. */
+  /* What the position paid out: its own trading fees where he holds it, or the Merkl
+     rewards earned against this very NFT where it is staked and the DAO takes the fees. */
+  const earned = (merkl && merkl.earned_by_id) || {};
+  const mine = pos.fees_mine ? (pos.fee_yield_usd || 0) : (earned[pos.id] || 0);
+  /* The move needs a cost to measure against; what it earned is known either way, so a
+     position the ledger has not booked yet still shows its yield. */
   const known = pos.pnl_usd !== null;
+  const net = (pos.pnl_usd || 0) + mine;
   const edge = Math.min(R.to_lower_pct, R.to_upper_pct);
   return {
     pair: pos.pair,
@@ -513,6 +542,11 @@ function widgetView(pos, rewards) {
     yield_label: pos.fees_mine ? 'Fees' : 'Rewards',
     yield_value: money(mine),
     fees_to_dao: pos.fees_mine ? null : money(pos.fees_usd || 0),
+    /* The position's own move: the capital gaining or losing, plus the impermanent loss
+       of having been an LP while it did. Earnings are the next column along, not folded
+       in here, so a position that is down cannot look level. */
+    pnl: known ? signed(pos.pnl_usd) : '--',
+    pnl_up: known ? pos.pnl_usd >= 0 : true,
     il: pos.il_usd === null ? '--' : signed(pos.il_usd),
     net: known ? signed(net) : '--',
     net_up: known ? net >= 0 : true,
@@ -569,8 +603,8 @@ export default async function handler(req, res) {
       /* `widget` is the one position a home-screen widget shows, and stays first so a
          widget maker's JSON path never moves. `widgets` is every open position, for the
          installed app, which has a whole screen rather than a 4x2 strip. */
-      widget: widgetView(pick, merkl.lp_usd),
-      widgets: rows.map((r) => widgetView(r, merkl.lp_usd)),
+      widget: widgetView(pick, merkl),
+      widgets: rows.map((r) => widgetView(r, merkl)),
       positions: rows,
       errors: errors.length ? errors : undefined,
     }, null, 2));
