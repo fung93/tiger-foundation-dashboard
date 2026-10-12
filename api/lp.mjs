@@ -26,6 +26,14 @@ const CFG = {
   arcV4State: '0x6e43e7be27a11956218d6882ecc0cc1bed63e31f',
   arcV4Posm: '0x6049c9a0e26405c0985f9e3685c87d0ae917f82b',
   lpStaker: '0xbe12e1b5c4859a3d141412748279b67458f729e9',   /* holds staked Sushi position NFTs */
+  /* Katana caps a log query at 1,000 blocks and runs at about a second a block, so each
+     window is a quarter of an hour. Eight of them reach back a couple of hours, which is
+     what it takes to notice a position staked since the ledger's last pass; anything older
+     than that the ledger already knows about. */
+  stakedChunk: 1000,
+  stakedChunks: 6,
+  stakedLookback: 250000,   /* about three days at a second a block */
+  walletTail: 25,          /* how far up the owner's token list a new NFT could sit */
   merklApi: 'https://api.merkl.xyz/v4',
   /* Katana's token list, by address. A pair whose legs are not both here cannot be
      priced, and the position is reported with its range but no dollar figures. */
@@ -138,9 +146,75 @@ function bandPosition(now, lower, upper) {
   return Math.round(p * 10) / 10;
 }
 
+/* ---------- which Katana positions are open, right now ----------
+   The ledger is written by a job that runs every six hours, so a position opened since its
+   last pass is not in it — which is exactly when someone looks at the widget, having just
+   re-ranged. Three sources, cheapest first:
+
+     1. the ledger, for everything already settled;
+     2. the NFTs the wallet itself holds, which is one read and catches an unstaked
+        position the moment it is minted;
+     3. Transfer logs for a position handed to the staker, because a staked NFT leaves the
+        wallet and no enumeration can see it. Newest window first, and only back as far as
+        the ledger already reaches.
+
+   Positions the ledger has already closed are dropped from the candidates — the wallet goes
+   on holding the spent NFT of every position it has ever closed, 99 of them here, and there
+   is no sense asking the chain about those again. */
+const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+async function katanaCandidates(pos, stakedSeed) {
+  const ids = new Set(Object.keys(pos.open || {}));
+  (stakedSeed || []).forEach((id) => ids.add(String(id)));
+  const closed = new Set((pos.closed || []).map((c) => String(c.id)));
+
+  const walletHeld = (async () => {
+    const bal = Number(toBig(w(await rpc(CFG.katRpc, 'eth_call',
+      [{ to: CFG.npm, data: '0x70a08231' + pad(CFG.wallet) }, 'latest']), 0)));
+    if (!bal) return [];
+    /* Only the tail of the list can hold something new. ERC721Enumerable appends a token it
+       receives at the owner's last index, and closing a V3 position burns its liquidity
+       rather than the NFT, so nothing is removed to shuffle it away. Reading the last few
+       indices instead of all ninety-nine is the difference between 300ms and 1.1s. */
+    const batch = [];
+    for (let k = Math.max(0, bal - CFG.walletTail); k < bal; k++)
+      batch.push({ to: CFG.npm, data: '0x2f745c59' + pad(CFG.wallet) + pad(k.toString(16)) });
+    const r = await multi(CFG.katRpc, batch);
+    return r.filter((x) => x.ok).map((x) => String(toBig(w(x.data, 0))));
+  })();
+
+  const staked = (async () => {
+    const head = Number(toBig((await rpc(CFG.katRpc, 'eth_blockNumber', [])).slice(2)));
+    const logs = async (from, to) => rpc(CFG.katRpc, 'eth_getLogs', [{
+      address: CFG.npm, fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
+      topics: [TRANSFER, '0x' + pad(CFG.wallet), '0x' + pad(CFG.lpStaker)],
+    }]);
+    /* The node's documented thousand-block limit is on the size of the answer, not the
+       width of the question. Naming the contract and all three topics makes this one
+       return a handful of logs at most, and it is accepted across days of blocks — one
+       request where a chunked sweep took six and still reached back only an hour. */
+    let out;
+    try {
+      out = await logs(head - CFG.stakedLookback, head);
+    } catch {
+      const windows = [];
+      for (let to = head; windows.length < CFG.stakedChunks; to -= CFG.stakedChunk)
+        windows.push([to - CFG.stakedChunk + 1, to]);
+      const got = await Promise.all(windows.map(([a, b]) => logs(a, b).catch(() => [])));
+      out = got.flat();
+    }
+    return (out || []).map((l) => String(toBig(l.topics[3].slice(2))));
+  })();
+
+  for (const id of await walletHeld) ids.add(id);
+  for (const id of await staked) ids.add(id);
+  for (const id of closed) ids.delete(id);
+  return [...ids];
+}
+
 /* ---------- katana: sushi v3 ---------- */
-async function katanaRows(open) {
-  const ids = Object.keys(open || {});
+async function katanaRows(open, candidates) {
+  const ids = candidates || Object.keys(open || {});
   if (!ids.length) return [];
   /* positions() for the band and the liquidity, and ownerOf to settle whether it is staked.
      The ledger does not record staking, and whether the trading fees are his turns on it —
@@ -218,6 +292,9 @@ async function katanaRows(open) {
     const L = p.ledger || {};
     out.push(shape({
       chain: 'katana', id: p.id, protocol: 'SushiSwap V3',
+      /* found on chain but not yet in the ledger: its range and its value are known, what
+         went into it is not, so it reports no P&L rather than a P&L of nothing */
+      pending: !p.ledger,
       staked: p.staked, feesMine: !p.staked,
       T0, T1, lo: p.lo, hi: p.hi, sqrtP, sqrtEntry: entry[j], liq: p.liq,
       a0: a0 / 10 ** T0.d, a1: a1 / 10 ** T1.d,
@@ -356,7 +433,7 @@ function shape(p) {
 
   return {
     chain: p.chain, id: p.id, pair: base + ' / ' + quote, protocol: p.protocol,
-    staked: p.staked, in_range: inRange, range_status: status,
+    staked: p.staked, pending: !!p.pending, in_range: inRange, range_status: status,
     opened: p.opened || null, held_days: heldDays === null ? null : r2(heldDays),
     range: {
       lower: lower, upper: upper, now: now, quote: quote,
@@ -416,6 +493,8 @@ function widgetView(pos, rewards) {
      one earns Merkl instead, which is not, so only that gets added on. */
   const mine = pos.fees_mine ? (pos.fees_usd || 0) : rewards;
   const net = (pos.pnl_usd || 0) + (pos.fees_mine ? 0 : rewards);
+  /* A position the ledger has not reached yet has no cost to measure against. */
+  const known = pos.pnl_usd !== null;
   const edge = Math.min(R.to_lower_pct, R.to_upper_pct);
   return {
     pair: pos.pair,
@@ -435,8 +514,9 @@ function widgetView(pos, rewards) {
     yield_value: money(mine),
     fees_to_dao: pos.fees_mine ? null : money(pos.fees_usd || 0),
     il: pos.il_usd === null ? '--' : signed(pos.il_usd),
-    net: signed(net),
-    net_up: net >= 0,
+    net: known ? signed(net) : '--',
+    net_up: known ? net >= 0 : true,
+    pending: !!pos.pending,
     held: pos.held_days === null ? '' : pos.held_days.toFixed(1) + 'd',
   };
 }
@@ -455,10 +535,18 @@ export default async function handler(req, res) {
   try {
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const proto = req.headers['x-forwarded-proto'] || 'https';
-    const pos = await (await fetch(proto + '://' + host + '/positions.json?t=' + Date.now())).json();
-
+    const base = proto + '://' + host;
+    const [pos, data] = await Promise.all([
+      (await fetch(base + '/positions.json?t=' + Date.now())).json(),
+      fetch(base + '/data.json?t=' + Date.now()).then((r) => r.json()).catch(() => ({})),
+    ]);
+    const seed = ((data.chains || {}).katana || {}).staked_lp_ids || [];
+    /* Arc and Merkl do not wait on Katana's discovery; the three run side by side. */
     const settled = await Promise.all([
-      katanaRows(pos.open).catch((e) => ({ error: 'katana: ' + e.message })),
+      katanaCandidates(pos, seed)
+        .catch(() => Object.keys(pos.open || {}))      /* discovery failing costs the new ones, not the known */
+        .then((c) => katanaRows(pos.open, c))
+        .catch((e) => ({ error: 'katana: ' + e.message })),
       arcRows(pos.arc && pos.arc.open).catch((e) => ({ error: 'arc: ' + e.message })),
       merklLp(),
     ]);

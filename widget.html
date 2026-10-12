@@ -226,8 +226,11 @@ body.small .fig .v{font-size:1.15em}
     q(card, 'net').textContent = W.net;
     q(card, 'net').className = 'v net ' + (W.net_up ? 'up' : 'down');
 
+    /* A position found on chain before the six-hourly job has booked it knows its band and
+       its value but not what went into it, so it says so rather than showing a P&L of nothing. */
     q(card, 'meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
-      + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '');
+      + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '')
+      + (W.pending ? ' · new — cost not booked yet' : '');
   }
 
   function paint(d, when) {
@@ -265,7 +268,12 @@ body.small .fig .v{font-size:1.15em}
     var now = Date.now();
     if (inflight || now - lastTry < 3000) return;
     inflight = true; lastTry = now;
-    fetch(API + (API.indexOf('?') < 0 ? '?' : '&') + 't=' + now, { cache: 'no-store' })
+    /* No cache-buster in the URL. The endpoint reads the chain and looks for positions the
+       ledger has not caught up with, which takes a couple of seconds, and a unique URL made
+       every single refresh miss the CDN and pay that again. A stable one is served from the
+       edge for up to a minute — fresh enough for a widget that redraws every minute anyway —
+       while no-store keeps this browser's own cache out of it. */
+    fetch(API, { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         inflight = false;
