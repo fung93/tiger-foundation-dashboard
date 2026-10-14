@@ -1237,14 +1237,14 @@
     },
     {
       "date": "2026-10-14",
-      "timestamp": "2026-10-14T02:44:23.385Z",
-      "onchain_usd": 175.71,
-      "pending_usd": 40.37,
-      "lp_usd": 857.79,
+      "timestamp": "2026-10-14T10:52:05.370Z",
+      "onchain_usd": 175.81,
+      "pending_usd": 46.39,
+      "lp_usd": 858.27,
       "solana_usd": 0.1,
-      "robinhood_usd": 3.67,
+      "robinhood_usd": 3.66,
       "arc_usd": 0.06,
-      "total_usd": 2360.3
+      "total_usd": 2368.04
     }
   ]
 }
