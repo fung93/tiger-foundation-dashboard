@@ -50,12 +50,15 @@ const V3 = [
     rpc: CFG.katRpc, npm: CFG.npm, factory: CFG.factory, staker: CFG.lpStaker,
     open: (pos) => pos.open || {},
     closed: (pos) => pos.closed || [],
+    mintLookback: 2000000, logSpan: 100000,
   },
   {
     key: 'robinhood', protocol: 'Uniswap V3', archive: false,
     rpc: CFG.rhRpc, npm: CFG.rhNpm, factory: CFG.rhFactory, staker: null,
     open: (pos) => (pos.robinhood || {}).open || {},
     closed: (pos) => (pos.robinhood || {}).closed || [],
+    /* this node refuses anything over 100,000 blocks, so the mint is hunted in windows */
+    mintLookback: 600000, logSpan: 100000,
   },
 ];
 
@@ -250,6 +253,72 @@ async function tokenMeta(ch, addrs) {
   return out;
 }
 
+/* What a position cost, taken from its own mint.
+
+   A chain that keeps no archive state cannot be asked what the price was, and a ledger that
+   has fallen behind cannot say what went in. Neither has to. A mint records the liquidity it
+   created and the two amounts it took, and those three numbers fix the price it happened at:
+
+     inside the band   a1 = L(sp - sa)      ->  sp = a1/L + sa
+                       a0 = L(1/sp - 1/sb)  ->  sp = 1/(a0/L + 1/sb)
+
+   Both sides must give the same answer, which is the check that it was minted in range and
+   that the numbers are being read correctly. A position minted one-sided has only one. */
+const INCREASE = '0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f';
+
+async function mintEntry(ch, p, T0, T1) {
+  try {
+    const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
+    const topics = [INCREASE, '0x' + pad(BigInt(p.id).toString(16))];
+    let logs = [];
+    /* one wide question where the node allows it, falling back to windows where it does not */
+    try {
+      logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, topics,
+        fromBlock: '0x' + Math.max(0, head - ch.mintLookback).toString(16), toBlock: '0x' + head.toString(16) }]);
+    } catch {
+      for (let to = head; to > head - ch.mintLookback && !logs.length; to -= ch.logSpan) {
+        const from = Math.max(0, to - ch.logSpan + 1);
+        try {
+          logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, topics,
+            fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16) }]);
+        } catch { /* a window the node refuses costs reach, not the read */ }
+      }
+    }
+    if (!logs.length) return null;
+
+    let L = 0n, r0 = 0n, r1 = 0n, block = 0;
+    for (const l of logs) {
+      L += toBig(w(l.data, 0)); r0 += toBig(w(l.data, 1)); r1 += toBig(w(l.data, 2));
+      block = Math.max(block, Number(toBig(l.blockNumber.slice(2))));
+    }
+    if (L === 0n) return null;
+
+    const sa = Math.pow(1.0001, p.lo / 2), sb = Math.pow(1.0001, p.hi / 2), Lf = Number(L);
+    const fromQuote = r1 > 0n ? Number(r1) / Lf + sa : null;
+    const fromBase = r0 > 0n ? 1 / (Number(r0) / Lf + 1 / sb) : null;
+    let sp;
+    if (fromQuote !== null && fromBase !== null) {
+      /* a disagreement means the position was not minted in range, or the event was misread */
+      if (Math.abs(fromQuote / fromBase - 1) > 0.01) return null;
+      sp = (fromQuote + fromBase) / 2;
+    } else sp = fromQuote !== null ? fromQuote : fromBase;
+    if (!(sp > 0)) return null;
+
+    const px = sp * sp * Math.pow(10, T0.d - T1.d);
+    const a0 = Number(r0) / 10 ** T0.d, a1 = Number(r1) / 10 ** T1.d;
+    const usd = T1.stable ? a0 * px + a1 : T0.stable ? a1 / px + a0 : null;
+    if (usd === null) return null;                 /* no stable leg, no dollar figure */
+    return {
+      sqrt: BigInt(Math.round(sp * 2 ** 96)),
+      usd: usd,
+      /* exactly one mint and nothing taken out since is what makes the entry, and therefore
+         the impermanent loss, exact rather than a blend */
+      single: logs.length === 1,
+      block: block,
+    };
+  } catch { return null; }
+}
+
 /* ---------- any uniswap-v3-shaped pool, on any of the chains ---------- */
 async function v3Rows(ch, ledgerOpen, candidates) {
   const open = ledgerOpen || {};
@@ -301,12 +370,16 @@ async function v3Rows(ch, ledgerOpen, candidates) {
      turns a P&L into a market move plus an impermanent loss, and the only figure here that
      needs archive state — so a chain that keeps none costs the IL line, nothing else. */
   const entry = await Promise.all(live.map(async (p) => {
-    if (!ch.archive || !p.pool || !p.ledger || !p.ledger.opened_block) return null;
-    try {
-      const d = await rpc(ch.rpc, 'eth_call',
-        [{ to: p.pool, data: '0x3850c7bd' }, '0x' + Number(p.ledger.opened_block).toString(16)]);
-      return toBig(w(d, 0));
-    } catch { return null; }
+    const T0 = meta[p.token0], T1 = meta[p.token1];
+    if (ch.archive && p.pool && p.ledger && p.ledger.opened_block) {
+      try {
+        const d = await rpc(ch.rpc, 'eth_call',
+          [{ to: p.pool, data: '0x3850c7bd' }, '0x' + Number(p.ledger.opened_block).toString(16)]);
+        return { sqrt: toBig(w(d, 0)) };
+      } catch { /* fall through to the mint */ }
+    }
+    /* No archive, or a position the ledger has not booked: ask the mint instead. */
+    return (T0 && T1) ? await mintEntry(ch, p, T0, T1) : null;
   }));
 
   const out = [];
@@ -335,12 +408,14 @@ async function v3Rows(ch, ledgerOpen, candidates) {
       chain: ch.key, id: p.id, protocol: ch.protocol,
       /* found on chain but not yet in the ledger: its range and its value are known, what
          went into it is not, so it reports no P&L rather than a P&L of nothing */
-      pending: !p.ledger,
+      pending: !p.ledger && !(entry[j] && entry[j].usd),
       staked: p.staked, feesMine: !p.staked,
-      T0, T1, lo: p.lo, hi: p.hi, sqrtP, sqrtEntry: entry[j], liq: p.liq,
+      T0, T1, lo: p.lo, hi: p.hi, sqrtP, sqrtEntry: entry[j] && entry[j].sqrt, liq: p.liq,
       a0: a0 / 10 ** T0.d, a1: a1 / 10 ** T1.d,
       fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d,
-      inUsd: L.open_value_usd, withdrawn: L.withdrawn_usd || 0, topup: L.topup_usd || 0,
+      /* the ledger's figure where it has one, otherwise what the mint says it cost */
+      inUsd: L.open_value_usd !== undefined ? L.open_value_usd : (entry[j] && entry[j].usd),
+      withdrawn: L.withdrawn_usd || 0, topup: L.topup_usd || 0,
       openedTs: L.opened_ts, opened: L.opened,
     }));
   });
