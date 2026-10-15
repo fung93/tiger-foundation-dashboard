@@ -342,7 +342,7 @@
     },
     "state": {
       "robinhood": {
-        "last_block": 89156507,
+        "last_block": 89349734,
         "owed": {},
         "meta": {
           "1099863": {
@@ -379,16 +379,24 @@
             "token1": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
             "d0": 6,
             "d1": 18
+          },
+          "1451097": {
+            "pool": "0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a",
+            "token0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+            "token1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+            "d0": 18,
+            "d1": 6
           }
         },
         "ids": [
+          "1451097",
           "1273105",
           "1230033",
           "1161437"
         ]
       },
       "katana": {
-        "last_block": 45317632,
+        "last_block": 45337119,
         "owed": {},
         "meta": {
           "422530": {
@@ -723,7 +731,7 @@
         ]
       },
       "arc": {
-        "last_block": 26079069,
+        "last_block": 26117113,
         "ids": [],
         "owed": {},
         "meta": {}

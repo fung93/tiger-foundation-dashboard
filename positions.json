@@ -1,18 +1,22 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 45317624,
-  "open": {
-    "473032": {
+  "last_block": 45337112,
+  "open": {},
+  "closed": [
+    {
+      "id": "473032",
       "pair": "vbWBTC / vbUSDC",
       "pool_fee": "0.05%",
-      "opened_block": 45295665,
       "opened": "2026-10-15",
       "opened_ts": 1792038476,
+      "closed": "2026-10-15",
+      "closed_ts": 1792061260,
       "open_value_usd": 834.92,
-      "topup_usd": 0
-    }
-  },
-  "closed": [
+      "close_value_usd": 832.55,
+      "topup_usd": 0,
+      "pnl_usd": -2.38,
+      "pnl_pct": -0.28
+    },
     {
       "id": "471195",
       "pair": "vbWBTC / vbUSDC",
@@ -617,8 +621,39 @@
     }
   ],
   "robinhood": {
-    "last_block": 89156446,
-    "open": {},
+    "last_block": 89349679,
+    "open": {
+      "1451097": {
+        "id": "1451097",
+        "chain": "robinhood",
+        "token0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+        "token1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "fee": 500,
+        "opened_block": 89181978,
+        "in0": 0.15652506794229018,
+        "in1": 467.828232,
+        "out0": 0,
+        "out1": 0,
+        "in_usd": 837.6720288695615,
+        "out_usd": 0,
+        "fees_usd": 0,
+        "owed0": "0",
+        "owed1": "0",
+        "d0": 18,
+        "s0": "WETH",
+        "d1": 6,
+        "s1": "USDG",
+        "pool": "0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a",
+        "pair": "WETH / USDG",
+        "pool_fee": "0.05%",
+        "opened_ts": 1792063007,
+        "opened": "2026-10-15",
+        "last_block": 89181978,
+        "last_ts": 1792063007,
+        "open_value_usd": 837.67,
+        "withdrawn_usd": 0
+      }
+    },
     "closed": [
       {
         "id": "1273105",
@@ -743,7 +778,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 26079069,
+    "last_block": 26117113,
     "open": {},
     "closed": [
       {
