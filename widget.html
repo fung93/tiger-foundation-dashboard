@@ -196,6 +196,15 @@ body.small .fig .v{font-size:1.15em}
     } catch (e) { return null; }
   }
 
+  /* Which chains were actually read. A chain that errors is the difference between "you
+     have nothing open" and "I could not see", and the card has to say which. */
+  function chainNote(d) {
+    if (d.errors && d.errors.length) return 'could not read: ' + d.errors.join('; ');
+    var ch = d.chains || {};
+    var names = Object.keys(ch);
+    return names.length ? 'checked ' + names.join(', ') : '';
+  }
+
   /* One position onto one card. */
   function fill(card, W) {
     var oor = !W.in_range;
@@ -230,14 +239,41 @@ body.small .fig .v{font-size:1.15em}
        its value but not what went into it, so it says so rather than showing a P&L of nothing. */
     q(card, 'meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
       + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '')
-      + (W.pending ? ' · new — cost not booked yet' : '');
+      + (W.pending ? ' · new — cost not booked yet' : '')
+      + (PROBLEM ? ' · ' + PROBLEM : '');
   }
 
+  var PROBLEM = '';
   function paint(d, when) {
+    /* A chain that errored is the difference between "nothing is open" and "I could not
+       see", so it is carried onto the card rather than left in the response. */
+    PROBLEM = (d.errors && d.errors.length) ? 'could not read ' + d.errors.length + ' chain(s)' : '';
     /* An older cached payload may predate `widgets`, so the single view is the fallback. */
     var views = ALL ? (d.widgets && d.widgets.length ? d.widgets : [d.widget]) : [d.widget];
     views = views.filter(Boolean);
-    if (!views.length) { q(cardAt(0), 'badge').textContent = 'no position'; return; }
+    if (!views.length) {
+      var c0 = cardAt(0);
+      q(c0, 'pair').textContent = 'No open LP';
+      q(c0, 'badge').textContent = 'none';
+      q(c0, 'badge').className = 'badge';
+      q(c0, 'price').textContent = '--';
+      q(c0, 'price').style.left = '50%';
+      q(c0, 'mark').style.left = '50%';
+      q(c0, 'mark').className = 'mark';
+      q(c0, 'fill').className = 'fill';
+      q(c0, 'lower').textContent = '';
+      q(c0, 'upper').textContent = '';
+      q(c0, 'edges').textContent = 'nothing open on any chain';
+      q(c0, 'edges').className = 'mid edges';
+      q(c0, 'yv').textContent = '--';
+      q(c0, 'pnl').textContent = '--';
+      q(c0, 'net').textContent = '--';
+      q(c0, 'meta').textContent = chainNote(d);
+      for (var z = 1; z < cards.length; z++) cards[z].style.display = 'none';
+      lastGood = when || Date.now();
+      stamp(false);
+      return;
+    }
 
     views.forEach(function (W, i) { fill(cardAt(i), W); });
     /* a position closed since the cached payload was written leaves a card behind */
@@ -277,7 +313,12 @@ body.small .fig .v{font-size:1.15em}
       .then(function (r) { return r.json(); })
       .then(function (d) {
         inflight = false;
-        if (d && !d.error && d.widget) { paint(d); remember(d); } else stamp(true);
+        /* A reply that says there is nothing open is an answer, not a failure. Treating it
+           as one is why a position closed hours ago stayed on the card: the endpoint had
+           stopped returning it and the page kept painting the last one it liked. Only a
+           fetch that never landed leaves the previous reading up. */
+        if (!d || d.error) { stamp(true); return; }
+        paint(d); remember(d);
       })
       .catch(function () { inflight = false; stamp(true); });   /* keep the last good numbers */
   }

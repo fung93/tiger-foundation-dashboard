@@ -263,20 +263,23 @@ async function updateClaims(W, priceOf) {
   let c;
   try { c = JSON.parse(readFileSync(path, 'utf8')); } catch { c = null; }
   if (!c || !c.days) c = { tz: 'UTC+8', start_date: today, last_block: 0, days: {} };
-  /* Version 2 counts a claim in any token. Version 1 asked the node only for KAT, so every
-     reward taken in vbUSDC — three of them, and the whole of 1 October — was recorded as
-     nothing. Rebuilding is a handful of log queries, so the record is simply rewound and
-     scanned again rather than patched. */
-  /* Each day keeps the KAT price it was booked at — re-valuing August at today's price
-     would be a different rule than the one the record was built on — so the rebuild carries
-     those forward. The days it recovers were paid in stablecoins or happened today, so
-     none of them needs a price it does not have. */
+  /* Version 2 began counting a claim in any token; version 1 asked the node only for KAT,
+     so every reward taken in vbUSDC was recorded as nothing. Version 3 repairs what version
+     2's own rebuild did to itself — see below.
+
+     A rebuild is scanned into a separate object and only adopted once it has run to the
+     head. Version 2 marked the record rebuilt before the scan finished while leaving
+     last_block at 0, so a pass that failed part-way left "already rebuilt" written against
+     a half-filled record; the next run saw nothing to reset, started again from the top and
+     added August to itself. Every figure in it doubled.
+
+     Each day keeps the KAT price it was booked at — re-valuing August at today's price
+     would be a different rule than the one the record was built on. */
+  const WANT_VERSION = 3;
+  const rebuilding = c.claims_version !== WANT_VERSION;
   const booked = {};
-  if (c.claims_version !== 2) {
+  if (rebuilding) {
     for (const [k, d] of Object.entries(c.days || {})) if (d && d.kat_price) booked[k] = d.kat_price;
-    c.claims_version = 2;
-    c.days = {};
-    c.last_block = 0;
   }
 
   try {
@@ -285,13 +288,16 @@ async function updateClaims(W, priceOf) {
     /* Later runs resume from last_block. A rebuild starts at the block the record's own
        start_date falls on — a rolling window would quietly begin a couple of days back and
        drop everything older, which is the opposite of rebuilding. */
-    let from;
-    if (c.last_block) from = c.last_block + 1;
-    else {
+    let from, days;
+    if (rebuilding) {
       const getTs = async (b) => Number(BigInt(
         (await rpc('eth_getBlockByNumber', ['0x' + b.toString(16), false])).timestamp));
       from = await blockAtTs(getTs, startSec, latest);
+      days = {};                                   /* nothing is adopted until the sweep ends */
       console.log(`  claim record: rebuilding from block ${from} (${c.start_date})`);
+    } else {
+      from = c.last_block + 1;
+      days = c.days;
     }
     /* The node's block limit is on the size of the answer. Naming the contract and the user
        leaves a handful of logs across months, so the sweep goes wide and falls back to
@@ -323,7 +329,7 @@ async function updateClaims(W, priceOf) {
         if (!meta) continue;                       /* a token with no price is not a figure */
         const amt = Number(BigInt(l.data.slice(0, 66))) / 10 ** meta.d;
         if (!(amt > 0)) continue;
-        const d = c.days[k] || (c.days[k] = {
+        const d = days[k] || (days[k] = {
           kat: 0, kat_price: booked[k] || katPrice, value_usd: 0, tokens: {},
         });
         if (!d.tokens) d.tokens = {};
@@ -336,6 +342,10 @@ async function updateClaims(W, priceOf) {
         }, 0));
       }
     }
+    /* adopted together, and only here: a scan that threw leaves the record exactly as it
+       was, so the next run retries from the same place instead of adding to itself */
+    c.days = days;
+    c.claims_version = WANT_VERSION;
     c.last_block = latest;
   } catch (e) {
     console.warn('claim scan failed, keeping existing record:', e.message);

@@ -26,6 +26,9 @@ const CFG = {
   arcV4State: '0x6e43e7be27a11956218d6882ecc0cc1bed63e31f',
   arcV4Posm: '0x6049c9a0e26405c0985f9e3685c87d0ae917f82b',
   lpStaker: '0xbe12e1b5c4859a3d141412748279b67458f729e9',   /* holds staked Sushi position NFTs */
+  rhRpc: 'https://rpc.mainnet.chain.robinhood.com',
+  rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
+  rhFactory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
   /* Katana caps a log query at 1,000 blocks and runs at about a second a block, so each
      window is a quarter of an hour. Eight of them reach back a couple of hours, which is
      what it takes to notice a position staked since the ledger's last pass; anything older
@@ -35,16 +38,26 @@ const CFG = {
   stakedLookback: 250000,   /* about three days at a second a block */
   walletTail: 25,          /* how far up the owner's token list a new NFT could sit */
   merklApi: 'https://api.merkl.xyz/v4',
-  /* Katana's token list, by address. A pair whose legs are not both here cannot be
-     priced, and the position is reported with its range but no dollar figures. */
-  tokens: {
-    '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36': { s: 'vbUSDC', d: 6, stable: true },
-    '0x2dca96907fde857dd3d816880a0df407eeb2d2f2': { s: 'vbUSDT', d: 6, stable: true },
-    '0x0913da6da4b42f538b445599b46bb4622342cf52': { s: 'vbWBTC', d: 8 },
-    '0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62': { s: 'vbETH', d: 18 },
-    '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d': { s: 'KAT', d: 18 },
-  },
 };
+
+/* Every Uniswap-v3-shaped deployment the wallet uses. Adding a chain is adding a row:
+   leaving Robinhood out of this list is what let a live WETH/USDG position sit on the
+   dashboard and never once reach the widget. `archive` says whether the node still answers
+   for old blocks, which is all that the impermanent-loss line needs. */
+const V3 = [
+  {
+    key: 'katana', protocol: 'SushiSwap V3', archive: true,
+    rpc: CFG.katRpc, npm: CFG.npm, factory: CFG.factory, staker: CFG.lpStaker,
+    open: (pos) => pos.open || {},
+    closed: (pos) => pos.closed || [],
+  },
+  {
+    key: 'robinhood', protocol: 'Uniswap V3', archive: false,
+    rpc: CFG.rhRpc, npm: CFG.rhNpm, factory: CFG.rhFactory, staker: null,
+    open: (pos) => (pos.robinhood || {}).open || {},
+    closed: (pos) => (pos.robinhood || {}).closed || [],
+  },
+];
 
 /* ---------- abi plumbing (the same helpers the Action uses) ---------- */
 const MOD256 = 1n << 256n;
@@ -146,53 +159,51 @@ function bandPosition(now, lower, upper) {
   return Math.round(p * 10) / 10;
 }
 
-/* ---------- which Katana positions are open, right now ----------
+/* ---------- which positions are open, right now ----------
    The ledger is written by a job that runs every six hours, so a position opened since its
    last pass is not in it — which is exactly when someone looks at the widget, having just
    re-ranged. Three sources, cheapest first:
 
      1. the ledger, for everything already settled;
-     2. the NFTs the wallet itself holds, which is one read and catches an unstaked
-        position the moment it is minted;
-     3. Transfer logs for a position handed to the staker, because a staked NFT leaves the
-        wallet and no enumeration can see it. Newest window first, and only back as far as
-        the ledger already reaches.
+     2. the NFTs the wallet itself holds, which catches an unstaked position the moment it
+        is minted;
+     3. Transfer logs for a position handed to a staker, because a staked NFT leaves the
+        wallet and no enumeration can see it.
 
    Positions the ledger has already closed are dropped from the candidates — the wallet goes
-   on holding the spent NFT of every position it has ever closed, 99 of them here, and there
-   is no sense asking the chain about those again. */
+   on holding the spent NFT of every position it has ever closed, a hundred of them here. */
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-async function katanaCandidates(pos, stakedSeed) {
-  const ids = new Set(Object.keys(pos.open || {}));
+async function v3Candidates(ch, pos, ledgerOpen, stakedSeed) {
+  const ids = new Set(Object.keys(ledgerOpen || {}));
   (stakedSeed || []).forEach((id) => ids.add(String(id)));
-  const closed = new Set((pos.closed || []).map((c) => String(c.id)));
+  const closed = new Set((ch.closed(pos) || []).map((c) => String(c.id)));
 
   const walletHeld = (async () => {
-    const bal = Number(toBig(w(await rpc(CFG.katRpc, 'eth_call',
-      [{ to: CFG.npm, data: '0x70a08231' + pad(CFG.wallet) }, 'latest']), 0)));
+    const bal = Number(toBig(w(await rpc(ch.rpc, 'eth_call',
+      [{ to: ch.npm, data: '0x70a08231' + pad(CFG.wallet) }, 'latest']), 0)));
     if (!bal) return [];
     /* Only the tail of the list can hold something new. ERC721Enumerable appends a token it
        receives at the owner's last index, and closing a V3 position burns its liquidity
-       rather than the NFT, so nothing is removed to shuffle it away. Reading the last few
-       indices instead of all ninety-nine is the difference between 300ms and 1.1s. */
+       rather than the NFT, so nothing is removed to shuffle it away. */
+    const first = Math.max(0, bal - CFG.walletTail);
     const batch = [];
-    for (let k = Math.max(0, bal - CFG.walletTail); k < bal; k++)
-      batch.push({ to: CFG.npm, data: '0x2f745c59' + pad(CFG.wallet) + pad(k.toString(16)) });
-    const r = await multi(CFG.katRpc, batch);
+    for (let k = first; k < bal; k++)
+      batch.push({ to: ch.npm, data: '0x2f745c59' + pad(CFG.wallet) + pad(k.toString(16)) });
+    const r = await multi(ch.rpc, batch);
     return r.filter((x) => x.ok).map((x) => String(toBig(w(x.data, 0))));
   })();
 
   const staked = (async () => {
-    const head = Number(toBig((await rpc(CFG.katRpc, 'eth_blockNumber', [])).slice(2)));
-    const logs = async (from, to) => rpc(CFG.katRpc, 'eth_getLogs', [{
-      address: CFG.npm, fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
-      topics: [TRANSFER, '0x' + pad(CFG.wallet), '0x' + pad(CFG.lpStaker)],
+    if (!ch.staker) return [];
+    const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
+    const logs = async (from, to) => rpc(ch.rpc, 'eth_getLogs', [{
+      address: ch.npm, fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16),
+      topics: [TRANSFER, '0x' + pad(CFG.wallet), '0x' + pad(ch.staker)],
     }]);
     /* The node's documented thousand-block limit is on the size of the answer, not the
        width of the question. Naming the contract and all three topics makes this one
-       return a handful of logs at most, and it is accepted across days of blocks — one
-       request where a chunked sweep took six and still reached back only an hour. */
+       return a handful of logs, and it is accepted across days of blocks. */
     let out;
     try {
       out = await logs(head - CFG.stakedLookback, head);
@@ -212,17 +223,44 @@ async function katanaCandidates(pos, stakedSeed) {
   return [...ids];
 }
 
-/* ---------- katana: sushi v3 ---------- */
-async function katanaRows(open, candidates) {
-  const ids = candidates || Object.keys(open || {});
+/* What a token is, asked of the token. A hard-coded list is why a WETH/USDG position on
+   Robinhood was dropped without a word: the pair was real and the chain was reachable, and
+   the code simply had no entry for USDG. Reading symbol and decimals costs two calls and
+   means a pair the dashboard has never seen still shows up. */
+const STABLE = /^(vb)?(USDC|USDT|USDG|DAI|USDe|FRAX)$/i;
+async function tokenMeta(ch, addrs) {
+  const list = [...new Set(addrs.map(lc))];
+  const out = {};
+  if (!list.length) return out;
+  const r = await multi(ch.rpc, list.flatMap((a) => [
+    { to: a, data: '0x95d89b41' },   /* symbol() */
+    { to: a, data: '0x313ce567' },   /* decimals() */
+  ]));
+  list.forEach((a, i) => {
+    let sym = a.slice(0, 8);
+    try {
+      const h = r[i * 2].data;
+      const off = Number(toBig(w(h, 0))) / 32;
+      const len = Number(toBig(w(h, off)));
+      sym = Buffer.from(h.slice(2 + (off + 1) * 64, 2 + (off + 1) * 64 + len * 2), 'hex').toString() || sym;
+    } catch { /* a token with no readable symbol still gets decimals and a short name */ }
+    const d = r[i * 2 + 1] && r[i * 2 + 1].ok ? Number(toBig(w(r[i * 2 + 1].data, 0))) : 18;
+    out[a] = { s: sym, d: d, stable: STABLE.test(sym) };
+  });
+  return out;
+}
+
+/* ---------- any uniswap-v3-shaped pool, on any of the chains ---------- */
+async function v3Rows(ch, ledgerOpen, candidates) {
+  const open = ledgerOpen || {};
+  const ids = candidates || Object.keys(open);
   if (!ids.length) return [];
   /* positions() for the band and the liquidity, and ownerOf to settle whether it is staked.
      The ledger does not record staking, and whether the trading fees are his turns on it —
-     a staked Sushi position's fees are collected by the Katana DAO. The staker holding the
-     NFT is the only authority on that, so it is read rather than inferred. */
-  const posRes = await multi(CFG.katRpc, ids.flatMap((id) => {
+     a staked Sushi position's fees are collected by the Katana DAO. */
+  const posRes = await multi(ch.rpc, ids.flatMap((id) => {
     const h = pad(BigInt(id).toString(16));
-    return [{ to: CFG.npm, data: '0x99fbab88' + h }, { to: CFG.npm, data: '0x6352211e' + h }];
+    return [{ to: ch.npm, data: '0x99fbab88' + h }, { to: ch.npm, data: '0x6352211e' + h }];
   }));
 
   const live = [];
@@ -235,7 +273,7 @@ async function katanaRows(open, candidates) {
     const own = posRes[k * 2 + 1];
     live.push({
       id: id, ledger: open[id],
-      staked: !!(own && own.ok && lc(toAddr(w(own.data, 0))) === lc(CFG.lpStaker)),
+      staked: !!(ch.staker && own && own.ok && lc(toAddr(w(own.data, 0))) === lc(ch.staker)),
       token0: lc(toAddr(w(d, 2))), token1: lc(toAddr(w(d, 3))), fee: Number(toBig(w(d, 4))),
       lo: Number(toSigned(w(d, 5))), hi: Number(toSigned(w(d, 6))),
       liq, last0: toBig(w(d, 8)), last1: toBig(w(d, 9)), owed0, owed1,
@@ -243,12 +281,15 @@ async function katanaRows(open, candidates) {
   });
   if (!live.length) return [];
 
-  const poolRes = await multi(CFG.katRpc, live.map((p) => ({
-    to: CFG.factory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)),
-  })));
+  const [poolRes, meta] = await Promise.all([
+    multi(ch.rpc, live.map((p) => ({
+      to: ch.factory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)),
+    }))),
+    tokenMeta(ch, live.flatMap((p) => [p.token0, p.token1])),
+  ]);
   live.forEach((p, i) => { p.pool = poolRes[i].ok ? toAddr(w(poolRes[i].data, 0)) : null; });
 
-  const slotRes = await multi(CFG.katRpc, live.flatMap((p) => p.pool ? [
+  const slotRes = await multi(ch.rpc, live.flatMap((p) => p.pool ? [
     { to: p.pool, data: '0x3850c7bd' },                      /* slot0 */
     { to: p.pool, data: '0xf3058399' },                      /* feeGrowthGlobal0 */
     { to: p.pool, data: '0x46141319' },                      /* feeGrowthGlobal1 */
@@ -258,11 +299,11 @@ async function katanaRows(open, candidates) {
 
   /* The entry price, read from the pool at the block the position was minted. It is what
      turns a P&L into a market move plus an impermanent loss, and the only figure here that
-     needs archive state — so a node that has pruned it costs the IL line, nothing else. */
+     needs archive state — so a chain that keeps none costs the IL line, nothing else. */
   const entry = await Promise.all(live.map(async (p) => {
-    if (!p.pool || !p.ledger || !p.ledger.opened_block) return null;
+    if (!ch.archive || !p.pool || !p.ledger || !p.ledger.opened_block) return null;
     try {
-      const d = await rpc(CFG.katRpc, 'eth_call',
+      const d = await rpc(ch.rpc, 'eth_call',
         [{ to: p.pool, data: '0x3850c7bd' }, '0x' + Number(p.ledger.opened_block).toString(16)]);
       return toBig(w(d, 0));
     } catch { return null; }
@@ -272,7 +313,7 @@ async function katanaRows(open, candidates) {
   live.forEach((p, j) => {
     const i = j * 5;
     if (!slotRes[i] || !slotRes[i].ok) return;
-    const T0 = CFG.tokens[p.token0], T1 = CFG.tokens[p.token1];
+    const T0 = meta[p.token0], T1 = meta[p.token1];
     if (!T0 || !T1) return;
 
     const sqrtP = toBig(w(slotRes[i].data, 0));
@@ -291,7 +332,7 @@ async function katanaRows(open, candidates) {
 
     const L = p.ledger || {};
     out.push(shape({
-      chain: 'katana', id: p.id, protocol: 'SushiSwap V3',
+      chain: ch.key, id: p.id, protocol: ch.protocol,
       /* found on chain but not yet in the ledger: its range and its value are known, what
          went into it is not, so it reports no P&L rather than a P&L of nothing */
       pending: !p.ledger,
@@ -575,20 +616,21 @@ export default async function handler(req, res) {
       fetch(base + '/data.json?t=' + Date.now()).then((r) => r.json()).catch(() => ({})),
     ]);
     const seed = ((data.chains || {}).katana || {}).staked_lp_ids || [];
-    /* Arc and Merkl do not wait on Katana's discovery; the three run side by side. */
-    const settled = await Promise.all([
-      katanaCandidates(pos, seed)
-        .catch(() => Object.keys(pos.open || {}))      /* discovery failing costs the new ones, not the known */
-        .then((c) => katanaRows(pos.open, c))
-        .catch((e) => ({ error: 'katana: ' + e.message })),
-      arcRows(pos.arc && pos.arc.open).catch((e) => ({ error: 'arc: ' + e.message })),
-      merklLp(),
-    ]);
-    const merkl = settled[2];
-    const errors = [], rows = [];
-    for (const r of [settled[0], settled[1]]) {
-      if (Array.isArray(r)) rows.push(...r);
-      else if (r && r.error) errors.push(r.error);
+    /* Every chain and Merkl run side by side; none waits on another's discovery. */
+    const jobs = V3.map((ch) => v3Candidates(ch, pos, ch.open(pos), ch.key === 'katana' ? seed : [])
+      .catch(() => Object.keys(ch.open(pos)))        /* discovery failing costs the new ones, not the known */
+      .then((c) => ({ key: ch.key, rows: null, pending: v3Rows(ch, ch.open(pos), c) }))
+      .then(async (r) => ({ key: ch.key, rows: await r.pending }))
+      .catch((e) => ({ key: ch.key, error: ch.key + ': ' + e.message })));
+    jobs.push(arcRows(pos.arc && pos.arc.open)
+      .then((rows) => ({ key: 'arc', rows }))
+      .catch((e) => ({ key: 'arc', error: 'arc: ' + e.message })));
+
+    const [results, merkl] = await Promise.all([Promise.all(jobs), merklLp()]);
+    const errors = [], rows = [], checked = {};
+    for (const r of results) {
+      if (r.error) { errors.push(r.error); checked[r.key] = 'failed'; }
+      else { rows.push(...r.rows); checked[r.key] = r.rows.length; }
     }
     /* tightest band first: the position that needs watching is the one with least room */
     rows.sort((a, b) => a.range.width_pct - b.range.width_pct);
@@ -600,6 +642,8 @@ export default async function handler(req, res) {
       rewards_pending_usd: merkl.lp_usd,
       rewards_all_usd: merkl.total_usd,
       count: rows.length,
+      /* what each chain answered, so a chain that went quiet is visible rather than absent */
+      chains: checked,
       /* `widget` is the one position a home-screen widget shows, and stays first so a
          widget maker's JSON path never moves. `widgets` is every open position, for the
          installed app, which has a whole screen rather than a 4x2 strip. */
