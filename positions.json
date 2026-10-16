@@ -1,6 +1,6 @@
 {
   "start_date": "2026-07-30",
-  "last_block": 45403247,
+  "last_block": 45422804,
   "open": {},
   "closed": [
     {
@@ -621,7 +621,7 @@
     }
   ],
   "robinhood": {
-    "last_block": 90002742,
+    "last_block": 90196138,
     "open": {
       "1451097": {
         "id": "1451097",
@@ -632,11 +632,11 @@
         "opened_block": 89181978,
         "in0": 0.15652506794229018,
         "in1": 467.828232,
-        "out0": 0,
-        "out1": 0,
+        "out0": 0.000451954205963659,
+        "out1": 1.200451,
         "in_usd": 837.6720288695615,
-        "out_usd": 0,
-        "fees_usd": 0,
+        "out_usd": 2.319350172540167,
+        "fees_usd": 2.319350172540167,
         "owed0": "0",
         "owed1": "0",
         "d0": 18,
@@ -648,10 +648,10 @@
         "pool_fee": "0.05%",
         "opened_ts": 1792063007,
         "opened": "2026-10-15",
-        "last_block": 89181978,
-        "last_ts": 1792063007,
+        "last_block": 90056186,
+        "last_ts": 1792151480,
         "open_value_usd": 837.67,
-        "withdrawn_usd": 0
+        "withdrawn_usd": 2.32
       }
     },
     "closed": [
@@ -778,7 +778,7 @@
   },
   "version": 3,
   "arc": {
-    "last_block": 26247124,
+    "last_block": 26285253,
     "open": {},
     "closed": [
       {
