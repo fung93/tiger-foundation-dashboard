@@ -690,7 +690,8 @@ export function widgetView(pos, merkl) {
    moment, at live prices, except in a closed position's history row, which is frozen at
    the prices of the block it closed in.
    ========================================================================== */
-export const BOOK_VERSION = 1;
+/* 2: tracking starts at each chain's current positions' own mint, not at a photograph */
+export const BOOK_VERSION = 2;
 const tkey = (sym, chain) => sym + '@' + chain;
 const sumInto = (into, from, sign = 1) => {
   for (const k of Object.keys(from || {})) into[k] = (into[k] || 0) + sign * from[k];
@@ -949,22 +950,65 @@ async function photograph(book, ch, wallets, { pos, data, merkl, ts }) {
   return head;
 }
 
-export async function startBook({ pos, data, merkl, now }) {
-  const ts = Math.floor((now || Date.now()) / 1000);
+/* the block of a position's first deposit — its mint — walking back from the head a
+   window at a time until the deposits are behind it */
+async function firstDeposit(ch, id, head) {
+  const topics = [INCREASE, '0x' + pad(BigInt(id).toString(16))];
+  const span = Math.min(ch.logSpan, 100000);
+  let first = null;
+  for (let to = head, n = 0; to > 0 && n < 600; n++) {
+    const from = Math.max(0, to - span + 1);
+    const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, topics, fromBlock: hx(from), toBlock: hx(to) }]);
+    if (logs.length) first = Number(toBig(logs[0].blockNumber.slice(2)));
+    else if (first !== null) break;
+    to = from - 1;
+  }
+  return first;
+}
+
+/* ---------- where tracking starts ----------
+   At the mint of the positions open now. On each chain the book begins the block before the
+   earliest mint among the positions its wallets hold open, and replays forward from there, so
+   every position in it is measured from its own beginning: its cost is what went in at the
+   mint's own price, and its fees are everything it has earned — Merkl KAT on Katana, trading
+   fees on Robinhood. Nothing is photographed and nothing is carried in: KAT still claimable
+   from positions closed before then was earned by them, not by these.
+   (Alex, 2026-10-19. The first book photographed positions mid-life at the moment it
+   started, so their PnL and fees missed everything before that moment.)
+   A chain with nothing open starts at its head and picks up its next mint. */
+export async function startBook({ pos, data }) {
   const book = {
     version: BOOK_VERSION,
-    started: { ts, iso: new Date(ts * 1000).toISOString(), blocks: {} },
+    started: { ts: null, iso: null, blocks: {}, chains: {}, rule: 'from the mint of the positions open at the start' },
     wallets: CFG.wallets.map((x) => lc(x.address)),
-    last_block: {}, tokens: {}, positions: {}, events: [], fee_series: [], runs: [],
+    last_block: {}, tokens: {}, positions: {}, events: [], fee_series: [], runs: [], carried: { by_id: {} },
   };
   for (const ch of V3) {
     await registerRefPools(book, ch);
-    const head = await photograph(book, ch, book.wallets, { pos, data, merkl, ts });
-    book.last_block[ch.key] = head;
-    book.started.blocks[ch.key] = head;
+    const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
+    const seed = ch.key === 'katana' ? (((data || {}).chains || {}).katana || {}).staked_lp_ids || [] : [];
+    const owner = await v3Candidates(ch, pos || {}, ch.open(pos || {}), seed,
+      { wholeList: true, stakedLookback: 2500000, wallets: book.wallets });
+    const ids = [...owner.keys()];
+    const { d } = ids.length ? await describe(ch, ids) : { d: {} };
+    let start = head;
+    const opened = [];
+    for (const id of ids.filter((x) => d[x] && d[x].liq > 0n)) {
+      const b = await firstDeposit(ch, id, head);
+      if (b === null) throw new Error(ch.key + ' #' + id + ' is open but its mint could not be found');
+      opened.push(id);
+      start = Math.min(start, b - 1);
+    }
+    const blk = await rpc(ch.rpc, 'eth_getBlockByNumber', [hx(start + 1), false]);
+    const ts = Number(BigInt(blk.timestamp));
+    book.last_block[ch.key] = start;
+    book.started.blocks[ch.key] = start;
+    book.started.chains[ch.key] = { block: start, ts, iso: new Date(ts * 1000).toISOString(), positions: opened };
   }
-  carryIn(book, merkl, book.wallets);
-  book.fee_series.push({ ts, tokens: carriedTokens(book) });
+  const first = Math.min(...Object.values(book.started.chains).map((c) => c.ts));
+  book.started.ts = first;
+  book.started.iso = new Date(first * 1000).toISOString();
+  book.fee_series.push({ ts: first, tokens: {} });
   return book;
 }
 

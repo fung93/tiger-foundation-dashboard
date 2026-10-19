@@ -103,6 +103,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   transition:color .15s,border-color .15s,background .15s;
   -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
 .cur-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
+.hero-tools{flex:none;display:flex;gap:6px;align-items:center}
+.lp-btn{display:inline-flex;align-items:center;text-decoration:none;text-transform:uppercase;white-space:nowrap}
 .wealth-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .wealth-total{font-size:48px;font-weight:800;background:linear-gradient(90deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .wealth-sub{font-size:15px;color:var(--dim)}
@@ -435,7 +437,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   .modal-foot{gap:6px;padding:10px 12px}
 }
 @media(max-width:480px){
-  .hdr-btn .long{display:none}
+  .lp-btn .long{display:none}
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* sized to keep "WEALTH OVERVIEW" on one line in the narrow column — in vw, because it
      now shares that line with the currency button and 25px overruns the card below 375px */
@@ -470,6 +472,8 @@ html.classy .hdr h1 .t{color:var(--text)}
 html.classy .hdr h1 .f{color:var(--gold);font-style:italic}
 html.classy .hdr .sub{font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px}
 html.classy .hdr .ts{font-size:11.5px;letter-spacing:.04em}
+/* no tiger in this theme, and with it goes Ask the Tiger — the original keeps both */
+html.classy .brand-mark{display:none}
 html.classy .hdr-btn{border-radius:999px;font-size:10px;font-weight:500;letter-spacing:.14em;background:transparent;border-color:rgba(255,255,255,.1)}
 html.classy .hdr-btn:hover,html.classy .hdr-btn[aria-pressed="true"]{color:var(--gold);border-color:rgba(214,185,123,.4);background:rgba(214,185,123,.06)}
 /* cards: near-black with a faint top sheen, hairline borders, no glass */
@@ -496,14 +500,13 @@ html.classy .pos-val{font-weight:500}
 html.classy .hf,html.classy .chain-badge{border-radius:999px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:9.5px}
 html.classy .progress-bg{background:rgba(255,255,255,.07)}
 html.classy .progress-fill{background:linear-gradient(90deg,rgba(214,185,123,.45),var(--gold))}
-/* the rocket carries the two explorers too, so here it becomes a gold marker on the bar's
-   tip. The picture keeps its box (hidden, not removed) so the bubble and the flight to the
-   moon keep their geometry; the dot sits on the nose — the true value — where the bar
-   runs through the hull, 58% down. */
-html.classy .rocket img{visibility:hidden}
-html.classy .rocket-bob{position:relative;animation:none}
-html.classy .rocket-bob::after{content:'';position:absolute;left:99.7%;top:58%;width:14px;height:14px;margin:-7px 0 0 -7px;
-  border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(214,185,123,.14),0 0 16px rgba(214,185,123,.35)}
+/* A clean line: the rocket (it carries the two explorers) and the moon are left out, and
+   the gold simply ends where the money is. Out of the layout the rocket's width reads 0, so
+   placeRocket ends the fill on the exact value with no marker needed. */
+html.classy .rocket,html.classy .moon{display:none}
+html.classy .prog-track{padding-top:10px;padding-bottom:6px}
+html.classy .progress-bg{height:6px;border-radius:3px}
+html.classy .progress-fill{border-radius:3px;box-shadow:0 0 12px rgba(214,185,123,.28)}
 html.classy .bubble{background:rgba(11,11,12,.97)}
 html.classy .bubble::before{border-top-color:rgba(11,11,12,.97)}
 html.classy .modal{background:rgba(11,11,12,.97)}
@@ -541,7 +544,6 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
     </div>
     <div class="hdr-side">
       <div class="hdr-actions">
-        <a class="hdr-btn" href="/lp.html" title="Open the LP Book">LP<span class="long">&nbsp;Book</span></a>
         <button class="hdr-btn icon" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
       </div>
       <div class="ts" id="lastUpdated">Loading...</div>
@@ -556,7 +558,10 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
    <div class="hero-main">
     <div class="hero-head">
       <h2>Wealth Overview</h2>
-      <button class="cur-btn" id="curBtn" type="button" title="Showing USD — tap to switch currency">USD</button>
+      <div class="hero-tools">
+        <a class="cur-btn lp-btn" href="/lp.html" title="Open the LP Book">LP<span class="long">&nbsp;Book</span></a>
+        <button class="cur-btn" id="curBtn" type="button" title="Showing USD — tap to switch currency">USD</button>
+      </div>
     </div>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div><div class="chg-chips" id="chgChips"></div></div>
     <div class="hero-meta" style="margin-top:16px">
@@ -2450,9 +2455,7 @@ function placeRocket(pct){
     /* The bar is the rocket's tail: the fill runs on under the rocket to its midpoint, so
        gold and exhaust meet instead of butting up as two separate objects. The nose still
        marks the true value. Set in px, never a percentage — the units don't interpolate. */
-    /* In the classy theme the rocket is a dot on the nose, so the bar ends at the true value */
-    var tail=document.documentElement.classList.contains('classy')?ROCKET_NOSE:0.5;
-    if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*tail)).toFixed(1)+'px';
+    if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*0.5)).toFixed(1)+'px';
   };
   /* The markup opens with the bar at width:0 and the rocket at translateX(0) — two
      different points on the scale, half a rocket apart. Animating from there, the bar
@@ -4595,6 +4598,7 @@ function chatAsk(chip){
   setTimeout(function(){chatSay('tiger',ans);},260);
 }
 function openChat(){
+  if(document.documentElement.classList.contains('classy'))return;
   var m=document.getElementById('chatModal');
   m.classList.add('open');
   if(!CHAT_READY){

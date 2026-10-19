@@ -13,7 +13,8 @@
 <!--
   LP book — liquidity positions only, on every chain and wallet the book follows.
 
-  Everything on this page is measured from the moment tracking started. The
+  Everything on this page is measured from the mint of the positions that were open
+  when tracking started — each chain from its own position's first deposit. The
   numbers come finished from /api/lpbook; this file only lays them out. Fees are
   kept as token amounts on the server and are dollared at live prices on every
   refresh, so the fee figures move with the market even when nothing was earned.
@@ -195,7 +196,13 @@ h1 em{font-style:italic;color:var(--gold)}
 
   function cards(v) {
     var C = v.cards;
-    $('since').textContent = 'tracking since ' + when(v.started.iso);
+    /* each chain is tracked from its own position's mint; say when, chain by chain */
+    var sc = v.started.chains || {};
+    var per = Object.keys(sc).sort(function (a, b) { return sc[a].ts - sc[b].ts; })
+      .filter(function (c) { return (sc[c].positions || []).length; })
+      .map(function (c) { return c.charAt(0).toUpperCase() + c.slice(1) + ' ' + when(sc[c].iso); });
+    $('since').textContent = per.length ? 'tracked from each position\u2019s opening \u00b7 ' + per.join(' \u00b7 ')
+      : 'tracking since ' + when(v.started.iso);
 
     /* 1 */
     var open = v.live.length, chains = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; }).length;

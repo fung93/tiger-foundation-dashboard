@@ -5,8 +5,9 @@
 
        node scripts/lpbook.mjs
 
-   The first run photographs every open position and that moment is when tracking
-   starts. Every run after moves the book forward through the chain's own events
+   The first run finds the mint of every open position and starts each chain's book
+   just before it, then replays forward, so each position is measured from its own
+   beginning. Every run after moves the book forward through the chain's own events
    and adds one point to the fee curve. The reading and the arithmetic are in
    api/_core.mjs, shared with the page's endpoint, so the two cannot drift apart.
    ========================================================================== */
@@ -25,22 +26,22 @@ export async function updateLpBook(root) {
   const ts = Math.floor(Date.now() / 1000);
   let errors = {}, behind = {}, started = false;
 
+  const pos = readJson(join(root, 'positions.json')) || {}, data = readJson(join(root, 'data.json')) || {};
   if (!book || book.version !== BOOK_VERSION) {
-    book = await startBook({ pos: readJson(join(root, 'positions.json')) || {},
-      data: readJson(join(root, 'data.json')) || {}, merkl });
+    book = await startBook({ pos, data });
     started = true;
-    console.log(`  lp book: tracking starts now — ${Object.keys(book.positions).length} open position(s) photographed`);
-  } else {
-    ({ book, errors, behind } = await advanceBook(book, { merkl, maxWindows: 80,
-      pos: readJson(join(root, 'positions.json')) || {}, data: readJson(join(root, 'data.json')) || {} }));
-    /* One point on the fee curve per run, unless a chain could not be read — a point
-       missing a chain's uncollected fees would draw as a drop that never happened. */
-    const live = await bookLiveRows(book);
-    if (!Object.keys(live.errors).length && !Object.keys(errors).length) {
-      book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)) });
-    }
-    errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
+    console.log('  lp book: tracking starts at the mint of the positions open now — '
+      + Object.entries(book.started.chains).map(([c, x]) => c + ' ' + x.iso.slice(0, 16)).join(', '));
   }
+  /* a fresh book replays from those mints in the same run, so it is never written half-built */
+  ({ book, errors, behind } = await advanceBook(book, { merkl, maxWindows: 80, pos, data }));
+  /* One point on the fee curve per run, unless a chain could not be read — a point
+     missing a chain's uncollected fees would draw as a drop that never happened. */
+  const live = await bookLiveRows(book);
+  if (!Object.keys(live.errors).length && !Object.keys(errors).length) {
+    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)) });
+  }
+  errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 
   book.runs = (book.runs || []).concat({ ts, started: started || undefined,
     errors: Object.keys(errors).length ? errors : undefined, behind }).slice(-30);
