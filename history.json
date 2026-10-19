@@ -1292,15 +1292,15 @@
     },
     {
       "date": "2026-10-19",
-      "timestamp": "2026-10-19T17:58:06.922Z",
-      "onchain_usd": 21.9,
-      "pending_usd": 20.34,
-      "lp_usd": 854.03,
+      "timestamp": "2026-10-19T21:59:39.511Z",
+      "onchain_usd": 21.72,
+      "pending_usd": 21.58,
+      "lp_usd": 855.47,
       "solana_usd": 0.09,
       "robinhood_usd": 0.01,
       "arc_usd": 0.06,
-      "total_usd": 2233.59,
-      "vault_usd": 3035.46
+      "total_usd": 2218.77,
+      "vault_usd": 3037.73
     }
   ]
 }
