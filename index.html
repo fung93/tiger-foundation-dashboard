@@ -53,6 +53,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .hdr h1 .t{color:var(--gold)}.hdr h1 .f{color:var(--accent)}
 .hdr .sub{font-size:13px;color:var(--dim);margin-top:4px;letter-spacing:1px}
 .hdr .ts{font-size:12px;color:var(--dim);text-align:right}
+/* Every state of the clock is two short lines in a box of fixed height — Loading, Snapshot
+   with its time, LIVE with the running clock — so the header is the same size before and
+   after LIVE arrives. It used to be one line until LIVE turned it into two. */
+.hdr .ts{line-height:1.5;height:3em;white-space:nowrap;overflow:hidden}
 .hdr-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0}
 .hdr-actions{display:flex;gap:6px;align-items:center}
 .hdr-btn{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 11px;border-radius:7px;
@@ -546,7 +550,7 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
       <div class="hdr-actions">
         <button class="hdr-btn icon" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
       </div>
-      <div class="ts" id="lastUpdated">Loading...</div>
+      <div class="ts" id="lastUpdated">Loading&hellip;<br>&nbsp;</div>
     </div>
   </div>
 </div>
@@ -4068,7 +4072,9 @@ function render(d,isLive){
     lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br>'
       +'<span id="liveClock">'+clockNow()+'</span>';
   }else if(d.last_updated){
-    lu.textContent='Snapshot: '+d.last_updated.replace('T',' ').slice(0,19)+' UTC';
+    /* two lines, like LIVE: the date only when the snapshot is not from today */
+    var lu8=d.last_updated,today8=new Date().toISOString().slice(0,10)===lu8.slice(0,10);
+    lu.innerHTML='SNAPSHOT<br>'+(today8?'':lu8.slice(5,10)+' ')+lu8.slice(11,16)+' UTC';
   }
 
   if(d.tracking){

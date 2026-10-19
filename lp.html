@@ -221,8 +221,11 @@ h1 em{font-style:italic;color:var(--gold)}
     $('c4n').innerHTML = (toks.length ? toks.map(function (k) {
       return esc(amt(C.fee_tokens[k]) + ' ' + sym(k)) + (C.fee_tokens_usd[k] == null ? '' : ' <span style="color:var(--faint)">' + esc(money(C.fee_tokens_usd[k])) + '</span>');
     }).join('<br>') : 'nothing yet')
-      /* say how much was already claimable when tracking began, so the figure explains itself */
-      + (C.carried_usd >= 0.01 ? '<br><span style="color:var(--faint)">incl. ' + esc(money(C.carried_usd)) + ' claimable when tracking began</span>' : '');
+      /* say what Katana's figure is made of, so it explains itself */
+      + (C.merkl && (C.merkl.claimable_usd >= 0.01 || C.merkl.claimed_usd >= 0.01)
+        ? '<br><span style="color:var(--faint)">Katana = Merkl claimable ' + esc(money(C.merkl.claimable_usd))
+          + (C.merkl.claimed_usd >= 0.01 ? ' + claimed since start ' + esc(money(C.merkl.claimed_usd)) : '')
+          + (C.merkl.stale ? ' (last read)' : '') + '</span>' : '');
 
     /* 5 */
     $('c5').textContent = C.rebalances;
