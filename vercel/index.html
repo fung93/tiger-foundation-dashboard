@@ -534,7 +534,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
     <div class="grid4">
       <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
       <div class="c"><div class="cl">DeFi Positions</div><div class="cv accent" id="defiVal">$---</div><div class="cs">LP + lending</div></div>
-      <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs">Cold wallet</div></div>
+      <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs" id="vaultSub">Cold wallet</div></div>
       <div class="c"><div class="cl">Merkl Pending</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed rewards</div><div class="cs yield" id="merklYield" style="margin-top:5px"></div></div>
     </div>
   </div>
@@ -750,6 +750,13 @@ function fmtN(v,d){return Number(v).toLocaleString('en-US',{maximumFractionDigit
 /* What the vault held on a given day. Rows are in date order, so the last one that has
    started by `date` is the one in force. */
 function vaultAt(date){
+  /* From the day the six-hourly job began recording it, each day carries the vault as it
+     stood then. Before that, the dated rows in CFG are what was known. */
+  if(HIST&&date){
+    for(var j=HIST.length-1;j>=0;j--){
+      if(HIST[j].date===date&&typeof HIST[j].vault_usd==='number')return HIST[j].vault_usd;
+    }
+  }
   var h=CFG.coldVaultHistory||[],v=0;
   for(var i=0;i<h.length;i++){ if(!date||h[i].from<=date)v=h[i].usd; }
   return v;
@@ -879,8 +886,11 @@ var CFG={
   startValue:502.29,
   startDate:'2026-05-02',
   katClaimed:84937,
-  /* TIGER VAULT — cold wallet, added to the overview total and the peak only. A manual
-     figure, because the holdings sit outside any wallet this dashboard reads.
+  /* TIGER VAULT — added to the overview total and the peak only. It is the wallet
+     0x4da1d0d5f7b123364d7580f19b716de2ed4e9770, and since 2026-10-19 it is read rather than
+     typed in: /api/vault values its LP positions and holdings live, and the six-hourly job
+     records the figure into each day of history.json. The rows below are what was known
+     for the days before that, and the fallback if no read has landed yet.
 
      Dated, not a single number. The vault is paired with every historical day to compute
      the all-time peak, so raising one constant retroactively credits the new money to days
@@ -3850,6 +3860,8 @@ function render(d,isLive){
 
   document.getElementById('totalVal').textContent=fmt(displayTotal);
   document.getElementById('vaultVal').textContent=curSym()+fmtN(cv(CFG.coldVault));
+  var vs=document.getElementById('vaultSub');
+  if(vs)vs.textContent=VAULT_INFO?'LP '+fmt(VAULT_INFO.lp)+' \u00b7 wallet '+fmt(VAULT_INFO.wallet):'Cold wallet';
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
   placeRocket(pct);   /* owns the fill width too — it ends where the rocket begins */
   document.getElementById('onchainVal').textContent=fmt(onchain);
@@ -4454,6 +4466,24 @@ function closeChat(){document.getElementById('chatModal').classList.remove('open
    the price is the ceiling. One number to change if that ever stops being true. */
 var REFRESH_MS=15000,REFRESH_TIMER=null,REFRESHING=false,LAST_SNAP=null;
 
+/* The Tiger Vault, read live. A read that did not complete is not a smaller vault, so it is
+   ignored and the last good figure stands; and a snapshot never overrides a live read. */
+var VAULT_INFO=null;
+function useVault(v,live){
+  if(!v||typeof v.total_usd!=='number'||v.complete===false)return false;
+  if(!live&&VAULT_INFO&&VAULT_INFO.live)return false;
+  VAULT_INFO={total:v.total_usd,lp:v.lp_usd||0,wallet:v.wallet_usd||0,live:!!live,at:v.at};
+  CFG.coldVault=v.total_usd;
+  return true;
+}
+function refreshVault(){
+  return fT('/api/vault').then(function(r){return r.json();}).then(function(v){
+    /* repaint with whatever liveness the page already has */
+    if(useVault(v,true)&&LAST_DATA)render(LAST_DATA,liveRendered);
+  }).catch(function(e){console.warn('vault read failed, keeping the last figure',e);});
+}
+setInterval(refreshVault,60000);
+
 /* An auto-refresh must not yank an open ledger back to the top under the reader's finger.
    The page number survives on its own — POS_PAGE outlives the rebuild — but scroll doesn't. */
 function keepingScroll(fn){
@@ -4527,7 +4557,7 @@ function load(){
 
   /* 1. instant snapshot, then 2. live on-chain overlay (position refs come from snapshot) */
   fetch('/data.json?t='+Date.now()).then(function(r){return r.json();})
-    .then(function(d){render(d,false);return d;})
+    .then(function(d){useVault(d&&d.vault,false);render(d,false);refreshVault();return d;})
     .catch(function(e){console.error('snapshot failed',e);return null;})
     .then(function(snap){
       LAST_SNAP=snap;                              /* refreshLive reads its refs from here */

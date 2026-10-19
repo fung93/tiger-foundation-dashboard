@@ -2248,11 +2248,32 @@ const data = {
   total_usd: grandAll,
 };
 
+/* The Tiger Vault: a wallet of its own, valued like everything else rather than typed in.
+   A read that did not complete is not a smaller vault — the last good figure stands, so a
+   chain that failed to answer cannot be recorded as money that left. */
+const histPath = join(ROOT, 'history.json');
+const hist = JSON.parse(readFileSync(histPath, 'utf8'));
+let vault = null;
+try {
+  const { vaultValue } = await import('../api/_core.mjs');
+  let book = null;
+  try { book = JSON.parse(readFileSync(join(ROOT, 'lpbook.json'), 'utf8')); } catch { /* not started */ }
+  vault = await vaultValue(undefined, { book });
+  if (!vault.complete) {
+    console.warn('vault read incomplete, keeping the last good figure:', JSON.stringify(vault.errors));
+    vault = null;
+  }
+} catch (e) { console.warn('vault could not be valued, keeping the last good figure:', e.message); }
+const lastVault = [...hist.data].reverse().find((e) => typeof e.vault_usd === 'number');
+const vaultUsd = vault ? vault.total_usd : (lastVault ? lastVault.vault_usd : undefined);
+if (vault) data.vault = vault;
+else {
+  try { const prev = JSON.parse(readFileSync(join(ROOT, 'data.json'), 'utf8')); if (prev.vault) data.vault = prev.vault; } catch { /* none yet */ }
+}
+
 writeFileSync(join(ROOT, 'data.json'), JSON.stringify(data, null, 2) + '\n');
 
 /* history: one entry per UTC date (replace same-date entry) */
-const histPath = join(ROOT, 'history.json');
-const hist = JSON.parse(readFileSync(histPath, 'utf8'));
 const today = now.toISOString().slice(0, 10);
 const entry = {
   date: today,
@@ -2264,6 +2285,8 @@ const entry = {
   robinhood_usd: round2(rhTotal),
   arc_usd: arcTotal,
   total_usd: grandAll,
+  /* the vault as it stood that day, so a peak is always measured against what was held */
+  vault_usd: vaultUsd,
 };
 const i = hist.data.findIndex((e) => e.date === today);
 if (i >= 0) hist.data[i] = entry; else hist.data.push(entry);

@@ -1287,3 +1287,112 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     },
   };
 }
+
+/* ============================================================================
+   The Tiger Vault — a wallet of its own, valued live like everything else.
+
+   It used to be a figure typed into the page. It is this address, so it is read:
+   every LP position the wallet holds on any chain in V3, and the gas money and
+   tokens it keeps on each chain, priced from the chain's own pools.
+
+   `complete` is false if any part could not be read. A caller must then keep the
+   last good figure rather than show the partial one — a chain that failed to
+   answer is not money that left the vault.
+   ========================================================================== */
+export const VAULT = {
+  address: '0x4da1d0d5f7b123364d7580f19b716de2ed4e9770',
+  /* what to look for on each chain beside its LP positions: the native gas coin, and
+     the tokens worth checking. A token not listed here is not counted — add it. */
+  chains: {
+    katana: { rpc: CFG.katRpc, native: { s: 'ETH', d: 18, px: 'eth' }, tokens: [
+      { s: 'vbUSDC', a: '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36', d: 6, px: 'usd' },
+      { s: 'vbUSDT', a: '0x2dca96907fde857dd3d816880a0df407eeb2d2f2', d: 6, px: 'usd' },
+      { s: 'vbWBTC', a: '0x0913da6da4b42f538b445599b46bb4622342cf52', d: 8, px: 'btc' },
+      { s: 'vbETH', a: '0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62', d: 18, px: 'eth' },
+      { s: 'KAT', a: '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d', d: 18, px: 'kat' },
+    ] },
+    robinhood: { rpc: CFG.rhRpc, native: { s: 'ETH', d: 18, px: 'eth' }, tokens: [
+      { s: 'USDG', a: '0x5fc5360d0400a0fd4f2af552add042d716f1d168', d: 6, px: 'usd' },
+      { s: 'WETH', a: '0x0bd7d308f8e1639fab988df18a8011f41eacad73', d: 18, px: 'eth' },
+    ] },
+    /* Arc's gas coin is USDC itself, carried at 18 decimals */
+    arc: { rpc: CFG.arcRpc, native: { s: 'USDC', d: 18, px: 'usd' }, tokens: [] },
+  },
+  /* where each price comes from: Katana pools quoted against USDC */
+  pricePools: {
+    eth: '0x2a2c512beaa8eb15495726c235472d82effb7a6b',
+    kat: '0x10045367e619caae6f60cc80046c43c6cd55f629',
+    btc: '0x744676b3ced942d78f9b8e9cd22246db5c32395c',
+  },
+};
+
+export async function vaultValue(address = VAULT.address, { book } = {}) {
+  const errors = {};
+  const who = lc(address);
+
+  /* Prices, LP positions and loose balances are read side by side; only putting dollars on
+     the balances has to wait for the prices. */
+  const pricesP = (async () => {
+    const px = { usd: 1 };
+    try {
+      const tmp = { tokens: {} };
+      await registerRefPools(tmp, { ...chainOf('katana'), refPools: Object.values(VAULT.pricePools) });
+      const live = await livePrices(tmp);
+      for (const [name, pool] of Object.entries(VAULT.pricePools)) {
+        const hit = Object.entries(tmp.tokens).find(([, e]) => e.pool === pool && !e.stable);
+        if (hit && live[hit[0]]) px[name] = live[hit[0]];
+      }
+    } catch (e) { errors.prices = String((e && e.message) || e).slice(0, 120); }
+    return px;
+  })();
+
+  /* Every LP the wallet holds. The LP book already follows this wallet, so its open
+     positions are the seeds; the wallet's own NFT list and a short reach back for anything
+     staked since catch what the book has not met yet. That keeps a weeks-wide log search
+     out of a request that runs every minute. */
+  const positionsP = Promise.all(V3.map(async (ch) => {
+    const out = [];
+    try {
+      const owner = await v3Candidates(ch, {}, {}, [], { wallets: [address], wholeList: true });
+      for (const P of Object.values((book && book.positions) || {})) {
+        if (P.chain === ch.key && P.status === 'open' && lc(P.wallet) === who) owner.set(P.id, address);
+      }
+      for (const r of await v3Rows(ch, {}, owner, { noEntry: true })) {
+        if (r.value_usd === null) { errors[ch.key + ' #' + r.id] = 'unpriced'; continue; }
+        out.push({ chain: ch.key, id: r.id, pair: r.pair, value_usd: r.value_usd,
+          liquidity_usd: r.liquidity_usd, fees_usd: r.fees_mine ? r.fees_usd : 0, in_range: r.in_range });
+      }
+    } catch (e) { errors[ch.key + ' LP'] = String((e && e.message) || e).slice(0, 120); }
+    return out;
+  })).then((lists) => lists.flat());
+
+  const rawP = Promise.all(Object.entries(VAULT.chains).map(async ([chain, c]) => {
+    try {
+      const [nat, r] = await Promise.all([
+        rpc(c.rpc, 'eth_getBalance', [address, 'latest']),
+        multi(c.rpc, c.tokens.map((t) => ({ to: t.a, data: '0x70a08231' + pad(address) }))),
+      ]);
+      const got = [[c.native, BigInt(nat)]];
+      c.tokens.forEach((t, i) => { if (r[i] && r[i].ok) got.push([t, toBig(w(r[i].data, 0))]); });
+      return got.map(([t, raw]) => ({ chain, t, amount: Number(raw) / 10 ** t.d }));
+    } catch (e) { errors[chain + ' wallet'] = String((e && e.message) || e).slice(0, 120); return []; }
+  })).then((lists) => lists.flat());
+
+  const [px, positions, raw] = await Promise.all([pricesP, positionsP, rawP]);
+  const balances = [];
+  for (const b of raw) {
+    if (!(b.amount > 0)) continue;
+    if (px[b.t.px] === undefined) { errors[b.chain + ' ' + b.t.s] = 'no price'; continue; }
+    balances.push({ chain: b.chain, sym: b.t.s, amount: b.amount, usd: r2(b.amount * px[b.t.px]) });
+  }
+
+  const lp = positions.reduce((s2, p) => s2 + p.value_usd, 0);
+  const loose = balances.reduce((s2, b) => s2 + b.usd, 0);
+  return {
+    address, total_usd: r2(lp + loose), lp_usd: r2(lp), wallet_usd: r2(loose),
+    positions, balances, prices: px,
+    complete: Object.keys(errors).length === 0,
+    errors: Object.keys(errors).length ? errors : undefined,
+    at: new Date().toISOString(),
+  };
+}
