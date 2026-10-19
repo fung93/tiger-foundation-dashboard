@@ -1,0 +1,238 @@
+{
+ "version": 1,
+ "started": {
+  "ts": 1792408372,
+  "iso": "2026-10-19T11:12:52.000Z",
+  "blocks": {
+   "katana": 45665562,
+   "robinhood": 92570938
+  }
+ },
+ "wallets": [
+  "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+  "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
+ ],
+ "last_block": {
+  "katana": 45665562,
+  "robinhood": 92570938
+ },
+ "tokens": {
+  "vbUSDC@katana": {
+   "chain": "katana",
+   "a": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+   "s": "vbUSDC",
+   "d": 6,
+   "stable": true,
+   "pool": null,
+   "other": {
+    "a": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+    "d": 8
+   }
+  },
+  "KAT@katana": {
+   "chain": "katana",
+   "a": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+   "s": "KAT",
+   "d": 18,
+   "stable": false,
+   "pool": "0x10045367e619caae6f60cc80046c43c6cd55f629",
+   "other": {
+    "a": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+    "d": 6
+   }
+  },
+  "vbWBTC@katana": {
+   "chain": "katana",
+   "a": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+   "s": "vbWBTC",
+   "d": 8,
+   "stable": false,
+   "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+   "other": {
+    "a": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+    "d": 6
+   }
+  },
+  "WETH@robinhood": {
+   "chain": "robinhood",
+   "a": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "s": "WETH",
+   "d": 18,
+   "stable": false,
+   "pool": "0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a",
+   "other": {
+    "a": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "d": 6
+   }
+  },
+  "USDG@robinhood": {
+   "chain": "robinhood",
+   "a": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s": "USDG",
+   "d": 6,
+   "stable": true,
+   "pool": null,
+   "other": {
+    "a": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+    "d": 18
+   }
+  }
+ },
+ "positions": {
+  "katana:487126": {
+   "key": "katana:487126",
+   "chain": "katana",
+   "id": "487126",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+   "lo": 67020,
+   "hi": 67210,
+   "fee": 500,
+   "t0": "vbWBTC@katana",
+   "t1": "vbUSDC@katana",
+   "s0": "vbWBTC",
+   "s1": "vbUSDC",
+   "d0": 8,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "vbWBTC / vbUSDC",
+   "liq": "3161539975",
+   "status": "open",
+   "at_start": true,
+   "opened_ts": 1792408372,
+   "opened_block": 45665562,
+   "cost_usd": 857.53,
+   "deposits": [],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {
+    "KAT@katana": 345.32335590838477
+   },
+   "merkl": {
+    "KAT@katana": 345.32335590838477
+   },
+   "unpriced": false,
+   "start": {
+    "a0": 0.006644720156787621,
+    "a1": 313.0450944795502,
+    "prices": {
+     "vbWBTC@katana": 81941.85398052676,
+     "vbUSDC@katana": 1
+    },
+    "usd": 857.53
+   }
+  },
+  "robinhood:1458357": {
+   "key": "robinhood:1458357",
+   "chain": "robinhood",
+   "id": "1458357",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a",
+   "lo": -201090,
+   "hi": -197130,
+   "fee": 500,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "326475712182809",
+   "status": "open",
+   "at_start": true,
+   "opened_ts": 1792408372,
+   "opened_block": 92570938,
+   "cost_usd": 3007.57,
+   "deposits": [],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {
+    "WETH@robinhood": 0.000937984862120678,
+    "USDG@robinhood": 2.196039
+   },
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "start": {
+    "a0": 0.41594440144111483,
+    "a1": 2002.8388729171863,
+    "prices": {
+     "WETH@robinhood": 2415.544811129645,
+     "USDG@robinhood": 1
+    },
+    "usd": 3007.57
+   }
+  }
+ },
+ "events": [],
+ "fee_series": [
+  {
+   "ts": 1792408372,
+   "tokens": {
+    "KAT@katana": 4457.574640140777
+   }
+  }
+ ],
+ "runs": [
+  {
+   "ts": 1792408371,
+   "started": true,
+   "behind": {}
+  }
+ ],
+ "carried": {
+  "by_id": {
+   "475548": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 302.2098560283235
+    }
+   },
+   "476007": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 143.4978672874164
+    }
+   },
+   "476427": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 0.1566616164828866
+    }
+   },
+   "476639": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 2408.1574901500853
+    }
+   },
+   "483163": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 1258.2294091500835
+    }
+   },
+   "487126": {
+    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "tokens": {
+     "KAT@katana": 345.32335590838477
+    }
+   }
+  }
+ }
+}

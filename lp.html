@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<title>LP Book</title>
+<link rel="icon" href="/icons/lp-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!--
+  LP book — liquidity positions only, on every chain and wallet the book follows.
+
+  Everything on this page is measured from the moment tracking started. The
+  numbers come finished from /api/lpbook; this file only lays them out. Fees are
+  kept as token amounts on the server and are dollared at live prices on every
+  refresh, so the fee figures move with the market even when nothing was earned.
+  A history row is the exception: it is frozen at the prices of the block the
+  position closed in and never changes.
+-->
+<style>
+:root{
+  --bg:#050505;--card:#0b0b0c;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.04);
+  --text:#f2f0eb;--dim:#8f8b82;--faint:#58554f;
+  --gold:#d6b97b;--up:#6fcf97;--down:#e0796d;--warn:#e2b75c;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
+  -webkit-font-smoothing:antialiased;letter-spacing:.005em;
+  padding:max(28px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom))}
+a{color:inherit}
+
+header{max-width:1240px;margin:0 auto 26px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+  padding-bottom:18px;border-bottom:1px solid var(--line)}
+h1{font:400 34px/1 var(--serif);letter-spacing:.01em}
+h1 em{font-style:italic;color:var(--gold)}
+.sub{color:var(--dim);font-size:12px;margin-top:8px;letter-spacing:.02em}
+.stamp{color:var(--dim);font-size:11.5px;text-align:right;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.stamp::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--up);box-shadow:0 0 0 3px rgba(111,207,151,.12)}
+.stamp.stale{color:var(--warn)}
+.stamp.stale::before{background:var(--warn);box-shadow:0 0 0 3px rgba(226,183,92,.12)}
+
+.health{max-width:1240px;margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
+  border-radius:12px;padding:11px 14px;font-size:12px;display:none}
+.health.on{display:block}
+
+.card{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 55%),var(--card);
+  border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0}
+.label{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
+
+/* the four headline cards run the full width above both columns, so the history column
+   starts level with PnL by chain; four across, or two by two on a phone */
+.stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.big{font-size:32px;font-weight:300;margin-top:12px;letter-spacing:-.025em;white-space:nowrap;line-height:1.1}
+@media (max-width:720px){.big{font-size:24px}.card{padding:16px}}
+.note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}
+.up{color:var(--up)}.down{color:var(--down)}
+.tag{display:inline-block;font-size:9.5px;font-weight:500;padding:2px 7px;border-radius:999px;border:1px solid var(--line);
+  color:var(--dim);letter-spacing:.1em;text-transform:uppercase;vertical-align:1px}
+
+.layout{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:18px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:minmax(0,1fr)}}
+.main{display:grid;gap:18px;min-width:0}
+
+/* PnL by chain */
+.chain{display:grid;grid-template-columns:1fr auto auto;gap:6px 22px;padding:15px 0;border-top:1px solid var(--line2);align-items:baseline}
+.chain:first-of-type{border-top:0;padding-top:16px}
+.chain .name{font:400 21px/1.1 var(--serif);text-transform:capitalize;letter-spacing:.01em}
+.chain .v{text-align:right;font-size:14px}
+.chain .split{grid-column:1/-1;color:var(--faint);font-size:11.5px;letter-spacing:.01em}
+
+/* the fee curve */
+.chart{margin-top:40px;position:relative}
+.chart svg{display:block;width:100%;height:200px;overflow:visible}
+.chart .now{position:absolute;top:-34px;right:0;font-size:20px;font-weight:300;color:var(--gold);letter-spacing:-.01em}
+.axis{display:flex;justify-content:space-between;color:var(--faint);font-size:10.5px;margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
+
+/* live positions: the widget's card, in the page's own materials */
+.lpw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:16px}
+.lpw{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;color:var(--text);display:grid;gap:14px}
+.lpw .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lpw .pair{font:400 19px/1.1 var(--serif);letter-spacing:.01em}
+.lpw .badge{font-size:9.5px;font-weight:500;padding:3px 9px;border-radius:99px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid currentColor}
+.lpw .in{color:var(--up)}.lpw .out{color:var(--down)}
+.lpw .band{position:relative;padding-top:22px}
+.lpw .price{position:absolute;top:0;transform:translateX(-50%);font-size:12.5px;font-weight:500;color:var(--gold);white-space:nowrap}
+.lpw .track{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.07)}
+.lpw .fill{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(111,207,151,.12),rgba(111,207,151,.32),rgba(111,207,151,.12))}
+.lpw .fill.oor{background:rgba(224,121,109,.28)}
+.lpw .mark{position:absolute;top:-5px;width:2px;height:14px;border-radius:1px;background:var(--text);transform:translateX(-50%);
+  box-shadow:0 0 0 3px rgba(242,240,235,.08)}
+.lpw .mark.oor{background:var(--down)}
+.lpw .ends{display:flex;justify-content:space-between;gap:6px;margin-top:9px;font-size:10.5px;color:var(--faint);white-space:nowrap}
+.lpw .mid{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+.lpw .mid.near{color:var(--warn)}
+.lpw .figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:12px;border-top:1px solid var(--line2)}
+.lpw .k{font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.lpw .v{font-size:16px;font-weight:300;margin-top:4px;white-space:nowrap;letter-spacing:-.01em}
+.lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
+.lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em}
+
+/* history */
+.side{position:sticky;top:20px;max-height:calc(100vh - 40px);display:flex;flex-direction:column}
+@media (max-width:960px){.side{position:static;max-height:none}}
+.hist{overflow:auto;margin:10px -22px -20px;padding:0 22px 20px}
+.h{padding:15px 0;border-top:1px solid var(--line2);display:grid;gap:5px}
+.h:first-child{border-top:0}
+.h .l1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.h .pair{font:400 17px/1.15 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+.h .net{font-size:15px;font-weight:400;white-space:nowrap}
+/* each half of a line keeps together; when the column is narrow the right half drops to
+   its own line instead of breaking an address or a date in two */
+.h .l2,.h .l3{display:flex;justify-content:space-between;gap:2px 10px;flex-wrap:wrap;color:var(--dim);font-size:11.5px}
+.h .l3{color:var(--faint)}
+.h .l2>span,.h .l3>span{white-space:nowrap}
+.empty{color:var(--faint);font-size:12.5px;padding:14px 0;font-style:italic}
+
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>LP <em>Book</em></h1>
+    <div class="sub" id="since">&nbsp;</div>
+  </div>
+  <div class="stamp" id="stamp">loading&hellip;</div>
+</header>
+
+<div class="health" id="health"></div>
+
+<div class="stats">
+      <div class="card"><div class="label">Total LP value</div><div class="big" id="c1">&ndash;</div><div class="note" id="c1n">&nbsp;</div></div>
+      <div class="card"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div></div>
+      <div class="card"><div class="label">Fees earned</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div></div>
+      <div class="card"><div class="label">Rebalances</div><div class="big" id="c5">&ndash;</div><div class="note" id="c5n">&nbsp;</div></div>
+    </div>
+
+<div class="layout">
+  <div class="main">
+    <div class="card">
+      <div class="label">PnL by chain</div>
+      <div id="c3"></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Fees earned, over time &middot; at today's prices</div>
+      <div class="chart" id="c7"></div>
+      <div class="axis" id="c7x"></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Live positions</div>
+      <div class="lpw-grid" id="c6"></div>
+    </div>
+  </div>
+
+  <aside class="card side">
+    <div class="label">History &middot; net incl. fees</div>
+    <div class="hist" id="c8"></div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var money = function (n, dp) { dp = dp === undefined ? 2 : dp;
+    return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp }); };
+  var signed = function (n) { return (n >= 0 ? '+' : '-') + money(Math.abs(n)); };
+  var cls = function (n) { return n > 0.004 ? 'up' : n < -0.004 ? 'down' : ''; };
+  var sym = function (k) { return String(k).split('@')[0]; };
+  var amt = function (a) { return a >= 1000 ? Math.round(a).toLocaleString('en-US')
+    : a >= 1 ? a.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : a >= 0.0001 ? a.toLocaleString('en-US', { maximumSignificantDigits: 3 }) : '<0.0001'; };
+  var day = function (iso) { return iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''; };
+  var when = function (iso) { return iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit' }) : ''; };
+  var held = function (h) { return h == null ? '' : h < 48 ? h.toFixed(1) + 'h' : (h / 24).toFixed(1) + 'd'; };
+  var ago = function (ts) { var m = Math.round((Date.now() / 1000 - ts) / 60);
+    return m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 2880 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
+  var lastGood = 0;
+
+  function cards(v) {
+    var C = v.cards;
+    $('since').textContent = 'tracking since ' + when(v.started.iso) + ' · '
+      + v.wallets.map(function (w) { return w.label; }).join(', ');
+
+    /* 1 */
+    var open = v.live.length, chains = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; }).length;
+    $('c1').textContent = money(C.value_usd);
+    $('c1n').textContent = open + ' open · ' + chains + ' chain' + (chains === 1 ? '' : 's') + ' · excl. fees';
+
+    /* 2 */
+    $('c2').textContent = signed(C.pnl_usd);
+    $('c2').className = 'big ' + cls(C.pnl_usd);
+    $('c2n').textContent = 'realised ' + signed(C.realised_usd) + ' · open ' + signed(C.unrealised_usd);
+
+    /* 4 */
+    $('c4').textContent = money(C.fees_usd);
+    var toks = Object.keys(C.fee_tokens).filter(function (k) { return C.fee_tokens_usd[k] == null || C.fee_tokens_usd[k] >= 0.01; })
+      .sort(function (a, b) { return (C.fee_tokens_usd[b] || 0) - (C.fee_tokens_usd[a] || 0); });
+    $('c4n').innerHTML = (toks.length ? toks.map(function (k) {
+      return esc(amt(C.fee_tokens[k]) + ' ' + sym(k)) + (C.fee_tokens_usd[k] == null ? '' : ' <span style="color:var(--faint)">' + esc(money(C.fee_tokens_usd[k])) + '</span>');
+    }).join('<br>') : 'nothing yet')
+      /* say how much was already claimable when tracking began, so the figure explains itself */
+      + (C.carried_usd >= 0.01 ? '<br><span style="color:var(--faint)">incl. ' + esc(money(C.carried_usd)) + ' claimable when tracking began</span>' : '');
+
+    /* 5 */
+    $('c5').textContent = C.rebalances;
+    var r = v.rebalances[0];
+    $('c5n').textContent = r ? 'last: #' + r.closed + ' → #' + r.opened
+      + (r.closed_chain !== r.opened_chain ? ' (' + r.closed_chain + ' → ' + r.opened_chain + ')' : '') + ' · ' + ago(r.ts)
+      : 'none yet';
+
+    /* 3 */
+    $('c3').innerHTML = Object.keys(C.chains).map(function (k) {
+      var c = C.chains[k];
+      return '<div class="chain"><div class="name">' + esc(k) + '</div>'
+        + '<div class="v" style="color:var(--dim)">' + esc(money(c.value_usd)) + '</div>'
+        + '<div class="v ' + cls(c.pnl_usd) + '" style="font-weight:600">' + esc(signed(c.pnl_usd)) + '</div>'
+        + '<div class="split">' + c.open + ' open · ' + c.closed + ' closed · realised ' + esc(signed(c.realised_usd))
+        + ' · open ' + esc(signed(c.unrealised_usd)) + ' · fees ' + esc(money(c.fees_usd)) + '</div></div>';
+    }).join('');
+
+    chart(v.series);
+    live(v.live);
+    history(v.history);
+    health(v.health);
+  }
+
+  /* 7: the fee curve, drawn by hand — a line, the area under it fading out, three faint rules */
+  function chart(s) {
+    var box = $('c7');
+    if (!s || s.length < 2) { box.innerHTML = '<div class="empty">The curve starts with the next six-hourly run.</div>'; $('c7x').innerHTML = ''; return; }
+    var W = 600, H = 200, P = 4;
+    var t0 = s[0].ts, t1 = s[s.length - 1].ts, span = Math.max(1, t1 - t0);
+    var vals = s.map(function (p) { return p.usd; });
+    var hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+    /* a curve that barely moves is drawn against its own range, not against zero, so the
+       shape is visible; the rules carry the dollar levels either way */
+    var floor = lo > 0 && (hi - lo) < hi * 0.5 ? lo - (hi - lo) * 0.6 - 0.01 : 0;
+    var top = hi + (hi - floor) * 0.12 || 1;
+    var x = function (t) { return P + (t - t0) / span * (W - 2 * P); };
+    var y = function (u) { return H - P - (u - floor) / (top - floor) * (H - 2 * P); };
+    var pts = s.map(function (p) { return x(p.ts).toFixed(1) + ',' + y(p.usd).toFixed(1); });
+    var rules = '', marks = '';
+    for (var i = 1; i <= 3; i++) {
+      var v = floor + (top - floor) * i / 4, yy = y(v).toFixed(1);
+      rules += '<line x1="0" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,.05)" vector-effect="non-scaling-stroke"/>';
+      marks += '<div style="position:absolute;left:0;top:calc(' + (yy / H * 100).toFixed(2) + '% - 15px);font-size:10px;color:var(--faint);letter-spacing:.04em">' + esc(money(v)) + '</div>';
+    }
+    var lx = x(t1).toFixed(1), ly = y(s[s.length - 1].usd).toFixed(1);
+    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-label="Cumulative fees">'
+      + '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b97b" stop-opacity=".22"/>'
+      + '<stop offset="1" stop-color="#d6b97b" stop-opacity="0"/></linearGradient></defs>'
+      + rules
+      + '<polygon points="' + P + ',' + (H - P) + ' ' + pts.join(' ') + ' ' + lx + ',' + (H - P) + '" fill="url(#fg)"/>'
+      + '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d6b97b" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+      + '<line x1="0" x2="' + W + '" y1="' + (H - P) + '" y2="' + (H - P) + '" stroke="rgba(255,255,255,.08)" vector-effect="non-scaling-stroke"/>'
+      + '</svg>' + marks
+      + '<div style="position:absolute;left:calc(' + (lx / W * 100).toFixed(2) + '% - 4px);top:calc(' + (ly / H * 100).toFixed(2) + '% - 4px);'
+      + 'width:8px;height:8px;border-radius:50%;background:#d6b97b;box-shadow:0 0 0 4px rgba(214,185,123,.15)"></div>'
+      + '<div class="now">' + esc(money(s[s.length - 1].usd)) + '</div>';
+    $('c7x').innerHTML = '<span>' + esc(when(new Date(t0 * 1000).toISOString())) + '</span><span>now</span>';
+  }
+
+  /* 6: one widget card per open position, with the wallet it belongs to */
+  function live(list) {
+    if (!list.length) { $('c6').innerHTML = '<div class="empty">Nothing open on any chain.</div>'; return; }
+    $('c6').innerHTML = list.map(function (W) {
+      var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
+      return '<div class="lpw"><div class="top"><div class="pair">' + esc(W.pair) + '</div>'
+        + '<div class="badge ' + (oor ? 'out' : 'in') + '">' + esc(W.status) + '</div></div>'
+        + '<div class="band"><div class="price" style="left:' + p + '%">' + esc(W.price) + '</div>'
+        + '<div class="track"><div class="fill' + (oor ? ' oor' : '') + '"></div><div class="mark' + (oor ? ' oor' : '') + '" style="left:' + p + '%"></div></div>'
+        + '<div class="ends"><span>' + esc(W.lower) + '</span><span class="mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '') + '">'
+        + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
+        + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
+        + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
+        + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
+        + '<div class="foot"><span>' + esc(W.chain) + ' ' + esc(W.id) + ' · ' + esc(W.wallet) + '</span>'
+        + '<span>' + esc(W.since) + ' · cost ' + esc(W.cost) + '</span></div></div>';
+    }).join('');
+  }
+
+  /* 8: a closed position, as it stood when it closed */
+  function history(list) {
+    if (!list.length) { $('c8').innerHTML = '<div class="empty">A row appears here when a position closes.</div>'; return; }
+    $('c8').innerHTML = list.map(function (h) {
+      var fees = Object.keys(h.fee_tokens || {}).map(function (k) { return amt(h.fee_tokens[k]) + ' ' + sym(k); }).join(' + ');
+      return '<div class="h"><div class="l1"><span class="pair">' + esc(h.pair) + '</span>'
+        + '<span class="net ' + cls(h.net_usd) + '">' + esc(signed(h.net_usd)) + (h.net_pct == null ? '' : ' <span style="font-weight:400;font-size:12px">' + (h.net_pct >= 0 ? '+' : '') + h.net_pct.toFixed(2) + '%</span>') + '</span></div>'
+        + '<div class="l2"><span><span class="tag">' + esc(h.chain) + '</span> #' + esc(h.id) + ' · ' + esc(h.wallet) + '</span>'
+        + '<span>' + esc(day(h.opened)) + ' → ' + esc(day(h.closed)) + ' · ' + esc(held(h.held_hours)) + '</span></div>'
+        + '<div class="l3"><span>IL + price ' + esc(signed(h.pnl_usd)) + '</span><span>fees ' + esc(money(h.fee_usd))
+        + (fees ? ' <span style="color:var(--faint)">' + esc(fees) + '</span>' : '') + '</span></div>'
+        + (h.incomplete ? '<div class="l3" style="color:var(--warn)">a price could not be read at close; this row is partial</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
+  /* what could not be read, said out loud rather than drawn as an empty portfolio */
+  function health(hl) {
+    var msgs = [];
+    Object.keys(hl.errors || {}).forEach(function (k) { msgs.push('Could not read ' + k + ': ' + hl.errors[k]); });
+    Object.keys(hl.behind || {}).forEach(function (k) {
+      if (hl.behind[k] > 0) msgs.push(k + ' is ' + hl.behind[k].toLocaleString('en-US') + ' blocks behind — the six-hourly job may have stopped.');
+    });
+    if ((hl.unread || []).length) msgs.push('Open position(s) not valued this time: ' + hl.unread.join(', '));
+    if ((hl.unpriced || []).length) msgs.push('No live price for ' + hl.unpriced.map(sym).join(', ') + ' — left out of the fee total.');
+    $('health').innerHTML = msgs.map(esc).join('<br>');
+    $('health').className = 'health' + (msgs.length ? ' on' : '');
+  }
+
+  function stamp(failed) {
+    var age = lastGood ? Math.round((Date.now() - lastGood) / 60000) : null;
+    $('stamp').textContent = age === null ? (failed ? 'could not load' : 'loading…') : 'updated ' + (age < 1 ? 'just now' : age + 'm ago');
+    $('stamp').className = 'stamp' + (failed || (age !== null && age > 20) ? ' stale' : '');
+  }
+
+  /* the last good answer is shown at once on opening, and replaced when the live one lands */
+  var KEY = 'tf_lpbook';
+  try { var seed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (seed && seed.v && seed.v.cards) { cards(seed.v); lastGood = seed.t; stamp(false); } } catch (e) {}
+
+  var inflight = false, lastTry = 0;
+  function load() {
+    var now = Date.now();
+    if (inflight || now - lastTry < 3000) return;
+    inflight = true; lastTry = now;
+    fetch('/api/lpbook', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (v) {
+        inflight = false;
+        if (!v || v.error || !v.cards) { stamp(true); if (v && v.error && !lastGood) $('stamp').textContent = v.error; return; }
+        cards(v); lastGood = Date.now(); stamp(false);
+        try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
+      })
+      .catch(function () { inflight = false; stamp(true); });
+  }
+  load();
+  setInterval(load, 60000);
+  setInterval(function () { stamp(false); }, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
