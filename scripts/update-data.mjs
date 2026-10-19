@@ -71,7 +71,15 @@ const CFG = {
   claimChunk: 300000,                                         // the claim sweep names the contract and the user, so it can go wide
   factory: '0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho: '0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
-  marketId: '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
+  /* Every Morpho Blue market the wallet is in. One hard-coded market is what hid the second:
+     on 2026-10-17 36,356 avKAT left the wallet as collateral for a 50 vbUSDC loan, and the
+     dashboard counted it as gone — about $150 short for two days. This list is a full-history
+     scan to block 45,672,135; each run then adds any market the wallet has entered since. */
+  morphoMarkets: [
+    '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9', // KAT loan on avKAT, 77%
+    '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138', // vbUSDC loan on avKAT, 62.5%
+  ],
+  morphoScannedTo: 45672135,
   tokens: {
     KAT:   { a: '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d', d: 18 },
     WETH:  { a: '0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62', d: 18 },
@@ -736,8 +744,39 @@ async function updatePositions(W) {
   return p;
 }
 
+/* Markets the wallet has entered since the last scan. Morpho names the account a position
+   belongs to (onBehalf) as an indexed topic on every supply, borrow and collateral event, so a
+   wallet-filtered query at the Morpho contract finds a new market the run it appears. A
+   failed scan keeps the list it had and covers the same blocks next run. */
+async function morphoMarkets(prev) {
+  const known = new Set([...CFG.morphoMarkets, ...((prev && prev.markets) || [])].map((x) => x.toLowerCase()));
+  const from = Math.max(CFG.morphoScannedTo, (prev && prev.scanned_to) || 0) + 1;
+  try {
+    const head = Number(BigInt(await rpc('eth_blockNumber', [])));
+    const W = '0x' + pad(CFG.wallet);
+    const found = new Set();
+    for (let a = from; a <= head; a += CFG.logChunk) {
+      const b = Math.min(head, a + CFG.logChunk - 1);
+      for (const topics of [[null, null, W], [null, null, null, W]]) {
+        const logs = await rpc('eth_getLogs', [{ address: CFG.morpho, fromBlock: '0x' + a.toString(16), toBlock: '0x' + b.toString(16), topics }]);
+        for (const l of logs) if (l.topics[1] && !known.has(l.topics[1].toLowerCase())) found.add(l.topics[1].toLowerCase());
+      }
+    }
+    /* only ids Morpho knows as markets — an authorisation event carries an address there */
+    if (found.size) {
+      const ids = [...found];
+      const r = await multicall(ids.map((id) => ({ to: CFG.morpho, data: '0x2c3c9157' + id.slice(2) })));
+      ids.forEach((id, i) => { if (r[i] && r[i].ok && toBig(w(r[i].data, 0)) !== 0n) { known.add(id); console.log('morpho: new market', id); } });
+    }
+    return { markets: [...known], scanned_to: head };
+  } catch (e) {
+    console.warn('morpho market scan failed, keeping the known list:', e.message);
+    return { markets: [...known], scanned_to: from - 1 };
+  }
+}
+
 /* ---------- katana ---------- */
-async function getKatana(prevStakedIds) {
+async function getKatana(prevStakedIds, markets = CFG.morphoMarkets) {
   const W = CFG.wallet.replace(/^0x/, '');
   const T = CFG.tokens;
   /* One balance call per listed token, driven by the list itself. Hard-coding five names
@@ -750,11 +789,15 @@ async function getKatana(prevStakedIds) {
     { to: T.avKAT.a, data: '0x07a2d13a' + pad('de0b6b3a7640000') }, // convertToAssets(1e18)
     { to: CFG.poolKatUsdc, data: '0x3850c7bd' },  // slot0
     { to: CFG.poolWethUsdc, data: '0x3850c7bd' }, // slot0
-    { to: CFG.morpho, data: '0x93c52062' + CFG.marketId.slice(2) + pad(W) }, // position
-    { to: CFG.morpho, data: '0x5c60e39a' + CFG.marketId.slice(2) },          // market
     { to: CFG.npm, data: '0x70a08231' + pad(W) }, // NFT count
     { to: CFG.vkatNft, data: '0x70a08231' + pad(W) }, // vKAT lock count
-    { to: CFG.poolWbtcUsdc, data: '0x3850c7bd' }, // slot0 — last, so every index above holds
+    { to: CFG.poolWbtcUsdc, data: '0x3850c7bd' }, // slot0
+    /* then three reads per Morpho market: position, market totals, market params */
+    ...markets.flatMap((id) => [
+      { to: CFG.morpho, data: '0x93c52062' + id.slice(2) + pad(W) },
+      { to: CFG.morpho, data: '0x5c60e39a' + id.slice(2) },
+      { to: CFG.morpho, data: '0x2c3c9157' + id.slice(2) },
+    ]),
   ];
   const [ethHex, r] = await Promise.all([rpc('eth_getBalance', [CFG.wallet, 'latest']), multicall(calls)]);
   const ethBal = Number(BigInt(ethHex)) / 1e18;
@@ -765,17 +808,33 @@ async function getKatana(prevStakedIds) {
   const katPrice = 1 / poolPrice(toBig(w(r[B + 1].data, 0)), 6, 18);
   const ethPrice = 1 / poolPrice(toBig(w(r[B + 2].data, 0)), 6, 18);
   /* this pool is the other way round — vbWBTC first — so the price needs no reciprocal */
-  const btcPrice = r[B + 7]?.ok ? poolPrice(toBig(w(r[B + 7].data, 0)), 8, 6) : 0;
-  const borrowShares = toBig(w(r[B + 3].data, 1));
-  const collateral = Number(toBig(w(r[B + 3].data, 2))) / 1e18;
-  const totBA = toBig(w(r[B + 4].data, 2)), totBS = toBig(w(r[B + 4].data, 3));
-  const debt = totBS > 0n ? Number(borrowShares * totBA / totBS) / 1e18 : 0;
-  let nftCount = Number(toBig(w(r[B + 5].data, 0)));
+  const btcPrice = r[B + 5]?.ok ? poolPrice(toBig(w(r[B + 5].data, 0)), 8, 6) : 0;
+  /* Each market in its own tokens. Morpho keeps a million virtual shares per unit and one
+     virtual asset, so shares convert through (assets + 1) / (shares + 1e6); a loan rounds up. */
+  const morpho = [];
+  markets.forEach((id, i) => {
+    const [pos, mk, mp] = [r[B + 6 + i * 3], r[B + 7 + i * 3], r[B + 8 + i * 3]];
+    if (!pos?.ok || !mk?.ok || !mp?.ok) { morpho.push({ id, error: true }); return; }
+    const sShares = toBig(w(pos.data, 0)), bShares = toBig(w(pos.data, 1)), coll = toBig(w(pos.data, 2));
+    if (sShares === 0n && bShares === 0n && coll === 0n) return;
+    const [tSA, tSS, tBA, tBS] = [0, 1, 2, 3].map((k) => toBig(w(mk.data, k)));
+    /* not symOf: getKatana declares its own symOf further down, which this line would hit early */
+    const keyOf = (addr) => TKEYS.find((k) => T[k].a.toLowerCase() === addr) || null;
+    const loan = keyOf(toAddr(w(mp.data, 0))), col = keyOf(toAddr(w(mp.data, 1)));
+    const ld = loan ? CFG.tokens[loan].d : 18, cd = col ? CFG.tokens[col].d : 18;
+    morpho.push({
+      id, loan, col, lltv: Number(toBig(w(mp.data, 4))) / 1e16,
+      supplied: Number(sShares * (tSA + 1n) / (tSS + 1000000n)) / 10 ** ld,
+      debt: Number((bShares * (tBA + 1n) + tBS + 1000000n - 1n) / (tBS + 1000000n)) / 10 ** ld,
+      collateral: Number(coll) / 10 ** cd,
+    });
+  });
+  let nftCount = Number(toBig(w(r[B + 3].data, 0)));
   if (nftCount > 200) nftCount = 200;
 
   // vKAT staking locks: enumerate lock NFTs, read locked() amounts from the escrow
   let vkat = { totalKat: 0, ids: [] };
-  let lockCount = Number(toBig(w(r[B + 6].data, 0)));
+  let lockCount = Number(toBig(w(r[B + 4].data, 0)));
   if (lockCount > 20) lockCount = 20;
   if (lockCount > 0) {
     try {
@@ -887,7 +946,7 @@ async function getKatana(prevStakedIds) {
     });
   });
 
-  return { ethBal, bal, avkatRate, katPrice, ethPrice, btcPrice, morpho: { collateral, debt }, lps, vkat,
+  return { ethBal, bal, avkatRate, katPrice, ethPrice, btcPrice, morpho, lps, vkat,
     stakedLpIds: stakedIds.map((x) => String(x)) };
 }
 
@@ -2003,7 +2062,8 @@ try {
    happened — and the next run would chart the recovery as a gain. */
 const prevChain = (key) => (prevSnap && prevSnap.chains && prevSnap.chains[key]) || null;
 
-const [kat, sol] = await Promise.all([getKatana(prevStakedIds), getSolana()]);
+const mkts = await morphoMarkets(prevSnap && { markets: prevSnap.morpho_markets, scanned_to: prevSnap.morpho_scanned_to });
+const [kat, sol] = await Promise.all([getKatana(prevStakedIds, mkts.markets), getSolana()]);
 const [merkl, aprMap] = await Promise.all([getMerkl(kat.katPrice), getAprs()]);
 /* after Katana, because it needs the ETH price that read already fetched */
 const rh = await getRobinhood(kat.ethPrice);
@@ -2096,8 +2156,40 @@ const katPriceOf = (k) => (k === 'USDC' || k === 'USDT' ? 1
 const katWalletUsd = round2(kat.ethBal * kat.ethPrice
   + Object.keys(kat.bal).reduce((s2, k) => s2 + kat.bal[k] * katPriceOf(k), 0));
 const katLpUsd = round2(kat.lps.reduce((s, l) => s + l.value_usd, 0));
-const colKat = kat.morpho.collateral * kat.avkatRate;
-const morphoNet = round2(Math.max(0, (colKat - kat.morpho.debt) * kat.katPrice));
+/* Each Morpho market valued on its own: collateral and anything supplied, less the loan, every
+   side at its own token's price — avKAT through its rate, a vbUSDC loan at a dollar. A market
+   whose read failed keeps its last figure rather than reading as money that left. */
+const prevMorpho = (((prevChain('katana') || {}).defi_positions) || []).filter((p) => p.market_id);
+const morphoRows = kat.morpho.map((m) => {
+  if (m.error) {
+    const keep = prevMorpho.find((p) => p.market_id === m.id);
+    console.warn('morpho market', m.id, keep ? 'unread, keeping its last figure' : 'unread, no earlier figure');
+    return keep || null;
+  }
+  const L = (k) => KAT_LABEL[k] || k || '?';
+  const colUsd = round2(m.collateral * katPriceOf(m.col));
+  const debtUsd = round2(m.debt * katPriceOf(m.loan));
+  const supUsd = round2(m.supplied * katPriceOf(m.loan));
+  const net = round2(Math.max(0, colUsd + supUsd - debtUsd));
+  const avk = m.col === 'avKAT';
+  let note;
+  if (avk && m.loan === 'KAT') {
+    const colKat = m.collateral * kat.avkatRate;
+    note = `Net ${Math.round(colKat + m.supplied - m.debt).toLocaleString('en-US')} KAT = $${net} · avKAT rate ${kat.avkatRate.toFixed(4)}`;
+  } else if (avk && m.debt > 0) {
+    /* a dollar loan on KAT: what matters is the KAT price at which it is liquidated */
+    const liq = debtUsd / (m.collateral * kat.avkatRate * (m.lltv / 100));
+    note = `Liquidates if KAT falls to $${liq.toFixed(6)} (now $${kat.katPrice.toFixed(6)}) · avKAT rate ${kat.avkatRate.toFixed(4)}`;
+  } else note = `Net $${net}`;
+  return {
+    type: 'Lending', protocol: 'Morpho Blue', market: `${L(m.loan)} / ${L(m.col)}`, market_id: m.id,
+    collateral: { amount: m.collateral, token: L(m.col), usd: colUsd },
+    debt: { amount: m.debt, token: L(m.loan), usd: debtUsd },
+    ...(m.supplied > 0 ? { supplied: { amount: m.supplied, token: L(m.loan), usd: supUsd } } : {}),
+    lltv: `${m.lltv}%`, ...(avk ? { avkat_rate: kat.avkatRate } : {}), value_usd: net, note,
+  };
+}).filter(Boolean);
+const morphoNet = round2(morphoRows.reduce((a, p) => a + (p.value_usd || 0), 0));
 const vkatKat = kat.vkat.totalKat;
 const vkatUsd = round2(vkatKat * kat.katPrice);
 const katTotal = round2(katWalletUsd + katLpUsd + morphoNet + vkatUsd + merkl.total_usd);
@@ -2127,15 +2219,8 @@ const current = round2(grandAll - katLpUsd);
 const gain = round2(current - CFG.startValue);
 
 const tok = (balance, priceUSD, valueUSD) => ({ balance, priceUSD, valueUSD: round2(valueUSD) });
-const defiPositions = [{
-  type: 'Lending', protocol: 'Morpho Blue', market: 'KAT / avKAT',
-  /* both sides in dollars, priced the same way the net is: avKAT through its rate, debt
-     in KAT. Carried in the data so the page never has to re-derive a price it was given. */
-  collateral: { amount: kat.morpho.collateral, token: 'avKAT', usd: round2(colKat * kat.katPrice) },
-  debt: { amount: kat.morpho.debt, token: 'KAT', usd: round2(kat.morpho.debt * kat.katPrice) },
-  lltv: '77%', avkat_rate: kat.avkatRate, value_usd: morphoNet,
-  note: `Net ${Math.round(colKat - kat.morpho.debt).toLocaleString('en-US')} KAT = $${morphoNet} · avKAT rate ${kat.avkatRate.toFixed(4)}`,
-}];
+/* every side in dollars, carried in the data so the page never re-derives a price it was given */
+const defiPositions = [...morphoRows];
 if (vkatKat > 0) defiPositions.push({
   type: 'Staking', protocol: 'Katana vKAT',
   market: 'Voting escrow' + (kat.vkat.ids.length ? ' · veNFT #' + kat.vkat.ids.join(', #') : ''),
@@ -2244,6 +2329,10 @@ const data = {
   usdc_ata: sol.usdcAta,
   /* an empty answer never overwrites a good one: a failed sweep must not erase the list */
   staked_lp_ids: (kat.stakedLpIds && kat.stakedLpIds.length) ? kat.stakedLpIds : prevStakedIds,
+  /* the Morpho markets found so far and how far the search has read — the next run and the
+     page both start from here */
+  morpho_markets: mkts.markets,
+  morpho_scanned_to: mkts.scanned_to,
   onchain_usd: onchainAll,
   total_usd: grandAll,
 };

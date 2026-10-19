@@ -12,6 +12,14 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='13' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='51' cy='15' r='10' fill='%23ea8c0c'/%3E%3Ccircle cx='13' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='51' cy='15' r='4.5' fill='%237c2d12'/%3E%3Ccircle cx='32' cy='36' r='26' fill='%23f59e0b'/%3E%3Crect x='30.4' y='11' width='3.2' height='9' rx='1.6' fill='%237c2d12'/%3E%3Crect x='23.2' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(-10 24.7 16)'/%3E%3Crect x='37.8' y='12.5' width='3' height='7' rx='1.5' fill='%237c2d12' transform='rotate(10 39.3 16)'/%3E%3Crect x='7' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='8' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='30' width='6.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Crect x='50.5' y='36' width='5.5' height='3' rx='1.5' fill='%237c2d12'/%3E%3Cellipse cx='32' cy='47' rx='12' ry='9.5' fill='%23fff7ed'/%3E%3Ccircle cx='22.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='41.5' cy='34' r='4' fill='%231c1917'/%3E%3Ccircle cx='21.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Ccircle cx='40.2' cy='32.7' r='1.4' fill='%23fff'/%3E%3Cpath d='M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z' fill='%239a3412'/%3E%3Cpath d='M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1' stroke='%239a3412' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='15.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3Cellipse cx='48.5' cy='43' rx='3.4' ry='2.2' fill='%23fb923c' opacity='.55'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+/* the classy theme goes on before anything paints; remembered on this device only */
+try{if(localStorage.getItem('tf_theme')==='classy'){document.documentElement.classList.add('classy');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content','#050505');}}catch(e){}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
@@ -41,10 +49,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 /* no ring for a mouse tap, but keyboard focus still has to be visible */
 .brand-mark:focus{outline:none}
 .brand-mark:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px}
-.hdr h1{font-size:26px;font-weight:800;letter-spacing:2px}
+.hdr h1{font-size:26px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
 .hdr h1 .t{color:var(--gold)}.hdr h1 .f{color:var(--accent)}
 .hdr .sub{font-size:13px;color:var(--dim);margin-top:4px;letter-spacing:1px}
 .hdr .ts{font-size:12px;color:var(--dim);text-align:right}
+.hdr-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0}
+.hdr-actions{display:flex;gap:6px;align-items:center}
+.hdr-btn{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 11px;border-radius:7px;
+  font:inherit;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;text-decoration:none;white-space:nowrap;
+  cursor:pointer;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
+  -webkit-tap-highlight-color:transparent;transition:color .15s,border-color .15s,background .15s}
+.hdr-btn:hover{color:var(--gold);border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.12)}
+.hdr-btn.icon{width:28px;padding:0}
+.hdr-btn svg{display:block}
+.hdr-btn:focus{outline:none}
+.hdr-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
 @keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
 .wrap{max-width:1200px;margin:0 auto;padding:28px}
@@ -72,7 +91,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
           mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 12%,rgba(0,0,0,.88) 30%,#000 44%)}
 .hero-photo{width:100%;height:auto;display:block}
 /* deliberately smaller than .wealth-total below it, so the figure stays dominant */
-.hero h2{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:1px;line-height:1.1}
+.hero h2{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:1px;line-height:1.1;text-transform:uppercase}
 /* The card's title bar. The currency switch belongs here rather than beside the total:
    it governs every figure on the page, and this is the page's top-level heading — the same
    place the LP record button sits on its own card. The margin lives on the row, not the
@@ -382,7 +401,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
      flex-basis 0 hands it only what the brand leaves over, and it wraps inside that. Sized
      to its own content instead, the long "Snapshot: …" state claims width the headline
      needs and pushes it off the card. */
-  .hdr .ts{font-size:11px;flex:1 1 0;min-width:0}
+  .hdr .ts{font-size:11px;min-width:0}
+  .hdr-side{flex:1 1 0;gap:6px}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
   /* stack, and let the image close the card: padding-bottom 0 + a bled photo means no
@@ -415,6 +435,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   .modal-foot{gap:6px;padding:10px 12px}
 }
 @media(max-width:480px){
+  .hdr-btn .long{display:none}
   .grid4{grid-template-columns:1fr}.wealth-total{font-size:34px}
   /* sized to keep "WEALTH OVERVIEW" on one line in the narrow column — in vw, because it
      now shares that line with the currency button and 25px overruns the card below 375px */
@@ -433,6 +454,82 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   .tbl th,.tbl td{padding:7px 5px}
   #monthlyTable th:nth-child(2),#monthlyTable td:nth-child(2){display:none}
 }
+
+/* ==== Classy — the LP Book's black, serif and gold over the whole dashboard. Every figure
+   and section stays; only the picture of the two explorers and the background art go. ==== */
+html.classy{--bg:#050505;--card:#0b0b0c;--border:rgba(255,255,255,.07);--text:#f2f0eb;--dim:#8f8b82;
+  --accent:#d6b97b;--gold:#d6b97b;--green:#6fcf97;--red:#e0796d;--blue:#8fb3d9;--purple:#b9a3d9;--sol:#b9a3d9;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;--sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html.classy,html.classy body{background:var(--bg)}
+html.classy body{font-family:var(--sans);font-size:14px;letter-spacing:.005em;
+  font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased}
+html.classy body::before,html.classy body::after{display:none}
+html.classy .hdr{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid var(--border)}
+html.classy .hdr h1{font:400 34px/1 var(--serif);letter-spacing:.01em;text-transform:none}
+html.classy .hdr h1 .t{color:var(--text)}
+html.classy .hdr h1 .f{color:var(--gold);font-style:italic}
+html.classy .hdr .sub{font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px}
+html.classy .hdr .ts{font-size:11.5px;letter-spacing:.04em}
+html.classy .hdr-btn{border-radius:999px;font-size:10px;font-weight:500;letter-spacing:.14em;background:transparent;border-color:rgba(255,255,255,.1)}
+html.classy .hdr-btn:hover,html.classy .hdr-btn[aria-pressed="true"]{color:var(--gold);border-color:rgba(214,185,123,.4);background:rgba(214,185,123,.06)}
+/* cards: near-black with a faint top sheen, hairline borders, no glass */
+html.classy .hero,html.classy .c,html.classy .chain-row{
+  background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 55%),var(--card);
+  backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid var(--border)}
+html.classy .hero{border-radius:16px}
+html.classy .c{border-radius:16px;padding:20px 22px}
+html.classy .chain-row{border-radius:14px}
+html.classy .c:hover{border-color:rgba(214,185,123,.28)}
+html.classy .hero::before,html.classy .hero-photo-wrap{display:none}
+html.classy .hero h2{font:400 30px/1.1 var(--serif);color:var(--text);letter-spacing:.01em;text-transform:none}
+html.classy .wealth-total{background:none;-webkit-text-fill-color:currentColor;color:var(--text);
+  font-weight:300;font-size:52px;letter-spacing:-.025em}
+html.classy .cl{font-size:10.5px;font-weight:500;letter-spacing:.16em}
+html.classy .cv{font-weight:300;font-size:30px;letter-spacing:-.025em}
+html.classy .cs{line-height:1.55}
+html.classy .sec-title{font:400 25px/1.1 var(--serif);color:var(--text);text-transform:none;letter-spacing:.01em}
+html.classy .sec-title::before{display:none}
+html.classy .pos-card{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));border:1px solid var(--border);border-radius:14px}
+html.classy .pos-proto{font:400 18px/1.1 var(--serif);letter-spacing:.01em}
+html.classy .pos-row{border-bottom-color:rgba(255,255,255,.04)}
+html.classy .pos-val{font-weight:500}
+html.classy .hf,html.classy .chain-badge{border-radius:999px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:9.5px}
+html.classy .progress-bg{background:rgba(255,255,255,.07)}
+html.classy .progress-fill{background:linear-gradient(90deg,rgba(214,185,123,.45),var(--gold))}
+/* the rocket carries the two explorers too, so here it becomes a gold marker on the bar's
+   tip. The picture keeps its box (hidden, not removed) so the bubble and the flight to the
+   moon keep their geometry; the dot sits on the nose — the true value — where the bar
+   runs through the hull, 58% down. */
+html.classy .rocket img{visibility:hidden}
+html.classy .rocket-bob{position:relative;animation:none}
+html.classy .rocket-bob::after{content:'';position:absolute;left:99.7%;top:58%;width:14px;height:14px;margin:-7px 0 0 -7px;
+  border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(214,185,123,.14),0 0 16px rgba(214,185,123,.35)}
+html.classy .bubble{background:rgba(11,11,12,.97)}
+html.classy .bubble::before{border-top-color:rgba(11,11,12,.97)}
+html.classy .modal{background:rgba(11,11,12,.97)}
+html.classy .chat-row.me .bub{background:rgba(214,185,123,.08);border-color:rgba(214,185,123,.26)}
+html.classy .chat-row.me .chat-face{background:rgba(214,185,123,.1);color:var(--gold)}
+html.classy .cur-btn,html.classy .rec-btn,html.classy .pg,html.classy .ask-chip{background:transparent}
+html.classy .cur-btn{border-radius:999px}
+html.classy .cur-btn:hover,html.classy .rec-btn:hover,html.classy .pg:hover:not(:disabled),html.classy .ask-chip:hover{
+  color:var(--gold);border-color:rgba(214,185,123,.4);background:rgba(214,185,123,.06)}
+html.classy .pg.on{color:#050505}
+html.classy .btn{background:rgba(214,185,123,.06);border-color:rgba(214,185,123,.28);border-radius:999px;font-weight:500}
+html.classy .chg-chip{border-radius:999px;font-weight:500}
+html.classy .magic{font-weight:300;letter-spacing:-.03em}
+html.classy .tbl th{font-weight:500;letter-spacing:.14em}
+@media(max-width:768px){
+  html.classy .hdr h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}
+  html.classy .hdr .sub{font-size:clamp(8px,2.4vw,10px);letter-spacing:.12em}
+  /* the picture closed the card on a phone; without it the card closes itself */
+  html.classy .hero{padding-bottom:26px}
+  html.classy .wealth-total{font-size:40px}
+}
+@media(max-width:480px){
+  html.classy .hero h2{font-size:clamp(20px,6.6vw,26px)}
+  html.classy .wealth-total{font-size:36px}
+  html.classy .cv{font-size:26px}
+}
 </style>
 </head>
 <body>
@@ -440,9 +537,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   <div class="hdr-inner">
     <div class="hdr-brand">
       <button class="brand-mark" id="brandMark" type="button" aria-label="Ask the tiger about the fund" title="Ask the tiger"><svg class="tiger-calm" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="13" cy="15" r="10" fill="#ea8c0c"/><circle cx="51" cy="15" r="10" fill="#ea8c0c"/><circle cx="13" cy="15" r="4.5" fill="#7c2d12"/><circle cx="51" cy="15" r="4.5" fill="#7c2d12"/><circle cx="32" cy="36" r="26" fill="#f59e0b"/><rect x="30.4" y="11" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.2" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(-10 24.7 16)"/><rect x="37.8" y="12.5" width="3" height="7" rx="1.5" fill="#7c2d12" transform="rotate(10 39.3 16)"/><rect x="7" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="8" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="30" width="6.5" height="3" rx="1.5" fill="#7c2d12"/><rect x="50.5" y="36" width="5.5" height="3" rx="1.5" fill="#7c2d12"/><ellipse cx="32" cy="47" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.2" cy="32.7" r="1.4" fill="#fff"/><circle cx="40.2" cy="32.7" r="1.4" fill="#fff"/><path d="M28.6 43.5h6.8c.8 0 1.2.9.7 1.5l-3 3.4c-.5.6-1.5.6-2 0l-3-3.4c-.5-.6-.1-1.5.7-1.5z" fill="#9a3412"/><path d="M32 48.5v1.8m0 0c-1.5 2-4 2.4-5.5 1m5.5-1c1.5 2 4 2.4 5.5 1" stroke="#9a3412" stroke-width="1.6" stroke-linecap="round" fill="none"/><ellipse cx="15.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/><ellipse cx="48.5" cy="43" rx="3.4" ry="2.2" fill="#fb923c" opacity=".55"/></svg><svg class="tiger-angry" width="46" height="46" viewBox="0 0 64 64" aria-hidden="true"><circle cx="11" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="53" cy="17.5" r="9.6" fill="#dd7009"/><circle cx="11.4" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="52.6" cy="17.8" r="4.3" fill="#6b230d"/><circle cx="32" cy="36" r="26" fill="#f97316"/><rect x="30.4" y="10.5" width="3.2" height="9" rx="1.6" fill="#7c2d12"/><rect x="23.4" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(-22 24.9 15.8)"/><rect x="37.6" y="12" width="3" height="7.6" rx="1.5" fill="#7c2d12" transform="rotate(22 39.1 15.8)"/><rect x="6.6" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-12 10.1 31)"/><rect x="7.6" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(-8 10.6 37.5)"/><rect x="50.4" y="29.5" width="7" height="3" rx="1.5" fill="#7c2d12" transform="rotate(12 53.9 31)"/><rect x="50.4" y="36" width="6" height="3" rx="1.5" fill="#7c2d12" transform="rotate(8 53.4 37.5)"/><ellipse cx="32" cy="46.5" rx="12" ry="9.5" fill="#fff7ed"/><circle cx="22.5" cy="34" r="4" fill="#1c1917"/><circle cx="41.5" cy="34" r="4" fill="#1c1917"/><circle cx="21.4" cy="32.9" r="1.2" fill="#fff"/><circle cx="40.4" cy="32.9" r="1.2" fill="#fff"/><path d="M16.4 25.6 H28.4 V33.6 L16.4 29.4 Z" fill="#f97316"/><path d="M47.6 25.6 H35.6 V33.6 L47.6 29.4 Z" fill="#f97316"/><path d="M17.3 27.2 L28.6 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M46.7 27.2 L35.4 31.5" stroke="#7c2d12" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M28.7 42.4h6.6c.85 0 1.25.95.75 1.6l-3 3.3c-.5.55-1.55.55-2.05 0l-3-3.3c-.5-.65-.1-1.6.7-1.6z" fill="#9a3412"/><path d="M25.4 48.6 Q32 46.9 38.6 48.6 Q37.2 55.4 32 55.4 Q26.8 55.4 25.4 48.6 Z" fill="#7f1d1d"/><path d="M27.6 48.4 L30.2 48.7 L28.9 52.6 Z" fill="#fff"/><path d="M36.4 48.4 L33.8 48.7 L35.1 52.6 Z" fill="#fff"/><path d="M29.4 55.1 Q32 53.4 34.6 55.1 Q32 56.2 29.4 55.1 Z" fill="#be5b52"/><ellipse cx="15.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/><ellipse cx="48.5" cy="42.5" rx="3.2" ry="2" fill="#fdba74" opacity=".38"/></svg></button>
-      <div><h1><span class="t">TIGER</span> <span class="f">FOUNDATION</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
+      <div><h1><span class="t">Tiger</span> <span class="f">Foundation</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
-    <div class="ts" id="lastUpdated">Loading...</div>
+    <div class="hdr-side">
+      <div class="hdr-actions">
+        <a class="hdr-btn" href="/lp.html" title="Open the LP Book">LP<span class="long">&nbsp;Book</span></a>
+        <button class="hdr-btn icon" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      </div>
+      <div class="ts" id="lastUpdated">Loading...</div>
+    </div>
   </div>
 </div>
 
@@ -452,7 +555,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
   <div class="hero">
    <div class="hero-main">
     <div class="hero-head">
-      <h2>WEALTH OVERVIEW</h2>
+      <h2>Wealth Overview</h2>
       <button class="cur-btn" id="curBtn" type="button" title="Showing USD — tap to switch currency">USD</button>
     </div>
     <div class="wealth-row"><div class="wealth-total" id="totalVal">$---</div><div class="chg-chips" id="chgChips"></div></div>
@@ -808,8 +911,13 @@ var CFG={
   logWindow:120000,   /* ~2.5 days of Katana blocks — catches stakes and claims made since the last snapshot */
   factory:'0x203e8740894c8955cB8950759876d7E7E45E04c1',
   morpho:'0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc',
-  marketId:'0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9',
-  lltv:0.77,
+  /* Every Morpho Blue market the wallet is in. The six-hourly job adds any new one to the
+     snapshot (morpho_markets) and the page reads that list too, so one hard-coded market can
+     no longer hide a second — as the vbUSDC loan on avKAT was hidden from 2026-10-17. */
+  morphoMarkets:[
+    '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9', /* KAT loan on avKAT, 77% */
+    '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138'  /* vbUSDC loan on avKAT, 62.5% */
+  ],
   tokens:{
     KAT:{a:'0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d',d:18},
     WETH:{a:'0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62',d:18},
@@ -1089,22 +1197,34 @@ function meteoraPosition(ref){
 }
 
 /* ============ live data assembly ============ */
-function getKatanaLive(stakedLpIds){
+function morphoMarketList(snap){
+  var seen={},out=[];
+  CFG.morphoMarkets.concat((snap&&snap.morpho_markets)||[]).forEach(function(id){
+    id=String(id).toLowerCase();if(!seen[id]){seen[id]=1;out.push(id);}
+  });
+  return out;
+}
+function getKatanaLive(stakedLpIds,markets){
   var W=CFG.wallet.replace(/^0x/,'');
   var T=CFG.tokens;
   var TKEYS=Object.keys(T);
+  markets=markets||CFG.morphoMarkets;
   var calls=TKEYS.map(function(k){return{to:T[k].a,data:'0x70a08231'+pad(W)};}).concat([
     /* A balance for every listed token, driven by the list. Five hard-coded names are what
        let vbWBTC be priced inside an LP and counted as nothing in the wallet. */
     {to:T.avKAT.a,data:'0x07a2d13a'+pad('de0b6b3a7640000')}, /* 5 convertToAssets(1e18) */
     {to:CFG.poolKatUsdc, data:'0x3850c7bd'},                 /* 6 slot0 KAT/USDC */
     {to:CFG.poolWethUsdc,data:'0x3850c7bd'},                 /* 7 slot0 WETH/USDC */
-    {to:CFG.morpho,data:'0x93c52062'+CFG.marketId.slice(2)+pad(W)}, /* 8 position(id,user) */
-    {to:CFG.morpho,data:'0x5c60e39a'+CFG.marketId.slice(2)},        /* 9 market(id) */
-    {to:CFG.npm,  data:'0x70a08231'+pad(W)},                 /* 10 NFT count */
-    {to:CFG.vkatNft,data:'0x70a08231'+pad(W)},               /* 11 vKAT lock count */
+    {to:CFG.npm,  data:'0x70a08231'+pad(W)},                 /* NFT count */
+    {to:CFG.vkatNft,data:'0x70a08231'+pad(W)},               /* vKAT lock count */
     {to:CFG.poolWbtcUsdc,data:'0x3850c7bd'}                  /* slot0 WBTC/USDC */
   ]);
+  /* then three reads per Morpho market: position, market totals, market params */
+  markets.forEach(function(id){
+    calls.push({to:CFG.morpho,data:'0x93c52062'+id.slice(2)+pad(W)});
+    calls.push({to:CFG.morpho,data:'0x5c60e39a'+id.slice(2)});
+    calls.push({to:CFG.morpho,data:'0x2c3c9157'+id.slice(2)});
+  });
   var B=TKEYS.length;    /* every index below counts from the end of the balances */
   return Promise.all([rpc('eth_getBalance',[CFG.wallet,'latest']),multicall(calls)])
   .then(function(rr){
@@ -1119,17 +1239,28 @@ function getKatanaLive(stakedLpIds){
     var wethPerUsdc=poolPrice(toBig(w(r[B+2].data,0)),6,18);
     var ethPrice=wethPerUsdc>0?1/wethPerUsdc:0;
     /* this pool is the other way round — vbWBTC is token0 — so no reciprocal */
-    var btcPrice=(r[B+7]&&r[B+7].ok)?poolPrice(toBig(w(r[B+7].data,0)),8,6):0;
-    /* morpho */
-    var borrowShares=toBig(w(r[B+3].data,1));
-    var collateral=Number(toBig(w(r[B+3].data,2)))/1e18;
-    var totBorrowAssets=toBig(w(r[B+4].data,2));
-    var totBorrowShares=toBig(w(r[B+4].data,3));
-    var debt=totBorrowShares>0n?Number(borrowShares*totBorrowAssets/totBorrowShares)/1e18:0;
-    var nftCount=Number(toBig(w(r[B+5].data,0)));
+    var btcPrice=(r[B+5]&&r[B+5].ok)?poolPrice(toBig(w(r[B+5].data,0)),8,6):0;
+    /* Each Morpho market in its own tokens. Morpho keeps a million virtual shares per unit and
+       one virtual asset, so shares convert through (assets+1)/(shares+1e6); a loan rounds up. */
+    var keyOf=function(addr){for(var k=0;k<TKEYS.length;k++)if(T[TKEYS[k]].a.toLowerCase()===addr)return TKEYS[k];return null;};
+    var morpho=[];
+    markets.forEach(function(id,i){
+      var pos=r[B+6+i*3],mk=r[B+7+i*3],mp=r[B+8+i*3];
+      if(!pos||!pos.ok||!mk||!mk.ok||!mp||!mp.ok){morpho.push({id:id,error:true});return;}
+      var sSh=toBig(w(pos.data,0)),bSh=toBig(w(pos.data,1)),coll=toBig(w(pos.data,2));
+      if(sSh===0n&&bSh===0n&&coll===0n)return;
+      var tSA=toBig(w(mk.data,0)),tSS=toBig(w(mk.data,1)),tBA=toBig(w(mk.data,2)),tBS=toBig(w(mk.data,3));
+      var loan=keyOf(toAddr(w(mp.data,0))),col=keyOf(toAddr(w(mp.data,1)));
+      var ld=loan?T[loan].d:18,cd=col?T[col].d:18;
+      morpho.push({id:id,loan:loan,col:col,lltv:Number(toBig(w(mp.data,4)))/1e16,
+        supplied:Number(sSh*(tSA+1n)/(tSS+1000000n))/Math.pow(10,ld),
+        debt:Number((bSh*(tBA+1n)+tBS+1000000n-1n)/(tBS+1000000n))/Math.pow(10,ld),
+        collateral:Number(coll)/Math.pow(10,cd)});
+    });
+    var nftCount=Number(toBig(w(r[B+3].data,0)));
     if(nftCount>200)nftCount=200;
     /* vKAT staking locks: enumerate lock NFTs, then read locked() amounts from the escrow */
-    var lockCount=Number(toBig(w(r[B+6].data,0)));
+    var lockCount=Number(toBig(w(r[B+4].data,0)));
     if(lockCount>20)lockCount=20;
     var lockP=Promise.resolve({totalKat:0,ids:[]});
     if(lockCount>0){
@@ -1288,7 +1419,7 @@ function getKatanaLive(stakedLpIds){
             }
             return lockP.then(function(vkat){
               return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,btcPrice:btcPrice,
-                morpho:{collateral:collateral,debt:debt},lps:lps,vkat:vkat};
+                morpho:morpho,lps:lps,vkat:vkat};
             });
           });
         });
@@ -1948,7 +2079,7 @@ function loadLive(refs,snap){
     var ss=(snap&&snap.chains&&snap.chains.solana)||{};
     return{sol:0,usdc:ss.onchain_usd||0,solPrice:0,lps:ss.lp_positions||[],fromSnapshot:true};
   });
-  return Promise.all([getKatanaLive((snap&&snap.staked_lp_ids)||[]),solP,getSushiAprs()]).then(function(rr){
+  return Promise.all([getKatanaLive((snap&&snap.staked_lp_ids)||[],morphoMarketList(snap)),solP,getSushiAprs()]).then(function(rr){
     var kat=rr[0],sol=rr[1],aprMap=rr[2];
     var merklFallback=(snap&&snap.merkl_rewards)||null;
     /* snapshot APRs as fallback when Merkl is unreachable (e.g. local http) */
@@ -1978,9 +2109,28 @@ function loadLive(refs,snap){
       var katWalletUsd=kat.ethBal*kat.ethPrice
         +Object.keys(kat.bal).reduce(function(a,k){return a+kat.bal[k]*katPx(k);},0);
       var katLpUsd=0;kat.lps.forEach(function(l){katLpUsd+=l.value_usd;});
-      var colKat=kat.morpho.collateral*kat.avkatRate;
-      var morphoNet=(colKat-kat.morpho.debt)*kat.katPrice;
-      if(morphoNet<0)morphoNet=0;
+      /* Each Morpho market on its own: collateral and anything supplied, less the loan, every
+         side at its own token's price. A market whose read failed keeps the snapshot's row. */
+      var LBL={USDC:'vbUSDC',USDT:'vbUSDT',WETH:'vbETH',WBTC:'vbWBTC'};
+      var L=function(k){return LBL[k]||k||'?';};
+      var snapMorpho=((snap&&snap.chains&&snap.chains.katana&&snap.chains.katana.defi_positions)||[]).filter(function(p){return p.market_id;});
+      var morphoRows=kat.morpho.map(function(m){
+        if(m.error){for(var j=0;j<snapMorpho.length;j++)if(snapMorpho[j].market_id===m.id)return snapMorpho[j];return null;}
+        var colUsd=m.collateral*katPx(m.col),debtUsd=m.debt*katPx(m.loan),supUsd=m.supplied*katPx(m.loan);
+        var net=Math.max(0,colUsd+supUsd-debtUsd);
+        var avk=m.col==='avKAT',note;
+        if(avk&&m.loan==='KAT')note='Net '+fmtN(m.collateral*kat.avkatRate+m.supplied-m.debt,0)+' KAT = '+fmt(net)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)';
+        else if(avk&&m.debt>0)note='Liquidates if KAT falls to $'+(debtUsd/(m.collateral*kat.avkatRate*(m.lltv/100))).toFixed(6)+' (now $'+kat.katPrice.toFixed(6)+') · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)';
+        else note='Net '+fmt(net)+' (live)';
+        var row={type:'Lending',protocol:'Morpho Blue',market:L(m.loan)+' / '+L(m.col),market_id:m.id,
+          collateral:{amount:m.collateral,token:L(m.col),usd:colUsd},
+          debt:{amount:m.debt,token:L(m.loan),usd:debtUsd},
+          lltv:m.lltv+'%',value_usd:net,note:note};
+        if(m.supplied>0)row.supplied={amount:m.supplied,token:L(m.loan),usd:supUsd};
+        if(avk)row.avkat_rate=kat.avkatRate;
+        return row;
+      }).filter(Boolean);
+      var morphoNet=morphoRows.reduce(function(a,p){return a+(p.value_usd||0);},0);
       var vkatKat=(kat.vkat&&kat.vkat.totalKat)||0;
       var vkatUsd=vkatKat*kat.katPrice;
       var katTotal=katWalletUsd+katLpUsd+morphoNet+vkatUsd+merkl.total_usd;
@@ -2014,11 +2164,7 @@ function loadLive(refs,snap){
           katana:{name:'Katana',onchain_usd:katWalletUsd,
             merkl_rewards:merkl,lp_positions:kat.lps,
             defi_positions:(function(){
-              var arr=[{type:'Lending',protocol:'Morpho Blue',market:'KAT / avKAT',
-                collateral:{amount:kat.morpho.collateral,token:'avKAT',usd:colKat*kat.katPrice},
-                debt:{amount:kat.morpho.debt,token:'KAT',usd:kat.morpho.debt*kat.katPrice},
-                lltv:'77%',avkat_rate:kat.avkatRate,value_usd:morphoNet,
-                note:'Net '+fmtN(colKat-kat.morpho.debt,0)+' KAT = '+fmt(morphoNet)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)'}];
+              var arr=morphoRows.slice();
               if(vkatKat>0)arr.push({type:'Staking',protocol:'Katana vKAT',
                 market:'Voting escrow'+(kat.vkat.ids.length?' · veNFT #'+kat.vkat.ids.join(', #'):''),
                 locked:{amount:vkatKat,token:'vKAT'},value_usd:vkatUsd,
@@ -2304,7 +2450,9 @@ function placeRocket(pct){
     /* The bar is the rocket's tail: the fill runs on under the rocket to its midpoint, so
        gold and exhaust meet instead of butting up as two separate objects. The nose still
        marks the true value. Set in px, never a percentage — the units don't interpolate. */
-    if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*0.5)).toFixed(1)+'px';
+    /* In the classy theme the rocket is a dot on the nose, so the bar ends at the true value */
+    var tail=document.documentElement.classList.contains('classy')?ROCKET_NOSE:0.5;
+    if(fill)fill.style.width=Math.max(0,Math.min(track,x+w*tail)).toFixed(1)+'px';
   };
   /* The markup opens with the bar at width:0 and the rocket at translateX(0) — two
      different points on the scale, half a rocket apart. Animating from there, the bar
@@ -3640,6 +3788,12 @@ function updatePeak(){
 /* The ink the charts draw with. Chart.js copies colours in at construction rather than
    reading them from CSS, so the palette lives here beside the charts that use it. */
 function themeInk(){
+  if(document.documentElement.classList.contains('classy'))
+    return{line:'rgba(214,185,123,0.9)',fill:'rgba(214,185,123,0.09)',tick:'#8f8b82',
+      grid:'rgba(255,255,255,.04)',tip:'rgba(11,11,12,0.96)',tipEdge:'rgba(214,185,123,.5)',
+      barNow:'rgba(214,185,123,0.85)',barNowEdge:'#d6b97b',
+      bar:function(i){return'rgba(214,185,123,'+(0.42-i*0.055)+')';},barEdge:'rgba(214,185,123,0.55)',
+      value:'#d6b97b'};
   return{line:'rgba(245,158,11,0.9)',fill:'rgba(245,158,11,0.14)',tick:'#5a6a8a',
     grid:'rgba(255,255,255,.03)',tip:'rgba(15,22,35,0.96)',tipEdge:'#f59e0b',
     barNow:'rgba(245,158,11,0.85)',barNowEdge:'rgba(245,158,11,1)',
@@ -4033,6 +4187,7 @@ function render(d,isLive){
         return v===null?'':'<br><span style="font-size:11px;color:var(--dim)">'+fmt(v)+'</span>';
       };
       if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+usdLine(sideUsd(p.collateral))+'</span></div>';
+      if(p.supplied)dl+='<div class="pos-row"><span class="pos-label">Supplied</span><span class="pos-val">'+fmtN(p.supplied.amount,2)+' '+p.supplied.token+usdLine(sideUsd(p.supplied))+'</span></div>';
       if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+usdLine(sideUsd(p.debt))+'</span></div>';
       if(p.locked)dl+='<div class="pos-row"><span class="pos-label">Locked</span><span class="pos-val">'+fmtN(p.locked.amount,2)+' '+p.locked.token+'</span></div>';
       if(p.value_usd)dl+='<div class="pos-row"><span class="pos-label">'+(p.debt?'Net Value':'Value')+'</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
@@ -4042,7 +4197,14 @@ function render(d,isLive){
         var col=p.collateral.amount,debt=p.debt.amount;
         var rate=p.avkat_rate||null;
         var hf,label,hColor,noteTxt;
-        if(rate){
+        var cU=sideUsd(p.collateral),dU=sideUsd(p.debt);
+        if(rate&&p.debt.token!=='KAT'&&cU!==null&&dU){
+          /* a loan in another token: health is the collateral's dollars against the loan's */
+          hf=(cU*lltv)/dU;
+          hColor=hf>=1.25?'var(--green)':hf>=1.05?'var(--gold)':'var(--red)';
+          label=hf>=1.25?'HEALTHY':hf>=1.05?'TIGHT':'AT RISK';
+          noteTxt=p.note||'';
+        }else if(rate){
           hf=(col*rate*lltv)/debt;
           hColor=hf>=1.05?'var(--green)':hf>=1.0?'var(--gold)':'var(--red)';
           label=hf>=1.05?'HEALTHY':hf>=1.0?'TIGHT':'AT RISK';
@@ -4748,6 +4910,29 @@ function setOffline(off){
   }
   el.style.display=off?'block':'none';
 }
+/* Theme: the original night-sky dashboard, or the LP Book's black and gold. The class was
+   put on in the head before first paint, so here it only flips — and the two charts are
+   rebuilt, because Chart.js copies its colours in when a chart is made. */
+(function(){
+  var btn=document.getElementById('themeBtn');
+  if(!btn)return;
+  var meta=document.querySelector('meta[name="theme-color"]');
+  var sync=function(){
+    var on=document.documentElement.classList.contains('classy');
+    btn.setAttribute('aria-pressed',on?'true':'false');
+    btn.title=on?'Switch to the original theme':'Switch to the classy theme';
+    if(meta)meta.setAttribute('content',on?'#050505':'#0f1623');
+  };
+  sync();
+  btn.addEventListener('click',function(){
+    var on=document.documentElement.classList.toggle('classy');
+    try{localStorage.setItem('tf_theme',on?'classy':'original');}catch(e){}
+    sync();
+    try{placeRocket();}catch(e){}
+    try{drawHistory();}catch(e){console.warn('history chart redraw',e);}
+    try{if(COMPOUND_CHART){COMPOUND_CHART.destroy();COMPOUND_CHART=null;}buildCompound();}catch(e){console.warn('compound chart redraw',e);}
+  });
+})();
 window.addEventListener('offline',function(){setOffline(true);});
 window.addEventListener('online',function(){setOffline(false);load();});
 if(navigator.onLine===false)document.addEventListener('DOMContentLoaded',function(){setOffline(true);});
