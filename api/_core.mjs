@@ -1281,6 +1281,39 @@ export function feeTotals(book, rows) {
   return total;
 }
 
+/* Each open position's own fees so far, as tokens. Saved with every fee-curve point, so a
+   position's recent earning rate can be read against what it had a day before. */
+export function positionFees(book, rows) {
+  const out = {};
+  for (const P of Object.values(book.positions)) {
+    if (P.status === 'open') out[P.key] = feeTokensOf(P, uncollectedOf(P, (rows || {})[P.key]));
+  }
+  return out;
+}
+
+/* What a position earns on the capital it holds, annualised simply (not compounded).
+   Live means the last day: measured from the oldest saved reading between 3 and 26 hours
+   old, so it follows the range — out of range a position earns nothing and the rate falls
+   with it. Both readings are priced at today's prices, so only earning moves it, not the
+   token price. Until a day of readings exists, it is the rate since the position opened. */
+function positionApr(book, P, tokensNow, usdOf) {
+  const now = Date.now() / 1000;
+  if (!(P.cost_usd > 0) || !P.opened_ts) return null;
+  const earnedNow = usdOf(tokensNow).usd;
+  const base = (book.fee_series || [])
+    .filter((p) => p.pos && p.pos[P.key] && now - p.ts >= 3 * 3600 && now - p.ts <= 26 * 3600)
+    .sort((x, y) => x.ts - y.ts)[0];
+  if (base) {
+    const days = (now - base.ts) / 86400;
+    const gained = Math.max(0, earnedNow - usdOf(base.pos[P.key]).usd);
+    return { pct: gained / P.cost_usd / days * 36500, basis: 'last ' + Math.round(days * 24) + 'h' };
+  }
+  const days = (now - P.opened_ts) / 86400;
+  if (!(days > 0.02)) return null;
+  return { pct: earnedNow / P.cost_usd / days * 36500, basis: 'since opened' };
+}
+const pctText = (p) => (p >= 100 ? Math.round(p).toLocaleString('en-US') : p.toFixed(1)) + '%';
+
 /* The book's PnL (IL + price, excl. fees) at this moment: open positions at their live value,
    closed ones as frozen. Null if any open position could not be read — a partial PnL is not
    recorded as the real one. */
@@ -1345,6 +1378,9 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       view.net = signed(u + earned); view.net_up = u + earned >= 0;
       view.cost = money(P.cost_usd);
       view.since = (P.at_start ? 'tracked since ' : 'opened ') + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);
+      const apr = positionApr(book, P, tokens, usdOf);
+      view.apr = apr ? pctText(apr.pct) : '–';
+      view.apr_basis = apr ? apr.basis : 'not enough time yet';
       live.push(view);
     } else {
       C.closed++;

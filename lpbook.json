@@ -32,8 +32,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 45749979,
-  "robinhood": 93388452
+  "katana": 45754514,
+  "robinhood": 93431978
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -242,6 +242,24 @@
     "KAT@katana": 5653.4940359
    },
    "pnl_usd": -40.45
+  },
+  {
+   "ts": 1792497322,
+   "tokens": {
+    "WETH@robinhood": 0.00130774,
+    "USDG@robinhood": 3.039219,
+    "KAT@katana": 5653.4940359
+   },
+   "pnl_usd": -41.02,
+   "pos": {
+    "katana:487126": {
+     "KAT@katana": 2126.1049758
+    },
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00130774,
+     "USDG@robinhood": 3.039219
+    }
+   }
   }
  ],
  "runs": [
@@ -255,6 +273,13 @@
   },
   {
    "ts": 1792492790,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1792497322,
    "behind": {
     "katana": 0,
     "robinhood": 0

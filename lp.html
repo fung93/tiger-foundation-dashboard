@@ -112,7 +112,8 @@ h1 em{font-style:italic;color:var(--gold)}
 .lpw .ends{display:flex;justify-content:space-between;gap:6px;margin-top:9px;font-size:10.5px;color:var(--faint);white-space:nowrap}
 .lpw .mid{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
 .lpw .mid.near{color:var(--warn)}
-.lpw .figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:12px;border-top:1px solid var(--line2)}
+.lpw .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-top:12px;border-top:1px solid var(--line2)}
+.lpw .b{font-size:9.5px;color:var(--faint);margin-top:3px;letter-spacing:.04em;white-space:nowrap}
 .lpw .k{font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
 .lpw .v{font-size:16px;font-weight:300;margin-top:4px;white-space:nowrap;letter-spacing:-.01em}
 .lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
@@ -332,7 +333,10 @@ h1 em{font-style:italic;color:var(--gold)}
         + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
         + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
         + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
-        + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
+        + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div>'
+        /* what this position earns on its capital, live: the last day, else since it opened */
+        + '<div><div class="k">APR</div><div class="v" style="color:var(--gold)">' + esc(W.apr || '–') + '</div>'
+        + '<div class="b">' + esc(W.apr_basis || '') + '</div></div></div>'
         + '<div class="foot"><span>' + esc(W.since) + ' · cost ' + esc(W.cost) + '</span></div></div>';
     }).join('');
   }

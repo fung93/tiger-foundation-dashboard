@@ -285,8 +285,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
 .cl{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:10px}
 .cv{font-size:28px;font-weight:700}
 .cs{font-size:12px;margin-top:6px;color:var(--dim)}
-/* the yield block under Merkl Pending: three short lines, so it has its own smaller type */
-.cs.yield{font-size:10.5px;line-height:1.65;letter-spacing:.2px}
 .cv.green{color:var(--green)}.cv.gold{color:var(--gold)}.cv.accent{color:var(--accent)}
 .cv.blue{color:var(--blue)}.cv.purple{color:var(--purple)}.cv.red{color:var(--red)}
 
@@ -652,7 +650,7 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
       <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
       <div class="c"><div class="cl">DeFi Positions</div><div class="cv accent" id="defiVal">$---</div><div class="cs">LP + lending</div></div>
       <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs" id="vaultSub">Cold wallet</div></div>
-      <div class="c"><div class="cl">Merkl Pending</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed rewards</div><div class="cs yield" id="merklYield" style="margin-top:5px"></div></div>
+      <div class="c"><div class="cl">Merkl Pending</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed rewards</div></div>
     </div>
   </div>
 
@@ -2738,79 +2736,6 @@ function liveFeeWindow(c,st,logs){
 }
 /* stored fee days with the live ones added — the live scan starts where the stored record
    stops, so the two never overlap */
-/* ---- what the vbWBTC book has returned ----
-   Eight positions in five days, each one a re-range of the last: taken one at a time they
-   say nothing, so they are read as a single book. Capital is weighted by the time it was
-   actually at work (a position held three hours is not the same money as one held a day),
-   the trading P&L of every closed position is added to the open one's mark, and the Merkl
-   rewards the staking earned are added on top — those rewards are the whole point, since a
-   staked position's trading fees are collected to the Katana DAO rather than to this wallet.
-   The rate is annualised simply, not compounded: five days compounded reads 25,000%, which
-   is a number about the calendar rather than about the position. */
-function lpBookYield(pair){
-  if(!POSITIONS)return null;
-  var nowS=Date.now()/1000,capSec=0,heldSec=0,realised=0,unreal=0,fees=0,n=0;
-  var first=Infinity,last=0,ids=[];
-  (POSITIONS.closed||[]).forEach(function(c){
-    if(c.pair!==pair||!c.opened_ts||!c.closed_ts)return;
-    ids.push(String(c.id));
-    capSec+=(c.open_value_usd||0)*Math.max(0,c.closed_ts-c.opened_ts);
-    heldSec+=Math.max(0,c.closed_ts-c.opened_ts);
-    realised+=c.pnl_usd||0;n++;
-    first=Math.min(first,c.opened_ts);last=Math.max(last,c.closed_ts);
-  });
-  var op=(POSITIONS&&POSITIONS.open)||{};
-  Object.keys(op).forEach(function(k){
-    var o=op[k];
-    if(o.pair!==pair||!o.opened_ts)return;
-    ids.push(String(k));
-    /* A staked position's value already leaves out the fees accruing to the DAO, so there
-       is nothing further to deduct here — doing it again took them off twice. */
-    var val=LP_VALUE[k]!==undefined?LP_VALUE[k]:(o.open_value_usd||0);
-    capSec+=(o.open_value_usd||0)*Math.max(0,nowS-o.opened_ts);
-    heldSec+=Math.max(0,nowS-o.opened_ts);
-    unreal+=val-(o.open_value_usd||0);n++;
-    first=Math.min(first,o.opened_ts);last=nowS;
-    var lp=((LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.lp_positions)||[])
-      .filter(function(x){return x.token_id===k;})[0];
-    if(lp&&lp.fees_usd)fees+=lp.fees_usd;
-  });
-  if(!n||!isFinite(first)||!(last>first))return null;
-  /* Measured over the time the money was actually in a pool, not the wall clock. The rate is
-     the same either way — fewer dollars for longer is the same dollar-days — but the figure
-     on the card then reads as the position size rather than an average diluted by the hours
-     between re-ranges. */
-  var days=heldSec/86400,avg=heldSec>0?capSec/heldSec:0;
-  if(!(avg>0)||!(days>0))return null;
-  var mk=(LAST_DATA&&LAST_DATA.chains&&LAST_DATA.chains.katana&&LAST_DATA.chains.katana.merkl_rewards)||{};
-  var pending=(mk.lp_usd!==undefined?mk.lp_usd:mk.total_usd)||0;
-
-  /* What this book has EARNED, which is what a return is measured on. Claiming a reward
-     does not change what it earned — it only moves the money from Merkl into the wallet —
-     so the rate must not move either. Reading the outstanding balance made the APY collapse
-     the moment he claimed, and go negative once it fell below the book's trading losses.
-     Each position takes the rewards paid for its own NFT, so an older LP in another pool
-     cannot inflate this one. */
-  var earnedById=mk.earned_by_id||null,rewards=null;
-  if(earnedById){
-    rewards=0;
-    ids.forEach(function(id){rewards+=earnedById[id]||0;});
-  }
-  /* Older snapshots carry no per-position figures: fall back to what is outstanding plus
-     whatever the claim record shows was taken since this book opened. */
-  var claimed=0;
-  if(rewards===null){
-    var cd=(CLAIMS&&CLAIMS.days)||{};
-    Object.keys(cd).forEach(function(d){
-      if(new Date(d+'T00:00:00Z').getTime()/1000>=first-86400)claimed+=cd[d].value_usd||0;
-    });
-    rewards=pending+claimed;
-  }
-  var net=realised+unreal+rewards;
-  return{n:n,days:days,avg:avg,realised:realised,unreal:unreal,fees:fees,
-    pending:pending,claimed:claimed,rewards:rewards,net:net,
-    apy:net/(avg*days/365)*100,rewardApy:rewards/(avg*days/365)*100};
-}
 function feeDays(){
   var out={},src=(CLAIMS&&CLAIMS.lp_fees&&CLAIMS.lp_fees.days)||{};
   [src,LIVE_FEES.days].forEach(function(set){
@@ -4069,26 +3994,6 @@ function render(d,isLive){
   document.getElementById('merklSub').innerHTML=mbits.length
     ? '<span style="color:var(--green)">&#9679;</span> '+mbits.join(' &nbsp;&#183;&nbsp; ')
     : 'Nothing to claim';
-  /* what the staking is actually returning, on the money it is returning it on */
-  var my=document.getElementById('merklYield'),by=lpBookYield('vbWBTC / vbUSDC');
-  if(my){
-    if(!by)my.innerHTML='';
-    else{
-      my.innerHTML='<span style="color:var(--gold);font-weight:700">'+fmtN(by.apy,0)+'% APY</span>'
-        +' <span style="opacity:.8">vbWBTC LP</span><br>'
-        +'<span class="'+(by.net>=0?'up':'down')+'">'+fmtSigned(by.net)+'</span>'
-        +' <span style="opacity:.75">on '+curSym()+fmtN(cv(by.avg),0)+'</span>';
-      my.title='Merkl rewards earned '+money(by.rewards)+' ('+money(by.pending)+' not yet claimed)'
-        +'\nEarned is what the rate is measured on, so claiming does not move it'
-        +'\nTrading P&L '+fmtSigned(by.realised+by.unreal)+' across '+by.n+' positions'
-        +'\nAverage capital at work '+fmt(by.avg)+' over '+by.days.toFixed(2)+' days'
-        +'\nRewards alone annualise to '+fmtN(by.rewardApy,0)+'%'
-        +'\nAnnualised simply, not compounded. A staked position\'s trading fees are'
-        +'\ncollected to the Katana DAO, so they are not counted as yours'
-        +(by.fees>=0.005?' \u2014 '+money(by.fees)+' is accruing to them now.':'.');
-    }
-  }
-
   var lu=document.getElementById('lastUpdated');
   if(isLive){
     LIVE_ON=true;
