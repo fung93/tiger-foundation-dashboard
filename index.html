@@ -524,6 +524,11 @@ html.classy .pg.on{color:#050505}
 html.classy .btn{background:rgba(214,185,123,.06);border-color:rgba(214,185,123,.28);border-radius:999px;font-weight:500}
 html.classy .chg-chip{border-radius:999px;font-weight:500}
 html.classy .magic{font-weight:300;letter-spacing:-.03em}
+/* Values in the theme's own ink, as on the LP Book: every figure off-white, and only a gain or
+   a loss — the average a day, the ROI, the change chip — keeps the muted up/down colour. The
+   !important is for the colours the page writes inline on chain rows and position cards. */
+html.classy .cv:not(#dailyEarnings):not(#roiToggleVal),html.classy .chain-amt,html.classy .chain-name,
+html.classy .pos-val,html.classy .magic{color:var(--text)!important}
 html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 @media(max-width:768px){
   html.classy .hdr h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}

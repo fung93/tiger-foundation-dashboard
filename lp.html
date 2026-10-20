@@ -59,8 +59,12 @@ h1 em{font-style:italic;color:var(--gold)}
 
 /* the four headline cards run the full width above both columns, so the history column
    starts level with PnL by chain; four across, or two by two on a phone */
-.stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+/* five cards: three over two when five across is too tight, both rows filling the width */
+@media (max-width:1060px){.stats{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .stats .card{grid-column:span 2}.stats .card:nth-child(n+4){grid-column:span 3}}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .stats .card,.stats .card:nth-child(n+4){grid-column:auto}.stats .card:last-child{grid-column:1/-1}}
 .big{font-size:32px;font-weight:300;margin-top:12px;letter-spacing:-.025em;white-space:nowrap;line-height:1.1}
 @media (max-width:720px){.big{font-size:24px}.card{padding:16px}}
 .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}
@@ -83,6 +87,9 @@ h1 em{font-style:italic;color:var(--gold)}
 .chart{margin-top:40px;position:relative}
 .chart svg{display:block;width:100%;height:200px;overflow:visible}
 .chart .now{position:absolute;top:-34px;right:0;font-size:20px;font-weight:300;color:var(--gold);letter-spacing:-.01em}
+.legend{display:flex;gap:16px;margin-top:10px;color:var(--dim);font-size:10.5px;letter-spacing:.06em}
+.legend i{display:inline-block;width:14px;height:2px;border-radius:1px;vertical-align:3px;margin-right:6px}
+.chart .now2{position:absolute;top:-10px;right:0;font-size:12px;letter-spacing:.01em}
 .axis{display:flex;justify-content:space-between;color:var(--faint);font-size:10.5px;margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
 
 /* live positions: the widget's card, in the page's own materials */
@@ -145,6 +152,7 @@ h1 em{font-style:italic;color:var(--gold)}
       <div class="card"><div class="label">Total LP value</div><div class="big" id="c1">&ndash;</div><div class="note" id="c1n">&nbsp;</div></div>
       <div class="card"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div></div>
       <div class="card"><div class="label">Fees earned</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div></div>
+      <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="c9">&ndash;</div><div class="note" id="c9n">&nbsp;</div></div>
       <div class="card"><div class="label">Rebalances</div><div class="big" id="c5">&ndash;</div><div class="note" id="c5n">&nbsp;</div></div>
     </div>
 
@@ -156,7 +164,8 @@ h1 em{font-style:italic;color:var(--gold)}
     </div>
 
     <div class="card">
-      <div class="label">Fees earned, over time &middot; at today's prices</div>
+      <div class="label">Fees &amp; net, over time &middot; fees at today's prices</div>
+      <div class="legend"><span><i style="background:var(--gold)"></i>Fees earned</span><span><i style="background:var(--text)"></i>Net &middot; fees + PnL</span></div>
       <div class="chart" id="c7"></div>
       <div class="axis" id="c7x"></div>
     </div>
@@ -223,6 +232,11 @@ h1 em{font-style:italic;color:var(--gold)}
     }).join('<br>') : 'nothing yet')
       ;
 
+    /* net: fees less what IL and price took */
+    $('c9').textContent = signed(C.net_usd);
+    $('c9').className = 'big ' + cls(C.net_usd);
+    $('c9n').textContent = 'fees ' + money(C.fees_usd) + ' · PnL ' + signed(C.pnl_usd);
+
     /* 5 */
     $('c5').textContent = C.rebalances;
     var r = v.rebalances[0];
@@ -252,32 +266,55 @@ h1 em{font-style:italic;color:var(--gold)}
     if (!s || s.length < 2) { box.innerHTML = '<div class="empty">The curve starts with the next six-hourly run.</div>'; $('c7x').innerHTML = ''; return; }
     var W = 600, H = 200, P = 4;
     var t0 = s[0].ts, t1 = s[s.length - 1].ts, span = Math.max(1, t1 - t0);
-    var vals = s.map(function (p) { return p.usd; });
+    var net = s.filter(function (p) { return p.net !== null && p.net !== undefined; });
+    var vals = s.map(function (p) { return p.usd; }).concat(net.map(function (p) { return p.net; }));
     var hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
-    /* a curve that barely moves is drawn against its own range, not against zero, so the
-       shape is visible; the rules carry the dollar levels either way */
-    var floor = lo > 0 && (hi - lo) < hi * 0.5 ? lo - (hi - lo) * 0.6 - 0.01 : 0;
-    var top = hi + (hi - floor) * 0.12 || 1;
+    var floor, top;
+    if (net.length > 1) {
+      /* Net can be below zero, so the range always takes in zero and pads both ends */
+      var a = Math.min(lo, 0), b = Math.max(hi, 0), pad = (b - a) * 0.1 || 1;
+      floor = a - (a < 0 ? pad : 0); top = b + pad;
+    } else {
+      /* a curve that barely moves is drawn against its own range, not against zero, so the
+         shape is visible; the rules carry the dollar levels either way */
+      floor = lo > 0 && (hi - lo) < hi * 0.5 ? lo - (hi - lo) * 0.6 - 0.01 : 0;
+      top = hi + (hi - floor) * 0.12 || 1;
+    }
     var x = function (t) { return P + (t - t0) / span * (W - 2 * P); };
     var y = function (u) { return H - P - (u - floor) / (top - floor) * (H - 2 * P); };
     var pts = s.map(function (p) { return x(p.ts).toFixed(1) + ',' + y(p.usd).toFixed(1); });
     var rules = '', marks = '';
+    /* below zero, the dashed zero line carries its own $0 and a rule too near it is left out */
+    if (floor < 0) marks += '<div style="position:absolute;left:0;top:calc(' + (y(0) / H * 100).toFixed(2) + '% - 15px);font-size:10px;color:var(--faint);letter-spacing:.04em">$0</div>';
     for (var i = 1; i <= 3; i++) {
       var v = floor + (top - floor) * i / 4, yy = y(v).toFixed(1);
+      if (floor < 0 && Math.abs(v) < (top - floor) * 0.1) continue;
       rules += '<line x1="0" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,.05)" vector-effect="non-scaling-stroke"/>';
       marks += '<div style="position:absolute;left:0;top:calc(' + (yy / H * 100).toFixed(2) + '% - 15px);font-size:10px;color:var(--faint);letter-spacing:.04em">' + esc(money(v)) + '</div>';
     }
     var lx = x(t1).toFixed(1), ly = y(s[s.length - 1].usd).toFixed(1);
+    var netPts = net.map(function (p) { return x(p.ts).toFixed(1) + ',' + y(p.net).toFixed(1); });
+    var last = s[s.length - 1], netLast = net.length > 1 && net[net.length - 1] === last ? last.net : null;
+    var zero = floor < 0 ? '<line x1="0" x2="' + W + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="rgba(255,255,255,.16)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>' : '';
+    var netLine = net.length > 1 ? '<polyline points="' + netPts.join(' ') + '" fill="none" stroke="#f2f0eb" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' : '';
+    var netDot = netLast !== null
+      ? '<div style="position:absolute;left:calc(' + (lx / W * 100).toFixed(2) + '% - 3.5px);top:calc(' + (y(netLast) / H * 100).toFixed(2) + '% - 3.5px);'
+        + 'width:7px;height:7px;border-radius:50%;background:' + (netLast >= 0 ? 'var(--up)' : 'var(--down)') + '"></div>'
+        + '<div class="now2 ' + cls(netLast) + '">Net ' + esc(signed(netLast)) + '</div>'
+      : '';
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-label="Cumulative fees">'
       + '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b97b" stop-opacity=".22"/>'
       + '<stop offset="1" stop-color="#d6b97b" stop-opacity="0"/></linearGradient></defs>'
       + rules
       + '<polygon points="' + P + ',' + (H - P) + ' ' + pts.join(' ') + ' ' + lx + ',' + (H - P) + '" fill="url(#fg)"/>'
+      + zero
       + '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d6b97b" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+      + netLine
       + '<line x1="0" x2="' + W + '" y1="' + (H - P) + '" y2="' + (H - P) + '" stroke="rgba(255,255,255,.08)" vector-effect="non-scaling-stroke"/>'
       + '</svg>' + marks
       + '<div style="position:absolute;left:calc(' + (lx / W * 100).toFixed(2) + '% - 4px);top:calc(' + (ly / H * 100).toFixed(2) + '% - 4px);'
       + 'width:8px;height:8px;border-radius:50%;background:#d6b97b;box-shadow:0 0 0 4px rgba(214,185,123,.15)"></div>'
+      + netDot
       + '<div class="now">' + esc(money(s[s.length - 1].usd)) + '</div>';
     $('c7x').innerHTML = '<span>' + esc(when(new Date(t0 * 1000).toISOString())) + '</span><span>now</span>';
   }

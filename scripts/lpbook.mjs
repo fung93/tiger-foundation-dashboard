@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { startBook, advanceBook, merklLp, bookLiveRows, feeTotals, BOOK_VERSION } from '../api/_core.mjs';
+import { startBook, advanceBook, merklLp, bookLiveRows, feeTotals, bookPnl, BOOK_VERSION } from '../api/_core.mjs';
 
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
 const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 1e8) / 1e8]));
@@ -39,7 +39,8 @@ export async function updateLpBook(root) {
      missing a chain's uncollected fees would draw as a drop that never happened. */
   const live = await bookLiveRows(book);
   if (!Object.keys(live.errors).length && !Object.keys(errors).length && !merkl.error) {
-    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)) });
+    const pnl = bookPnl(book, live.rows);
+    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }) });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 

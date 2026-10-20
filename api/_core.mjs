@@ -698,8 +698,10 @@ export function widgetView(pos, merkl) {
       2026-10-19: "only track the claimable from that particular LP position".
    5: the book's own fee total (top card, fee curve, chain rows) is KAT actually claimed
       from Merkl since tracking began plus Robinhood's fees; the live cards keep each
-      position's own rewards. Records every Merkl claim from the start block on. */
-export const BOOK_VERSION = 5;
+      position's own rewards. Records every Merkl claim from the start block on.
+   6: each point on the fee curve also carries the book's PnL at that moment, so the page
+      can draw Net (fees + PnL) beside the fees. */
+export const BOOK_VERSION = 6;
 const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
 const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 const tkey = (sym, chain) => sym + '@' + chain;
@@ -1018,7 +1020,8 @@ export async function startBook({ pos, data }) {
   const first = Math.min(...Object.values(book.started.chains).map((c) => c.ts));
   book.started.ts = first;
   book.started.iso = new Date(first * 1000).toISOString();
-  book.fee_series.push({ ts: first, tokens: {} });
+  /* nothing is open before the first mint, so PnL starts at exactly zero */
+  book.fee_series.push({ ts: first, tokens: {}, pnl_usd: 0 });
   return book;
 }
 
@@ -1055,6 +1058,8 @@ async function applyWindow(book, ch, a, b, merkl, tsCache) {
       const block = Number(toBig(l.blockNumber.slice(2)));
       const ts = l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : tsCache[block];
       const amount = Number(toBig(w(l.data, 0))) / 10 ** book.tokens[key].d;
+      /* a claim lands all at once, so the curve steps: the total just before it, then after */
+      book.fee_series.push({ ts: ts - 1, tokens: feeTotals(book, {}) });
       book.merkl_claimed = book.merkl_claimed || {};
       book.merkl_claimed[key] = (book.merkl_claimed[key] || 0) + amount;
       (book.claims = book.claims || []).push({ block, ts, wallet: toAddr(l.topics[1].slice(2)), token: key, amount });
@@ -1276,6 +1281,21 @@ export function feeTotals(book, rows) {
   return total;
 }
 
+/* The book's PnL (IL + price, excl. fees) at this moment: open positions at their live value,
+   closed ones as frozen. Null if any open position could not be read — a partial PnL is not
+   recorded as the real one. */
+export function bookPnl(book, rows) {
+  let pnl = 0;
+  for (const P of Object.values(book.positions)) {
+    if (P.status === 'open') {
+      const row = rows[P.key];
+      if (!row || row.liquidity_usd === null || row.liquidity_usd === undefined) return null;
+      pnl += row.liquidity_usd + P.out_usd - P.cost_usd;
+    } else pnl += P.frozen ? P.frozen.pnl_usd : P.out_usd - P.cost_usd;
+  }
+  return r2(pnl);
+}
+
 /* ---------- the page's view: every card, finished ---------- */
 export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const usdOf = (tokens) => {
@@ -1352,8 +1372,14 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   /* the fee curve, every point repriced at today's prices: it shows how much was earned
      by when, in what the tokens are worth now, and can fall on a day prices fall */
   const nowTs = Math.floor(Date.now() / 1000);
-  const series = book.fee_series.slice().sort((x, y) => x.ts - y.ts).map((p) => ({ ts: p.ts, usd: usdOf(p.tokens).usd }));
-  series.push({ ts: nowTs, usd: feeNow.usd, live: true });
+  /* Net beside it: the fees as repriced today plus the PnL recorded at that point. A point
+     saved before PnL was recorded has no Net and the Net line passes it by. */
+  const series = book.fee_series.slice().sort((x, y) => x.ts - y.ts).map((p) => {
+    const usd = usdOf(p.tokens).usd;
+    return { ts: p.ts, usd, net: typeof p.pnl_usd === 'number' ? r2(usd + p.pnl_usd) : null };
+  });
+  const netNow = unread.length ? null : r2(feeNow.usd + realised + unrealised);
+  series.push({ ts: nowTs, usd: feeNow.usd, net: netNow, live: true });
 
   const pairs = rebalances(book.events);
   return {
@@ -1364,6 +1390,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       pnl_usd: r2(realised + unrealised), realised_usd: r2(realised), unrealised_usd: r2(unrealised),
       chains,
       fees_usd: feeNow.usd, fee_tokens: feeTokens,
+      /* what the book has made: fees earned, less what IL and price took (or plus what they gave) */
+      net_usd: r2(feeNow.usd + realised + unrealised),
       fee_tokens_usd: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [k, prices[k] === undefined ? null : r2(a * prices[k])])),
       carried_usd: usdOf(carried).usd, carried_tokens: carried,
       rebalances: pairs.length,
