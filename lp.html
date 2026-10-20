@@ -221,11 +221,7 @@ h1 em{font-style:italic;color:var(--gold)}
     $('c4n').innerHTML = (toks.length ? toks.map(function (k) {
       return esc(amt(C.fee_tokens[k]) + ' ' + sym(k)) + (C.fee_tokens_usd[k] == null ? '' : ' <span style="color:var(--faint)">' + esc(money(C.fee_tokens_usd[k])) + '</span>');
     }).join('<br>') : 'nothing yet')
-      /* say what Katana's figure is made of, so it explains itself */
-      + (C.merkl && (C.merkl.claimable_usd >= 0.01 || C.merkl.claimed_usd >= 0.01)
-        ? '<br><span style="color:var(--faint)">Katana = Merkl claimable ' + esc(money(C.merkl.claimable_usd))
-          + (C.merkl.claimed_usd >= 0.01 ? ' + claimed since start ' + esc(money(C.merkl.claimed_usd)) : '')
-          + (C.merkl.stale ? ' (last read)' : '') + '</span>' : '');
+      ;
 
     /* 5 */
     $('c5').textContent = C.rebalances;
@@ -286,7 +282,7 @@ h1 em{font-style:italic;color:var(--gold)}
     $('c7x').innerHTML = '<span>' + esc(when(new Date(t0 * 1000).toISOString())) + '</span><span>now</span>';
   }
 
-  /* 6: one widget card per open position, with the wallet it belongs to */
+  /* 6: one widget card per open position */
   function live(list) {
     if (!list.length) { $('c6').innerHTML = '<div class="empty">Nothing open on any chain.</div>'; return; }
     $('c6').innerHTML = list.map(function (W) {
@@ -300,8 +296,7 @@ h1 em{font-style:italic;color:var(--gold)}
         + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
         + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
         + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
-        + '<div class="foot"><span>' + esc(W.chain) + ' ' + esc(W.id) + ' · ' + esc(W.wallet) + '</span>'
-        + '<span>' + esc(W.since) + ' · cost ' + esc(W.cost) + '</span></div></div>';
+        + '<div class="foot"><span>' + esc(W.since) + ' · cost ' + esc(W.cost) + '</span></div></div>';
     }).join('');
   }
 

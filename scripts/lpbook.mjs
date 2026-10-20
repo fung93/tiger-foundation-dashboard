@@ -38,10 +38,8 @@ export async function updateLpBook(root) {
   /* One point on the fee curve per run, unless a chain could not be read — a point
      missing a chain's uncollected fees would draw as a drop that never happened. */
   const live = await bookLiveRows(book);
-  /* the Merkl balance as this run saw it, so a later read that fails has a figure to stand on */
-  if (!merkl.error && merkl.claimable_tokens) book.last_claimable = round(merkl.claimable_tokens);
   if (!Object.keys(live.errors).length && !Object.keys(errors).length && !merkl.error) {
-    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows, merkl)) });
+    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)) });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 

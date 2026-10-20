@@ -57,8 +57,6 @@ export const V3 = [
     closed: (pos) => pos.closed || [],
     mintLookback: 2000000, logSpan: 200000,
     refPools: ['0x10045367e619caae6f60cc80046c43c6cd55f629'],   /* KAT/USDC, to price Merkl KAT */
-    /* Merkl's distributor: emits Claimed(user, token, amount) for every claim */
-    distributor: '0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae',
   },
   {
     key: 'robinhood', protocol: 'Uniswap V3', archive: false, yield: 'fees', merklChain: null,
@@ -592,7 +590,7 @@ function shape(p) {
    a position's yield fall. Every wallet is asked, and the answers merged. */
 export async function merklLp() {
   let total = 0, lp = 0, failed = false;
-  const byId = {}, tokensById = {}, claimedById = {}, walletById = {}, tokenPrice = {}, claimable = {};
+  const byId = {}, tokensById = {}, claimedById = {}, walletById = {}, tokenPrice = {};
   for (const { address } of CFG.wallets) {
     for (const ch of V3.filter((c) => c.merklChain)) {
       try {
@@ -605,12 +603,7 @@ export async function merklLp() {
             const key = sym + '@' + ch.key;
             if (px) tokenPrice[key] = px;
             const un = BigInt(rw.amount || '0') - BigInt(rw.claimed || '0') + BigInt(rw.pending || '0');
-            if (un > 0n) {
-              total += Number(un) / 10 ** dec * px;
-              /* claimable now plus what is accruing toward the next root — the figure Merkl and
-                 the dashboard's Merkl card both show */
-              claimable[key] = (claimable[key] || 0) + Number(un) / 10 ** dec;
-            }
+            if (un > 0n) total += Number(un) / 10 ** dec * px;
             for (const br of rw.breakdowns || []) {
               const reason = String(br.reason || '');
               if (!reason.startsWith('SUSHI')) continue;
@@ -634,7 +627,7 @@ export async function merklLp() {
   }
   return { total_usd: r2(total), lp_usd: r2(lp), earned_by_id: byId, earned_tokens_by_id: tokensById,
     claimed_tokens_by_id: claimedById, wallet_by_id: walletById,
-    claimable_tokens: claimable, token_price: tokenPrice, error: failed || undefined };
+    token_price: tokenPrice, error: failed || undefined };
 }
 
 /* ---------- the widget's own view ---------- */
@@ -698,10 +691,10 @@ export function widgetView(pos, merkl) {
    the prices of the block it closed in.
    ========================================================================== */
 /* 2: tracking starts at each chain's current positions' own mint, not at a photograph.
-   3: Katana's fees are Merkl's claimable balance plus claims since the start, so the
-      book also records every Merkl claim from the start block on. */
-export const BOOK_VERSION = 3;
-const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
+   3: (withdrawn) Katana's fees as the wallet's whole Merkl claimable balance.
+   4: Katana's fees are each position's own Merkl KAT again, from its own mint — Alex,
+      2026-10-19: "only track the claimable from that particular LP position". */
+export const BOOK_VERSION = 4;
 const tkey = (sym, chain) => sym + '@' + chain;
 const sumInto = (into, from, sign = 1) => {
   for (const k of Object.keys(from || {})) into[k] = (into[k] || 0) + sign * from[k];
@@ -850,21 +843,6 @@ export function feeTokensOf(P, uncollectedNow) {
 }
 const uncollectedOf = (P, row) => row && row.raw
   ? { [P.t0]: row.raw.fee0, [P.t1]: row.raw.fee1 } : null;
-
-/* Katana's fees, the way Alex reads them (2026-10-19): the KAT claimable on Merkl for the
-   tracked wallets right now — accruing included — plus every claim made since tracking
-   began. Claiming moves KAT to the wallet; it does not un-earn it, so the figure does not
-   drop when he claims. It is the chain's figure, not any one position's. If Merkl cannot be
-   read, the last balance a run saw stands in for it rather than reading as zero. */
-export function merklFees(book, merkl) {
-  const out = {};
-  const live = merkl && !merkl.error && merkl.claimable_tokens;
-  sumInto(out, live || book.last_claimable || {});
-  sumInto(out, book.merkl_claimed || {});
-  for (const k of Object.keys(out)) if (!(out[k] > 1e-12)) delete out[k];
-  return out;
-}
-const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 
 /* A position, written into the book from what the chain says it is. */
 function newPosition(chain, id, wallet, d, m0, m1, pool) {
@@ -1056,25 +1034,6 @@ async function applyWindow(book, ch, a, b, merkl, tsCache) {
   const fresh = mints.map((l) => ({ id: String(toBig(l.topics[3].slice(2))), wallet: toAddr(l.topics[2].slice(2)),
     block: Number(toBig(l.blockNumber.slice(2))), ts: l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : null }))
     .filter((m) => !book.positions[ch.key + ':' + m.id]);
-  /* 1b. KAT taken from Merkl since tracking began, by any tracked wallet */
-  if (ch.distributor) {
-    const cl = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.distributor, fromBlock: hx(a), toBlock: hx(b),
-      topics: [CLAIMED, walletTopics] }]);
-    for (const l of cl) {
-      const token = lc(toAddr(l.topics[2].slice(2)));
-      let key = Object.keys(book.tokens).find((k) => book.tokens[k].chain === ch.key && lc(book.tokens[k].a) === token);
-      if (!key) {
-        const m = (await tokenMeta(ch, [token]))[token];
-        key = registerToken(book, ch.key, m, null, null);
-      }
-      const e = book.tokens[key];
-      const amount = Number(toBig(w(l.data, 0))) / 10 ** e.d;
-      book.merkl_claimed = book.merkl_claimed || {};
-      book.merkl_claimed[key] = (book.merkl_claimed[key] || 0) + amount;
-      (book.claims = book.claims || []).push({ block: Number(toBig(l.blockNumber.slice(2))), wallet: toAddr(l.topics[1].slice(2)), token: key, amount });
-    }
-  }
-
   if (fresh.length) {
     const { d, meta } = await describe(ch, fresh.map((m) => m.id));
     await blockTimes(ch, fresh.filter((m) => m.ts === null).map((m) => m.block), tsCache);
@@ -1277,12 +1236,9 @@ export async function bookLiveRows(book) {
 }
 
 /* every fee token earned since the start, across the whole book, at this moment */
-export function feeTotals(book, rows, merkl) {
+export function feeTotals(book, rows) {
   const total = carriedTokens(book);
-  for (const P of Object.values(book.positions)) {
-    if (!isMerkl(P.chain)) sumInto(total, feeTokensOf(P, uncollectedOf(P, rows[P.key])));
-  }
-  sumInto(total, merklFees(book, merkl));
+  for (const P of Object.values(book.positions)) sumInto(total, feeTokensOf(P, uncollectedOf(P, rows[P.key])));
   return total;
 }
 
@@ -1306,25 +1262,12 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const carried = carriedTokens(book);
   const feeTokens = { ...carried };
   for (const [k, a] of Object.entries(carried)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
-  /* Katana's fees are Merkl's balance, the chain's own figure; each open Katana position's
-     card carries a share of it in proportion to the KAT that position has earned, so the
-     cards add up to the chain */
-  const mk = merklFees(book, merkl);
-  sumInto(feeTokens, mk);
-  for (const [k, a] of Object.entries(mk)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
-  const mkUsd = usdOf(mk).usd;
-  const openMerkl = Object.values(book.positions).filter((P) => P.status === 'open' && isMerkl(P.chain));
-  const weight = (P) => Object.values(feeTokensOf(P, null)).reduce((s2, x) => s2 + x, 0);
-  const wSum = openMerkl.reduce((s2, P) => s2 + weight(P), 0);
-  const shareOf = (P) => (wSum > 0 ? weight(P) / wSum : 1 / openMerkl.length);
   for (const P of Object.values(book.positions)) {
     const C = touch(P.chain);
     const row = rows[P.key];
     const tokens = feeTokensOf(P, uncollectedOf(P, row));
-    if (!isMerkl(P.chain)) {
-      sumInto(feeTokens, tokens);
-      C.fees_usd += usdOf(tokens).usd;
-    }
+    sumInto(feeTokens, tokens);
+    C.fees_usd += usdOf(tokens).usd;
     if (P.status === 'open') {
       C.open++;
       if (!row || row.liquidity_usd === null) { unread.push(P.key); continue; }
@@ -1332,10 +1275,10 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       value += row.liquidity_usd; unrealised += u;
       C.value_usd += row.liquidity_usd; C.unrealised_usd += u; C.pnl_usd += u;
       const view = widgetView(row, merkl);
-      /* the widget's yield is all-time; the book's is since tracking began — and on
-         Katana it is this position's share of the Merkl balance */
-      const earned = isMerkl(P.chain) ? r2(mkUsd * shareOf(P)) : usdOf(tokens).usd;
-      if (isMerkl(P.chain)) view.yield_label = 'Claimable';
+      /* The widget's yield is all-time; the book's is since the position opened. On Katana
+         it is this position's own Merkl KAT only — what it has made claimable, still
+         counted after it is claimed — never the wallet's whole balance. */
+      const earned = usdOf(tokens).usd;
       view.yield_value = money(earned);
       view.pnl = signed(u); view.pnl_up = u >= 0;
       view.net = signed(u + earned); view.net_up = u + earned >= 0;
@@ -1382,8 +1325,6 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       fees_usd: feeNow.usd, fee_tokens: feeTokens,
       fee_tokens_usd: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [k, prices[k] === undefined ? null : r2(a * prices[k])])),
       carried_usd: usdOf(carried).usd, carried_tokens: carried,
-      merkl: { claimable_usd: usdOf(merkl && !merkl.error && merkl.claimable_tokens ? merkl.claimable_tokens : (book.last_claimable || {})).usd,
-        claimed_usd: usdOf(book.merkl_claimed || {}).usd, stale: !!(merkl && merkl.error) },
       rebalances: pairs.length,
     },
     rebalances: pairs.slice().reverse(),

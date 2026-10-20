@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "started": {
   "ts": 1792147339,
   "iso": "2026-10-16T10:42:19.000Z",
@@ -32,8 +32,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 45721145,
-  "robinhood": 93112036
+  "katana": 45746914,
+  "robinhood": 93359197
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -141,7 +141,7 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 1628.2771429309676
+    "KAT@katana": 2126.104975799876
    },
    "unpriced": false
   },
@@ -215,63 +215,18 @@
    "tokens": {}
   },
   {
-   "ts": 1792418051,
+   "ts": 1792489706,
    "tokens": {
-    "WETH@robinhood": 0.00098431,
-    "USDG@robinhood": 2.289397,
-    "KAT@katana": 4684.96579316
-   }
-  },
-  {
-   "ts": 1792432687,
-   "tokens": {
-    "WETH@robinhood": 0.00110496,
-    "USDG@robinhood": 2.569602,
-    "KAT@katana": 5064.97684636
-   }
-  },
-  {
-   "ts": 1792447181,
-   "tokens": {
-    "WETH@robinhood": 0.00114143,
-    "USDG@robinhood": 2.66265,
-    "KAT@katana": 5454.09268799
-   }
-  },
-  {
-   "ts": 1792463956,
-   "tokens": {
-    "WETH@robinhood": 0.00121483,
-    "USDG@robinhood": 2.826813,
-    "KAT@katana": 5741.00065635
+    "KAT@katana": 2126.1049758,
+    "WETH@robinhood": 0.00129044,
+    "USDG@robinhood": 2.992785
    }
   }
  ],
  "runs": [
   {
-   "ts": 1792418051,
+   "ts": 1792489706,
    "started": true,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792432687,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792447181,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792463956,
    "behind": {
     "katana": 0,
     "robinhood": 0
@@ -280,8 +235,5 @@
  ],
  "carried": {
   "by_id": {}
- },
- "last_claimable": {
-  "KAT@katana": 5741.00065635
  }
 }
