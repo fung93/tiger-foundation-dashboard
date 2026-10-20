@@ -333,7 +333,8 @@ h1 em{font-style:italic;color:var(--gold)}
         + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
         + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
         + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
-        + '<div class="foot"><span>' + esc(W.since) + '</span><span>cost ' + esc(W.cost)
+        + '<div class="foot"><span>' + esc(W.since)
+        + (W.in_range_pct != null ? ' · ' + W.in_range_pct + '% in range' : '') + '</span><span>cost ' + esc(W.cost)
         + (W.value_now ? ' · value ' + esc(W.value_now) : '') + '</span></div></div>';
     }).join('');
   }

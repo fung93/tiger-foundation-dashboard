@@ -34,7 +34,8 @@ export async function updateLpBook(root) {
       + Object.entries(book.started.chains).map(([c, x]) => c + ' ' + x.iso.slice(0, 16)).join(', '));
   }
   /* a fresh book replays from those mints in the same run, so it is never written half-built */
-  ({ book, errors, behind } = await advanceBook(book, { merkl, maxWindows: 80, pos, data }));
+  /* the job also reads every swap, to keep each position's time in range */
+  ({ book, errors, behind } = await advanceBook(book, { merkl, maxWindows: 80, pos, data, ranges: true }));
   /* One point on the fee curve per run, unless a chain could not be read — a point
      missing a chain's uncollected fees would draw as a drop that never happened. */
   const live = await bookLiveRows(book);

@@ -700,8 +700,9 @@ export function widgetView(pos, merkl) {
       from Merkl since tracking began plus Robinhood's fees; the live cards keep each
       position's own rewards. Records every Merkl claim from the start block on.
    6: each point on the fee curve also carries the book's PnL at that moment, so the page
-      can draw Net (fees + PnL) beside the fees. */
-export const BOOK_VERSION = 6;
+      can draw Net (fees + PnL) beside the fees.
+   7: each position keeps how long it has been in range, read off its pool's swaps. */
+export const BOOK_VERSION = 7;
 const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
 const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 const tkey = (sym, chain) => sym + '@' + chain;
@@ -1034,7 +1035,56 @@ async function blockTimes(ch, blocks, cache) {
   }));
 }
 
-async function applyWindow(book, ch, a, b, merkl, tsCache) {
+/* ---------- time in range ----------
+   Every swap in a pool moves its price, so the share of a position's life the price sat
+   inside its band is read straight off the swaps: between one swap and the next the price
+   does not move. A position starts in range if its mint took both tokens. Robinhood leaves
+   log timestamps blank, so a swap's time is placed by its block between the window's two
+   ends. Run by the six-hourly job only — a busy pool has thousands of swaps a window, too
+   many to read on every page request; the page adds the minutes since at the live state. */
+async function rangeWindow(book, ch, a, b, tsCache) {
+  const live = Object.values(book.positions).filter((P) => P.chain === ch.key && P.opened_ts && P.pool
+    && (P.status === 'open' || (P.closed_block && P.closed_block >= a)) && (!P.range || P.range.block < b));
+  if (!live.length) return;
+  await blockTimes(ch, [a, b], tsCache);
+  const tA = tsCache[a], tB = tsCache[b];
+  const tsOf = (l, blk) => (l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp))
+    : tA + (tB - tA) * (blk - a) / Math.max(1, b - a));
+  const swaps = {};
+  for (const pool of [...new Set(live.map((P) => P.pool))]) {
+    const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: pool, topics: [SWAP], fromBlock: hx(a), toBlock: hx(b) }]);
+    swaps[pool] = logs.map((l) => {
+      const blk = Number(toBig(l.blockNumber.slice(2)));
+      return { blk, idx: Number(toBig(l.logIndex.slice(2))), ts: tsOf(l, blk), tick: Number(toSigned(w(l.data, 4))) };
+    }).sort((x, y) => x.blk - y.blk || x.idx - y.idx);
+  }
+  for (const P of live) {
+    if (!P.range) {
+      const d0 = P.deposits[0];
+      P.range = { ts: P.opened_ts, block: P.opened_block, in: !!(d0 && d0.a0 > 0 && d0.a1 > 0), in_s: 0, all_s: 0 };
+    }
+    const Rg = P.range;
+    const end = P.status === 'closed' && P.closed_block <= b ? { ts: P.closed_ts, blk: P.closed_block } : { ts: tB, blk: b };
+    for (const s of swaps[P.pool]) {
+      if (s.blk <= Rg.block || s.blk > end.blk) continue;
+      const dt = Math.max(0, s.ts - Rg.ts);
+      Rg.all_s += dt; if (Rg.in) Rg.in_s += dt;
+      Rg.ts = Math.max(Rg.ts, s.ts); Rg.block = s.blk;
+      Rg.in = s.tick >= P.lo && s.tick < P.hi;
+    }
+    const dt = Math.max(0, end.ts - Rg.ts);
+    Rg.all_s += dt; if (Rg.in) Rg.in_s += dt;
+    Rg.ts = Math.max(Rg.ts, end.ts); Rg.block = end.blk;
+  }
+}
+
+async function applyWindow(book, ch, a, b, merkl, tsCache, opt = {}) {
+  /* the window's events first; time in range last, once the window's mints and closes are known */
+  await windowEvents(book, ch, a, b, merkl, tsCache);
+  if (opt.ranges) await rangeWindow(book, ch, a, b, tsCache);
+}
+
+async function windowEvents(book, ch, a, b, merkl, tsCache) {
   const walletTopics = book.wallets.map((x) => '0x' + pad(x));
   const nowTs = Math.floor(Date.now() / 1000);
 
@@ -1178,7 +1228,7 @@ async function freeze(book, ch, P, merkl) {
    the others still move. A run takes at most `maxWindows` windows a chain, so it always
    finishes, and a book that has fallen behind catches up over several runs rather than
    timing out on one and never moving at all. */
-export async function advanceBook(input, { merkl, maxWindows = 60, pos, data } = {}) {
+export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false } = {}) {
   const book = JSON.parse(JSON.stringify(input));
   const errors = {}, behind = {};
 
@@ -1207,7 +1257,7 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data } =
       const tsCache = {};
       for (let n = 0; from <= head && n < maxWindows; n++) {
         const to = Math.min(from + ch.logSpan - 1, head);
-        await applyWindow(book, ch, from, to, merkl, tsCache);
+        await applyWindow(book, ch, from, to, merkl, tsCache, { ranges });
         book.last_block[ch.key] = to;
         from = to + 1;
       }
@@ -1380,6 +1430,11 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       view.since = (P.at_start ? 'tracked since ' : 'opened ') + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);
       /* what the position is worth now, beside what it cost, excl. fees like the top card */
       view.value_now = money(row.liquidity_usd);
+      if (P.range) {
+        const tail = Math.max(0, Date.now() / 1000 - P.range.ts);
+        const inS = P.range.in_s + (row.in_range ? tail : 0), allS = P.range.all_s + tail;
+        if (allS > 0) view.in_range_pct = Math.round(inS / allS * 100);
+      }
       const apr = positionApr(book, P, tokens, usdOf);
       view.apr = apr ? pctText(apr.pct) : '–';
       view.apr_basis = apr ? apr.basis : 'not enough time yet';
