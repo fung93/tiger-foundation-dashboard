@@ -925,7 +925,8 @@ var CFG={
      no longer hide a second — as the vbUSDC loan on avKAT was hidden from 2026-10-17. */
   morphoMarkets:[
     '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9', /* KAT loan on avKAT, 77% */
-    '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138'  /* vbUSDC loan on avKAT, 62.5% */
+    '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138', /* vbUSDC loan on avKAT, 62.5% */
+    '0x913c787d438ca1dab5f5485c2d2d6e2aa2dfee47a5f02edd11331ad25b219dcf'  /* vbUSDC loan on KAT, 62.5% (opened 2026-10-20) */
   ],
   tokens:{
     KAT:{a:'0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d',d:18},
@@ -1206,9 +1207,25 @@ function meteoraPosition(ref){
 }
 
 /* ============ live data assembly ============ */
+/* Markets entered since the snapshot's search stopped. The six-hourly job finds them too, but
+   a loan opened an hour ago should not be missing until then (one opened on 2026-10-20 was).
+   One wallet-filtered log query at Morpho from where the snapshot left off, at most every five
+   minutes; a query that fails just leaves it to the job. An id that is not a market reads as an
+   empty position and is skipped. */
+var MORPHO_FOUND={},MORPHO_SCAN_AT=0;
+function discoverMorpho(snap){
+  var from=snap&&snap.morpho_scanned_to;
+  if(!from||Date.now()-MORPHO_SCAN_AT<300000)return Promise.resolve();
+  MORPHO_SCAN_AT=Date.now();
+  var W='0x'+pad(CFG.wallet);
+  var q=function(topics){return rpc('eth_getLogs',[{address:CFG.morpho,fromBlock:'0x'+(from+1).toString(16),toBlock:'latest',topics:topics}]);};
+  return Promise.all([q([null,null,W]),q([null,null,null,W])]).then(function(rr){
+    rr[0].concat(rr[1]).forEach(function(l){if(l.topics[1])MORPHO_FOUND[l.topics[1].toLowerCase()]=1;});
+  }).catch(function(e){MORPHO_SCAN_AT=0;console.warn('morpho market search skipped',e);});
+}
 function morphoMarketList(snap){
   var seen={},out=[];
-  CFG.morphoMarkets.concat((snap&&snap.morpho_markets)||[]).forEach(function(id){
+  CFG.morphoMarkets.concat((snap&&snap.morpho_markets)||[],Object.keys(MORPHO_FOUND)).forEach(function(id){
     id=String(id).toLowerCase();if(!seen[id]){seen[id]=1;out.push(id);}
   });
   return out;
@@ -2088,7 +2105,8 @@ function loadLive(refs,snap){
     var ss=(snap&&snap.chains&&snap.chains.solana)||{};
     return{sol:0,usdc:ss.onchain_usd||0,solPrice:0,lps:ss.lp_positions||[],fromSnapshot:true};
   });
-  return Promise.all([getKatanaLive((snap&&snap.staked_lp_ids)||[],morphoMarketList(snap)),solP,getSushiAprs()]).then(function(rr){
+  var katP=discoverMorpho(snap).then(function(){return getKatanaLive((snap&&snap.staked_lp_ids)||[],morphoMarketList(snap));});
+  return Promise.all([katP,solP,getSushiAprs()]).then(function(rr){
     var kat=rr[0],sol=rr[1],aprMap=rr[2];
     var merklFallback=(snap&&snap.merkl_rewards)||null;
     /* snapshot APRs as fallback when Merkl is unreachable (e.g. local http) */
@@ -2129,7 +2147,7 @@ function loadLive(refs,snap){
         var net=Math.max(0,colUsd+supUsd-debtUsd);
         var avk=m.col==='avKAT',note;
         if(avk&&m.loan==='KAT')note='Net '+fmtN(m.collateral*kat.avkatRate+m.supplied-m.debt,0)+' KAT = '+fmt(net)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)';
-        else if(avk&&m.debt>0)note='Liquidates if KAT falls to $'+(debtUsd/(m.collateral*kat.avkatRate*(m.lltv/100))).toFixed(6)+' (now $'+kat.katPrice.toFixed(6)+') · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)';
+        else if((avk||m.col==='KAT')&&m.debt>0)note='Liquidates if KAT falls to $'+(debtUsd/(m.collateral*(avk?kat.avkatRate:1)*(m.lltv/100))).toFixed(6)+' (now $'+kat.katPrice.toFixed(6)+')'+(avk?' · avKAT rate '+kat.avkatRate.toFixed(4):'')+' (live)';
         else note='Net '+fmt(net)+' (live)';
         var row={type:'Lending',protocol:'Morpho Blue',market:L(m.loan)+' / '+L(m.col),market_id:m.id,
           collateral:{amount:m.collateral,token:L(m.col),usd:colUsd},
@@ -4207,7 +4225,12 @@ function render(d,isLive){
         var rate=p.avkat_rate||null;
         var hf,label,hColor,noteTxt;
         var cU=sideUsd(p.collateral),dU=sideUsd(p.debt);
-        if(rate&&p.debt.token!=='KAT'&&cU!==null&&dU){
+        /* a loan in a different money from its collateral — vbUSDC on avKAT or on KAT — is
+           measured in dollars; only a KAT loan on KAT-backed collateral is measured in KAT */
+        var sameMoney=p.debt.token==='KAT'&&(p.collateral.token==='avKAT'||p.collateral.token==='KAT');
+        var basis=rate?' (live avKAT rate)':' (floor estimate)';
+        if(!sameMoney&&cU!==null&&dU){
+          basis=' (live prices)';
           /* a loan in another token: health is the collateral's dollars against the loan's */
           hf=(cU*lltv)/dU;
           hColor=hf>=1.25?'var(--green)':hf>=1.05?'var(--gold)':'var(--red)';
@@ -4227,7 +4250,7 @@ function render(d,isLive){
         var barW=Math.min(100,Math.max(0,((hf-0.7)/0.5)*100));
         dl+='<div class="health-wrap">';
         dl+='<div class="health-row">';
-        dl+='<span style="color:var(--dim);font-size:12px">Health'+(rate?' (live avKAT rate)':' (floor estimate)')+'</span>';
+        dl+='<span style="color:var(--dim);font-size:12px">Health'+basis+'</span>';
         dl+='<span style="color:'+hColor+';font-size:12px;font-weight:700">'+label+' &nbsp;'+hf.toFixed(3)+'×</span>';
         dl+='</div>';
         dl+='<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+barW.toFixed(1)+'%;background:'+hColor+'"></div></div>';

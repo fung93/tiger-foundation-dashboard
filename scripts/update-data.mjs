@@ -78,6 +78,7 @@ const CFG = {
   morphoMarkets: [
     '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9', // KAT loan on avKAT, 77%
     '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138', // vbUSDC loan on avKAT, 62.5%
+    '0x913c787d438ca1dab5f5485c2d2d6e2aa2dfee47a5f02edd11331ad25b219dcf', // vbUSDC loan on KAT, 62.5% (opened 2026-10-20)
   ],
   morphoScannedTo: 45672135,
   tokens: {
@@ -2176,10 +2177,12 @@ const morphoRows = kat.morpho.map((m) => {
   if (avk && m.loan === 'KAT') {
     const colKat = m.collateral * kat.avkatRate;
     note = `Net ${Math.round(colKat + m.supplied - m.debt).toLocaleString('en-US')} KAT = $${net} · avKAT rate ${kat.avkatRate.toFixed(4)}`;
-  } else if (avk && m.debt > 0) {
-    /* a dollar loan on KAT: what matters is the KAT price at which it is liquidated */
-    const liq = debtUsd / (m.collateral * kat.avkatRate * (m.lltv / 100));
-    note = `Liquidates if KAT falls to $${liq.toFixed(6)} (now $${kat.katPrice.toFixed(6)}) · avKAT rate ${kat.avkatRate.toFixed(4)}`;
+  } else if ((avk || m.col === 'KAT') && m.debt > 0) {
+    /* a dollar loan on KAT, held as avKAT or as KAT itself: what matters is the KAT price at
+       which it is liquidated */
+    const liq = debtUsd / (m.collateral * (avk ? kat.avkatRate : 1) * (m.lltv / 100));
+    note = `Liquidates if KAT falls to $${liq.toFixed(6)} (now $${kat.katPrice.toFixed(6)})`
+      + (avk ? ` · avKAT rate ${kat.avkatRate.toFixed(4)}` : '');
   } else note = `Net $${net}`;
   return {
     type: 'Lending', protocol: 'Morpho Blue', market: `${L(m.loan)} / ${L(m.col)}`, market_id: m.id,

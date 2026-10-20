@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "started": {
   "ts": 1792147339,
   "iso": "2026-10-16T10:42:19.000Z",
@@ -32,8 +32,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 45746914,
-  "robinhood": 93359197
+  "katana": 45747459,
+  "robinhood": 93364395
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -215,17 +215,23 @@
    "tokens": {}
   },
   {
-   "ts": 1792489706,
+   "ts": 1792464553,
    "tokens": {
-    "KAT@katana": 2126.1049758,
-    "WETH@robinhood": 0.00129044,
-    "USDG@robinhood": 2.992785
+    "KAT@katana": 5653.494035902352
+   }
+  },
+  {
+   "ts": 1792490252,
+   "tokens": {
+    "WETH@robinhood": 0.00129189,
+    "USDG@robinhood": 2.998164,
+    "KAT@katana": 5653.4940359
    }
   }
  ],
  "runs": [
   {
-   "ts": 1792489706,
+   "ts": 1792490252,
    "started": true,
    "behind": {
     "katana": 0,
@@ -235,5 +241,17 @@
  ],
  "carried": {
   "by_id": {}
- }
+ },
+ "merkl_claimed": {
+  "KAT@katana": 5653.494035902352
+ },
+ "claims": [
+  {
+   "block": 45721742,
+   "ts": 1792464553,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 5653.494035902352
+  }
+ ]
 }

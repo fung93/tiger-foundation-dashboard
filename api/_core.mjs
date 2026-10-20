@@ -57,6 +57,8 @@ export const V3 = [
     closed: (pos) => pos.closed || [],
     mintLookback: 2000000, logSpan: 200000,
     refPools: ['0x10045367e619caae6f60cc80046c43c6cd55f629'],   /* KAT/USDC, to price Merkl KAT */
+    /* Merkl's distributor: emits Claimed(user, token, amount) for every claim */
+    distributor: '0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae',
   },
   {
     key: 'robinhood', protocol: 'Uniswap V3', archive: false, yield: 'fees', merklChain: null,
@@ -693,8 +695,13 @@ export function widgetView(pos, merkl) {
 /* 2: tracking starts at each chain's current positions' own mint, not at a photograph.
    3: (withdrawn) Katana's fees as the wallet's whole Merkl claimable balance.
    4: Katana's fees are each position's own Merkl KAT again, from its own mint — Alex,
-      2026-10-19: "only track the claimable from that particular LP position". */
-export const BOOK_VERSION = 4;
+      2026-10-19: "only track the claimable from that particular LP position".
+   5: the book's own fee total (top card, fee curve, chain rows) is KAT actually claimed
+      from Merkl since tracking began plus Robinhood's fees; the live cards keep each
+      position's own rewards. Records every Merkl claim from the start block on. */
+export const BOOK_VERSION = 5;
+const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
+const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 const tkey = (sym, chain) => sym + '@' + chain;
 const sumInto = (into, from, sign = 1) => {
   for (const k of Object.keys(from || {})) into[k] = (into[k] || 0) + sign * from[k];
@@ -1034,6 +1041,27 @@ async function applyWindow(book, ch, a, b, merkl, tsCache) {
   const fresh = mints.map((l) => ({ id: String(toBig(l.topics[3].slice(2))), wallet: toAddr(l.topics[2].slice(2)),
     block: Number(toBig(l.blockNumber.slice(2))), ts: l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : null }))
     .filter((m) => !book.positions[ch.key + ':' + m.id]);
+  /* 1b. KAT claimed from Merkl since tracking began, by any tracked wallet — this, not what
+     is still claimable, is what the book's fee total counts on a Merkl chain. Each claim also
+     puts a step on the fee curve at the moment it was made. */
+  if (ch.distributor) {
+    const cl = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.distributor, fromBlock: hx(a), toBlock: hx(b),
+      topics: [CLAIMED, walletTopics] }]);
+    if (cl.length) await blockTimes(ch, cl.filter((l) => !l.blockTimestamp || l.blockTimestamp === '0x0').map((l) => Number(toBig(l.blockNumber.slice(2)))), tsCache);
+    for (const l of cl) {
+      const token = lc(toAddr(l.topics[2].slice(2)));
+      let key = Object.keys(book.tokens).find((k) => book.tokens[k].chain === ch.key && lc(book.tokens[k].a) === token);
+      if (!key) key = registerToken(book, ch.key, (await tokenMeta(ch, [token]))[token], null, null);
+      const block = Number(toBig(l.blockNumber.slice(2)));
+      const ts = l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : tsCache[block];
+      const amount = Number(toBig(w(l.data, 0))) / 10 ** book.tokens[key].d;
+      book.merkl_claimed = book.merkl_claimed || {};
+      book.merkl_claimed[key] = (book.merkl_claimed[key] || 0) + amount;
+      (book.claims = book.claims || []).push({ block, ts, wallet: toAddr(l.topics[1].slice(2)), token: key, amount });
+      book.fee_series.push({ ts, tokens: feeTotals(book, {}) });
+    }
+  }
+
   if (fresh.length) {
     const { d, meta } = await describe(ch, fresh.map((m) => m.id));
     await blockTimes(ch, fresh.filter((m) => m.ts === null).map((m) => m.block), tsCache);
@@ -1236,9 +1264,15 @@ export async function bookLiveRows(book) {
 }
 
 /* every fee token earned since the start, across the whole book, at this moment */
+/* The book's fees earned since tracking began: on a Merkl chain the KAT actually claimed, on
+   the others each position's own fees. A position's unclaimed rewards show on its live card,
+   not here — they join this total the moment they are claimed, so nothing counts twice. */
 export function feeTotals(book, rows) {
   const total = carriedTokens(book);
-  for (const P of Object.values(book.positions)) sumInto(total, feeTokensOf(P, uncollectedOf(P, rows[P.key])));
+  for (const P of Object.values(book.positions)) {
+    if (!isMerkl(P.chain)) sumInto(total, feeTokensOf(P, uncollectedOf(P, (rows || {})[P.key])));
+  }
+  sumInto(total, book.merkl_claimed || {});
   return total;
 }
 
@@ -1262,12 +1296,19 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const carried = carriedTokens(book);
   const feeTokens = { ...carried };
   for (const [k, a] of Object.entries(carried)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
+  /* KAT claimed from Merkl since the start, to the chain it was claimed on */
+  const claimed = book.merkl_claimed || {};
+  sumInto(feeTokens, claimed);
+  for (const [k, a] of Object.entries(claimed)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
   for (const P of Object.values(book.positions)) {
     const C = touch(P.chain);
     const row = rows[P.key];
     const tokens = feeTokensOf(P, uncollectedOf(P, row));
-    sumInto(feeTokens, tokens);
-    C.fees_usd += usdOf(tokens).usd;
+    /* a Merkl chain's position rewards are its card's figure only; the totals count claims */
+    if (!isMerkl(P.chain)) {
+      sumInto(feeTokens, tokens);
+      C.fees_usd += usdOf(tokens).usd;
+    }
     if (P.status === 'open') {
       C.open++;
       if (!row || row.liquidity_usd === null) { unread.push(P.key); continue; }
@@ -1311,7 +1352,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   /* the fee curve, every point repriced at today's prices: it shows how much was earned
      by when, in what the tokens are worth now, and can fall on a day prices fall */
   const nowTs = Math.floor(Date.now() / 1000);
-  const series = book.fee_series.map((p) => ({ ts: p.ts, usd: usdOf(p.tokens).usd }));
+  const series = book.fee_series.slice().sort((x, y) => x.ts - y.ts).map((p) => ({ ts: p.ts, usd: usdOf(p.tokens).usd }));
   series.push({ ts: nowTs, usd: feeNow.usd, live: true });
 
   const pairs = rebalances(book.events);
