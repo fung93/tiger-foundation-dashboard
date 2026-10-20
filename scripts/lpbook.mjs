@@ -14,7 +14,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { startBook, advanceBook, merklLp, bookLiveRows, feeTotals, bookPnl, positionFees, BOOK_VERSION } from '../api/_core.mjs';
+import { CFG, startBook, advanceBook, merklLp, bookLiveRows, feeTotals, bookPnl, positionFees, BOOK_VERSION } from '../api/_core.mjs';
+
+/* the job has time: a node that asks it to slow down is waited out, not given up on */
+CFG.patient = true;
 
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
 const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 1e8) / 1e8]));

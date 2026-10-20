@@ -29,7 +29,8 @@ export default async function handler(req, res) {
     /* Four windows a chain covers the gap the Action leaves, with room to spare. If the
        Action has stopped and the gap is wider, the page is told how far behind it is
        rather than being kept waiting on a request that would time out. */
-    const { book: now, errors, behind } = await advanceBook(book, { merkl, maxWindows: 4 });
+    /* 'new': time in range is read here only for a position opened since the job last ran */
+    const { book: now, errors, behind } = await advanceBook(book, { merkl, maxWindows: 4, ranges: 'new' });
     const [live, prices] = await Promise.all([bookLiveRows(now), livePrices(now, merkl.token_price)]);
     const view = bookView(now, {
       rows: live.rows, prices, merkl,

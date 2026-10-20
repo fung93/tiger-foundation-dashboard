@@ -86,18 +86,28 @@ export const hx = (n) => '0x' + Number(n).toString(16);
 export async function rpc(url, method, params) {
   /* The public nodes drop a connection now and then; a figure that fails because of one
      reset socket is a figure nobody trusts, so every call gets a few attempts. */
+  /* A node that says "too many requests" is waited out rather than retried at once: patiently
+     by the six-hourly job (CFG.patient — it reads every swap of a busy pool, and Robinhood's
+     node rate-limits hard), briefly by a page request, which must answer in seconds. */
   let last;
-  for (let i = 0; i < 3; i++) {
+  const tries = CFG.patient ? 7 : 3;
+  for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       });
+      if (r.status === 429) throw new Error('Too Many Requests');
       const j = await r.json();
       if (j.error) throw new Error(j.error.message);
       return j.result;
-    } catch (e) { last = e; await new Promise((s) => setTimeout(s, 250 * (i + 1))); }
+    } catch (e) {
+      last = e;
+      const limited = /too many|rate.?limit|429/i.test(String((e && e.message) || e));
+      const wait = limited && CFG.patient ? Math.min(20000, 1000 * 2 ** i) : 250 * (i + 1);
+      await new Promise((s) => setTimeout(s, wait));
+    }
   }
   throw last;
 }
@@ -1040,11 +1050,15 @@ async function blockTimes(ch, blocks, cache) {
    inside its band is read straight off the swaps: between one swap and the next the price
    does not move. A position starts in range if its mint took both tokens. Robinhood leaves
    log timestamps blank, so a swap's time is placed by its block between the window's two
-   ends. Run by the six-hourly job only — a busy pool has thousands of swaps a window, too
-   many to read on every page request; the page adds the minutes since at the live state. */
-async function rangeWindow(book, ch, a, b, tsCache) {
+   ends. The six-hourly job reads every position's swaps (mode true). A page request reads
+   only those of a position opened since the job last ran (mode 'new') — its life is a few
+   hours at most, so that is cheap, and a new position shows its figure at once rather than
+   after the next run; for every other position the page adds the minutes since the job's
+   reading at the live state. */
+async function rangeWindow(book, ch, a, b, tsCache, mode) {
   const live = Object.values(book.positions).filter((P) => P.chain === ch.key && P.opened_ts && P.pool
-    && (P.status === 'open' || (P.closed_block && P.closed_block >= a)) && (!P.range || P.range.block < b));
+    && (P.status === 'open' || (P.closed_block && P.closed_block >= a)) && (!P.range || P.range.block < b)
+    && (mode !== 'new' || !P.range || P.range.fresh));
   if (!live.length) return;
   await blockTimes(ch, [a, b], tsCache);
   const tA = tsCache[a], tB = tsCache[b];
@@ -1061,7 +1075,8 @@ async function rangeWindow(book, ch, a, b, tsCache) {
   for (const P of live) {
     if (!P.range) {
       const d0 = P.deposits[0];
-      P.range = { ts: P.opened_ts, block: P.opened_block, in: !!(d0 && d0.a0 > 0 && d0.a1 > 0), in_s: 0, all_s: 0 };
+      P.range = { ts: P.opened_ts, block: P.opened_block, in: !!(d0 && d0.a0 > 0 && d0.a1 > 0), in_s: 0, all_s: 0,
+        ...(mode === 'new' ? { fresh: true } : {}) };
     }
     const Rg = P.range;
     const end = P.status === 'closed' && P.closed_block <= b ? { ts: P.closed_ts, blk: P.closed_block } : { ts: tB, blk: b };
@@ -1081,7 +1096,7 @@ async function rangeWindow(book, ch, a, b, tsCache) {
 async function applyWindow(book, ch, a, b, merkl, tsCache, opt = {}) {
   /* the window's events first; time in range last, once the window's mints and closes are known */
   await windowEvents(book, ch, a, b, merkl, tsCache);
-  if (opt.ranges) await rangeWindow(book, ch, a, b, tsCache);
+  if (opt.ranges) await rangeWindow(book, ch, a, b, tsCache, opt.ranges);
 }
 
 async function windowEvents(book, ch, a, b, merkl, tsCache) {
