@@ -1378,6 +1378,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       view.net = signed(u + earned); view.net_up = u + earned >= 0;
       view.cost = money(P.cost_usd);
       view.since = (P.at_start ? 'tracked since ' : 'opened ') + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);
+      /* what the position is worth now, beside what it cost, excl. fees like the top card */
+      view.value_now = money(row.liquidity_usd);
       const apr = positionApr(book, P, tokens, usdOf);
       view.apr = apr ? pctText(apr.pct) : '–';
       view.apr_basis = apr ? apr.basis : 'not enough time yet';
