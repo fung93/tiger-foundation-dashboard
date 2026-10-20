@@ -7,8 +7,8 @@
   "scope": "/widget",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#080c14",
-  "theme_color": "#080c14",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
       "src": "/icons/lp-192.png",

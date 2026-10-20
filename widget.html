@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#080c14">
+<meta name="theme-color" content="#050505">
 <title>LP Range</title>
 <link rel="manifest" href="/widget.webmanifest">
 <link rel="icon" href="/icons/lp-192.png">
@@ -13,324 +13,93 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LP Range">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- the very card the LP Book draws, and its LIVE stamp -->
+<link rel="stylesheet" href="/lpcards.css">
 <!--
-  LP range widget — one position, at a glance, on a phone's home screen.
+  LP range widget — the installed phone shortcut. It shows exactly the LP Book's live
+  position cards: the same card (lpcards.js / lpcards.css) drawn from the same
+  /api/lpbook view, so the two can never disagree. Tapping the title opens the full book.
 
-  Built for an Android web-page widget (the sort that renders a URL on a 5-minute timer) but
-  it is an ordinary page: it works in a browser tab and as an "add to home screen" shortcut.
-  All the arithmetic is finished by /api/lp, so this file only places what it is handed.
-
-  There is no copy of this under vercel/ — unlike index.html, which is edited there and
-  copied to the root. This page lives at the root only.
-
-  It deliberately does NOT register the service worker: a widget wants the live number, and
-  a page that can be served from a cache is a page that can show yesterday's price.
+  There is no copy of this under vercel/ — it lives at the root only. It does not
+  register the service worker: a widget wants the live number, not a cached one.
 
   Query string:
-    ?pos=<token id>   pin the widget to one position (default: the tightest band)
-    ?size=small       the 2x2 layout — price, bar, net, nothing else
-    ?all=1            every open position, one card each — what the installed app opens to
+    ?pos=<token id>   show only that position
 -->
 <style>
 :root{
-  --bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;
-  --accent:#f59e0b;--green:#10b981;--red:#ef4444;--gold:#fbbf24;
-  /* One knob drives every size, so the card keeps its proportions whether a widget app
-     captures it at 300px or 1100px wide. */
-  --u:clamp(9px,3.4vw,19px);
+  --bg:#050505;--card:#0b0b0c;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.04);
+  --text:#f2f0eb;--dim:#8f8b82;--faint:#58554f;
+  --gold:#d6b97b;--up:#6fcf97;--down:#e0796d;--warn:#e2b75c;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%}
-body{
-  font-family:'SF Mono',Monaco,Consolas,monospace;
-  background:var(--bg);color:var(--text);
-  font-size:var(--u);line-height:1.2;
-  -webkit-font-smoothing:antialiased;
-  display:flex;align-items:center;justify-content:center;padding:0.5em;
-}
-a.card{
-  /* Fills a widget-shaped capture, but stays a card rather than stretching into a wall of
-     gaps when the page is opened in a browser tab. */
-  flex:1;height:100%;max-height:15em;max-width:48em;
-  display:flex;flex-direction:column;justify-content:space-between;
-  background:var(--card);border:1px solid var(--border);border-radius:0.85em;
-  padding:0.85em 1em;text-decoration:none;color:inherit;
-  gap:0.7em;overflow:hidden;
-}
-
-/* In widget mode the stack must not exist as far as layout is concerned — the card stays a
-   direct flex child of the body so it still fills and centres. */
-.stack{display:contents}
-.appfoot{display:none}
-
-/* ---- the installed app: a whole screen, so every position gets a card ---- */
-body.all .appfoot{display:block}
-body.all{display:block;overflow-y:auto;padding:0.6em;
-  padding-top:max(0.6em,env(safe-area-inset-top));
-  padding-bottom:max(0.6em,env(safe-area-inset-bottom))}
-body.all .stack{display:flex;flex-direction:column;gap:0.6em;max-width:48em;margin:0 auto}
-body.all a.card{height:auto;max-height:none;min-height:9.5em}
-body.all .appfoot{text-align:center;color:#3f4c68;font-size:0.6em;padding:0.9em 0 0.3em}
-body.all .appfoot a{color:var(--dim);text-decoration:none;border-bottom:1px solid #223}
-
-/* ---- the top line: what this is, and whether it is working ---- */
-.top{display:flex;align-items:baseline;justify-content:space-between;gap:0.5em}
-.pair{font-size:0.82em;font-weight:700;letter-spacing:0.02em;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
-.badge{font-size:0.62em;padding:0.18em 0.5em;border-radius:1em;white-space:nowrap;flex:none;
-  border:1px solid currentColor;letter-spacing:0.03em}
-.in{color:var(--green)}
-.out{color:var(--red)}
-
-/* ---- the range line ---- */
-/* The price label rides above the marker, so the band reserves a line for it — without
-   that the marker is drawn straight through the digits. */
-.band{position:relative;padding-top:1.3em}
-.price{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;
-  font-size:0.78em;font-weight:700;color:var(--gold)}
-.track{position:relative;height:0.42em;border-radius:0.21em;background:#16203a}
-.fill{position:absolute;inset:0;border-radius:inherit;background:rgba(16,185,129,.28)}
-.fill.oor{background:rgba(239,68,68,.25)}
-/* The marker lives inside the track, not beside it, so it stays on the line in every
-   layout — as a sibling it drifted the moment the price label moved into the flow. */
-.mark{position:absolute;top:-0.26em;width:0.17em;height:0.94em;border-radius:0.09em;
-  background:var(--green);transform:translateX(-50%);box-shadow:0 0 0.5em rgba(16,185,129,.6)}
-.mark.oor{background:var(--red);box-shadow:0 0 0.5em rgba(239,68,68,.6)}
-.ends{display:flex;justify-content:space-between;gap:0.4em;margin-top:0.52em;
-  font-size:0.62em;color:var(--dim);white-space:nowrap}
-.ends .mid{color:#7c8aa8;overflow:hidden;text-overflow:ellipsis}
-.ends .mid.near{color:var(--accent)}
-
-/* ---- the three figures ---- */
-.figs{display:flex;gap:0.5em}
-.fig{flex:1;min-width:0}
-.fig .k{font-size:0.6em;color:var(--dim);letter-spacing:0.04em;white-space:nowrap}
-.fig .v{font-size:0.86em;font-weight:700;margin-top:0.12em;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
-.up{color:var(--green)}.down{color:var(--red)}
-
-.foot{font-size:0.56em;color:#3f4c68;display:flex;justify-content:space-between;gap:0.5em}
-.stale{color:var(--accent)}
-
-/* ---- the 2x2 layout: the two things worth a quarter of a screen ---- */
-body.small .top .badge,body.small .ends,body.small .figs .fig.hide,body.small .foot{display:none}
-body.small .figs{gap:0}
-body.small .pair{font-size:0.7em;color:var(--dim);font-weight:400}
-body.small .band{padding-top:0}
-body.small .price{position:static;transform:none;font-size:1.5em;display:block;margin-bottom:0.3em}
-body.small .fig .v{font-size:1.15em}
-
-/* A capture at an odd aspect should not clip the card. */
-@media (max-height:150px){:root{--u:clamp(8px,4.6vh,16px)}}
+html,body{background:var(--bg)}
+body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
+  -webkit-font-smoothing:antialiased;letter-spacing:.005em;
+  padding:max(18px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))}
+a{color:inherit}
+header{max-width:1240px;margin:0 auto 4px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
+  padding-bottom:12px;border-bottom:1px solid var(--line)}
+h1{font:400 26px/1 var(--serif);letter-spacing:.01em}
+h1 a{text-decoration:none}
+h1 em{font-style:italic;color:var(--gold)}
+.lpw-grid{max-width:1240px;margin-left:auto;margin-right:auto}
+.empty{color:var(--faint);font-size:12.5px;padding:14px 0;font-style:italic}
 </style>
 </head>
 <body>
-<!-- One card. In app mode it is cloned per position, so everything inside is addressed by
-     class rather than id — an id would stop being unique the moment there are two. -->
-<div class="stack" id="stack">
-  <a class="card" href="/">
-    <div class="top">
-      <div class="pair">LP range</div>
-      <div class="badge">&middot;&middot;&middot;</div>
-    </div>
+<header>
+  <h1><a href="/lp.html" title="Open the LP Book">LP <em>Book</em></a></h1>
+  <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
+</header>
+<div class="lpw-grid" id="cards"></div>
 
-    <div class="band">
-      <div class="price" style="left:50%">$--</div>
-      <div class="track"><div class="fill"></div><div class="mark" style="left:50%"></div></div>
-      <div class="ends">
-        <span class="lower">$--</span>
-        <span class="mid edges"></span>
-        <span class="upper">$--</span>
-      </div>
-    </div>
-
-    <div class="figs">
-      <div class="fig"><div class="k yk">Rewards</div><div class="v up yv">$--</div></div>
-      <div class="fig hide"><div class="k">P&amp;L</div><div class="v pnl">$--</div></div>
-      <div class="fig"><div class="k">Net</div><div class="v net">$--</div></div>
-    </div>
-
-    <div class="foot"><span class="meta"></span><span class="when"></span></div>
-  </a>
-</div>
-<div class="appfoot">open LP positions only &middot; <a href="/lp.html">the LP book</a> &middot; <a href="/">the full dashboard</a></div>
-
+<script src="/lpcards.js"></script>
 <script>
 (function () {
-  var Q = new URLSearchParams(location.search);
-  if (Q.get('size') === 'small') document.body.classList.add('small');
-
-  /* App mode: the installed icon opens a whole screen, so it shows every open position
-     rather than the one a 4x2 strip has room for. */
-  var ALL = Q.get('all') === '1' || Q.get('all') === 'true';
-  if (ALL) document.body.classList.add('all');
-
-  var stack = document.getElementById('stack');
-  var TPL = stack.firstElementChild;
-  var cards = [TPL];
-  function cardAt(i) {
-    while (cards.length <= i) {
-      var c = TPL.cloneNode(true);
-      stack.appendChild(c);
-      cards.push(c);
-    }
-    return cards[i];
-  }
-  var q = function (card, cls) { return card.querySelector('.' + cls); };
-
-  var API = '/api/lp' + (Q.get('pos') ? '?pos=' + encodeURIComponent(Q.get('pos')) : '');
+  var $ = function (id) { return document.getElementById(id); };
+  var pin = (new URLSearchParams(location.search).get('pos') || '').replace(/^#/, '');
   var lastGood = 0;
 
-  /* The endpoint reads the chain, which takes a second or two. A widget app that snapshots
-     the page on a timer can easily photograph it before that lands, so the last good answer
-     is kept and painted immediately — the age stamp then says how old it is. One slot per
-     pinned position, so two widgets do not overwrite each other. */
-  var KEY = 'tf_lp_widget:' + (Q.get('pos') || 'default');
-  function remember(d) {
-    try { localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+  function paint(v) {
+    var views = (v && v.live) || [];
+    if (pin) views = views.filter(function (W) { return String(W.id).replace(/^#/, '') === pin; });
+    $('cards').innerHTML = LPCards.list(views);
   }
-  function recall() {
-    try {
-      var o = JSON.parse(localStorage.getItem(KEY) || 'null');
-      return o && o.d && o.d.widget ? o : null;
-    } catch (e) { return null; }
-  }
+  function stamp(failed) { LPCards.stamp($('stamp'), lastGood, failed); }
 
-  /* Which chains were actually read. A chain that errors is the difference between "you
-     have nothing open" and "I could not see", and the card has to say which. */
-  function chainNote(d) {
-    if (d.errors && d.errors.length) return 'could not read: ' + d.errors.join('; ');
-    var ch = d.chains || {};
-    var names = Object.keys(ch);
-    return names.length ? 'checked ' + names.join(', ') : '';
-  }
+  /* the LP Book's own last answer (same origin, same key) paints at once on opening */
+  var KEY = 'tf_lpbook';
+  try { var seed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (seed && seed.v && seed.v.live) { paint(seed.v); lastGood = seed.t; stamp(false); } } catch (e) {}
 
-  /* One position onto one card. */
-  function fill(card, W) {
-    var oor = !W.in_range;
-
-    q(card, 'pair').textContent = W.pair;
-    q(card, 'badge').textContent = W.status;
-    q(card, 'badge').className = 'badge ' + (oor ? 'out' : 'in');
-
-    /* The marker and the price label share one position so they can never disagree. Kept a
-       little off each end, because a label centred on 0% or 100% hangs off the card. */
-    var p = Math.max(3, Math.min(97, W.position_pct));
-    q(card, 'mark').style.left = p + '%';
-    q(card, 'mark').className = 'mark' + (oor ? ' oor' : '');
-    q(card, 'fill').className = 'fill' + (oor ? ' oor' : '');
-    q(card, 'price').style.left = p + '%';
-    q(card, 'price').textContent = W.price;
-
-    q(card, 'lower').textContent = W.lower;
-    q(card, 'upper').textContent = W.upper;
-    q(card, 'edges').textContent = W.edges;
-    /* Under a quarter of a percent of room is worth a colour: that is minutes, not days. */
-    q(card, 'edges').className = 'mid edges' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '');
-
-    q(card, 'yk').textContent = W.yield_label;
-    q(card, 'yv').textContent = W.yield_value;
-    q(card, 'pnl').textContent = W.pnl;
-    q(card, 'pnl').className = 'v pnl ' + (W.pnl_up ? 'up' : 'down');
-    q(card, 'net').textContent = W.net;
-    q(card, 'net').className = 'v net ' + (W.net_up ? 'up' : 'down');
-
-    /* A position found on chain before the six-hourly job has booked it knows its band and
-       its value but not what went into it, so it says so rather than showing a P&L of nothing. */
-    q(card, 'meta').textContent = W.id + (W.held ? ' · ' + W.held : '') + ' · ' + W.width
-      + (W.fees_to_dao ? ' · ' + W.fees_to_dao + ' fees → DAO' : '')
-      + (W.pending ? ' · new — cost not booked yet' : '')
-      + (PROBLEM ? ' · ' + PROBLEM : '');
-  }
-
-  var PROBLEM = '';
-  function paint(d, when) {
-    /* A chain that errored is the difference between "nothing is open" and "I could not
-       see", so it is carried onto the card rather than left in the response. */
-    PROBLEM = (d.errors && d.errors.length) ? 'could not read ' + d.errors.length + ' chain(s)' : '';
-    /* An older cached payload may predate `widgets`, so the single view is the fallback. */
-    var views = ALL ? (d.widgets && d.widgets.length ? d.widgets : [d.widget]) : [d.widget];
-    views = views.filter(Boolean);
-    if (!views.length) {
-      var c0 = cardAt(0);
-      q(c0, 'pair').textContent = 'No open LP';
-      q(c0, 'badge').textContent = 'none';
-      q(c0, 'badge').className = 'badge';
-      q(c0, 'price').textContent = '--';
-      q(c0, 'price').style.left = '50%';
-      q(c0, 'mark').style.left = '50%';
-      q(c0, 'mark').className = 'mark';
-      q(c0, 'fill').className = 'fill';
-      q(c0, 'lower').textContent = '';
-      q(c0, 'upper').textContent = '';
-      q(c0, 'edges').textContent = 'nothing open on any chain';
-      q(c0, 'edges').className = 'mid edges';
-      q(c0, 'yv').textContent = '--';
-      q(c0, 'pnl').textContent = '--';
-      q(c0, 'net').textContent = '--';
-      q(c0, 'meta').textContent = chainNote(d);
-      for (var z = 1; z < cards.length; z++) cards[z].style.display = 'none';
-      lastGood = when || Date.now();
-      stamp(false);
-      return;
-    }
-
-    views.forEach(function (W, i) { fill(cardAt(i), W); });
-    /* a position closed since the cached payload was written leaves a card behind */
-    for (var i = views.length; i < cards.length; i++) cards[i].style.display = 'none';
-    for (var j = 0; j < views.length; j++) cards[j].style.display = '';
-
-    lastGood = when || Date.now();
-    stamp(false);
-  }
-
-  /* How old the figures are, in the words a glance needs. A widget that cannot say when it
-     last managed to read the chain is a widget that can quietly lie. */
-  function stamp(failed) {
-    var age = lastGood ? Math.round((Date.now() - lastGood) / 60000) : null;
-    var txt = age === null ? 'no data yet' : age < 1 ? 'just now' : age + 'm ago';
-    var cls = failed || (age !== null && age > 20) ? 'when stale' : 'when';
-    cards.forEach(function (c) {
-      q(c, 'when').textContent = txt;
-      q(c, 'when').className = cls;
-    });
-  }
-
-  /* Opening the page fires both the first load and the visibility handler, which fetched
-     twice within a fifth of a second. Harmless on a desktop, wasteful on a phone that does
-     it every time the screen wakes, so a request in flight or barely finished stands. */
+  /* opening fires both the first load and the visibility handler; a request in flight or
+     barely finished stands */
   var inflight = false, lastTry = 0;
   function load() {
     var now = Date.now();
     if (inflight || now - lastTry < 3000) return;
     inflight = true; lastTry = now;
-    /* No cache-buster in the URL. The endpoint reads the chain and looks for positions the
-       ledger has not caught up with, which takes a couple of seconds, and a unique URL made
-       every single refresh miss the CDN and pay that again. A stable one is served from the
-       edge for up to a minute — fresh enough for a widget that redraws every minute anyway —
-       while no-store keeps this browser's own cache out of it. */
-    fetch(API, { cache: 'no-store' })
+    fetch('/api/lpbook', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
-      .then(function (d) {
+      .then(function (v) {
         inflight = false;
-        /* A reply that says there is nothing open is an answer, not a failure. Treating it
-           as one is why a position closed hours ago stayed on the card: the endpoint had
-           stopped returning it and the page kept painting the last one it liked. Only a
-           fetch that never landed leaves the previous reading up. */
-        if (!d || d.error) { stamp(true); return; }
-        paint(d); remember(d);
+        /* an answer that nothing is open is an answer; only a failed fetch keeps the last cards */
+        if (!v || v.error || !v.live) { stamp(true); return; }
+        paint(v); lastGood = Date.now(); stamp(false);
+        try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
       })
-      .catch(function () { inflight = false; stamp(true); });   /* keep the last good numbers */
+      .catch(function () { inflight = false; stamp(true); });
   }
-
-  var seed = recall();
-  if (seed) paint(seed.d, seed.t);
   load();
-  setInterval(load, 60000);
-  /* A widget app may keep this page alive and hidden for hours; refresh the moment it is
-     shown again so what appears on screen is never the number from before the gap. */
+  setInterval(load, 15000);                                  /* as on the LP Book */
+  setInterval(function () { stamp(false); }, 1000);          /* the clock runs */
+  /* a widget app may keep this alive and hidden for hours: refresh the moment it is shown */
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
-  setInterval(function () { stamp(false); }, 30000);
 })();
 </script>
 </body>

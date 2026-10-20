@@ -9,7 +9,8 @@ import { vaultValue } from './_core.mjs';
 
 export default async function handler(req, res) {
   res.setHeader('access-control-allow-origin', '*');
-  res.setHeader('cache-control', 's-maxage=60, stale-while-revalidate=240');
+  /* asked every fifteen seconds by the dashboard; ten at the edge keeps it fresh */
+  res.setHeader('cache-control', 's-maxage=10, stale-while-revalidate=5');
   res.setHeader('content-type', 'application/json; charset=utf-8');
   try {
     const host = req.headers['x-forwarded-host'] || req.headers.host;

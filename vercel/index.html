@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiger Foundation Dashboard</title>
-<meta name="theme-color" content="#0f1623">
+<meta name="theme-color" content="#050505">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,9 +16,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script>
-/* the classy theme goes on before anything paints; remembered on this device only */
-try{if(localStorage.getItem('tf_theme')==='classy'){document.documentElement.classList.add('classy');
-  document.querySelector('meta[name="theme-color"]').setAttribute('content','#050505');}}catch(e){}
+/* The classy theme is the main one and goes on before anything paints; the cute tiger is
+   the alternative, remembered on this device only. A new key, so every device opens classy
+   once even if it had switched back to the tiger before (2026-10-20). */
+var TF_THEME_KEY='tf_theme2';
+try{if(localStorage.getItem(TF_THEME_KEY)!=='tiger')document.documentElement.classList.add('classy');
+  else document.querySelector('meta[name="theme-color"]').setAttribute('content','#0f1623');}
+catch(e){document.documentElement.classList.add('classy');}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -4587,7 +4591,7 @@ function refreshVault(){
     if(useVault(v,true)&&LAST_DATA)render(LAST_DATA,liveRendered);
   }).catch(function(e){console.warn('vault read failed, keeping the last figure',e);});
 }
-setInterval(refreshVault,60000);
+setInterval(refreshVault,15000);   /* the vault holds an LP too: as fresh as the rest */
 
 /* An auto-refresh must not yank an open ledger back to the top under the reader's finger.
    The page number survives on its own — POS_PAGE outlives the rebuild — but scroll doesn't. */
@@ -4863,13 +4867,13 @@ function setOffline(off){
   var sync=function(){
     var on=document.documentElement.classList.contains('classy');
     btn.setAttribute('aria-pressed',on?'true':'false');
-    btn.title=on?'Switch to the original theme':'Switch to the classy theme';
+    btn.title=on?'Switch to the cute tiger theme':'Switch to the classy theme';
     if(meta)meta.setAttribute('content',on?'#050505':'#0f1623');
   };
   sync();
   btn.addEventListener('click',function(){
     var on=document.documentElement.classList.toggle('classy');
-    try{localStorage.setItem('tf_theme',on?'classy':'original');}catch(e){}
+    try{localStorage.setItem(TF_THEME_KEY,on?'classy':'tiger');}catch(e){}
     sync();
     try{placeRocket();}catch(e){}
     try{drawHistory();}catch(e){console.warn('history chart redraw',e);}

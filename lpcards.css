@@ -1,0 +1,46 @@
+/* ============================================================================
+   lpcards.css — the live LP position card and the LIVE stamp, shared.
+
+   One file for both pages that show a position: the LP Book (/lp.html) and the
+   phone widget (/widget.html). They draw the same card from the same /api/lpbook
+   view, so they cannot drift apart. Colours and fonts come from the page's own
+   :root tokens (--text, --gold, --up, --down, --serif ...).
+   ========================================================================== */
+
+/* LIVE and a running clock, as on the Tiger Foundation page: two lines in a box of fixed
+   height, so nothing moves when the first answer arrives */
+.stamp{color:var(--dim);font-size:11.5px;text-align:right;letter-spacing:.04em;line-height:1.5;height:3em;white-space:nowrap}
+.stamp .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--up);margin-right:6px;vertical-align:1px;
+  box-shadow:0 0 0 3px rgba(111,207,151,.12);animation:pulse 2s infinite}
+.stamp .st{color:var(--up)}
+.stamp.stale .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(226,183,92,.12);animation:none}
+.stamp.stale .st{color:var(--warn)}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+
+/* live positions: the widget's card, in the page's own materials */
+.lpw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:16px}
+.lpw{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;color:var(--text);display:grid;gap:14px}
+.lpw .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lpw .pair{font:400 19px/1.1 var(--serif);letter-spacing:.01em}
+/* the live rate sits under the pair it belongs to */
+.lpw .apr{margin-top:5px;font-size:12px;font-weight:500;color:var(--gold);letter-spacing:.04em}
+.lpw .badge{font-size:9.5px;font-weight:500;padding:3px 9px;border-radius:99px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid currentColor}
+.lpw .in{color:var(--up)}.lpw .out{color:var(--down)}
+.lpw .band{position:relative;padding-top:22px}
+.lpw .price{position:absolute;top:0;transform:translateX(-50%);font-size:12.5px;font-weight:500;color:var(--gold);white-space:nowrap}
+.lpw .track{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.07)}
+.lpw .fill{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(111,207,151,.12),rgba(111,207,151,.32),rgba(111,207,151,.12))}
+.lpw .fill.oor{background:rgba(224,121,109,.28)}
+.lpw .mark{position:absolute;top:-5px;width:2px;height:14px;border-radius:1px;background:var(--text);transform:translateX(-50%);
+  box-shadow:0 0 0 3px rgba(242,240,235,.08)}
+.lpw .mark.oor{background:var(--down)}
+.lpw .ends{display:flex;justify-content:space-between;gap:6px;margin-top:9px;font-size:10.5px;color:var(--faint);white-space:nowrap}
+.lpw .mid{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+.lpw .mid.near{color:var(--warn)}
+.lpw .figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:12px;border-top:1px solid var(--line2)}
+.lpw .k{font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
+.lpw .v{font-size:16px;font-weight:300;margin-top:4px;white-space:nowrap;letter-spacing:-.01em}
+.lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
+.lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em}

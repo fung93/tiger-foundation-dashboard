@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v78';   /* the Tiger Vault is read live from its wallet */
+var CACHE_VERSION = 'tiger-v79';   /* the Tiger Vault is read live from its wallet */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -38,6 +38,9 @@ var SHELL_ASSETS = [
   '/widget.html',
   '/widget.webmanifest',
   '/lp.html',
+  /* the live position card, shared by the LP Book and the widget */
+  '/lpcards.css',
+  '/lpcards.js',
   '/icons/lp-192.png',
   '/icons/lp-512.png',
   '/icons/lp-maskable-512.png',

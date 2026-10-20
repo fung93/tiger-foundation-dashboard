@@ -12,8 +12,10 @@ import { merklLp, advanceBook, bookLiveRows, livePrices, bookView } from './_cor
 
 export default async function handler(req, res) {
   res.setHeader('access-control-allow-origin', '*');
-  /* a minute at the edge: the page redraws every minute anyway, and the chains are spared */
-  res.setHeader('cache-control', 's-maxage=60, stale-while-revalidate=240');
+  /* Ten seconds at the edge: the LP Book and the widget ask every fifteen, so price and fees
+     are never more than a few seconds behind the chain, while a page and a widget open at the
+     same moment share one read instead of doubling the load on Robinhood's rate limit. */
+  res.setHeader('cache-control', 's-maxage=10, stale-while-revalidate=5');
   res.setHeader('content-type', 'application/json; charset=utf-8');
 
   try {
