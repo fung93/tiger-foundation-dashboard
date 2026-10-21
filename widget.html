@@ -92,8 +92,12 @@ h1 b{font-weight:400;color:var(--text)}
         inflight = false;
         /* an answer that nothing is open is an answer; only a failed fetch keeps the last cards */
         if (!v || v.error || !v.live) { stamp(true); return; }
+        /* a chain that could not be read keeps the last full cards for a few minutes, as on the
+           LP Book, and a partial answer is never saved as the last good one */
+        var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
+        if (partial && lastGood && Date.now() - lastGood < 5 * 60000) return;
         paint(v); lastGood = Date.now(); stamp(false);
-        try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
+        if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
       })
       .catch(function () { inflight = false; stamp(true); });
   }

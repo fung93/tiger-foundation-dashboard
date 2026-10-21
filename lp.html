@@ -39,24 +39,19 @@
 
 <div class="stats">
   <div class="card"><div class="label">Total LP value</div><div class="big" id="c1">&ndash;</div><div class="note" id="c1n">&nbsp;</div></div>
-  <div class="card"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div></div>
+  <div class="card with-rec"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div>
+    <button class="rec" id="chainsBtn" type="button" title="By chain" aria-label="PnL by chain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div>
     <button class="rec" id="claimsBtn" type="button" title="Claim record" aria-label="Claim record"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="c9">&ndash;</div><div class="note" id="c9n">&nbsp;</div></div>
 </div>
 
 <div class="main">
-  <div class="two">
-    <div class="card">
-      <div class="label">PnL by chain</div>
-      <div id="c3"></div>
-    </div>
-    <div class="card">
-      <div class="label">Fees claimed &amp; net &middot; open positions</div>
-      <div class="legend"><span><i style="background:var(--gold)"></i>Fees claimed</span><span><i style="background:var(--text)"></i>Net &middot; fees + PnL</span></div>
-      <div class="chart" id="c7"></div>
-      <div class="axis" id="c7x"></div>
-    </div>
+  <div class="card">
+    <div class="label">Fees claimed &amp; net &middot; open positions</div>
+    <div class="legend"><span><i style="background:var(--gold)"></i>Fees claimed</span><span><i style="background:var(--text)"></i>Net &middot; fees + PnL</span></div>
+    <div class="chart" id="c7"></div>
+    <div class="axis" id="c7x"></div>
   </div>
   <div class="card">
     <div class="label">Live positions</div>
@@ -71,12 +66,21 @@
   </div>
 </div>
 
+<div class="modal-back" id="chainsModal" role="dialog" aria-modal="true" aria-label="PnL by chain">
+  <div class="modal">
+    <div class="modal-head"><span class="label">PnL by chain &middot; open positions</span><button class="modal-x" type="button" aria-label="Close">&times;</button></div>
+    <div class="modal-body"></div>
+  </div>
+</div>
+
 <script src="/lpcards.js"></script>
 <script src="/lpbook.js"></script>
 <script>
 (function () {
   var B = LPBook, $ = B.$, esc = B.esc, money = B.money, signed = B.signed, cls = B.cls, amt = B.amt;
   var claims = B.modal('claimsModal'), CLAIMS = [];
+  var byChain = B.modal('chainsModal'), CHAINS = '';
+  $('chainsBtn').addEventListener('click', function () { byChain.body.innerHTML = CHAINS; byChain.open(); });
 
   $('claimsBtn').addEventListener('click', function () {
     claims.body.innerHTML = CLAIMS.length ? CLAIMS.map(function (c) {
@@ -107,7 +111,7 @@
     $('c9').className = 'big ' + cls(C.net_usd);
     $('c9n').textContent = 'fees ' + money(C.fees_usd) + ' · PnL ' + signed(C.pnl_usd);
 
-    $('c3').innerHTML = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; }).map(function (k) {
+    CHAINS = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; }).map(function (k) {
       var c = C.chains[k];
       return '<div class="chain"><div class="name">' + esc(k) + '</div>'
         + '<div class="v" style="color:var(--dim)">' + esc(money(c.value_usd)) + '</div>'

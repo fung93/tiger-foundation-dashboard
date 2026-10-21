@@ -69,8 +69,6 @@ h1 b{font-weight:400;color:var(--text)}
 .card.with-rec .label{padding-right:28px}
 
 .main{max-width:1240px;margin:0 auto;display:grid;gap:18px;min-width:0}
-.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
-@media (max-width:960px){.two{grid-template-columns:minmax(0,1fr)}}
 
 /* by chain */
 .chain{display:grid;grid-template-columns:1fr auto auto;gap:6px 22px;padding:15px 0;border-top:1px solid var(--line2);align-items:baseline}

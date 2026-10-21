@@ -75,7 +75,7 @@
   }
 
   /* what could not be read, said out loud rather than drawn as an empty portfolio */
-  function health(hl) {
+  function health(hl, held) {
     var msgs = [];
     Object.keys(hl.errors || {}).forEach(function (k) { msgs.push('Could not read ' + k + ': ' + hl.errors[k]); });
     Object.keys(hl.behind || {}).forEach(function (k) {
@@ -83,13 +83,14 @@
     });
     if ((hl.unread || []).length) msgs.push('Open position(s) not valued this time: ' + hl.unread.join(', '));
     if ((hl.unpriced || []).length) msgs.push('No live price for ' + hl.unpriced.map(function (k) { return String(k).split('@')[0]; }).join(', ') + ' — left out of the fee total.');
+    if (held) msgs.push('Showing the last full reading until it can be read again.');
     $('health').innerHTML = msgs.map(esc).join('<br>');
     $('health').className = 'health' + (msgs.length ? ' on' : '');
   }
 
   /* every fifteen seconds, with the last good answer (same key as the widget) shown at once */
   function poll(render, ready) {
-    var KEY = 'tf_lpbook', lastGood = 0;
+    var KEY = 'tf_lpbook', HOLD = 5 * 60000, lastGood = 0;
     var stamp = function (failed) { LPCards.stamp($('stamp'), lastGood, failed); };
     try { var seed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (seed && seed.v && ready(seed.v)) { render(seed.v); lastGood = seed.t; stamp(false); } } catch (e) {}
     var inflight = false, lastTry = 0;
@@ -102,8 +103,14 @@
         .then(function (v) {
           inflight = false;
           if (!v || v.error || !ready(v)) { stamp(true); return; }
+          /* A chain that could not be read this time (a rate limit, most often) leaves its part
+             of the book at the last save, hours old: claims vanish, PnL jumps. For a few minutes
+             the last full reading stays on screen instead, under the warning; past that the
+             partial answer is shown, and it is never saved as the last good one. */
+          var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
+          if (partial && lastGood && Date.now() - lastGood < HOLD) { health(v.health, true); return; }
           render(v); health(v.health); lastGood = Date.now(); stamp(false);
-          try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
+          if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
         })
         .catch(function () { inflight = false; stamp(true); });
     }
