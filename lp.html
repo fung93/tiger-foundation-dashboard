@@ -40,7 +40,7 @@
 <div class="stats">
   <div class="card"><div class="label">Total LP value</div><div class="big" id="c1">&ndash;</div><div class="note" id="c1n">&nbsp;</div></div>
   <div class="card"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div></div>
-  <div class="card"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div>
+  <div class="card"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div>
     <button class="rec" id="claimsBtn" type="button" title="Claim record" aria-label="Claim record"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="c9">&ndash;</div><div class="note" id="c9n">&nbsp;</div></div>
 </div>
@@ -100,6 +100,8 @@
     $('c2n').textContent = 'what IL and price have done to the open positions';
 
     $('c4').textContent = money(C.fees_usd);
+    $('c4n').textContent = money(C.unclaimed_usd) + ' still to claim · '
+      + (C.last_claim_ts ? 'last claim ' + B.when(new Date(C.last_claim_ts * 1000).toISOString()) : 'nothing claimed yet');
 
     $('c9').textContent = signed(C.net_usd);
     $('c9').className = 'big ' + cls(C.net_usd);

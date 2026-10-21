@@ -1565,7 +1565,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0 });
   V3.forEach((c) => touch(c.key));
   let value = 0, unrealised = 0;
-  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {};
+  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {};
   for (const P of open) {
     const C = touch(P.chain);
     C.open++;
@@ -1600,6 +1600,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     const apr = positionApr(book, P, tokens, usdOf);
     view.apr = apr ? pctText(apr.pct) : '–';
     live.push(view);
+    /* what it has earned and not yet claimed: its own fees since opening, less its claims */
+    for (const [k, a] of Object.entries(tokens)) if (a - (got[k] || 0) > 0) sumInto(pending, { [k]: a - (got[k] || 0) });
   }
   for (const c of Object.values(chains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
   live.sort((x, y) => (x.chain + x.id).localeCompare(y.chain + y.id));
@@ -1702,6 +1704,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       fees_usd: feeNow.usd, fee_tokens: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [sym(k), a])),
       fee_tokens_usd: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [sym(k), prices[k] === undefined ? null : r2(a * prices[k])])),
       net_usd: r2(feeNow.usd + unrealised),
+      unclaimed_usd: usdOf(pending).usd, last_claim_ts: claimList.length ? claimList[0].ts : null,
       open: open.length, chains,
     },
     claims: claimList,
