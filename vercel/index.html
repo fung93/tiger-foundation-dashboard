@@ -4105,9 +4105,9 @@ function render(d,isLive){
   updateChangeChips();
   updateRoiToggle();
 
-  /* chains */
+  /* chains: the active ones first, then the inactive, each from the largest total down */
   var chains=d.chains||{};
-  var chainHtml='';
+  var chainList=[];
   CHAIN_ORDER.forEach(function(key){
     if(!chains[key])return;
     var ch=chains[key];
@@ -4121,7 +4121,7 @@ function render(d,isLive){
     var chTotal=(ch.total_usd||0)+vLpUsd+vBal+vLockUsd;
     var nPos=(ch.lp_positions||[]).length+(ch.defi_positions||[]).length+vLp.length+vLock.length;
     var inactive=chTotal<5&&!(ch.lp_positions||[]).length&&!vLp.length;
-    chainHtml+='<div class="chain-row'+(inactive?' inactive':'')+'">';
+    var chainHtml='<div class="chain-row'+(inactive?' inactive':'')+'">';
     chainHtml+=CHAIN_LOGO[key]
       ? '<div class="chain-logo">'+CHAIN_LOGO[key]+'</div>'
       : '<div class="chain-dot" style="background:'+dotColor+'"></div>';
@@ -4129,8 +4129,10 @@ function render(d,isLive){
     chainHtml+='<div class="chain-detail">'+fmt((ch.onchain_usd||0)+vBal)+' on-chain &nbsp;+&nbsp; '+fmt((ch.lp_total_usd||0)+vLpUsd)+' LP'
       +' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s')+'</div></div>';
     chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(chTotal)+'</div></div>';
+    chainList.push({inactive:inactive,total:chTotal,html:chainHtml});
   });
-  document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
+  chainList.sort(function(a,b){return (a.inactive-b.inactive)||(b.total-a.total);});
+  document.getElementById('chainRows').innerHTML=chainList.map(function(c){return c.html;}).join('')||'No chain data';
 
   /* positions — one card per DeFi type; every LP is rolled into a single combined card */
   var dl='';
