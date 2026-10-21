@@ -11,7 +11,6 @@
 
    Zero dependencies, like the rest of this repo.
    ========================================================================== */
-import { createHash } from 'node:crypto';   /* keccak-256, for a Uniswap V4 pool's id and storage slot */
 
 export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
@@ -1752,7 +1751,51 @@ const FB = {
   rangeKey: '0x2e32a3b0', rangeState: '0x41b69b2a', userPosition: '0x4eb5c4fd',
   extsload: '0x1e2eaeaf', bal: '0x00fdd58e', locks: '0xf4dadc61', ownerOf: '0x6352211e',
 };
-const keccakHex = (hex) => createHash('keccak-256').update(Buffer.from(String(hex).replace(/^0x/, ''), 'hex')).digest('hex');
+/* Keccak-256 (the Ethereum hash: Keccak padding 0x01, not SHA-3's 0x06), in plain JS so
+   it runs wherever the code does — Vercel's Node has no keccak in its crypto module. Slow
+   by hashing standards and fine here: a handful of 64-byte inputs per request. */
+const KM = (1n << 64n) - 1n;
+const KRC = ['0x1', '0x8082', '0x800000000000808a', '0x8000000080008000', '0x808b', '0x80000001',
+  '0x8000000080008081', '0x8000000000008009', '0x8a', '0x88', '0x80008009', '0x8000000a', '0x8000808b',
+  '0x800000000000008b', '0x8000000000008089', '0x8000000000008003', '0x8000000000008002',
+  '0x8000000000000080', '0x800a', '0x800000008000000a', '0x8000000080008081', '0x8000000000008080',
+  '0x80000001', '0x8000000080008008'].map(BigInt);
+const KROT = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14].map(BigInt);
+const krotl = (v, n) => (n === 0n ? v : ((v << n) | (v >> (64n - n))) & KM);
+function keccakF(s) {
+  for (let round = 0; round < 24; round++) {
+    const C = [0, 1, 2, 3, 4].map((x) => s[x] ^ s[x + 5] ^ s[x + 10] ^ s[x + 15] ^ s[x + 20]);
+    for (let x = 0; x < 5; x++) {
+      const D = C[(x + 4) % 5] ^ krotl(C[(x + 1) % 5], 1n);
+      for (let y = 0; y < 25; y += 5) s[y + x] ^= D;
+    }
+    const B = new Array(25);
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) B[y + 5 * ((2 * x + 3 * y) % 5)] = krotl(s[x + 5 * y], KROT[x + 5 * y]);
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) s[x + 5 * y] = (B[x + 5 * y] ^ ((~B[(x + 1) % 5 + 5 * y]) & B[(x + 2) % 5 + 5 * y])) & KM;
+    s[0] ^= KRC[round];
+  }
+}
+function keccak256(bytes) {
+  const rate = 136, s = new Array(25).fill(0n);
+  const msg = Array.from(bytes);
+  msg.push(0x01);
+  while (msg.length % rate) msg.push(0);
+  msg[msg.length - 1] |= 0x80;
+  for (let off = 0; off < msg.length; off += rate) {
+    for (let i = 0; i < rate / 8; i++) {
+      let lane = 0n;
+      for (let b = 7; b >= 0; b--) lane = (lane << 8n) | BigInt(msg[off + i * 8 + b]);
+      s[i] ^= lane;
+    }
+    keccakF(s);
+  }
+  let out = '';
+  for (let i = 0; i < 4; i++) for (let b = 0; b < 8; b++) out += Number((s[i] >> BigInt(8 * b)) & 0xffn).toString(16).padStart(2, '0');
+  return out;
+}
+const hexBytes = (hex) => { const h = String(hex).replace(/^0x/, ''); const a = []; for (let i = 0; i < h.length; i += 2) a.push(parseInt(h.slice(i, i + 2), 16)); return a; };
+/* a Uniswap V4 pool's id, and the storage slot of its price, are keccak hashes */
+const keccakHex = (hex) => keccak256(hexBytes(hex));
 const fablesPid = (id, wallet) => 'F' + lc(id).slice(2, 10) + '-' + lc(wallet).slice(2, 6);
 
 /* each range's pool and band — fixed for a range — with the storage slot of its pool's price */
