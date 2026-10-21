@@ -1748,7 +1748,7 @@ const FB = {
   STAKED: '0x5f1526e127c2ae64abea3117909f2c3ba68d66b293ec1256c0c0025cf7ade21a',
   UNSTAKED: '0x3f58555a19e04d0ac05f036e483136cdab4628e29210be59809a5184983057b6',
   SWAP: '0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f',    /* V4 Swap(id, sender, a0, a1, sqrtP, L, tick, fee) */
-  rangeKey: '0x2e32a3b0', rangeState: '0x41b69b2a', userPosition: '0x4eb5c4fd',
+  rangeKey: '0x2e32a3b0', rangeState: '0x41b69b2a', userPosition: '0x4eb5c4fd', claimFee: '0xd677eaad',
   extsload: '0x1e2eaeaf', bal: '0x00fdd58e', locks: '0xf4dadc61', ownerOf: '0x6352211e',
 };
 /* Keccak-256 (the Ethereum hash: Keccak padding 0x01, not SHA-3's 0x06), in plain JS so
@@ -1809,8 +1809,19 @@ async function fablesRanges(ch, ids) {
     const c0 = lc(toAddr(w(x, 0))), c1 = lc(toAddr(w(x, 1)));
     const fee = toBig(w(x, 2)), ts = toSigned(w(x, 3)), hooks = lc(toAddr(w(x, 4)));
     const poolId = keccakHex(pad(c0) + pad(c1) + pad(fee.toString(16)) + pad(BigInt.asUintN(256, ts).toString(16)) + pad(hooks));
-    out[lc(id)] = { c0, c1, lo: Number(toSigned(w(x, 5))), hi: Number(toSigned(w(x, 6))),
-      poolId: '0x' + poolId, slot: '0x' + keccakHex(poolId + pad('6')) };   /* pools mapping sits at slot 6 */
+    const lo = Number(toSigned(w(x, 5))), hi = Number(toSigned(w(x, 6)));
+    const state = keccakHex(poolId + pad('6'));                             /* pools mapping sits at slot 6 */
+    const at = (n) => (BigInt('0x' + state) + BigInt(n)).toString(16).padStart(64, '0');
+    const i24 = (t) => BigInt.asUintN(24, BigInt(t)).toString(16).padStart(6, '0');
+    const i256 = (t) => BigInt.asUintN(256, BigInt(t)).toString(16).padStart(64, '0');
+    /* the hook's own V4 position for the range (salt 0), and the band's two ticks: what the
+       range has earned since the hook last collected */
+    const pos = keccakHex(keccakHex(hooks.slice(2) + i24(lo) + i24(hi) + '0'.repeat(64)) + at(6));
+    const tk = (t) => keccakHex(i256(t) + at(4));
+    const plus = (h, n) => '0x' + (BigInt('0x' + h) + BigInt(n)).toString(16).padStart(64, '0');
+    out[lc(id)] = { c0, c1, lo, hi, poolId: '0x' + poolId, slot: '0x' + state,
+      feeSlots: [plus(state, 1), plus(state, 2), '0x' + pos, plus(pos, 1), plus(pos, 2),
+        plus(tk(lo), 1), plus(tk(lo), 2), plus(tk(hi), 1), plus(tk(hi), 2)] };
   });
   return out;
 }
@@ -1876,6 +1887,8 @@ export async function fablesRead(state) {
   const calls = [
     ...slots.map((s) => ({ to: FABLES.pm, data: FB.extsload + s.slice(2) })),
     ...ids.map((id) => ({ to: FABLES.ramp, data: FB.rangeState + pad(id) })),
+    ...ids.flatMap((id) => (info[id] ? info[id].feeSlots : []).map((sl) => ({ to: FABLES.pm, data: FB.extsload + sl.slice(2) }))
+      .concat([{ to: FABLES.ramp, data: FB.claimFee + pad(id) }])),
     ...ranges.flatMap((x) => [{ to: FABLES.ramp, data: FB.bal + pad(x.wallet) + pad(x.id) },
       { to: FABLES.ramp, data: FB.userPosition + pad(x.id) + pad(x.wallet) }]),
     ...locks.flatMap((l) => [{ to: FABLES.ve, data: FB.locks + pad(BigInt(l.id).toString(16)) },
@@ -1888,7 +1901,28 @@ export async function fablesRead(state) {
   const rs = {};
   for (const id of ids) {
     const x = r[i++];
-    if (x && x.ok) rs[id] = { acc0: toBig(w(x.data, 2)), acc1: toBig(w(x.data, 3)), accS0: toBig(w(x.data, 4)), accS1: toBig(w(x.data, 5)) };
+    if (x && x.ok) rs[id] = { total: toBig(w(x.data, 0)), acc0: toBig(w(x.data, 2)), acc1: toBig(w(x.data, 3)), accS0: toBig(w(x.data, 4)), accS1: toBig(w(x.data, 5)) };
+  }
+  /* What each range has earned since the hook last collected: the V4 position's liquidity times
+     the growth of fees inside its band since its checkpoint. When collected, the staked share
+     goes to staked holders and the unstaked share — less the claim fee — to unstaked holders,
+     each pro rata (FablesRamp _split / _takeStakedCut). */
+  const M = 1n << 256n, Q = 1n << 128n;
+  const uncollected = {};
+  for (const id of ids) {
+    const slotsHere = info[id] ? info[id].feeSlots.length : 0;
+    const v = [];
+    for (let k = 0; k < slotsHere; k++) { const x = r[i++]; v.push(x && x.ok ? toBig(w(x.data, 0)) : null); }
+    const cf = info[id] ? r[i++] : null;
+    if (!info[id] || v.some((x) => x === null) || !pool[info[id].slot]) continue;
+    const [g0, g1, L, last0, last1, lo0, lo1, hi0, hi1] = v;
+    const t = pool[info[id].slot].tick, { lo, hi } = info[id];
+    const inside = (g, a, b2) => (t < lo ? (a - b2 + M) % M : t >= hi ? (b2 - a + M) % M : ((g - a - b2) % M + 2n * M) % M);
+    uncollected[id] = {
+      f0: L * ((inside(g0, lo0, hi0) - last0 + M) % M) / Q,
+      f1: L * ((inside(g1, lo1, hi1) - last1 + M) % M) / Q,
+      bps: cf && cf.ok ? BigInt(Number(toBig(w(cf.data, 0)))) : 0n,
+    };
   }
   const meta = await tokenMeta(ch, Object.values(info).flatMap((x) => [x.c0, x.c1]));
   /* FABLES in dollars, from the seed range's pool */
@@ -1899,7 +1933,7 @@ export async function fablesRead(state) {
     const px = poolPrice(pool[si.slot].sqrt, T0.d, T1.d);          /* token1 per token0 */
     fablesUsd = T0.stable ? 1 / px : T1.stable ? px : null;
   }
-  const Q = 1n << 128n, grow = (a, c) => (a > c ? a - c : 0n);
+  const grow = (a, c) => (a > c ? a - c : 0n);
   const rows = [];
   for (const x of ranges) {
     const b = r[i++], u = r[i++];
@@ -1908,8 +1942,11 @@ export async function fablesRead(state) {
     const bal = toBig(w(b.data, 0)), staked = toBig(w(u.data, 0));
     const L = bal + staked;
     if (L === 0n) continue;
-    const f0 = toBig(w(u.data, 1)) + (S ? bal * grow(S.acc0, toBig(w(u.data, 3))) / Q + staked * grow(S.accS0, toBig(w(u.data, 5))) / Q : 0n);
-    const f1 = toBig(w(u.data, 2)) + (S ? bal * grow(S.acc1, toBig(w(u.data, 4))) / Q + staked * grow(S.accS1, toBig(w(u.data, 6))) / Q : 0n);
+    /* owed + booked since the holder's checkpoint + this holder's share of what is not yet collected */
+    const U = uncollected[x.id], share = (f) => (U && S && S.total > 0n
+      ? f * bal / S.total * (10000n - U.bps) / 10000n + f * staked / S.total : 0n);
+    const f0 = toBig(w(u.data, 1)) + (S ? bal * grow(S.acc0, toBig(w(u.data, 3))) / Q + staked * grow(S.accS0, toBig(w(u.data, 5))) / Q : 0n) + share(U ? U.f0 : 0n);
+    const f1 = toBig(w(u.data, 2)) + (S ? bal * grow(S.acc1, toBig(w(u.data, 4))) / Q + staked * grow(S.accS1, toBig(w(u.data, 6))) / Q : 0n) + share(U ? U.f1 : 0n);
     const T0 = meta[inf.c0], T1 = meta[inf.c1];
     const [a0, a1] = v3Amounts(L, inf.lo, inf.hi, P.sqrt);
     const row = shape({
