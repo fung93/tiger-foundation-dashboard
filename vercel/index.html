@@ -488,10 +488,10 @@ html.classy body{font-family:var(--sans);font-size:14px;letter-spacing:.005em;
   font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased}
 html.classy body::before,html.classy body::after{display:none}
 html.classy .hdr{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid var(--border)}
-/* the header keeps the Tiger Foundation's own lettering, in this theme's colours */
-html.classy .hdr h1{font-family:'SF Mono',Monaco,Consolas,monospace}
-html.classy .hdr h1 .t{color:var(--text)}
-html.classy .hdr h1 .f{color:var(--gold)}
+/* the serif lettering, with the italic on "Tiger" and the gold on "Foundation" */
+html.classy .hdr h1{font:400 34px/1 var(--serif);letter-spacing:.01em;text-transform:none}
+html.classy .hdr h1 .t{color:var(--text);font-style:italic}
+html.classy .hdr h1 .f{color:var(--gold);font-style:normal}
 html.classy .hdr .sub{font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px}
 html.classy .hdr .ts{font-size:11.5px;letter-spacing:.04em}
 /* no tiger in this theme, and with it goes Ask the Tiger — the original keeps both */
@@ -550,6 +550,7 @@ html.classy .pos-val,html.classy .magic{color:var(--text)!important}
 html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 @media(max-width:768px){
 
+  html.classy .hdr h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}
   html.classy .hdr .sub{font-size:clamp(8px,2.4vw,10px);letter-spacing:.12em}
   /* the picture closed the card on a phone; without it the card closes itself */
   html.classy .hero{padding-bottom:26px}
@@ -669,7 +670,7 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
       <div class="c"><div class="cl">On-Chain</div><div class="cv" id="onchainVal">$---</div><div class="cs">Liquid across chains</div></div>
       <div class="c"><div class="cl">DeFi Positions</div><div class="cv accent" id="defiVal">$---</div><div class="cs">LP + lending</div></div>
       <div class="c"><div class="cl">Tiger Vault</div><div class="cv gold" id="vaultVal">$---</div><div class="cs" id="vaultSub">Cold wallet</div></div>
-      <div class="c"><div class="cl">Merkl Pending</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed rewards</div></div>
+      <div class="c"><div class="cl">LP Fees</div><div class="cv blue" id="merklVal">$---</div><div class="cs" id="merklSub">Unclaimed, every LP</div></div>
     </div>
   </div>
 
@@ -2204,10 +2205,23 @@ function loadLive(refs,snap){
       var solWalletUsd=sol.sol*sol.solPrice+sol.usdc;
       var solLpUsd=0;sol.lps.forEach(function(l){solLpUsd+=l.value_usd;});
       var solTotal=solWalletUsd+solLpUsd;
-      return Promise.all([rhP,arcP]).then(function(pair){
-      var rh=pair[0],arc=pair[1];
+      /* Fables (its V4-hook ranges and veFABLES locks) is read by /api/fables */
+      var fabP=fT('/api/fables').then(function(r){return r.json();}).catch(function(){return null;});
+      return Promise.all([rhP,arcP,fabP]).then(function(pair){
+      var rh=pair[0],arc=pair[1],fab=pair[2];
+      var mineW=CFG.wallet.toLowerCase(),fabL,fabK;
+      if(fab&&fab.lps){
+        fabL=fab.lps.filter(function(l){return l.wallet===mineW;});
+        fabK=(fab.locks||[]).filter(function(l){return l.wallet===mineW;});
+      }else{
+        var rs0=(snap&&snap.chains&&snap.chains.robinhood)||{};
+        fabL=(rs0.lp_positions||[]).filter(function(l){return l.protocol==='Fables';});
+        fabK=(rs0.defi_positions||[]).filter(function(p){return p.protocol==='Fables veFABLES';});
+      }
+      rh.lps=rh.lps.filter(function(l){return l.protocol!=='Fables';}).concat(fabL);
+      var rhLockUsd=fabK.reduce(function(a,p){return a+(p.value_usd||0);},0);
       var rhLpUsd=0;rh.lps.forEach(function(l){rhLpUsd+=l.value_usd||0;});
-      var rhTotal=rh.walletUsd+rhLpUsd;
+      var rhTotal=rh.walletUsd+rhLpUsd+rhLockUsd;
       var arcLpUsd=0;arc.lps.forEach(function(l){arcLpUsd+=l.value_usd||0;});
       var arcMerklUsd=(arc.merkl&&arc.merkl.total_usd)||0;
       var arcTotal=arc.walletUsd+arcLpUsd+arcMerklUsd;
@@ -2243,7 +2257,7 @@ function loadLive(refs,snap){
             lp_positions:sol.lps,defi_positions:[],
             lp_total_usd:solLpUsd,total_usd:solTotal,color:'#9945ff'},
           robinhood:{name:'Robinhood',onchain_usd:rh.walletUsd,
-            tokens:rh.tokens,lp_positions:rh.lps,defi_positions:[],
+            tokens:rh.tokens,lp_positions:rh.lps,defi_positions:fabK,
             lp_total_usd:rhLpUsd,total_usd:rhTotal,color:'#00c805'},
           arc:{name:'Arc',onchain_usd:arc.walletUsd,
             tokens:arc.tokens,merkl_rewards:arc.merkl,lp_positions:arc.lps,defi_positions:[],
@@ -4014,15 +4028,32 @@ function render(d,isLive){
   var onchain=s.onchain_usd||d.onchain_usd||0;
   /* claimable on every chain; older snapshots only carry Katana's */
   var pending=(s.merkl_usd!==undefined?s.merkl_usd:(d.merkl_rewards&&d.merkl_rewards.total_usd))||0;
-  var defiValue=total-onchain-pending;           /* LP positions + lending (Morpho net) */
+  /* LP fees: every LP's unclaimed fees on every chain and both wallets — Merkl rewards on the
+     LPs, and the trading fees sitting in each position (a staked Katana position's go to the
+     Katana DAO, not here). The main wallet's are held out of DeFi Positions and the Tiger
+     Vault's out of the vault card, so the four cards still add up to the total. */
+  var lpFeeBy={},lpFeesMain=0,lpFeesVault=0;
+  CHAIN_ORDER.forEach(function(k){
+    var c=(d.chains||{})[k];if(!c)return;
+    var m=c.merkl_rewards,v=m?((m.lp_usd!==undefined?m.lp_usd:m.total_usd)||0):0;
+    (c.lp_positions||[]).forEach(function(l){if(!l.staked)v+=l.fees_usd||0;});
+    if(v>0)lpFeeBy[k]=(lpFeeBy[k]||0)+v;
+    lpFeesMain+=v;
+  });
+  ((VAULT_INFO&&VAULT_INFO.positions)||[]).forEach(function(p){
+    var f=p.fees_usd||0;if(f>0){lpFeeBy[p.chain]=(lpFeeBy[p.chain]||0)+f;lpFeesVault+=f;}
+  });
+  if(!lpFeesMain&&pending)lpFeesMain=pending;   /* an older snapshot knows only the Merkl total */
+  var defiValue=total-onchain-lpFeesMain;        /* LP positions + lending (Morpho net) */
   var target=CFG.target;
   var displayTotal=total+CFG.coldVault;          /* overview includes the cold vault */
   var pct=Math.min(100,(displayTotal/target)*100);
 
   document.getElementById('totalVal').textContent=fmt(displayTotal);
-  document.getElementById('vaultVal').textContent=curSym()+fmtN(cv(CFG.coldVault));
+  document.getElementById('vaultVal').textContent=curSym()+fmtN(cv(CFG.coldVault-lpFeesVault));
   var vs=document.getElementById('vaultSub');
-  if(vs)vs.textContent=VAULT_INFO?'LP '+fmt(VAULT_INFO.lp)+' \u00b7 wallet '+fmt(VAULT_INFO.wallet):'Cold wallet';
+  if(vs)vs.textContent=VAULT_INFO?'LP '+fmt(VAULT_INFO.lp-lpFeesVault)+' \u00b7 wallet '+fmt(VAULT_INFO.wallet)
+    +(VAULT_INFO.locks_usd?' \u00b7 locked '+fmt(VAULT_INFO.locks_usd):''):'Cold wallet';
   document.getElementById('pctVal').textContent=pct.toFixed(1)+'%';
   placeRocket(pct);   /* owns the fill width too — it ends where the rocket begins */
   document.getElementById('onchainVal').textContent=fmt(onchain);
@@ -4031,14 +4062,14 @@ function render(d,isLive){
      `pending` is the same figure that is held out of defiValue above, so the cards add up.
      The sub-line names the chain each reward is waiting on, read per chain so a new chain
      with rewards needs no change here. */
-  document.getElementById('merklVal').textContent=fmt(pending);
+  document.getElementById('merklVal').textContent=fmt(lpFeesMain+lpFeesVault);
   var mbits=[],mAmt=function(rw){return fmtN(rw.amount,rw.amount>=1000?0:2)+' '+rw.symbol;};
   CHAIN_ORDER.forEach(function(k){
-    var c=(d.chains||{})[k],m=c&&c.merkl_rewards;
-    if(!m)return;
-    /* one entry per chain, however many tokens are waiting on it */
-    var toks=(m.rewards||[]).filter(function(rw){return rw.amount>0;}).map(mAmt);
-    if(toks.length)mbits.push(c.name+' '+toks.join(' + '));
+    var c=(d.chains||{})[k];
+    if(!c||!lpFeeBy[k])return;
+    /* one entry per chain: its fees in dollars, and any Merkl reward tokens waiting on it */
+    var m=c.merkl_rewards,toks=m?(m.rewards||[]).filter(function(rw){return rw.amount>0;}).map(mAmt):[];
+    mbits.push(c.name+' '+fmt(lpFeeBy[k])+(toks.length?' ('+toks.join(' + ')+')':''));
   });
   /* older snapshots carry Katana's rewards at the top level only */
   if(!mbits.length&&d.merkl_rewards)
@@ -4080,18 +4111,23 @@ function render(d,isLive){
     if(!chains[key])return;
     var ch=chains[key];
     var dotColor=ch.color||'#f59e0b';
+    /* the Tiger Vault wallet is one of his wallets: its holdings count on each chain */
     var vLp=((VAULT_INFO&&VAULT_INFO.positions)||[]).filter(function(p){return p.chain===key;});
     var vLpUsd=vLp.reduce(function(a,p){return a+(p.value_usd||0);},0);
-    var nPos=(ch.lp_positions||[]).length+(ch.defi_positions||[]).length+vLp.length;
-    var inactive=(ch.total_usd||0)<5&&!(ch.lp_positions||[]).length&&!vLp.length;
+    var vBal=((VAULT_INFO&&VAULT_INFO.balances)||[]).filter(function(b){return b.chain===key;}).reduce(function(a,b){return a+(b.usd||0);},0);
+    var vLock=key==='robinhood'?((VAULT_INFO&&VAULT_INFO.locks)||[]):[];
+    var vLockUsd=vLock.reduce(function(a,l){return a+(l.value_usd||0);},0);
+    var chTotal=(ch.total_usd||0)+vLpUsd+vBal+vLockUsd;
+    var nPos=(ch.lp_positions||[]).length+(ch.defi_positions||[]).length+vLp.length+vLock.length;
+    var inactive=chTotal<5&&!(ch.lp_positions||[]).length&&!vLp.length;
     chainHtml+='<div class="chain-row'+(inactive?' inactive':'')+'">';
     chainHtml+=CHAIN_LOGO[key]
       ? '<div class="chain-logo">'+CHAIN_LOGO[key]+'</div>'
       : '<div class="chain-dot" style="background:'+dotColor+'"></div>';
     chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+(inactive?'<span class="chain-tag">INACTIVE</span>':'')+'</div>';
-    chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain &nbsp;+&nbsp; '+fmt(ch.lp_total_usd||0)+' LP'
-      +(vLpUsd?' &nbsp;+&nbsp; '+fmt(vLpUsd)+' LP in Tiger Vault':'')+' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s')+'</div></div>';
-    chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(ch.total_usd)+'</div></div>';
+    chainHtml+='<div class="chain-detail">'+fmt((ch.onchain_usd||0)+vBal)+' on-chain &nbsp;+&nbsp; '+fmt((ch.lp_total_usd||0)+vLpUsd)+' LP'
+      +' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s')+'</div></div>';
+    chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(chTotal)+'</div></div>';
   });
   document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
 
@@ -4128,12 +4164,12 @@ function render(d,isLive){
      vault's; they are counted in the Tiger Vault's own figure, never twice in the total. */
   var vaultLp=((VAULT_INFO&&VAULT_INFO.positions)||[]).map(function(p){
     return{pair:p.pair,chain:CHAIN_NAME[p.chain]||p.chain,badge:'chain-'+p.chain,value:p.value_usd||0,
-      fees:p.fees_usd||0,inRange:p.in_range,vault:true,id:p.id};
+      fees:p.fees_usd||0,inRange:p.in_range,vault:true,id:p.id,protocol:p.protocol};
   });
   var mainLp=allLp.map(function(x){
     return{pair:x.p.pair,chain:x.chain,badge:x.badge,value:x.p.value_usd||0,
       /* a staked Katana position's trading fees go to the Katana DAO; its own are the Merkl rewards */
-      fees:x.p.staked?0:(x.p.fees_usd||0),inRange:x.p.range_status!=='out',staked:x.p.staked,apr:x.p.apr,id:x.p.token_id,
+      fees:x.p.staked?0:(x.p.fees_usd||0),inRange:x.p.range_status==='in',staked:x.p.staked,apr:x.p.apr,id:x.p.token_id,
       protocol:x.p.protocol};
   });
   var lps=mainLp.concat(vaultLp);
@@ -4147,8 +4183,7 @@ function render(d,isLive){
     dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools'
       +'<button class="rec-btn inline lp-rec" id="lpRec" title="Each LP" aria-label="Each LP">'+REC_ICON+'</button></span>';
     dl+='<span><span class="hf gold">LP</span></span></div>';
-    dl+='<div class="pos-row"><span class="pos-label">Total LP value</span><span class="pos-val" style="font-size:16px">'+fmt(lpTot)
-      +(inVault?'<br><span style="font-size:11px;color:var(--dim)">incl. '+fmt(inVault)+' in Tiger Vault</span>':'')+'</span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Total LP value</span><span class="pos-val" style="font-size:16px">'+fmt(lpTot)+'</span></div>';
     dl+='<div class="pos-row"><span class="pos-label">Unclaimed fees</span><span class="pos-val">'+fmt(lpFees)
       +(lpRewards>0?'<br><span style="font-size:11px;color:var(--dim)">incl. '+fmt(lpRewards)+' Merkl rewards</span>':'')+'</span></div>';
     dl+='<div class="pos-row"><span class="pos-label">Positions</span><span class="pos-val">'+lps.length+'</span></div>';
@@ -4158,7 +4193,7 @@ function render(d,isLive){
       return '<div class="pos-card"><div class="pos-head"><span class="pos-proto" style="color:var(--gold)">'+l.pair+'</span>'
         +'<span><span class="hf '+(l.inRange?'green':'red')+'">'+(l.inRange?'IN RANGE':'OUT OF RANGE')+'</span>'
         +'<span class="chain-badge '+l.badge+'">'+l.chain+'</span></span></div>'
-        +'<div class="pos-row"><span class="pos-label">Wallet</span><span class="pos-val">'+(l.vault?'Tiger Vault':'Main')+(l.staked?' · staked':'')+'</span></div>'
+        +(l.protocol?'<div class="pos-row"><span class="pos-label">Protocol</span><span class="pos-val">'+l.protocol+(l.staked?' · staked':'')+'</span></div>':'')
         +'<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val">'+fmt(l.value)+'</span></div>'
         +'<div class="pos-row"><span class="pos-label">Unclaimed fees</span><span class="pos-val">'+(l.staked?'Merkl rewards':fmt(l.fees))+'</span></div>'
         +(l.apr?'<div class="pos-row"><span class="pos-label">Pool APR</span><span class="pos-val">'+Number(l.apr).toFixed(1)+'%</span></div>':'')
@@ -4653,7 +4688,8 @@ var VAULT_INFO=null;
 function useVault(v,live){
   if(!v||typeof v.total_usd!=='number'||v.complete===false)return false;
   if(!live&&VAULT_INFO&&VAULT_INFO.live)return false;
-  VAULT_INFO={total:v.total_usd,lp:v.lp_usd||0,wallet:v.wallet_usd||0,live:!!live,at:v.at,positions:v.positions||[]};
+  VAULT_INFO={total:v.total_usd,lp:v.lp_usd||0,wallet:v.wallet_usd||0,locks_usd:v.locks_usd||0,live:!!live,at:v.at,
+    positions:v.positions||[],balances:v.balances||[],locks:v.locks||[]};
   CFG.coldVault=v.total_usd;
   return true;
 }

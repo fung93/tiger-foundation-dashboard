@@ -45,17 +45,18 @@ body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tn
 a{color:inherit}
 header{max-width:1240px;margin:0 auto 4px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
   padding-bottom:12px;border-bottom:1px solid var(--line)}
-/* the Tiger Foundation's own lettering, as on the LP Book */
-h1{font:800 22px/1 'SF Mono',Monaco,Consolas,monospace;letter-spacing:2px;text-transform:uppercase}
+/* the serif title as on the LP Book: the italic on "LP", the gold on "Book" */
+h1{font:400 26px/1 var(--serif);letter-spacing:.01em}
 h1 a{text-decoration:none}
-h1 em{font-style:normal;color:var(--gold)}
+h1 em{font-style:italic;color:var(--text)}
+h1 b{font-weight:400;color:var(--gold)}
 .lpw-grid{max-width:1240px;margin-left:auto;margin-right:auto}
 .empty{color:var(--faint);font-size:12.5px;padding:14px 0;font-style:italic}
 </style>
 </head>
 <body>
 <header>
-  <h1><a href="/lp.html" title="Open the LP Book">LP <em>Book</em></a></h1>
+  <h1><a href="/lp.html" title="Open the LP Book"><em>LP</em> <b>Book</b></a></h1>
   <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
 </header>
 <div class="lpw-grid" id="cards"></div>

@@ -2086,8 +2086,27 @@ if (!rh.ok && prevChain('robinhood')) {
   rh.lps = pr.lp_positions || [];
   console.warn('robinhood: carrying the last snapshot forward');
 }
+/* Fables on Robinhood: liquidity ranges in its Uniswap V4 hook and veFABLES locks, found for
+   both wallets. The main wallet's are this portfolio's; the Tiger Vault's are counted in the
+   vault. A read that fails keeps the last snapshot's rather than reading as money gone. */
+let fables = null;
+try {
+  const core = await import('../api/_core.mjs');
+  const state = await core.fablesDiscover(prevSnap && prevSnap.fables, core.CFG.wallets.map((x) => x.address));
+  const read = await core.fablesRead(state);
+  const mine = (x) => x.wallet === CFG.wallet.toLowerCase();
+  fables = { state, lps: read.rows.filter(mine).map(core.fablesDashRow), locks: read.locks.filter(mine).map(core.fablesLockRow) };
+} catch (e) { console.warn('fables could not be read, keeping the last figures:', e.message); }
+if (!fables && prevChain('robinhood')) {
+  const pr = prevChain('robinhood');
+  fables = { state: prevSnap.fables, lps: (pr.lp_positions || []).filter((l) => l.protocol === 'Fables'),
+    locks: (pr.defi_positions || []).filter((p) => p.protocol === 'Fables veFABLES') };
+}
+if (fables) rh.lps = rh.lps.filter((l) => l.protocol !== 'Fables').concat(fables.lps);
+const rhLocks = (fables && fables.locks) || [];
+const rhLockUsd = rhLocks.reduce((a, l) => a + (l.value_usd || 0), 0);
 const rhLpUsd = rh.lps.reduce((a, l) => a + (l.value_usd || 0), 0);
-const rhTotal = rh.walletUsd + rhLpUsd;
+const rhTotal = rh.walletUsd + rhLpUsd + rhLockUsd;
 const claims = await updateClaims(CFG.wallet.replace(/^0x/, ''), {
   [CFG.tokens.KAT.a.toLowerCase()]: kat.katPrice,
   [CFG.tokens.WETH.a.toLowerCase()]: kat.ethPrice,
@@ -2286,9 +2305,9 @@ const data = {
       } }, total_usd: rh.walletUsd },
       onchain_usd: rh.walletUsd,
       lp_positions: rh.lps,
-      defi_positions: [],
+      defi_positions: rhLocks,
       lp_total_usd: rhLpUsd,
-      total_usd: rh.walletUsd + rhLpUsd,
+      total_usd: rhTotal,
       /* false when the read failed — the browser uses this to tell "no holdings" from
          "could not reach the chain", which look identical in the numbers alone */
       live: rh.ok,
@@ -2347,6 +2366,8 @@ const data = {
   staked_lp_ids: (kat.stakedLpIds && kat.stakedLpIds.length) ? kat.stakedLpIds : prevStakedIds,
   /* the Morpho markets found so far and how far the search has read — the next run and the
      page both start from here */
+  /* the Fables ranges and locks found so far, and how far the search has read */
+  fables: fables && fables.state ? fables.state : (prevSnap && prevSnap.fables) || undefined,
   morpho_markets: mkts.markets,
   morpho_scanned_to: mkts.scanned_to,
   onchain_usd: onchainAll,
@@ -2363,7 +2384,7 @@ try {
   const { vaultValue } = await import('../api/_core.mjs');
   let book = null;
   try { book = JSON.parse(readFileSync(join(ROOT, 'lpbook.json'), 'utf8')); } catch { /* not started */ }
-  vault = await vaultValue(undefined, { book });
+  vault = await vaultValue(undefined, { book, fables: fables && fables.state });
   if (!vault.complete) {
     console.warn('vault read incomplete, keeping the last good figure:', JSON.stringify(vault.errors));
     vault = null;

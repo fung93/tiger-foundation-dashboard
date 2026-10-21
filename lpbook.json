@@ -1,5 +1,5 @@
 {
- "version": 8,
+ "version": 9,
  "started": {
   "ts": 1792147339,
   "iso": "2026-10-16T10:42:19.000Z",
@@ -21,7 +21,8 @@
     "ts": 1792147339,
     "iso": "2026-10-16T10:42:19.000Z",
     "positions": [
-     "1458357"
+     "1458357",
+     "Ff346f1a5-b378"
     ]
    }
   },
@@ -32,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 45837019,
-  "robinhood": 94225387
+  "katana": 45842435,
+  "robinhood": 94277903
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -92,8 +93,24 @@
    "stable": true,
    "pool": null,
    "other": {
-    "a": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+    "a": "0xb63d07cef74be747231d601bb2faa6b252c68106",
     "d": 18
+   }
+  },
+  "FABLES@robinhood": {
+   "chain": "robinhood",
+   "a": "0xb63d07cef74be747231d601bb2faa6b252c68106",
+   "s": "FABLES",
+   "d": 18,
+   "stable": false,
+   "pool": null,
+   "other": {
+    "a": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "d": 6
+   },
+   "v4": {
+    "pool_id": "0xcce8dcf7c4dcfee6b6588db724240d9d6a22ee456f9387bb831c8fcea970869e",
+    "slot": "0x807ea74d2da7410eb08783821c2b60cccc5e6807794e957f57ad658751968c75"
    }
   }
  },
@@ -141,25 +158,25 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 4060.5195333066395
+    "KAT@katana": 4107.468014773157
    },
    "unpriced": false,
    "range": {
-    "ts": 1792579830,
-    "block": 45837019,
-    "in": true,
-    "in_s": 154600,
-    "all_s": 185342
+    "ts": 1792585246,
+    "block": 45842435,
+    "in": false,
+    "in_s": 155442,
+    "all_s": 190758
    },
    "claimed_seen": {
-    "KAT@katana": 3697.297256209717
+    "KAT@katana": 3888.6033151872857
    },
    "claims": [
     {
      "ts": 1792464553,
      "block": 45721742,
      "tokens": {
-      "KAT@katana": 1540.407764221683
+      "KAT@katana": 1540.4077642216835
      },
      "prices": {
       "KAT@katana": 0.003934376988875903
@@ -176,9 +193,20 @@
       "KAT@katana": 0.0040675051129066605
      },
      "usd": 8.77
+    },
+    {
+     "ts": 1792582923,
+     "block": 45840112,
+     "tokens": {
+      "KAT@katana": 191.3060589775682
+     },
+     "prices": {
+      "KAT@katana": 0.004086764762257575
+     },
+     "usd": 0.78
     }
    ],
-   "last_claim_ts": 1792574435
+   "last_claim_ts": 1792582923
   },
   "robinhood:1458357": {
    "key": "robinhood:1458357",
@@ -225,11 +253,67 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1792579829,
-    "block": 94225387,
+    "ts": 1792585251,
+    "block": 94277903,
     "in": true,
-    "in_s": 432490,
-    "all_s": 432490
+    "in_s": 437912,
+    "all_s": 437912
+   }
+  },
+  "robinhood:Ff346f1a5-b378": {
+   "key": "robinhood:Ff346f1a5-b378",
+   "chain": "robinhood",
+   "id": "Ff346f1a5-b378",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "pool": null,
+   "lo": 301600,
+   "hi": 304600,
+   "fee": "dynamic",
+   "t0": "USDG@robinhood",
+   "t1": "FABLES@robinhood",
+   "s0": "USDG",
+   "s1": "FABLES",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "FABLES / USDG",
+   "liq": "777907567321496",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1792572489,
+   "opened_block": 94154778,
+   "cost_usd": 30.07,
+   "deposits": [
+    {
+     "block": 94154778,
+     "ts": 1792572489,
+     "a0": 19.628744390085988,
+     "a1": 144.86935678316377,
+     "usd": 30.07
+    }
+   ],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "kind": "fables",
+   "range_id": "0xf346f1a56c1109a88243a0e4227fe723a36182e477436b6b670eabbfe0a74c2f",
+   "pool_id": "0xcce8dcf7c4dcfee6b6588db724240d9d6a22ee456f9387bb831c8fcea970869e",
+   "slot": "0x807ea74d2da7410eb08783821c2b60cccc5e6807794e957f57ad658751968c75",
+   "range": {
+    "ts": 1792585251,
+    "block": 94277903,
+    "in": true,
+    "in_s": 12762,
+    "all_s": 12762
    }
   }
  },
@@ -249,6 +333,14 @@
    "id": "1458357",
    "block": 90015366,
    "ts": 1792147339
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "Ff346f1a5-b378",
+   "block": 94154778,
+   "ts": 1792572489
   }
  ],
  "fee_series": [
@@ -452,33 +544,36 @@
     "katana:487126": 1.04,
     "robinhood:1458357": -2.53
    }
+  },
+  {
+   "ts": 1792585224,
+   "tokens": {
+    "WETH@robinhood": 0.00167805,
+    "USDG@robinhood": 4.046814,
+    "KAT@katana": 8001.68958687
+   },
+   "pnl_usd": 2,
+   "pos": {
+    "katana:487126": {
+     "KAT@katana": 4107.46801477
+    },
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00167805,
+     "USDG@robinhood": 4.046814
+    },
+    "robinhood:Ff346f1a5-b378": {}
+   },
+   "pp": {
+    "katana:487126": 1.04,
+    "robinhood:1458357": 1.31,
+    "robinhood:Ff346f1a5-b378": -0.35
+   }
   }
  ],
  "runs": [
   {
-   "ts": 1792577003,
+   "ts": 1792585224,
    "started": true,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792577238,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792578388,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792579830,
    "behind": {
     "katana": 0,
     "robinhood": 0
@@ -489,7 +584,7 @@
   "by_id": {}
  },
  "merkl_claimed": {
-  "KAT@katana": 7810.383527890386
+  "KAT@katana": 8001.689586867954
  },
  "claims": [
   {
@@ -499,7 +594,7 @@
    "token": "KAT@katana",
    "amount": 5653.494035902352,
    "price": 0.003934376988875903,
-   "assigned": 1540.407764221683
+   "assigned": 1540.4077642216835
   },
   {
    "block": 45831624,
@@ -509,6 +604,15 @@
    "amount": 2156.889491988034,
    "price": 0.0040675051129066605,
    "assigned": 2156.889491988034
+  },
+  {
+   "block": 45840112,
+   "ts": 1792582923,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 191.3060589775682,
+   "price": 0.004086764762257575,
+   "assigned": 191.3060589775682
   }
  ]
 }

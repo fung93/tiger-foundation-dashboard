@@ -15,9 +15,9 @@ export default async function handler(req, res) {
   try {
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const proto = req.headers['x-forwarded-proto'] || 'https';
-    const book = await fetch(proto + '://' + host + '/lpbook.json?t=' + Date.now())
-      .then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    res.status(200).end(JSON.stringify(await vaultValue(undefined, { book })));
+    const get = (p) => fetch(proto + '://' + host + p + '?t=' + Date.now()).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const [book, data] = await Promise.all([get('/lpbook.json'), get('/data.json')]);
+    res.status(200).end(JSON.stringify(await vaultValue(undefined, { book, fables: data && data.fables })));
   } catch (e) {
     res.status(502).end(JSON.stringify({ error: String((e && e.message) || e) }));
   }

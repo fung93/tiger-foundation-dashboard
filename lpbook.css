@@ -17,12 +17,12 @@ body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tn
   padding:max(20px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom))}
 a{color:inherit}
 
-/* header: the Tiger Foundation's own lettering, in this theme's colours */
+/* header: the serif title, the italic on "LP" and the gold on "Book" */
 header{max-width:1240px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center;gap:16px;
   padding-bottom:14px;border-bottom:1px solid var(--line)}
-h1{font:800 26px/1 var(--mono);letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
-h1 em{font-style:normal;color:var(--gold)}
-@media (max-width:480px){h1{font-size:clamp(17px,5.4vw,22px);letter-spacing:1.2px}}
+h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
+h1 em{font-style:italic;color:var(--text)}
+h1 b{font-weight:400;color:var(--gold)}
 
 /* the menu bar under the header: one icon per page, the open one lit */
 .menu{max-width:1240px;margin:0 auto 22px;display:flex;gap:8px}

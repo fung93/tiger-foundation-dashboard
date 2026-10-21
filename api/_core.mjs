@@ -11,6 +11,7 @@
 
    Zero dependencies, like the rest of this repo.
    ========================================================================== */
+import { createHash } from 'node:crypto';   /* keccak-256, for a Uniswap V4 pool's id and storage slot */
 
 export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
@@ -714,8 +715,9 @@ export function widgetView(pos, merkl) {
    7: each position keeps how long it has been in range, read off its pool's swaps.
    8: each position keeps its own dated claims (Merkl KAT on Katana, fee collections on
       Robinhood) at the price of their moment; the book is shown as a live page (open
-      positions) and an all-time page (closed positions, every figure fixed). */
-export const BOOK_VERSION = 8;
+      positions) and an all-time page (closed positions, every figure fixed).
+   9: Fables ranges (Uniswap V4 hook shares) on Robinhood are positions too. */
+export const BOOK_VERSION = 9;
 const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
 const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 const tkey = (sym, chain) => sym + '@' + chain;
@@ -811,7 +813,7 @@ async function registerRefPools(book, ch) {
 /* a token's dollar price from its registered pool, at a block or now */
 function priceFromSqrt(entry, sp) {
   if (!entry || entry.stable) return entry ? 1 : null;
-  if (!entry.pool || !entry.other || !sp) return null;
+  if ((!entry.pool && !entry.v4) || !entry.other || !sp) return null;
   const [a0, d0, d1] = lc(entry.a) < lc(entry.other.a)
     ? [entry.a, entry.d, entry.other.d] : [entry.other.a, entry.other.d, entry.d];
   const px = sp * sp * Math.pow(10, d0 - d1);          /* token1 per token0 */
@@ -822,17 +824,19 @@ export async function livePrices(book, extra) {
   const byChain = {};
   for (const [k, e] of Object.entries(book.tokens || {})) {
     if (e.stable) { out[k] = 1; continue; }
-    if (!e.pool) continue;
+    if (!e.pool && !e.v4) continue;
     (byChain[e.chain] = byChain[e.chain] || []).push([k, e]);
   }
   await Promise.all(Object.entries(byChain).map(async ([chain, list]) => {
     const ch = chainOf(chain);
-    const pools = [...new Set(list.map(([, e]) => e.pool))];
+    /* a V3 pool answers slot0; a V4 pool's price is read from the PoolManager's storage */
+    const at = (e) => e.pool || e.v4.slot;
+    const pools = [...new Set(list.map(([, e]) => at(e)))];
     try {
-      const r = await multi(ch.rpc, pools.map((p) => ({ to: p, data: '0x3850c7bd' })));
+      const r = await multi(ch.rpc, pools.map((p) => (p.length === 66 ? { to: FABLES.pm, data: FB.extsload + p.slice(2) } : { to: p, data: '0x3850c7bd' })));
       const sp = {};
-      pools.forEach((p, i) => { if (r[i] && r[i].ok) sp[p] = Number(toBig(w(r[i].data, 0))) / 2 ** 96; });
-      for (const [k, e] of list) { const v = priceFromSqrt(e, sp[e.pool]); if (v) out[k] = v; }
+      pools.forEach((p, i) => { if (r[i] && r[i].ok) sp[p] = Number(p.length === 66 ? slot0Of(r[i].data).sqrt : toBig(w(r[i].data, 0))) / 2 ** 96; });
+      for (const [k, e] of list) { const v = priceFromSqrt(e, sp[at(e)]); if (v) out[k] = v; }
     } catch { /* a chain that cannot be read leaves its tokens unpriced, and the page says so */ }
   }));
   /* a reward token with no pool of its own still has the price Merkl quotes for it */
@@ -843,6 +847,7 @@ async function priceAtBlock(book, key, block) {
   const e = book.tokens[key];
   if (!e) return null;
   if (e.stable) return 1;
+  if (e.v4) return priceFromSqrt(e, await sqrtAtV4(chainOf(e.chain), e.v4.pool_id, block));
   if (!e.pool) return null;
   const sp = await sqrtAt(chainOf(e.chain), e.pool, block);
   return priceFromSqrt(e, sp);
@@ -1025,6 +1030,22 @@ export async function startBook({ pos, data }) {
       opened.push(id);
       start = Math.min(start, b - 1);
     }
+    /* a Fables range held now starts the chain no later than the block its shares arrived */
+    if (ch.key === FABLES.chain) {
+      const fr = await fablesRead((data && data.fables) || FABLES.seed);
+      for (const r of fr.rows.filter((x) => book.wallets.includes(lc(x.wallet)))) {
+        const topics = [FB.T6909, null, '0x' + pad(r.wallet), '0x' + pad(r.raw.range_id)];
+        let firstIn = null;
+        for (let to = head, n = 0; to > 0 && n < 600; n++) {
+          const from = Math.max(0, to - 99999);
+          const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ramp, topics, fromBlock: hx(from), toBlock: hx(to) }]);
+          if (logs.length) firstIn = Number(toBig(logs[0].blockNumber.slice(2)));
+          else if (firstIn !== null) break;
+          to = from - 1;
+        }
+        if (firstIn !== null) { opened.push(r.id); start = Math.min(start, firstIn - 1); }
+      }
+    }
     const blk = await rpc(ch.rpc, 'eth_getBlockByNumber', [hx(start + 1), false]);
     const ts = Number(BigInt(blk.timestamp));
     book.last_block[ch.key] = start;
@@ -1059,7 +1080,7 @@ async function blockTimes(ch, blocks, cache) {
    after the next run; for every other position the page adds the minutes since the job's
    reading at the live state. */
 async function rangeWindow(book, ch, a, b, tsCache, mode) {
-  const live = Object.values(book.positions).filter((P) => P.chain === ch.key && P.opened_ts && P.pool
+  const live = Object.values(book.positions).filter((P) => P.chain === ch.key && P.opened_ts && (P.pool || P.pool_id)
     && (P.status === 'open' || (P.closed_block && P.closed_block >= a)) && (!P.range || P.range.block < b)
     && (mode !== 'new' || !P.range || P.range.fresh));
   if (!live.length) return;
@@ -1068,8 +1089,11 @@ async function rangeWindow(book, ch, a, b, tsCache, mode) {
   const tsOf = (l, blk) => (l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp))
     : tA + (tB - tA) * (blk - a) / Math.max(1, b - a));
   const swaps = {};
-  for (const pool of [...new Set(live.map((P) => P.pool))]) {
-    const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: pool, topics: [SWAP], fromBlock: hx(a), toBlock: hx(b) }]);
+  const src = (P) => P.pool || P.pool_id;
+  for (const pool of [...new Set(live.map(src))]) {
+    /* a V3 pool logs its own swaps; a V4 pool's are logged by the PoolManager under its id */
+    const q = pool.length === 66 ? { address: FABLES.pm, topics: [FB.SWAP, pool] } : { address: pool, topics: [SWAP] };
+    const logs = await rpc(ch.rpc, 'eth_getLogs', [{ ...q, fromBlock: hx(a), toBlock: hx(b) }]);
     swaps[pool] = logs.map((l) => {
       const blk = Number(toBig(l.blockNumber.slice(2)));
       return { blk, idx: Number(toBig(l.logIndex.slice(2))), ts: tsOf(l, blk), tick: Number(toSigned(w(l.data, 4))) };
@@ -1083,7 +1107,7 @@ async function rangeWindow(book, ch, a, b, tsCache, mode) {
     }
     const Rg = P.range;
     const end = P.status === 'closed' && P.closed_block <= b ? { ts: P.closed_ts, blk: P.closed_block } : { ts: tB, blk: b };
-    for (const s of swaps[P.pool]) {
+    for (const s of swaps[src(P)]) {
       if (s.blk <= Rg.block || s.blk > end.blk) continue;
       const dt = Math.max(0, s.ts - Rg.ts);
       Rg.all_s += dt; if (Rg.in) Rg.in_s += dt;
@@ -1136,6 +1160,9 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
     }
   }
 
+  /* 1c. Fables ranges — shares in a Uniswap V4 hook — on their chain */
+  if (ch.key === FABLES.chain) await fablesWindow(book, ch, a, b, tsCache, walletTopics);
+
   if (fresh.length) {
     const { d, meta } = await describe(ch, fresh.map((m) => m.id));
     await blockTimes(ch, fresh.filter((m) => m.ts === null).map((m) => m.block), tsCache);
@@ -1154,7 +1181,7 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
 
   /* 2. what happened to every position still worth watching. A closed one stays on the
      list for three days, in case its fees are collected after the liquidity is gone. */
-  const watch = Object.values(book.positions).filter((P) => P.chain === ch.key
+  const watch = Object.values(book.positions).filter((P) => P.chain === ch.key && P.kind !== 'fables'
     && (P.status === 'open' || (P.closed_ts && nowTs - P.closed_ts < 3 * 86400)));
   if (!watch.length) return;
   const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, fromBlock: hx(a), toBlock: hx(b),
@@ -1228,6 +1255,7 @@ async function freeze(book, ch, P, merkl) {
   const tokens = feeTokensOf(P, null);
   let sp = P.close_sp || null;
   if (!sp && P.pool) sp = await sqrtAt(ch, P.pool, P.closed_block);
+  if (!sp && P.pool_id) sp = await sqrtAtV4(ch, P.pool_id, P.closed_block);
   const prices = sp ? legPrices(P, sp) : {};
   for (const k of Object.keys(tokens)) {
     if (prices[k] === undefined) {
@@ -1341,12 +1369,19 @@ export async function bookLiveRows(book) {
   const rows = {}, errors = {};
   await Promise.all(V3.map(async (ch) => {
     const owner = new Map(Object.values(book.positions)
-      .filter((P) => P.chain === ch.key && P.status === 'open').map((P) => [P.id, P.wallet]));
+      .filter((P) => P.chain === ch.key && P.status === 'open' && P.kind !== 'fables').map((P) => [P.id, P.wallet]));
     if (!owner.size) return;
     try {
       for (const r of await v3Rows(ch, {}, owner, { noEntry: true })) rows[ch.key + ':' + r.id] = r;
     } catch (e) { errors[ch.key] = String((e && e.message) || e).slice(0, 160); }
   }));
+  const fp = Object.values(book.positions).filter((P) => P.status === 'open' && P.kind === 'fables');
+  if (fp.length) {
+    try {
+      const fr = await fablesRead({ ranges: fp.map((P) => ({ id: P.range_id, wallet: P.wallet })), locks: [] });
+      for (const r of fr.rows) rows[FABLES.chain + ':' + r.id] = r;
+    } catch (e) { errors.fables = String((e && e.message) || e).slice(0, 160); }
+  }
   return { rows, errors };
 }
 
@@ -1686,6 +1721,277 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
 }
 
 /* ============================================================================
+   Fables on Robinhood Chain.
+
+   Fables runs its liquidity through a Uniswap V4 hook, FablesRamp: a deposit buys shares
+   in a "range" — a pool and a band — and the shares are ERC-6909 tokens of the hook, one id
+   per range, not a position NFT. That is why no Uniswap reader ever saw the FABLES/USDG LP
+   opened on 2026-10-21. A share is one unit of the range's liquidity (Deposited reports the
+   liquidity it minted as shares), so a holding is valued with the same band maths as any V3
+   position, at the V4 pool's own price, read straight from the PoolManager's storage.
+   Its veFABLES locks are NFTs of VotingEscrowFF; locks(id) gives the amount and the unlock.
+   ========================================================================== */
+export const FABLES = {
+  chain: 'robinhood',
+  ramp: '0x08e52564bad99e05a694b4809f397edca417a080',     /* FablesRamp — the V4 hook and share ledger */
+  pm: '0x8366a39cc670b4001a1121b8f6a443a643e40951',       /* Uniswap V4 PoolManager */
+  ve: '0xc1d5adc963a57d24adaf63aae1bfbecab95f6edd',       /* VotingEscrowFF — veFABLES */
+  /* a full scan of both wallets on 2026-10-21 found these; every run adds anything newer */
+  seed: {
+    ranges: [{ id: '0xf346f1a56c1109a88243a0e4227fe723a36182e477436b6b670eabbfe0a74c2f', wallet: '0xb378207ab46aa2105eb1cb94ae8a5bab57316de1' }],
+    locks: [{ id: '559', wallet: '0xb378207ab46aa2105eb1cb94ae8a5bab57316de1' }],
+    scanned_to: 94265704,
+  },
+};
+const FB = {
+  T6909: '0x1b3d7edb2e9c0b0e7c525b20aaaef0f5940d2ed71663c7d39266ecafac728859',   /* Transfer(caller, from, to, id, amount) */
+  CLAIMED: '0xd49b328847f240dd41d9f8a97b5334cb8d06f55e51ce78bacd364d5c62136d77', /* FeesClaimed(owner, rangeId, amount0, amount1) */
+  STAKED: '0x5f1526e127c2ae64abea3117909f2c3ba68d66b293ec1256c0c0025cf7ade21a',
+  UNSTAKED: '0x3f58555a19e04d0ac05f036e483136cdab4628e29210be59809a5184983057b6',
+  SWAP: '0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f',    /* V4 Swap(id, sender, a0, a1, sqrtP, L, tick, fee) */
+  rangeKey: '0x2e32a3b0', rangeState: '0x41b69b2a', userPosition: '0x4eb5c4fd',
+  extsload: '0x1e2eaeaf', bal: '0x00fdd58e', locks: '0xf4dadc61', ownerOf: '0x6352211e',
+};
+const keccakHex = (hex) => createHash('keccak-256').update(Buffer.from(String(hex).replace(/^0x/, ''), 'hex')).digest('hex');
+const fablesPid = (id, wallet) => 'F' + lc(id).slice(2, 10) + '-' + lc(wallet).slice(2, 6);
+
+/* each range's pool and band — fixed for a range — with the storage slot of its pool's price */
+async function fablesRanges(ch, ids) {
+  const out = {};
+  if (!ids.length) return out;
+  const r = await multi(ch.rpc, ids.map((id) => ({ to: FABLES.ramp, data: FB.rangeKey + pad(id) })));
+  ids.forEach((id, i) => {
+    if (!r[i] || !r[i].ok) return;
+    const x = r[i].data;
+    const c0 = lc(toAddr(w(x, 0))), c1 = lc(toAddr(w(x, 1)));
+    const fee = toBig(w(x, 2)), ts = toSigned(w(x, 3)), hooks = lc(toAddr(w(x, 4)));
+    const poolId = keccakHex(pad(c0) + pad(c1) + pad(fee.toString(16)) + pad(BigInt.asUintN(256, ts).toString(16)) + pad(hooks));
+    out[lc(id)] = { c0, c1, lo: Number(toSigned(w(x, 5))), hi: Number(toSigned(w(x, 6))),
+      poolId: '0x' + poolId, slot: '0x' + keccakHex(poolId + pad('6')) };   /* pools mapping sits at slot 6 */
+  });
+  return out;
+}
+const slot0Of = (data) => {
+  const word = toBig(w(data, 0));
+  let tick = Number((word >> 160n) & 0xffffffn);
+  if (tick >= 1 << 23) tick -= 1 << 24;
+  return { sqrt: word & ((1n << 160n) - 1n), tick };
+};
+
+/* a V4 pool's price at the end of a block: its last Swap at or before it */
+async function sqrtAtV4(ch, poolId, block) {
+  const span = Math.min(ch.logSpan, 100000);
+  const q = (from, to) => rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.pm, topics: [FB.SWAP, poolId],
+    fromBlock: hx(Math.max(0, from)), toBlock: hx(to) }]);
+  for (const back of [2000, 20000, span]) {
+    try { const logs = await q(block - back + 1, block); if (logs.length) return Number(toBig(w(logs[logs.length - 1].data, 2))) / 2 ** 96; } catch { /* wider */ }
+  }
+  for (let to = block - span, n = 0; n < 6 && to > 0; n++, to -= span) {
+    try { const logs = await q(to - span + 1, to); if (logs.length) return Number(toBig(w(logs[logs.length - 1].data, 2))) / 2 ** 96; } catch { /* further back */ }
+  }
+  return null;
+}
+
+/* Ranges and locks the wallets have received since the last scan, added to what was known. A
+   scan that fails keeps the list it had and covers the same blocks next time. */
+export async function fablesDiscover(prev, wallets) {
+  const ch = chainOf(FABLES.chain);
+  const key = (x) => lc(x.id) + '|' + lc(x.wallet);
+  const merge = (a, b) => { const m = new Map(); for (const x of a.concat(b)) m.set(key(x), { id: lc(String(x.id)), wallet: lc(x.wallet) }); return [...m.values()]; };
+  const st = {
+    ranges: merge(FABLES.seed.ranges, (prev && prev.ranges) || []),
+    locks: merge(FABLES.seed.locks, (prev && prev.locks) || []),
+    scanned_to: Math.max(FABLES.seed.scanned_to, (prev && prev.scanned_to) || 0),
+  };
+  try {
+    const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
+    const W = wallets.map((a) => '0x' + pad(a));
+    const ranges = [], locks = [];
+    for (let a = st.scanned_to + 1; a <= head; a += 100000) {
+      const b = Math.min(head, a + 99999);
+      const [rl, vl] = await Promise.all([
+        rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ramp, fromBlock: hx(a), toBlock: hx(b), topics: [FB.T6909, null, W] }]),
+        rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ve, fromBlock: hx(a), toBlock: hx(b), topics: [TRANSFER, null, W] }]),
+      ]);
+      for (const l of rl) ranges.push({ id: '0x' + l.topics[3].slice(2), wallet: toAddr(l.topics[2].slice(2)) });
+      for (const l of vl) if (l.topics.length === 4) locks.push({ id: String(toBig(l.topics[3].slice(2))), wallet: toAddr(l.topics[2].slice(2)) });
+    }
+    return { ranges: merge(st.ranges, ranges), locks: merge(st.locks, locks), scanned_to: head };
+  } catch { return st; }
+}
+
+/* Every Fables range and lock in the list, valued now. Rows come in the same shape as a
+   Uniswap position's (shape()), with the raw figures the LP book prices from. */
+export async function fablesRead(state) {
+  const ch = chainOf(FABLES.chain);
+  const ranges = ((state && state.ranges) || FABLES.seed.ranges).map((x) => ({ id: lc(x.id), wallet: lc(x.wallet) }));
+  const locks = (state && state.locks) || FABLES.seed.locks;
+  /* the seed range's pool prices FABLES even when no range is held any more */
+  const ids = [...new Set(ranges.map((x) => x.id).concat([lc(FABLES.seed.ranges[0].id)]))];
+  const info = await fablesRanges(ch, ids);
+  const slots = [...new Set(Object.values(info).map((x) => x.slot))];
+  const calls = [
+    ...slots.map((s) => ({ to: FABLES.pm, data: FB.extsload + s.slice(2) })),
+    ...ids.map((id) => ({ to: FABLES.ramp, data: FB.rangeState + pad(id) })),
+    ...ranges.flatMap((x) => [{ to: FABLES.ramp, data: FB.bal + pad(x.wallet) + pad(x.id) },
+      { to: FABLES.ramp, data: FB.userPosition + pad(x.id) + pad(x.wallet) }]),
+    ...locks.flatMap((l) => [{ to: FABLES.ve, data: FB.locks + pad(BigInt(l.id).toString(16)) },
+      { to: FABLES.ve, data: FB.ownerOf + pad(BigInt(l.id).toString(16)) }]),
+  ];
+  const r = await multi(ch.rpc, calls);
+  let i = 0;
+  const pool = {};
+  for (const s of slots) { const x = r[i++]; if (x && x.ok) pool[s] = slot0Of(x.data); }
+  const rs = {};
+  for (const id of ids) {
+    const x = r[i++];
+    if (x && x.ok) rs[id] = { acc0: toBig(w(x.data, 2)), acc1: toBig(w(x.data, 3)), accS0: toBig(w(x.data, 4)), accS1: toBig(w(x.data, 5)) };
+  }
+  const meta = await tokenMeta(ch, Object.values(info).flatMap((x) => [x.c0, x.c1]));
+  /* FABLES in dollars, from the seed range's pool */
+  let fablesUsd = null;
+  const si = info[lc(FABLES.seed.ranges[0].id)];
+  if (si && pool[si.slot]) {
+    const T0 = meta[si.c0], T1 = meta[si.c1];
+    const px = poolPrice(pool[si.slot].sqrt, T0.d, T1.d);          /* token1 per token0 */
+    fablesUsd = T0.stable ? 1 / px : T1.stable ? px : null;
+  }
+  const Q = 1n << 128n, grow = (a, c) => (a > c ? a - c : 0n);
+  const rows = [];
+  for (const x of ranges) {
+    const b = r[i++], u = r[i++];
+    const inf = info[x.id], P = inf && pool[inf.slot], S = rs[x.id];
+    if (!inf || !P || !b || !b.ok || !u || !u.ok) continue;
+    const bal = toBig(w(b.data, 0)), staked = toBig(w(u.data, 0));
+    const L = bal + staked;
+    if (L === 0n) continue;
+    const f0 = toBig(w(u.data, 1)) + (S ? bal * grow(S.acc0, toBig(w(u.data, 3))) / Q + staked * grow(S.accS0, toBig(w(u.data, 5))) / Q : 0n);
+    const f1 = toBig(w(u.data, 2)) + (S ? bal * grow(S.acc1, toBig(w(u.data, 4))) / Q + staked * grow(S.accS1, toBig(w(u.data, 6))) / Q : 0n);
+    const T0 = meta[inf.c0], T1 = meta[inf.c1];
+    const [a0, a1] = v3Amounts(L, inf.lo, inf.hi, P.sqrt);
+    const row = shape({
+      chain: FABLES.chain, id: fablesPid(x.id, x.wallet), protocol: 'Fables', wallet: x.wallet,
+      staked: staked > 0n, feesMine: true, T0, T1, lo: inf.lo, hi: inf.hi, sqrtP: P.sqrt, liq: L,
+      a0: a0 / 10 ** T0.d, a1: a1 / 10 ** T1.d, fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d,
+    });
+    row.raw = { kind: 'fables', range_id: x.id, pool_id: inf.poolId, slot: inf.slot, pool: null,
+      token0: inf.c0, token1: inf.c1, lo: inf.lo, hi: inf.hi, liq: L.toString(), sqrt: P.sqrt.toString(),
+      t0: { s: T0.s, d: T0.d, stable: T0.stable, a: inf.c0 }, t1: { s: T1.s, d: T1.d, stable: T1.stable, a: inf.c1 },
+      fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d };
+    rows.push(row);
+  }
+  const lockRows = [];
+  for (const l of locks) {
+    const a = r[i++], o = r[i++];
+    if (!a || !a.ok) continue;
+    const amount = Number(toBig(w(a.data, 0))) / 1e18, unlock = Number(toBig(w(a.data, 1)));
+    const owner = o && o.ok ? lc(toAddr(w(o.data, 0))) : null;
+    if (!(amount > 0) || (owner && owner !== lc(l.wallet))) continue;
+    lockRows.push({ id: String(l.id), wallet: lc(l.wallet), amount, unlock,
+      value_usd: fablesUsd ? r2(amount * fablesUsd) : null });
+  }
+  return { rows, locks: lockRows, fables_usd: fablesUsd };
+}
+
+/* the dashboard's own row for a Fables range, and for a veFABLES lock */
+export function fablesDashRow(row) {
+  const amt = Object.entries(row.amounts || {}).map(([s, a]) => (a >= 1 ? a.toFixed(2) : a.toPrecision(3)) + ' ' + s).join(' + ');
+  return { type: 'LP', protocol: 'Fables', chain: FABLES.chain, wallet: row.wallet,
+    pair: row.pair, pool_fee: 'dynamic', token_id: row.id, range_status: row.range_status,
+    staked: false, apr: null, value_usd: row.value_usd, fees_usd: row.fees_usd,
+    note: 'Fables range — ' + amt };
+}
+export function fablesLockRow(l) {
+  const permanent = l.unlock > 4102444800;   /* past 2100: a permanent lock */
+  return { type: 'Staking', protocol: 'Fables veFABLES', wallet: l.wallet,
+    market: 'Voting escrow · veNFT #' + l.id, locked: { amount: l.amount, token: 'FABLES' }, value_usd: l.value_usd,
+    note: Math.round(l.amount).toLocaleString('en-US') + ' FABLES locked'
+      + (permanent ? ' · permanent' : ' · unlocks ' + new Date(l.unlock * 1000).toISOString().slice(0, 10)) };
+}
+
+/* ---------- the LP book's side of Fables ----------
+   A range is a position: shares received (not while staking) are money in, shares sent out
+   are money out, each valued at the pool's price of its block; FeesClaimed is a claim. */
+async function fablesWindow(book, ch, a, b, tsCache, walletTopics) {
+  const q = (topics) => rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ramp, fromBlock: hx(a), toBlock: hx(b), topics }]);
+  const [tin, tout, claimed, stk] = await Promise.all([
+    q([FB.T6909, null, walletTopics]), q([FB.T6909, walletTopics]), q([FB.CLAIMED, walletTopics]),
+    q([[FB.STAKED, FB.UNSTAKED], walletTopics]),
+  ]);
+  if (!tin.length && !tout.length && !claimed.length) return;
+  /* staking moves shares within the hook; it is neither money in nor out */
+  const stakeTx = new Set(stk.map((l) => l.transactionHash));
+  const evs = [];
+  for (const l of tin) if (!stakeTx.has(l.transactionHash)) evs.push({ l, dir: 1, wallet: lc(toAddr(l.topics[2].slice(2))), id: lc('0x' + l.topics[3].slice(2)) });
+  for (const l of tout) if (!stakeTx.has(l.transactionHash)) evs.push({ l, dir: -1, wallet: lc(toAddr(l.topics[1].slice(2))), id: lc('0x' + l.topics[3].slice(2)) });
+  for (const l of claimed) evs.push({ l, claim: true, wallet: lc(toAddr(l.topics[1].slice(2))), id: lc('0x' + l.topics[2].slice(2)) });
+  evs.sort((x, y) => (Number(toBig(x.l.blockNumber.slice(2))) - Number(toBig(y.l.blockNumber.slice(2))))
+    || (Number(toBig(x.l.logIndex.slice(2))) - Number(toBig(y.l.logIndex.slice(2)))));
+  await blockTimes(ch, evs.filter((e) => !e.l.blockTimestamp || e.l.blockTimestamp === '0x0').map((e) => Number(toBig(e.l.blockNumber.slice(2)))), tsCache);
+  const info = await fablesRanges(ch, [...new Set(evs.map((e) => e.id))]);
+  const meta = await tokenMeta(ch, Object.values(info).flatMap((x) => [x.c0, x.c1]));
+  for (const e of evs) {
+    const inf = info[e.id];
+    if (!inf) continue;
+    const block = Number(toBig(e.l.blockNumber.slice(2)));
+    const ts = e.l.blockTimestamp && e.l.blockTimestamp !== '0x0' ? Number(BigInt(e.l.blockTimestamp)) : tsCache[block];
+    const pid = fablesPid(e.id, e.wallet), key = ch.key + ':' + pid;
+    let P = book.positions[key];
+    if (!P) {
+      if (e.dir !== 1) continue;
+      const m0 = meta[inf.c0], m1 = meta[inf.c1];
+      P = newPosition(ch.key, pid, e.wallet, { lo: inf.lo, hi: inf.hi, fee: 'dynamic' }, m0, m1, null);
+      P.kind = 'fables'; P.range_id = e.id; P.pool_id = inf.poolId; P.slot = inf.slot;
+      for (const [m, o] of [[m0, m1], [m1, m0]]) {
+        const k = registerToken(book, ch.key, m, null, o);
+        if (!m.stable && o.stable && !book.tokens[k].v4) book.tokens[k].v4 = { pool_id: inf.poolId, slot: inf.slot };
+      }
+      P.opened_block = block; P.opened_ts = ts;
+      book.positions[key] = P;
+      book.events.push({ t: 'open', chain: ch.key, wallet: P.wallet, id: P.id, block, ts });
+    }
+    const sp = await sqrtAtV4(ch, P.pool_id, block);
+    const px = sp ? legPrices(P, sp) : {};
+    if (e.claim) {
+      const t0 = Number(toBig(w(e.l.data, 0))) / 10 ** P.d0, t1 = Number(toBig(w(e.l.data, 1))) / 10 ** P.d1;
+      const tokens = {};
+      if (t0 > 0) tokens[P.t0] = t0;
+      if (t1 > 0) tokens[P.t1] = t1;
+      if (!Object.keys(tokens).length) continue;
+      sumInto(P.fees, tokens);
+      let usd = 0, ok = true;
+      for (const [k, x] of Object.entries(tokens)) { if (px[k] === undefined) ok = false; else usd += x * px[k]; }
+      (P.claims = P.claims || []).push({ ts, block, tokens, prices: px, usd: ok ? r2(usd) : null });
+      continue;
+    }
+    const L = toBig(w(e.l.data, 1));
+    let usd = null, x0 = 0, x1 = 0;
+    if (sp) {
+      const [r0, r1] = v3Amounts(L, P.lo, P.hi, BigInt(Math.round(sp * 2 ** 96)));
+      x0 = r0 / 10 ** P.d0; x1 = r1 / 10 ** P.d1;
+      if (px[P.t0] !== undefined) usd = x0 * px[P.t0] + x1 * px[P.t1];
+    }
+    if (e.dir === 1) {
+      P.liq = (big0(P.liq) + L).toString();
+      P.deposits.push({ block, ts, a0: x0, a1: x1, usd: usd === null ? null : r2(usd) });
+      if (usd === null) P.unpriced = true; else P.cost_usd = r2(P.cost_usd + usd);
+      if (P.status === 'closed') P.status = 'open';
+    } else {
+      const left = big0(P.liq) - L;
+      P.liq = (left > 0n ? left : 0n).toString();
+      P.withdrawals.push({ block, ts, a0: x0, a1: x1, usd: usd === null ? null : r2(usd) });
+      if (usd === null) P.unpriced = true; else P.out_usd = r2(P.out_usd + usd);
+      if (sp) P.close_sp = sp;
+      if (left <= 0n && P.status === 'open') {
+        P.status = 'closed'; P.closed_ts = ts; P.closed_block = block;
+        book.events.push({ t: 'close', chain: ch.key, wallet: P.wallet, id: P.id, block, ts });
+        await freeze(book, ch, P, null);
+      }
+    }
+  }
+}
+
+/* ============================================================================
    The Tiger Vault — a wallet of its own, valued live like everything else.
 
    It used to be a figure typed into the page. It is this address, so it is read:
@@ -1723,7 +2029,7 @@ export const VAULT = {
   },
 };
 
-export async function vaultValue(address = VAULT.address, { book } = {}) {
+export async function vaultValue(address = VAULT.address, { book, fables } = {}) {
   const errors = {};
   const who = lc(address);
 
@@ -1752,7 +2058,7 @@ export async function vaultValue(address = VAULT.address, { book } = {}) {
     try {
       const owner = await v3Candidates(ch, {}, {}, [], { wallets: [address], wholeList: true });
       for (const P of Object.values((book && book.positions) || {})) {
-        if (P.chain === ch.key && P.status === 'open' && lc(P.wallet) === who) owner.set(P.id, address);
+        if (P.chain === ch.key && P.status === 'open' && P.kind !== 'fables' && lc(P.wallet) === who) owner.set(P.id, address);
       }
       for (const r of await v3Rows(ch, {}, owner, { noEntry: true })) {
         if (r.value_usd === null) { errors[ch.key + ' #' + r.id] = 'unpriced'; continue; }
@@ -1775,7 +2081,15 @@ export async function vaultValue(address = VAULT.address, { book } = {}) {
     } catch (e) { errors[chain + ' wallet'] = String((e && e.message) || e).slice(0, 120); return []; }
   })).then((lists) => lists.flat());
 
-  const [px, positions, raw] = await Promise.all([pricesP, positionsP, rawP]);
+  /* Fables ranges and veFABLES locks held by this wallet */
+  const fabP = fablesRead(fables || FABLES.seed).catch((e) => { errors.fables = String((e && e.message) || e).slice(0, 120); return { rows: [], locks: [] }; });
+  const [px, positions, raw, fab] = await Promise.all([pricesP, positionsP, rawP, fabP]);
+  for (const r of fab.rows.filter((x) => lc(x.wallet) === who)) {
+    if (r.value_usd === null) { errors['fables ' + r.id] = 'unpriced'; continue; }
+    positions.push({ chain: r.chain, id: r.id, pair: r.pair, protocol: 'Fables', value_usd: r.value_usd,
+      liquidity_usd: r.liquidity_usd, fees_usd: r.fees_usd || 0, in_range: r.in_range });
+  }
+  const locks = fab.locks.filter((l) => lc(l.wallet) === who && l.value_usd !== null);
   const balances = [];
   for (const b of raw) {
     if (!(b.amount > 0)) continue;
@@ -1785,9 +2099,10 @@ export async function vaultValue(address = VAULT.address, { book } = {}) {
 
   const lp = positions.reduce((s2, p) => s2 + p.value_usd, 0);
   const loose = balances.reduce((s2, b) => s2 + b.usd, 0);
+  const lockUsd = locks.reduce((s2, l) => s2 + l.value_usd, 0);
   return {
-    address, total_usd: r2(lp + loose), lp_usd: r2(lp), wallet_usd: r2(loose),
-    positions, balances, prices: px,
+    address, total_usd: r2(lp + loose + lockUsd), lp_usd: r2(lp), wallet_usd: r2(loose), locks_usd: r2(lockUsd),
+    positions, balances, locks, prices: px,
     complete: Object.keys(errors).length === 0,
     errors: Object.keys(errors).length ? errors : undefined,
     at: new Date().toISOString(),
