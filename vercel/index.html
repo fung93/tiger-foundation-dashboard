@@ -36,7 +36,20 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
   background:url('/img/bg.jpg') center center/cover no-repeat;filter:brightness(2.06)}
 body::after{content:'';position:fixed;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.89) 50%,rgba(8,12,20,.94) 100%)}
-.hdr,.wrap{position:relative;z-index:1}
+.hdr,.wrap,.menu{position:relative;z-index:1}
+/* the menu bar under the header */
+.menu{max-width:1200px;margin:14px auto 0;padding:0 28px;display:flex;gap:8px}
+.menu a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;text-decoration:none;
+  color:var(--dim);border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.menu a svg{width:16px;height:16px;display:block}
+.menu a:hover{color:var(--text)}
+.menu a.on{color:var(--gold);border-color:var(--gold);background:rgba(251,191,36,.08)}
+html.classy .menu a{font-weight:500;letter-spacing:.12em;background:transparent}
+html.classy .menu a.on{border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
+/* a chain with almost nothing on it and no LP is shown, faded, as inactive */
+.chain-row.inactive{opacity:.5}
+.chain-tag{display:inline-block;margin-left:8px;font-size:9.5px;font-weight:600;letter-spacing:.1em;padding:2px 7px;border-radius:999px;
+  border:1px solid var(--border);color:var(--dim);vertical-align:2px}
 .hdr{background:linear-gradient(135deg,rgba(15,22,35,.88) 0%,rgba(26,26,62,.88) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:24px 32px;border-bottom:2px solid var(--accent)}
 .hdr-inner{display:flex;justify-content:space-between;align-items:center;max-width:1200px;margin:0 auto}
 /* Nothing in the brand is selectable. A second tap on the tiger lands as a double-click,
@@ -61,7 +74,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
    with its time, LIVE with the running clock — so the header is the same size before and
    after LIVE arrives. It used to be one line until LIVE turned it into two. */
 .hdr .ts{line-height:1.5;height:3em;white-space:nowrap;overflow:hidden}
-.hdr-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0}
+/* the theme switch sits beside LIVE and its clock, one row, so the header stays low */
+.hdr-side{display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
 .hdr-actions{display:flex;gap:6px;align-items:center}
 .hdr-btn{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 11px;border-radius:7px;
   font:inherit;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;text-decoration:none;white-space:nowrap;
@@ -402,6 +416,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
      the clamps keep the heading well clear of the tagline at every step. Side padding
      drops to 16px, which is where most of the width for the two lines comes from. */
   .hdr{padding:16px}
+  .menu{padding:0 16px;margin-top:12px}
   .hdr-brand{gap:8px;flex:0 0 auto}
   .hdr h1{font-size:clamp(16px,5.1vw,21px);letter-spacing:1.2px;white-space:nowrap}
   .hdr .sub{font-size:clamp(9px,2.85vw,12px);letter-spacing:.6px;white-space:nowrap;margin-top:3px}
@@ -410,7 +425,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;
      to its own content instead, the long "Snapshot: …" state claims width the headline
      needs and pushes it off the card. */
   .hdr .ts{font-size:11px;min-width:0}
-  .hdr-side{flex:1 1 0;gap:6px}
+  .hdr-side{flex:1 1 0;gap:8px}
   /* too narrow for a side-by-side split: art sits across the lower half of the card,
      still uncropped, with the text overlapping its faded upper edge */
   /* stack, and let the image close the card: padding-bottom 0 + a bled photo means no
@@ -473,9 +488,10 @@ html.classy body{font-family:var(--sans);font-size:14px;letter-spacing:.005em;
   font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased}
 html.classy body::before,html.classy body::after{display:none}
 html.classy .hdr{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid var(--border)}
-html.classy .hdr h1{font:400 34px/1 var(--serif);letter-spacing:.01em;text-transform:none}
+/* the header keeps the Tiger Foundation's own lettering, in this theme's colours */
+html.classy .hdr h1{font-family:'SF Mono',Monaco,Consolas,monospace}
 html.classy .hdr h1 .t{color:var(--text)}
-html.classy .hdr h1 .f{color:var(--gold);font-style:italic}
+html.classy .hdr h1 .f{color:var(--gold)}
 html.classy .hdr .sub{font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px}
 html.classy .hdr .ts{font-size:11.5px;letter-spacing:.04em}
 /* no tiger in this theme, and with it goes Ask the Tiger — the original keeps both */
@@ -533,7 +549,7 @@ html.classy .cv:not(#dailyEarnings):not(#roiToggleVal),html.classy .chain-amt,ht
 html.classy .pos-val,html.classy .magic{color:var(--text)!important}
 html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 @media(max-width:768px){
-  html.classy .hdr h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}
+
   html.classy .hdr .sub{font-size:clamp(8px,2.4vw,10px);letter-spacing:.12em}
   /* the picture closed the card on a phone; without it the card closes itself */
   html.classy .hero{padding-bottom:26px}
@@ -554,13 +570,16 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
       <div><h1><span class="t">Tiger</span> <span class="f">Foundation</span></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></div>
     </div>
     <div class="hdr-side">
-      <div class="hdr-actions">
-        <button class="hdr-btn icon" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
-      </div>
+      <button class="hdr-btn icon" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
       <div class="ts" id="lastUpdated">Loading&hellip;<br>&nbsp;</div>
     </div>
   </div>
 </div>
+<!-- the menu bar: one icon per page, the open one lit -->
+<nav class="menu">
+  <a href="/" class="on" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+</nav>
 
 <div class="wrap">
 
@@ -570,7 +589,6 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
     <div class="hero-head">
       <h2>Wealth Overview</h2>
       <div class="hero-tools">
-        <a class="cur-btn lp-btn" href="/lp.html" title="Open the LP Book">LP<span class="long">&nbsp;Book</span></a>
         <button class="cur-btn" id="curBtn" type="button" title="Showing USD — tap to switch currency">USD</button>
       </div>
     </div>
@@ -630,9 +648,6 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
         <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
-        <button class="rec-btn" id="claimsBtn" title="Claim record" aria-label="Claim record">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>
-        </button>
       </div>
       <div class="c" id="roiCard" style="cursor:pointer" title="Click to change period">
         <div class="cl" id="roiToggleLabel">Daily ROI &#8644;</div>
@@ -730,6 +745,16 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 </div>
 
 <!-- LP position record -->
+<div class="modal-back" id="detailModal" role="dialog" aria-modal="true" aria-label="Details">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <span class="modal-title" id="detailTitle">Details</span>
+      <button class="modal-x" id="detailClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
 <div class="modal-back" id="posModal" role="dialog" aria-modal="true" aria-label="LP position record">
   <div class="modal" style="max-width:640px">
     <div class="modal-head">
@@ -1285,7 +1310,7 @@ function getKatanaLive(stakedLpIds,markets){
       var tSA=toBig(w(mk.data,0)),tSS=toBig(w(mk.data,1)),tBA=toBig(w(mk.data,2)),tBS=toBig(w(mk.data,3));
       var loan=keyOf(toAddr(w(mp.data,0))),col=keyOf(toAddr(w(mp.data,1)));
       var ld=loan?T[loan].d:18,cd=col?T[col].d:18;
-      morpho.push({id:id,loan:loan,col:col,lltv:Number(toBig(w(mp.data,4)))/1e16,
+      morpho.push({id:id,loan:loan,col:col,lltv:Number(toBig(w(mp.data,4)))/1e16,oracle:toAddr(w(mp.data,2)),ld:ld,cd:cd,
         supplied:Number(sSh*(tSA+1n)/(tSS+1000000n))/Math.pow(10,ld),
         debt:Number((bSh*(tBA+1n)+tBS+1000000n-1n)/(tBS+1000000n))/Math.pow(10,ld),
         collateral:Number(coll)/Math.pow(10,cd)});
@@ -1450,7 +1475,13 @@ function getKatanaLive(stakedLpIds,markets){
                 note:'NFT #'+p.tokenId+(p.staked?' · STAKED':'')+' — '+arcAmt(h0)+' '+(symOf[t0]||'?')+' + '+arcAmt(h1)+' '+(symOf[t1]||'?')+' (live on-chain)'
               });
             }
-            return lockP.then(function(vkat){
+            /* each market's own oracle: what Morpho values the collateral at for a liquidation */
+            var orc=morpho.filter(function(m){return m.oracle&&!m.error;});
+            var orcP=orc.length?multicall(orc.map(function(m){return{to:m.oracle,data:'0xa035b1fe'};})).then(function(op){
+              orc.forEach(function(m,i){if(op[i]&&op[i].ok)m.oracle_px=Number(toBig(w(op[i].data,0)))/1e36*Math.pow(10,m.cd-m.ld);});
+            }).catch(function(){}):Promise.resolve();
+            return Promise.all([lockP,orcP]).then(function(pr){
+              var vkat=pr[0];
               return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,btcPrice:btcPrice,
                 morpho:morpho,lps:lps,vkat:vkat};
             });
@@ -2153,8 +2184,9 @@ function loadLive(refs,snap){
         var colUsd=m.collateral*katPx(m.col),debtUsd=m.debt*katPx(m.loan),supUsd=m.supplied*katPx(m.loan);
         var net=Math.max(0,colUsd+supUsd-debtUsd);
         var avk=m.col==='avKAT',note;
+        var health=m.oracle_px&&m.debt>0?m.collateral*m.oracle_px*(m.lltv/100)/m.debt:null;
         if(avk&&m.loan==='KAT')note='Net '+fmtN(m.collateral*kat.avkatRate+m.supplied-m.debt,0)+' KAT = '+fmt(net)+' · avKAT rate '+kat.avkatRate.toFixed(4)+' (live)';
-        else if((avk||m.col==='KAT')&&m.debt>0)note='Liquidates if KAT falls to $'+(debtUsd/(m.collateral*(avk?kat.avkatRate:1)*(m.lltv/100))).toFixed(6)+' (now $'+kat.katPrice.toFixed(6)+')'+(avk?' · avKAT rate '+kat.avkatRate.toFixed(4):'')+' (live)';
+        else if((avk||m.col==='KAT')&&m.debt>0)note='Liquidates if KAT falls to $'+(health?kat.katPrice/health:debtUsd/(m.collateral*(avk?kat.avkatRate:1)*(m.lltv/100))).toFixed(6)+' (now $'+kat.katPrice.toFixed(6)+') (live)';
         else note='Net '+fmt(net)+' (live)';
         var row={type:'Lending',protocol:'Morpho Blue',market:L(m.loan)+' / '+L(m.col),market_id:m.id,
           collateral:{amount:m.collateral,token:L(m.col),usd:colUsd},
@@ -2162,6 +2194,7 @@ function loadLive(refs,snap){
           lltv:m.lltv+'%',value_usd:net,note:note};
         if(m.supplied>0)row.supplied={amount:m.supplied,token:L(m.loan),usd:supUsd};
         if(avk)row.avkat_rate=kat.avkatRate;
+        if(health){row.health=health;row.oracle_price=m.oracle_px;}
         return row;
       }).filter(Boolean);
       var morphoNet=morphoRows.reduce(function(a,p){return a+(p.value_usd||0);},0);
@@ -3684,6 +3717,21 @@ function openPositions(){
   lockPosBodyHeight();
 }
 function closePositions(){document.getElementById('posModal').classList.remove('open');}
+/* the record behind the Liquidity Pools and Morpho Blue cards */
+var LP_DETAIL='',MORPHO_DETAIL='',CHAIN_NAME={katana:'Katana',solana:'Solana',robinhood:'Robinhood',arc:'Arc'};
+var REC_ICON='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>';
+function openDetail(title,html){
+  document.getElementById('detailTitle').textContent=title;
+  document.getElementById('detailBody').innerHTML=html||'<p style="color:var(--dim);padding:12px">Nothing here.</p>';
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeDetail(){document.getElementById('detailModal').classList.remove('open');}
+document.addEventListener('DOMContentLoaded',function(){
+  var m=document.getElementById('detailModal');
+  document.getElementById('detailClose').onclick=closeDetail;
+  m.onclick=function(ev){if(ev.target===m)closeDetail();};
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeDetail();});
+});
 
 /* Monthly summary + CSV export */
 function buildMonthly(){
@@ -4032,12 +4080,17 @@ function render(d,isLive){
     if(!chains[key])return;
     var ch=chains[key];
     var dotColor=ch.color||'#f59e0b';
-    chainHtml+='<div class="chain-row">';
+    var vLp=((VAULT_INFO&&VAULT_INFO.positions)||[]).filter(function(p){return p.chain===key;});
+    var vLpUsd=vLp.reduce(function(a,p){return a+(p.value_usd||0);},0);
+    var nPos=(ch.lp_positions||[]).length+(ch.defi_positions||[]).length+vLp.length;
+    var inactive=(ch.total_usd||0)<5&&!(ch.lp_positions||[]).length&&!vLp.length;
+    chainHtml+='<div class="chain-row'+(inactive?' inactive':'')+'">';
     chainHtml+=CHAIN_LOGO[key]
       ? '<div class="chain-logo">'+CHAIN_LOGO[key]+'</div>'
       : '<div class="chain-dot" style="background:'+dotColor+'"></div>';
-    chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+'</div>';
-    chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain &nbsp;+&nbsp; '+fmt(ch.lp_total_usd||0)+' LP &nbsp;|&nbsp; '+((ch.lp_positions||[]).length+(ch.defi_positions||[]).length)+' positions</div></div>';
+    chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+(inactive?'<span class="chain-tag">INACTIVE</span>':'')+'</div>';
+    chainHtml+='<div class="chain-detail">'+fmt(ch.onchain_usd||0)+' on-chain &nbsp;+&nbsp; '+fmt(ch.lp_total_usd||0)+' LP'
+      +(vLpUsd?' &nbsp;+&nbsp; '+fmt(vLpUsd)+' LP in Tiger Vault':'')+' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s')+'</div></div>';
     chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(ch.total_usd)+'</div></div>';
   });
   document.getElementById('chainRows').innerHTML=chainHtml||'No chain data';
@@ -4070,111 +4123,130 @@ function render(d,isLive){
     scanLedgerTails();
   }
   buildPositions();   /* refresh unrealised P&L against the values just computed */
-  if(allLp.length){
-    var lpTotal=0,aprW=0,aprV=0,stakedCount=0,groups={},order=[];
-    allLp.forEach(function(x){
-      var v=x.p.value_usd||0;
-      lpTotal+=v;
-      if(x.p.apr){aprW+=x.p.apr*v;aprV+=v;}
-      if(x.p.staked)stakedCount++;
-      var k=x.p.protocol+'|'+x.p.pair;
-      if(!groups[k]){groups[k]={protocol:x.p.protocol,pair:x.p.pair,chain:x.chain,badge:x.badge,n:0,value:0,staked:0,apr:null};order.push(k);}
-      var g=groups[k];
-      g.n++;g.value+=v;
-      if(x.p.staked)g.staked++;
-      if(x.p.apr)g.apr=x.p.apr;
+  /* ---- Liquidity Pools: one card for every LP on both wallets ----
+     The Tiger Vault wallet's LPs (read live by /api/vault) are listed here too, marked as the
+     vault's; they are counted in the Tiger Vault's own figure, never twice in the total. */
+  var vaultLp=((VAULT_INFO&&VAULT_INFO.positions)||[]).map(function(p){
+    return{pair:p.pair,chain:CHAIN_NAME[p.chain]||p.chain,badge:'chain-'+p.chain,value:p.value_usd||0,
+      fees:p.fees_usd||0,inRange:p.in_range,vault:true,id:p.id};
+  });
+  var mainLp=allLp.map(function(x){
+    return{pair:x.p.pair,chain:x.chain,badge:x.badge,value:x.p.value_usd||0,
+      /* a staked Katana position's trading fees go to the Katana DAO; its own are the Merkl rewards */
+      fees:x.p.staked?0:(x.p.fees_usd||0),inRange:x.p.range_status!=='out',staked:x.p.staked,apr:x.p.apr,id:x.p.token_id,
+      protocol:x.p.protocol};
+  });
+  var lps=mainLp.concat(vaultLp);
+  var mk=(chains.katana&&chains.katana.merkl_rewards)||{};
+  var lpRewards=(mk.lp_usd!==undefined?mk.lp_usd:mk.total_usd)||0;
+  LP_DETAIL='';
+  if(lps.length){
+    var lpTot=0,lpFees=lpRewards,inVault=0;
+    lps.forEach(function(l){lpTot+=l.value;lpFees+=l.fees;if(l.vault)inVault+=l.value;});
+    dl+='<div class="pos-card">';
+    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools'
+      +'<button class="rec-btn inline lp-rec" id="lpRec" title="Each LP" aria-label="Each LP">'+REC_ICON+'</button></span>';
+    dl+='<span><span class="hf gold">LP</span></span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Total LP value</span><span class="pos-val" style="font-size:16px">'+fmt(lpTot)
+      +(inVault?'<br><span style="font-size:11px;color:var(--dim)">incl. '+fmt(inVault)+' in Tiger Vault</span>':'')+'</span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Unclaimed fees</span><span class="pos-val">'+fmt(lpFees)
+      +(lpRewards>0?'<br><span style="font-size:11px;color:var(--dim)">incl. '+fmt(lpRewards)+' Merkl rewards</span>':'')+'</span></div>';
+    dl+='<div class="pos-row"><span class="pos-label">Positions</span><span class="pos-val">'+lps.length+'</span></div>';
+    dl+='</div>';
+    /* the record: each LP on its own */
+    LP_DETAIL=lps.map(function(l){
+      return '<div class="pos-card"><div class="pos-head"><span class="pos-proto" style="color:var(--gold)">'+l.pair+'</span>'
+        +'<span><span class="hf '+(l.inRange?'green':'red')+'">'+(l.inRange?'IN RANGE':'OUT OF RANGE')+'</span>'
+        +'<span class="chain-badge '+l.badge+'">'+l.chain+'</span></span></div>'
+        +'<div class="pos-row"><span class="pos-label">Wallet</span><span class="pos-val">'+(l.vault?'Tiger Vault':'Main')+(l.staked?' · staked':'')+'</span></div>'
+        +'<div class="pos-row"><span class="pos-label">Value</span><span class="pos-val">'+fmt(l.value)+'</span></div>'
+        +'<div class="pos-row"><span class="pos-label">Unclaimed fees</span><span class="pos-val">'+(l.staked?'Merkl rewards':fmt(l.fees))+'</span></div>'
+        +(l.apr?'<div class="pos-row"><span class="pos-label">Pool APR</span><span class="pos-val">'+Number(l.apr).toFixed(1)+'%</span></div>':'')
+        +(l.id?'<div class="pos-row"><span class="pos-label">Position</span><span class="pos-val">#'+String(l.id).replace(/^#/,'')+'</span></div>':'')
+        +'</div>';
+    }).join('')
+      +(lpRewards>0?'<div class="health-note" style="padding:4px 6px">Merkl rewards unclaimed across the LPs: '+fmt(lpRewards)+'. A staked Katana position\u2019s trading fees go to the Katana DAO.</div>':'');
+  }
+
+  /* ---- Morpho Blue: one card — each collateral and each debt by type, and the net ---- */
+  var morphoRows=[],otherRows=[];
+  CHAIN_ORDER.forEach(function(key){
+    if(!chains[key])return;
+    (chains[key].defi_positions||[]).forEach(function(p){
+      (p.protocol==='Morpho Blue'?morphoRows:otherRows).push({p:p,key:key,ch:chains[key]});
+    });
+  });
+  MORPHO_DETAIL='';
+  if(morphoRows.length){
+    var colBy={},debtBy={},order=[],dOrder=[],netM=0;
+    morphoRows.forEach(function(x){
+      var p=x.p;
+      if(p.collateral){if(!colBy[p.collateral.token]){colBy[p.collateral.token]={a:0,u:0};order.push(p.collateral.token);}
+        colBy[p.collateral.token].a+=p.collateral.amount;colBy[p.collateral.token].u+=p.collateral.usd||0;}
+      if(p.supplied){var sk=p.supplied.token+' supplied';if(!colBy[sk]){colBy[sk]={a:0,u:0};order.push(sk);}
+        colBy[sk].a+=p.supplied.amount;colBy[sk].u+=p.supplied.usd||0;}
+      if(p.debt&&p.debt.amount>0){if(!debtBy[p.debt.token]){debtBy[p.debt.token]={a:0,u:0};dOrder.push(p.debt.token);}
+        debtBy[p.debt.token].a+=p.debt.amount;debtBy[p.debt.token].u+=p.debt.usd||0;}
+      netM+=p.value_usd||0;
     });
     dl+='<div class="pos-card">';
-    /* the record is about LP, so its button lives on this card rather than the section heading */
-    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Liquidity Pools'
-      +'<button class="rec-btn inline lp-rec" id="posBtn" title="LP position record" aria-label="LP position record">'
-      +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      +'<path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></span>';
-    dl+='<span>'+(stakedCount===allLp.length?'<span class="hf green">STAKED</span>':'')+'<span class="hf gold">LP</span></span></div>';
-    dl+='<div class="pos-row"><span class="pos-label">Total Value</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(lpTotal)+'</span></div>';
-    dl+='<div class="pos-row"><span class="pos-label">Positions</span><span class="pos-val">'+allLp.length+(stakedCount?' ('+stakedCount+' staked)':'')+'</span></div>';
-    if(aprV>0)dl+='<div class="pos-row"><span class="pos-label">Avg APR</span><span class="pos-val" style="color:var(--green)">'+(aprW/aprV).toFixed(1)+'%</span></div>';
-    order.forEach(function(k){
-      var g=groups[k];
-      dl+='<div class="pos-row"><span class="pos-label">'+g.pair
-        +'<span class="chain-badge '+g.badge+'">'+g.chain+'</span>'
-        +'<br><span style="font-size:11px;opacity:.75">'+g.protocol+' ×'+g.n+(g.staked===g.n?' · staked':(g.staked?' · '+g.staked+' staked':''))+(g.apr?' · '+Number(g.apr).toFixed(1)+'% APR':'')+'</span></span>'
-        +'<span class="pos-val">'+fmt(g.value)+'</span></div>';
-    });
+    dl+='<div class="pos-head"><span class="pos-proto" style="color:var(--gold)">Morpho Blue'
+      +'<button class="rec-btn inline lp-rec" id="morphoRec" title="Each market" aria-label="Each market">'+REC_ICON+'</button></span>';
+    dl+='<span><span class="hf blue">LENDING</span><span class="chain-badge chain-katana">'+morphoRows.length+' markets</span></span></div>';
+    order.forEach(function(t){dl+='<div class="pos-row"><span class="pos-label">Collateral · '+t+'</span><span class="pos-val">'+fmtN(colBy[t].a,2)+' '+t.replace(' supplied','')
+      +'<br><span style="font-size:11px;color:var(--dim)">'+fmt(colBy[t].u)+'</span></span></div>';});
+    dOrder.forEach(function(t){dl+='<div class="pos-row"><span class="pos-label">Debt · '+t+'</span><span class="pos-val">'+fmtN(debtBy[t].a,2)+' '+t
+      +'<br><span style="font-size:11px;color:var(--dim)">'+fmt(debtBy[t].u)+'</span></span></div>';});
+    dl+='<div class="pos-row"><span class="pos-label">Net value</span><span class="pos-val" style="font-size:16px">'+fmt(netM)+'</span></div>';
     dl+='</div>';
   }
 
-  CHAIN_ORDER.forEach(function(key){
-    if(!chains[key])return;
-    var ch=chains[key];
+  /* each Morpho market in full — what the record icon opens — and any other position as a card */
+  var cardFor=function(x){
+    var p=x.p,ch=x.ch,key=x.key,h='';
     var badgeClass='chain-'+key;
     var badgeColor=key==='katana'?'var(--accent)':(ch.color||'var(--sol)');
-
-    (ch.defi_positions||[]).forEach(function(p){
-      dl+='<div class="pos-card">';
-      dl+='<div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
-      dl+='<span><span class="hf blue">'+p.type+'</span><span class="chain-badge '+badgeClass+'">'+ch.name+'</span></span></div>';
-      dl+='<div class="pos-row"><span class="pos-label">Market</span><span class="pos-val">'+(p.market||'')+'</span></div>';
-      if(p.lltv)dl+='<div class="pos-row"><span class="pos-label">LLTV</span><span class="pos-val">'+p.lltv+'</span></div>';
-      /* what each side is worth. The producers price it; an older snapshot is priced from
-         the chain's own token table, where avKAT already carries its rate. */
-      var sideUsd=function(side){
-        if(side.usd!==undefined&&side.usd!==null)return side.usd;
-        var t=ch.wallet&&ch.wallet.balances&&ch.wallet.balances.tokens;
-        var px=t&&t[side.token]&&t[side.token].priceUSD;
-        return px?side.amount*px:null;
-      };
-      var usdLine=function(v){
-        return v===null?'':'<br><span style="font-size:11px;color:var(--dim)">'+fmt(v)+'</span>';
-      };
-      if(p.collateral)dl+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+usdLine(sideUsd(p.collateral))+'</span></div>';
-      if(p.supplied)dl+='<div class="pos-row"><span class="pos-label">Supplied</span><span class="pos-val">'+fmtN(p.supplied.amount,2)+' '+p.supplied.token+usdLine(sideUsd(p.supplied))+'</span></div>';
-      if(p.debt)dl+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+usdLine(sideUsd(p.debt))+'</span></div>';
-      if(p.locked)dl+='<div class="pos-row"><span class="pos-label">Locked</span><span class="pos-val">'+fmtN(p.locked.amount,2)+' '+p.locked.token+'</span></div>';
-      if(p.value_usd)dl+='<div class="pos-row"><span class="pos-label">'+(p.debt?'Net Value':'Value')+'</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
-
-      if(p.collateral&&p.debt&&p.lltv){
-        var lltv=parseFloat(p.lltv)/100;
-        var col=p.collateral.amount,debt=p.debt.amount;
-        var rate=p.avkat_rate||null;
-        var hf,label,hColor,noteTxt;
-        var cU=sideUsd(p.collateral),dU=sideUsd(p.debt);
-        /* a loan in a different money from its collateral — vbUSDC on avKAT or on KAT — is
-           measured in dollars; only a KAT loan on KAT-backed collateral is measured in KAT */
-        var sameMoney=p.debt.token==='KAT'&&(p.collateral.token==='avKAT'||p.collateral.token==='KAT');
-        var basis=rate?' (live avKAT rate)':' (floor estimate)';
-        if(!sameMoney&&cU!==null&&dU){
-          basis=' (live prices)';
-          /* a loan in another token: health is the collateral's dollars against the loan's */
-          hf=(cU*lltv)/dU;
-          hColor=hf>=1.25?'var(--green)':hf>=1.05?'var(--gold)':'var(--red)';
-          label=hf>=1.25?'HEALTHY':hf>=1.05?'TIGHT':'AT RISK';
-          noteTxt=p.note||'';
-        }else if(rate){
-          hf=(col*rate*lltv)/debt;
-          hColor=hf>=1.05?'var(--green)':hf>=1.0?'var(--gold)':'var(--red)';
-          label=hf>=1.05?'HEALTHY':hf>=1.0?'TIGHT':'AT RISK';
-          noteTxt='avKAT rate '+rate.toFixed(4)+' · collateral '+fmtN(col*rate,0)+' KAT-eq vs debt '+fmtN(debt,0)+' KAT';
-        }else{
-          hf=(col*lltv)/debt;
-          hColor=hf>=1.05?'var(--green)':'var(--gold)';
-          label=hf>=1.05?'HEALTHY':'ORACLE DEPENDENT';
-          noteTxt='Buffer: +'+(((col/debt)-1)*100).toFixed(1)+'% col/debt · Safe if avKAT ≥ '+(debt/(col*lltv)).toFixed(3)+'× KAT · Verify on Morpho UI';
-        }
-        var barW=Math.min(100,Math.max(0,((hf-0.7)/0.5)*100));
-        dl+='<div class="health-wrap">';
-        dl+='<div class="health-row">';
-        dl+='<span style="color:var(--dim);font-size:12px">Health'+basis+'</span>';
-        dl+='<span style="color:'+hColor+';font-size:12px;font-weight:700">'+label+' &nbsp;'+hf.toFixed(3)+'×</span>';
-        dl+='</div>';
-        dl+='<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+barW.toFixed(1)+'%;background:'+hColor+'"></div></div>';
-        dl+='<div class="health-note">'+noteTxt+'</div>';
-        dl+='</div>';
-      }
-
-      dl+='</div>';
-    });
-  });
+    h+='<div class="pos-card">';
+    h+='<div class="pos-head"><span class="pos-proto" style="color:'+badgeColor+'">'+p.protocol+'</span>';
+    h+='<span><span class="hf blue">'+p.type+'</span><span class="chain-badge '+badgeClass+'">'+ch.name+'</span></span></div>';
+    h+='<div class="pos-row"><span class="pos-label">Market</span><span class="pos-val">'+(p.market||'')+'</span></div>';
+    if(p.lltv)h+='<div class="pos-row"><span class="pos-label">LLTV</span><span class="pos-val">'+p.lltv+'</span></div>';
+    var sideUsd=function(side){
+      if(side.usd!==undefined&&side.usd!==null)return side.usd;
+      var t=ch.wallet&&ch.wallet.balances&&ch.wallet.balances.tokens;
+      var px=t&&t[side.token]&&t[side.token].priceUSD;
+      return px?side.amount*px:null;
+    };
+    var usdLine=function(v){return v===null?'':'<br><span style="font-size:11px;color:var(--dim)">'+fmt(v)+'</span>';};
+    if(p.collateral)h+='<div class="pos-row"><span class="pos-label">Collateral</span><span class="pos-val">'+fmtN(p.collateral.amount,2)+' '+p.collateral.token+usdLine(sideUsd(p.collateral))+'</span></div>';
+    if(p.supplied)h+='<div class="pos-row"><span class="pos-label">Supplied</span><span class="pos-val">'+fmtN(p.supplied.amount,2)+' '+p.supplied.token+usdLine(sideUsd(p.supplied))+'</span></div>';
+    if(p.debt)h+='<div class="pos-row"><span class="pos-label">Debt</span><span class="pos-val" style="color:var(--red)">'+fmtN(p.debt.amount,2)+' '+p.debt.token+usdLine(sideUsd(p.debt))+'</span></div>';
+    if(p.locked)h+='<div class="pos-row"><span class="pos-label">Locked</span><span class="pos-val">'+fmtN(p.locked.amount,2)+' '+p.locked.token+'</span></div>';
+    if(p.value_usd)h+='<div class="pos-row"><span class="pos-label">'+(p.debt?'Net Value':'Value')+'</span><span class="pos-val" style="color:var(--gold);font-size:16px">'+fmt(p.value_usd)+'</span></div>';
+    if(p.collateral&&p.debt&&p.lltv&&p.debt.amount>0){
+      var lltv=parseFloat(p.lltv)/100,col=p.collateral.amount,debt=p.debt.amount,rate=p.avkat_rate||null;
+      var sameMoney=p.debt.token==='KAT'&&(p.collateral.token==='avKAT'||p.collateral.token==='KAT');
+      var hf,basis,noteTxt=p.note||'';
+      /* health as Morpho itself reckons it: the collateral at the market's own oracle */
+      if(typeof p.health==='number'){hf=p.health;basis=' (Morpho oracle)';}
+      else if(rate&&sameMoney){hf=(col*rate*lltv)/debt;basis=' (live avKAT rate)';}
+      else{var cU=sideUsd(p.collateral),dU=sideUsd(p.debt);hf=cU&&dU?(cU*lltv)/dU:(col*lltv)/debt;basis=' (live prices)';}
+      if(sameMoney&&rate)noteTxt='avKAT rate '+rate.toFixed(4)+' · collateral '+fmtN(col*rate,0)+' KAT-eq vs debt '+fmtN(debt,0)+' KAT';
+      var good=sameMoney?1.05:1.25,ok=sameMoney?1.0:1.05;
+      var hColor=hf>=good?'var(--green)':hf>=ok?'var(--gold)':'var(--red)';
+      var label=hf>=good?'HEALTHY':hf>=ok?'TIGHT':'AT RISK';
+      var barW=Math.min(100,Math.max(0,((hf-0.7)/0.5)*100));
+      h+='<div class="health-wrap"><div class="health-row">'
+        +'<span style="color:var(--dim);font-size:12px">Health'+basis+'</span>'
+        +'<span style="color:'+hColor+';font-size:12px;font-weight:700">'+label+' &nbsp;'+hf.toFixed(3)+'×</span></div>'
+        +'<div class="health-bar-bg"><div class="health-bar-fill" style="width:'+barW.toFixed(1)+'%;background:'+hColor+'"></div></div>'
+        +'<div class="health-note">'+noteTxt+'</div></div>';
+    }
+    h+='</div>';
+    return h;
+  };
+  MORPHO_DETAIL=morphoRows.map(cardFor).join('');
+  otherRows.forEach(function(x){dl+=cardFor(x);});
   document.getElementById('defiList').innerHTML=(untrackedNote()+dl)
     ||'<p style="color:var(--dim);font-size:14px;padding:12px">No active positions</p>';
 
@@ -4581,7 +4653,7 @@ var VAULT_INFO=null;
 function useVault(v,live){
   if(!v||typeof v.total_usd!=='number'||v.complete===false)return false;
   if(!live&&VAULT_INFO&&VAULT_INFO.live)return false;
-  VAULT_INFO={total:v.total_usd,lp:v.lp_usd||0,wallet:v.wallet_usd||0,live:!!live,at:v.at};
+  VAULT_INFO={total:v.total_usd,lp:v.lp_usd||0,wallet:v.wallet_usd||0,live:!!live,at:v.at,positions:v.positions||[]};
   CFG.coldVault=v.total_usd;
   return true;
 }
@@ -4723,12 +4795,16 @@ function load(){
   });
   if(mnEl)mnEl.addEventListener('click',function(ev){ev.stopPropagation();say('moon',mnEl);});
 
-  document.getElementById('claimsBtn').onclick=function(ev){ev.stopPropagation();openClaims();};
+  var claimsBtn=document.getElementById('claimsBtn');
+  if(claimsBtn)claimsBtn.onclick=function(ev){ev.stopPropagation();openClaims();};
   document.getElementById('claimsClose').onclick=closeClaims;
   document.getElementById('claimsModal').onclick=function(ev){if(ev.target===this)closeClaims();};
   /* delegated: the LP card is rebuilt on every render, so the button is a new element each
      time and a direct handler would be lost */
   document.addEventListener('click',function(ev){
+    /* the record icons on the LP and Morpho cards open each one in full */
+    var lr=ev.target.closest&&ev.target.closest('#lpRec,#morphoRec');
+    if(lr){ev.stopPropagation();openDetail(lr.id==='lpRec'?'Each LP':'Morpho Blue · each market',lr.id==='lpRec'?LP_DETAIL:MORPHO_DETAIL);return;}
     var b=ev.target.closest&&ev.target.closest('#posBtn');
     if(b){ev.stopPropagation();openPositions();}
   });

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<title>LP Book · All-time</title>
+<link rel="icon" href="/icons/lp-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lpcards.css">
+<link rel="stylesheet" href="/lpbook.css">
+<!--
+  LP Book — ALL-TIME. Closed positions only, and every figure fixed: a position's PnL is its
+  token amounts and dollars at the close, each fee claim is priced on its own day. The rows
+  are built from those fixed values and the cards are their sums, so the rows add up to the
+  cards exactly. APR is time-weighted: fees / sum(position value x days open) x 365.
+-->
+</head>
+<body>
+<header>
+  <h1>LP <em>Book</em></h1>
+  <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
+</header>
+<nav class="menu">
+  <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" class="on" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+</nav>
+
+<div class="health" id="health"></div>
+
+<div class="bar">
+  <a href="/lp.html" title="Back to the live positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Live</a>
+  <span class="what">All-time &middot; closed positions, fixed</span>
+</div>
+
+<div class="stats s5">
+  <div class="card"><div class="label">Average LP value</div><div class="big" id="a1">&ndash;</div><div class="note" id="a1n">&nbsp;</div></div>
+  <div class="card"><div class="label">Realised PnL &middot; IL + price</div><div class="big" id="a2">&ndash;</div><div class="note" id="a2n">&nbsp;</div></div>
+  <div class="card"><div class="label">Total fees earned</div><div class="big" id="a3">&ndash;</div><div class="note" id="a3n">&nbsp;</div></div>
+  <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="a4">&ndash;</div><div class="note" id="a4n">&nbsp;</div></div>
+  <div class="card"><div class="label">APR &middot; time-weighted</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div><div class="note" id="a5n">&nbsp;</div></div>
+</div>
+
+<div class="main">
+  <div class="two">
+    <div class="card">
+      <div class="label">Realised PnL by chain</div>
+      <div id="a6"></div>
+    </div>
+    <div class="card">
+      <div class="label">Fees earned, all-time &middot; each claim at its own day's price</div>
+      <div class="chart" id="a7"></div>
+      <div class="axis" id="a7x"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label" id="a8l">History</div>
+    <div class="note" id="a8r" style="margin-top:8px">&nbsp;</div>
+    <div class="hist" id="a8"></div>
+  </div>
+</div>
+
+<script src="/lpcards.js"></script>
+<script src="/lpbook.js"></script>
+<script>
+(function () {
+  var B = LPBook, $ = B.$, esc = B.esc, money = B.money, signed = B.signed, cls = B.cls, amt = B.amt, day = B.day, held = B.held;
+
+  function render(v) {
+    var A = v.alltime, C = A.cards;
+    $('a1').textContent = money(C.avg_value_usd);
+    $('a1n').textContent = C.closed + ' closed · over ' + (C.days || 0).toFixed(1) + ' days';
+    $('a2').textContent = signed(C.realised_usd);
+    $('a2').className = 'big ' + cls(C.realised_usd);
+    $('a2n').textContent = 'fixed at each close';
+    $('a3').textContent = money(C.fees_usd);
+    $('a3n').textContent = 'each claim at its own day’s price';
+    $('a4').textContent = signed(C.net_usd);
+    $('a4').className = 'big ' + cls(C.net_usd);
+    $('a4n').textContent = 'fees ' + money(C.fees_usd) + ' · PnL ' + signed(C.realised_usd);
+    $('a5').textContent = C.apr_pct == null ? '–' : (C.apr_pct >= 100 ? Math.round(C.apr_pct).toLocaleString('en-US') : C.apr_pct.toFixed(1)) + '%';
+    $('a5n').textContent = 'fees ÷ (value × days open) × 365' + (C.incomplete ? ' · some prices missing' : '');
+
+    $('a6').innerHTML = Object.keys(C.chains).filter(function (k) { return C.chains[k].closed; }).map(function (k) {
+      var c = C.chains[k];
+      return '<div class="chain"><div class="name">' + esc(k) + '</div>'
+        + '<div class="v" style="color:var(--dim)">fees ' + esc(money(c.fees_usd)) + '</div>'
+        + '<div class="v ' + cls(c.realised_usd) + '" style="font-weight:600">' + esc(signed(c.realised_usd)) + '</div>'
+        + '<div class="split">' + c.closed + ' closed · net ' + esc(signed(c.net_usd)) + '</div></div>';
+    }).join('') || '<div class="empty">No position has closed since tracking began.</div>';
+
+    B.chart($('a7'), $('a7x'), A.series, { empty: 'No fees from closed positions yet.' });
+
+    $('a8l').textContent = 'History · ' + C.closed + ' closed · ' + C.rebalances + ' rebalance' + (C.rebalances === 1 ? '' : 's');
+    var r = A.rebalances[0];
+    $('a8r').textContent = r ? 'last rebalance: #' + r.closed + ' → #' + r.opened
+      + (r.closed_chain !== r.opened_chain ? ' (' + r.closed_chain + ' → ' + r.opened_chain + ')' : '')
+      + ' · ' + day(new Date(r.ts * 1000).toISOString()) : '';
+    $('a8').innerHTML = A.history.length ? A.history.map(function (h) {
+      var fees = Object.keys(h.fee_tokens || {}).map(function (k) { return amt(h.fee_tokens[k]) + ' ' + k; }).join(' + ');
+      var out = Object.keys(h.out_tokens || {}).filter(function (k) { return h.out_tokens[k] > 0; })
+        .map(function (k) { return amt(h.out_tokens[k]) + ' ' + k; }).join(' + ');
+      return '<div class="h"><div class="l1"><span class="pair">' + esc(h.pair) + '</span>'
+        + '<span class="net ' + cls(h.net_usd) + '">' + esc(signed(h.net_usd)) + (h.net_pct == null ? '' : ' <span style="font-weight:400;font-size:12px">' + (h.net_pct >= 0 ? '+' : '') + h.net_pct.toFixed(2) + '%</span>') + '</span></div>'
+        + '<div class="l2"><span><span class="tag">' + esc(h.chain) + '</span> #' + esc(h.id) + '</span>'
+        + '<span>' + esc(day(h.opened)) + ' → ' + esc(day(h.closed)) + ' · ' + esc(held(h.held_hours)) + '</span></div>'
+        + '<div class="l3"><span>cost ' + esc(money(h.cost_usd)) + ' → out ' + esc(money(h.principal_usd))
+        + (out ? ' <span style="color:var(--faint)">' + esc(out) + '</span>' : '') + '</span><span>IL + price ' + esc(signed(h.pnl_usd)) + '</span></div>'
+        + '<div class="l3"><span>fees ' + esc(money(h.fee_usd)) + (fees ? ' <span style="color:var(--faint)">' + esc(fees) + '</span>' : '') + '</span></div>'
+        + (h.incomplete ? '<div class="l3" style="color:var(--warn)">a price could not be read; this row is partial</div>' : '')
+        + '</div>';
+    }).join('') : '<div class="empty">A position appears here, fixed, when it closes.</div>';
+  }
+
+  B.poll(render, function (v) { return v && v.alltime && v.alltime.cards; });
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "started": {
   "ts": 1792147339,
   "iso": "2026-10-16T10:42:19.000Z",
@@ -32,8 +32,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 45807181,
-  "robinhood": 93936939
+  "katana": 45835578,
+  "robinhood": 94211695
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -141,16 +141,44 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 3361.849828292832
+    "KAT@katana": 4029.556385809794
    },
    "unpriced": false,
    "range": {
-    "ts": 1792549992,
-    "block": 45807181,
+    "ts": 1792578389,
+    "block": 45835578,
     "in": true,
-    "in_s": 128952,
-    "all_s": 155504
-   }
+    "in_s": 153159,
+    "all_s": 183901
+   },
+   "claimed_seen": {
+    "KAT@katana": 3697.297256209717
+   },
+   "claims": [
+    {
+     "ts": 1792464553,
+     "block": 45721742,
+     "tokens": {
+      "KAT@katana": 1540.407764221683
+     },
+     "prices": {
+      "KAT@katana": 0.003934376988875903
+     },
+     "usd": 6.06
+    },
+    {
+     "ts": 1792574435,
+     "block": 45831624,
+     "tokens": {
+      "KAT@katana": 2156.889491988034
+     },
+     "prices": {
+      "KAT@katana": 0.0040675051129066605
+     },
+     "usd": 8.77
+    }
+   ],
+   "last_claim_ts": 1792574435
   },
   "robinhood:1458357": {
    "key": "robinhood:1458357",
@@ -197,11 +225,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1792549992,
-    "block": 93936939,
+    "ts": 1792578390,
+    "block": 94211695,
     "in": true,
-    "in_s": 402653,
-    "all_s": 402653
+    "in_s": 431051,
+    "all_s": 431051
    }
   }
  },
@@ -228,16 +256,6 @@
    "ts": 1792147339,
    "tokens": {},
    "pnl_usd": 0
-  },
-  {
-   "ts": 1792464552,
-   "tokens": {}
-  },
-  {
-   "ts": 1792464553,
-   "tokens": {
-    "KAT@katana": 5653.494035902352
-   }
   },
   {
    "ts": 1792491184,
@@ -346,11 +364,77 @@
      "USDG@robinhood": 3.839935
     }
    }
+  },
+  {
+   "ts": 1792577003,
+   "tokens": {
+    "WETH@robinhood": 0.00166178,
+    "USDG@robinhood": 3.986176,
+    "KAT@katana": 7810.38352789
+   },
+   "pnl_usd": -3.65,
+   "pos": {
+    "katana:487126": {
+     "KAT@katana": 4029.55638581
+    },
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00166178,
+     "USDG@robinhood": 3.986176
+    }
+   },
+   "pp": {
+    "katana:487126": 1.04,
+    "robinhood:1458357": -4.69
+   }
+  },
+  {
+   "ts": 1792577238,
+   "tokens": {
+    "WETH@robinhood": 0.00166178,
+    "USDG@robinhood": 3.986176,
+    "KAT@katana": 7810.38352789
+   },
+   "pnl_usd": -3.65,
+   "pos": {
+    "katana:487126": {
+     "KAT@katana": 4029.55638581
+    },
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00166178,
+     "USDG@robinhood": 3.986176
+    }
+   },
+   "pp": {
+    "katana:487126": 1.04,
+    "robinhood:1458357": -4.69
+   }
+  },
+  {
+   "ts": 1792578388,
+   "tokens": {
+    "WETH@robinhood": 0.0016652,
+    "USDG@robinhood": 3.993079,
+    "KAT@katana": 7810.38352789
+   },
+   "pnl_usd": -4.09,
+   "pos": {
+    "katana:487126": {
+     "KAT@katana": 4029.55638581
+    },
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.0016652,
+     "USDG@robinhood": 3.993079
+    }
+   },
+   "pp": {
+    "katana:487126": 1.04,
+    "robinhood:1458357": -5.13
+   }
   }
  ],
  "runs": [
   {
-   "ts": 1792499413,
+   "ts": 1792577003,
    "started": true,
    "behind": {
     "katana": 0,
@@ -358,21 +442,14 @@
    }
   },
   {
-   "ts": 1792512144,
+   "ts": 1792577238,
    "behind": {
     "katana": 0,
     "robinhood": 0
    }
   },
   {
-   "ts": 1792530021,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
-   "ts": 1792549992,
+   "ts": 1792578388,
    "behind": {
     "katana": 0,
     "robinhood": 0
@@ -383,7 +460,7 @@
   "by_id": {}
  },
  "merkl_claimed": {
-  "KAT@katana": 5653.494035902352
+  "KAT@katana": 7810.383527890386
  },
  "claims": [
   {
@@ -391,7 +468,18 @@
    "ts": 1792464553,
    "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
    "token": "KAT@katana",
-   "amount": 5653.494035902352
+   "amount": 5653.494035902352,
+   "price": 0.003934376988875903,
+   "assigned": 1540.407764221683
+  },
+  {
+   "block": 45831624,
+   "ts": 1792574435,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 2156.889491988034,
+   "price": 0.0040675051129066605,
+   "assigned": 2156.889491988034
   }
  ]
 }

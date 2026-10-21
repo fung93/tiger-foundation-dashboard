@@ -1,0 +1,116 @@
+/* ============================================================================
+   lpbook.css — the LP Book's two pages: Live (/lp.html) and All-Time (/lp-all.html).
+   The position card and the LIVE stamp are in lpcards.css, shared with the widget.
+   ========================================================================== */
+:root{
+  --bg:#050505;--card:#0b0b0c;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.04);
+  --text:#f2f0eb;--dim:#8f8b82;--faint:#58554f;
+  --gold:#d6b97b;--up:#6fcf97;--down:#e0796d;--warn:#e2b75c;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:'SF Mono',Monaco,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
+  -webkit-font-smoothing:antialiased;letter-spacing:.005em;
+  padding:max(20px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom))}
+a{color:inherit}
+
+/* header: the Tiger Foundation's own lettering, in this theme's colours */
+header{max-width:1240px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
+h1{font:800 26px/1 var(--mono);letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
+h1 em{font-style:normal;color:var(--gold)}
+@media (max-width:480px){h1{font-size:clamp(17px,5.4vw,22px);letter-spacing:1.2px}}
+
+/* the menu bar under the header: one icon per page, the open one lit */
+.menu{max-width:1240px;margin:0 auto 22px;display:flex;gap:8px}
+.menu a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;text-decoration:none;
+  color:var(--dim);border:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+.menu a svg{width:16px;height:16px;display:block}
+.menu a:hover{color:var(--text);border-color:rgba(255,255,255,.16)}
+.menu a.on{color:var(--gold);border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
+
+.health{max-width:1240px;margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
+  border-radius:12px;padding:11px 14px;font-size:12px;display:none}
+.health.on{display:block}
+
+/* the page's own line above the cards: what it is, and the way to the other page */
+.bar{max-width:1240px;margin:0 auto 12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.bar .what{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
+.bar a{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.14em;
+  text-transform:uppercase;text-decoration:none;padding:6px 11px;border:1px solid var(--line);border-radius:999px}
+.bar a:hover{color:var(--gold);border-color:rgba(214,185,123,.4)}
+.bar a svg{width:14px;height:14px;display:block}
+
+.card{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 55%),var(--card);
+  border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0;position:relative}
+.label{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
+
+.stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stats.s5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1060px){.stats.s5{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .stats.s5 .card{grid-column:span 2}.stats.s5 .card:nth-child(n+4){grid-column:span 3}}
+@media (max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){.stats,.stats.s5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .stats.s5 .card,.stats.s5 .card:nth-child(n+4){grid-column:auto}.stats.s5 .card:last-child{grid-column:1/-1}}
+.big{font-size:32px;font-weight:300;margin-top:12px;letter-spacing:-.025em;white-space:nowrap;line-height:1.1}
+@media (max-width:720px){.big{font-size:24px}.card{padding:16px}}
+.note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}
+.up{color:var(--up)}.down{color:var(--down)}
+.tag{display:inline-block;font-size:9.5px;font-weight:500;padding:2px 7px;border-radius:999px;border:1px solid var(--line);
+  color:var(--dim);letter-spacing:.1em;text-transform:uppercase;vertical-align:1px}
+
+/* the small record icon in a card's corner */
+.rec{position:absolute;top:14px;right:14px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer}
+.rec:hover{color:var(--gold);border-color:rgba(214,185,123,.4)}
+.rec svg{width:13px;height:13px;display:block}
+
+.main{max-width:1240px;margin:0 auto;display:grid;gap:18px;min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media (max-width:960px){.two{grid-template-columns:minmax(0,1fr)}}
+
+/* by chain */
+.chain{display:grid;grid-template-columns:1fr auto auto;gap:6px 22px;padding:15px 0;border-top:1px solid var(--line2);align-items:baseline}
+.chain:first-of-type{border-top:0;padding-top:16px}
+.chain .name{font:400 21px/1.1 var(--serif);text-transform:capitalize;letter-spacing:.01em}
+.chain .v{text-align:right;font-size:14px}
+.chain .split{grid-column:1/-1;color:var(--faint);font-size:11.5px;letter-spacing:.01em}
+
+/* the curve */
+.chart{margin-top:40px;position:relative}
+.chart svg{display:block;width:100%;height:200px;overflow:visible}
+.chart .now{position:absolute;top:-34px;right:0;font-size:20px;font-weight:300;color:var(--gold);letter-spacing:-.01em}
+.chart .now2{position:absolute;top:-10px;right:0;font-size:12px;letter-spacing:.01em}
+.legend{display:flex;gap:16px;margin-top:10px;color:var(--dim);font-size:10.5px;letter-spacing:.06em}
+.legend i{display:inline-block;width:14px;height:2px;border-radius:1px;vertical-align:3px;margin-right:6px}
+.axis{display:flex;justify-content:space-between;color:var(--faint);font-size:10.5px;margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
+
+/* history */
+.hist{margin-top:6px}
+.h{padding:15px 0;border-top:1px solid var(--line2);display:grid;gap:5px}
+.h:first-child{border-top:0}
+.h .l1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.h .pair{font:400 17px/1.15 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+.h .net{font-size:15px;font-weight:400;white-space:nowrap}
+.h .l2,.h .l3{display:flex;justify-content:space-between;gap:2px 10px;flex-wrap:wrap;color:var(--dim);font-size:11.5px}
+.h .l3{color:var(--faint)}
+.h .l2>span,.h .l3>span{white-space:nowrap}
+.empty{color:var(--faint);font-size:12.5px;padding:14px 0;font-style:italic}
+
+/* the claim record */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal-back.open{display:flex}
+.modal{background:#0b0b0c;border:1px solid var(--line);border-radius:16px;width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+.modal-head .label{color:var(--gold)}
+.modal-x{background:none;border:0;color:var(--dim);font-size:22px;line-height:1;cursor:pointer}
+.modal-body{overflow:auto;padding:4px 18px 14px}
+.claim{display:grid;grid-template-columns:auto 1fr auto;gap:2px 14px;padding:11px 0;border-top:1px solid var(--line2);align-items:baseline}
+.claim:first-child{border-top:0}
+.claim .d{color:var(--dim);font-size:12px;white-space:nowrap}
+.claim .a{font-size:13.5px;text-align:right;white-space:nowrap}
+.claim .p{color:var(--faint);font-size:11.5px}
+.claim .u{color:var(--faint);font-size:11.5px;text-align:right}

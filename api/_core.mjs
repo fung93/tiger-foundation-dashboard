@@ -711,8 +711,11 @@ export function widgetView(pos, merkl) {
       position's own rewards. Records every Merkl claim from the start block on.
    6: each point on the fee curve also carries the book's PnL at that moment, so the page
       can draw Net (fees + PnL) beside the fees.
-   7: each position keeps how long it has been in range, read off its pool's swaps. */
-export const BOOK_VERSION = 7;
+   7: each position keeps how long it has been in range, read off its pool's swaps.
+   8: each position keeps its own dated claims (Merkl KAT on Katana, fee collections on
+      Robinhood) at the price of their moment; the book is shown as a live page (open
+      positions) and an all-time page (closed positions, every figure fixed). */
+export const BOOK_VERSION = 8;
 const CLAIMED = '0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683';
 const isMerkl = (chain) => chainOf(chain).yield === 'merkl';
 const tkey = (sym, chain) => sym + '@' + chain;
@@ -1123,12 +1126,13 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
       const block = Number(toBig(l.blockNumber.slice(2)));
       const ts = l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : tsCache[block];
       const amount = Number(toBig(w(l.data, 0))) / 10 ** book.tokens[key].d;
-      /* a claim lands all at once, so the curve steps: the total just before it, then after */
-      book.fee_series.push({ ts: ts - 1, tokens: feeTotals(book, {}) });
       book.merkl_claimed = book.merkl_claimed || {};
       book.merkl_claimed[key] = (book.merkl_claimed[key] || 0) + amount;
-      (book.claims = book.claims || []).push({ block, ts, wallet: toAddr(l.topics[1].slice(2)), token: key, amount });
-      book.fee_series.push({ ts, tokens: feeTotals(book, {}) });
+      /* the token's price at the claim's own block, so a claim's dollars never move again */
+      let price = await priceAtBlock(book, key, block).catch(() => null);
+      if (!price && merkl && merkl.token_price && merkl.token_price[key]) price = merkl.token_price[key];
+      (book.claims = book.claims || []).push({ block, ts, wallet: toAddr(l.topics[1].slice(2)), token: key, amount,
+        price: price || null });
     }
   }
 
@@ -1197,7 +1201,19 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
       const p0 = c0 < o0 ? c0 : o0, p1 = c1 < o1 ? c1 : o1;
       P.owed = { r0: (o0 - p0).toString(), r1: (o1 - p1).toString() };
       if (ch.yield === 'fees') {
-        sumInto(P.fees, { [P.t0]: Number(c0 - p0) / 10 ** P.d0, [P.t1]: Number(c1 - p1) / 10 ** P.d1 });
+        const f0 = Number(c0 - p0) / 10 ** P.d0, f1 = Number(c1 - p1) / 10 ** P.d1;
+        sumInto(P.fees, { [P.t0]: f0, [P.t1]: f1 });
+        /* a collection of fees is this position's claim: dated, at the pool's price of its block */
+        if (f0 > 0 || f1 > 0) {
+          const sp = await sqrtAt(ch, P.pool, block).catch(() => null);
+          const px = sp ? legPrices(P, sp) : {};
+          const tokens = {};
+          if (f0 > 0) tokens[P.t0] = f0;
+          if (f1 > 0) tokens[P.t1] = f1;
+          let usd = 0, ok = true;
+          for (const [k, a] of Object.entries(tokens)) { if (px[k] === undefined) ok = false; else usd += a * px[k]; }
+          (P.claims = P.claims || []).push({ ts, block, tokens, prices: px, usd: ok ? r2(usd) : null });
+        }
       }
     }
   }
@@ -1290,6 +1306,7 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ra
       if (t && chainOf(P.chain).yield === 'merkl') P.merkl = { ...t };
     }
   }
+  attributeClaims(book, merkl);
   return { book, errors, behind };
 }
 
@@ -1394,7 +1411,107 @@ export function bookPnl(book, rows) {
   return r2(pnl);
 }
 
-/* ---------- the page's view: every card, finished ---------- */
+/* ---------- what each position has CLAIMED, dated ----------
+   Robinhood's are its fee collections, recorded as they happen. Katana's are its Merkl KAT:
+   a Merkl claim is made by the wallet for every position at once, so a position's share is
+   read from Merkl's own per-position "claimed" figure and dated by the wallet's latest claim
+   since the share was last seen. Each record keeps the token price of its own moment, so a
+   closed position's fees never move again. */
+function attributeClaims(book, merkl) {
+  const claimed = merkl && !merkl.error && merkl.claimed_tokens_by_id;
+  if (!claimed) return;
+  const nowTs = Date.now() / 1000;
+  /* every position whose Merkl "claimed" has grown since it was last seen */
+  const jobs = [];
+  for (const P of Object.values(book.positions)) {
+    if (!isMerkl(P.chain)) continue;
+    P.claimed_seen = P.claimed_seen || {};
+    for (const [k, amt] of Object.entries(claimed[P.id] || {})) {
+      const d = amt - (P.claimed_seen[k] || 0);
+      if (d > 1e-9) jobs.push({ P, k, left: d, cur: amt });
+    }
+  }
+  if (!jobs.length) return;
+  /* what a position had earned by a moment: zero at its mint, its recorded readings since, its
+     present total at the end — so no claim is credited with rewards not yet earned when made */
+  const earnedAt = (P, k, t) => {
+    const pts = [[P.opened_ts || 0, 0]];
+    for (const p of book.fee_series || []) {
+      const x = p.pos && p.pos[P.key] && p.pos[P.key][k];
+      if (typeof x === 'number' && p.ts > (P.opened_ts || 0)) pts.push([p.ts, x]);
+    }
+    pts.sort((x, y) => x[0] - y[0]);
+    const fin = (P.merkl && P.merkl[k]) || 0;
+    const end = P.status === 'open' ? nowTs : (P.closed_ts || nowTs);
+    pts.push([Math.max(end, pts[pts.length - 1][0] + 1), fin]);
+    if (t <= pts[0][0]) return 0;
+    for (let i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) { const [t0, v0] = pts[i - 1], [t1, v1] = pts[i]; return v0 + (v1 - v0) * (t - t0) / (t1 - t0); }
+    }
+    return fin;
+  };
+  const creditedTo = (P, k) => (P.claims || []).reduce((s2, c) => s2 + (c.tokens[k] || 0), 0);
+  const credit = (P, ev, k, amount) => {
+    const price = typeof ev.price === 'number' ? ev.price : null;
+    P.claims = P.claims || [];
+    let rec = P.claims.find((c) => c.ts === ev.ts);
+    if (!rec) { rec = { ts: ev.ts, block: ev.block, tokens: {}, prices: {}, usd: 0 }; P.claims.push(rec); }
+    rec.tokens[k] = (rec.tokens[k] || 0) + amount;
+    if (price === null) rec.usd = null; else { rec.prices[k] = price; if (rec.usd !== null) rec.usd = r2(rec.usd + amount * price); }
+    ev.assigned = (ev.assigned || 0) + amount;
+  };
+  const after = (P) => Math.max(P.opened_ts || 0, P.last_claim_ts || 0);
+  const groups = {};
+  for (const j of jobs) (groups[lc(j.P.wallet) + '|' + j.k] = groups[lc(j.P.wallet) + '|' + j.k] || []).push(j);
+  for (const [g, js] of Object.entries(groups)) {
+    const [wallet, k] = g.split('|');
+    const evs = (book.claims || []).filter((c) => lc(c.wallet) === wallet && c.token === k).sort((x, y) => x.ts - y.ts);
+    /* Claims in the order they were made, each paying the oldest rewards first: a position
+       that closed earlier was paid by the earlier claims. Never more to a position than it had
+       earned by that claim, never more from a claim than it paid out. */
+    js.sort((x, y) => ((x.P.closed_ts || Infinity) - (y.P.closed_ts || Infinity)) || ((x.P.opened_ts || 0) - (y.P.opened_ts || 0)));
+    for (const ev of evs) {
+      let room = ev.amount - (ev.assigned || 0);
+      for (const j of js) {
+        if (!(room > 1e-9)) break;
+        if (!(j.left > 1e-9) || ev.ts < after(j.P)) continue;
+        const take = Math.min(j.left, room, Math.max(0, earnedAt(j.P, k, ev.ts) - creditedTo(j.P, k)));
+        if (take > 1e-9) { credit(j.P, ev, k, take); j.left -= take; room -= take; }
+      }
+    }
+    /* what the estimate could not place goes to a claim with room left, else to the latest */
+    for (const j of js) {
+      if (!(j.left > 1e-9)) continue;
+      const el = evs.filter((ev) => ev.ts >= after(j.P));
+      if (!el.length) continue;   /* the claim itself is not in the book yet: wait for it */
+      for (const ev of el) {
+        const take = Math.min(j.left, Math.max(0, ev.amount - (ev.assigned || 0)));
+        if (take > 1e-9) { credit(j.P, ev, k, take); j.left -= take; }
+        if (!(j.left > 1e-9)) break;
+      }
+      if (j.left > 1e-9) { credit(j.P, el[el.length - 1], k, j.left); j.left = 0; }
+    }
+    for (const j of js) {
+      if (j.left > 1e-9) continue;
+      j.P.claimed_seen[k] = j.cur;
+      j.P.claims.sort((x, y) => x.ts - y.ts);
+      j.P.last_claim_ts = Math.max(j.P.last_claim_ts || 0, ...j.P.claims.map((c) => c.ts));
+    }
+  }
+}
+const claimedTokensOf = (P) => {
+  const out = {};
+  for (const c of P.claims || []) sumInto(out, c.tokens);
+  return out;
+};
+
+/* ---------- the two pages' views ----------
+   LIVE: open positions only, at live prices. Value, PnL (IL + price), fees CLAIMED since each
+   position opened (repriced live), net. When a position closes it leaves this view whole —
+   its value, its PnL and its claims — and appears on the all-time view instead.
+   ALL-TIME: closed positions only, every figure fixed: PnL in tokens and dollars at the
+   close, each claim at its own day's price. Rows are built from those fixed values and the
+   cards are their sums, so the rows add up to the cards exactly. */
 export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const usdOf = (tokens) => {
     let v = 0; const missing = [];
@@ -1403,109 +1520,163 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     }
     return { usd: r2(v), missing };
   };
-  const chains = {};
-  const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, realised_usd: 0, unrealised_usd: 0,
-    fees_usd: 0, open: 0, closed: 0 });
-  V3.forEach((c) => touch(c.key));
+  const sym = (k) => (book.tokens[k] && book.tokens[k].s) || k.split('@')[0];
+  const nowTs = Math.floor(Date.now() / 1000);
+  const all = Object.values(book.positions);
+  const open = all.filter((P) => P.status === 'open');
+  const closed = all.filter((P) => P.status !== 'open');
 
-  let value = 0, realised = 0, unrealised = 0;
-  const live = [], history = [], unread = [];
-  /* rewards claimable when tracking began, to each chain they were earned on */
-  const carried = carriedTokens(book);
-  const feeTokens = { ...carried };
-  for (const [k, a] of Object.entries(carried)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
-  /* KAT claimed from Merkl since the start, to the chain it was claimed on */
-  const claimed = book.merkl_claimed || {};
-  sumInto(feeTokens, claimed);
-  for (const [k, a] of Object.entries(claimed)) touch(k.split('@')[1]).fees_usd += usdOf({ [k]: a }).usd;
-  for (const P of Object.values(book.positions)) {
+  /* ===== live ===== */
+  const chains = {};
+  const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0 });
+  V3.forEach((c) => touch(c.key));
+  let value = 0, unrealised = 0;
+  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {};
+  for (const P of open) {
     const C = touch(P.chain);
+    C.open++;
+    const got = claimedTokensOf(P);
+    sumInto(feeTokens, got);
+    C.fees_usd += usdOf(got).usd;
+    for (const c of P.claims || []) for (const [k, a] of Object.entries(c.tokens)) {
+      claimList.push({ ts: c.ts, chain: P.chain, pair: P.pair, token: sym(k), amount: a,
+        usd_now: prices[k] === undefined ? null : r2(a * prices[k]) });
+    }
     const row = rows[P.key];
+    if (!row || row.liquidity_usd === null) { unread.push(P.key); continue; }
+    const u = row.liquidity_usd + P.out_usd - P.cost_usd;
+    pnlNow[P.key] = u;
+    value += row.liquidity_usd; unrealised += u;
+    C.value_usd += row.liquidity_usd; C.pnl_usd += u;
+    /* the card: this position's own rewards or fees since it opened, claimed or not */
     const tokens = feeTokensOf(P, uncollectedOf(P, row));
-    /* a Merkl chain's position rewards are its card's figure only; the totals count claims */
-    if (!isMerkl(P.chain)) {
-      sumInto(feeTokens, tokens);
-      C.fees_usd += usdOf(tokens).usd;
+    const view = widgetView(row, merkl);
+    const earned = usdOf(tokens).usd;
+    view.yield_value = money(earned);
+    view.pnl = signed(u); view.pnl_up = u >= 0;
+    view.net = signed(u + earned); view.net_up = u + earned >= 0;
+    view.cost = money(P.cost_usd);
+    view.since = 'opened ' + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);
+    view.value_now = money(row.liquidity_usd);
+    if (P.range) {
+      const tail = Math.max(0, nowTs - P.range.ts);
+      const inS = P.range.in_s + (row.in_range ? tail : 0), allS = P.range.all_s + tail;
+      if (allS > 0) view.in_range_pct = Math.round(inS / allS * 100);
     }
-    if (P.status === 'open') {
-      C.open++;
-      if (!row || row.liquidity_usd === null) { unread.push(P.key); continue; }
-      const u = row.liquidity_usd + P.out_usd - P.cost_usd;
-      value += row.liquidity_usd; unrealised += u;
-      C.value_usd += row.liquidity_usd; C.unrealised_usd += u; C.pnl_usd += u;
-      const view = widgetView(row, merkl);
-      /* The widget's yield is all-time; the book's is since the position opened. On Katana
-         it is this position's own Merkl KAT only — what it has made claimable, still
-         counted after it is claimed — never the wallet's whole balance. */
-      const earned = usdOf(tokens).usd;
-      view.yield_value = money(earned);
-      view.pnl = signed(u); view.pnl_up = u >= 0;
-      view.net = signed(u + earned); view.net_up = u + earned >= 0;
-      view.cost = money(P.cost_usd);
-      view.since = (P.at_start ? 'tracked since ' : 'opened ') + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);
-      /* what the position is worth now, beside what it cost, excl. fees like the top card */
-      view.value_now = money(row.liquidity_usd);
-      if (P.range) {
-        const tail = Math.max(0, Date.now() / 1000 - P.range.ts);
-        const inS = P.range.in_s + (row.in_range ? tail : 0), allS = P.range.all_s + tail;
-        if (allS > 0) view.in_range_pct = Math.round(inS / allS * 100);
-      }
-      const apr = positionApr(book, P, tokens, usdOf);
-      view.apr = apr ? pctText(apr.pct) : '–';
-      view.apr_basis = apr ? apr.basis : 'not enough time yet';
-      live.push(view);
-    } else {
-      C.closed++;
-      const f = P.frozen || { pnl_usd: r2(P.out_usd - P.cost_usd), fee_usd: 0, net_usd: r2(P.out_usd - P.cost_usd) };
-      realised += f.pnl_usd; C.realised_usd += f.pnl_usd; C.pnl_usd += f.pnl_usd;
-      history.push({
-        chain: P.chain, id: P.id, pair: P.pair, wallet: walletLabel(P.wallet),
-        opened: P.opened_ts ? new Date(P.opened_ts * 1000).toISOString() : null,
-        closed: P.closed_ts ? new Date(P.closed_ts * 1000).toISOString() : null,
-        held_hours: P.opened_ts && P.closed_ts ? r2((P.closed_ts - P.opened_ts) / 3600) : null,
-        at_start: P.at_start,
-        cost_usd: f.cost_usd !== undefined ? f.cost_usd : r2(P.cost_usd),
-        principal_usd: f.principal_usd !== undefined ? f.principal_usd : r2(P.out_usd),
-        pnl_usd: f.pnl_usd, fee_usd: f.fee_usd, fee_tokens: f.fee_tokens || {},
-        net_usd: f.net_usd, net_pct: f.net_pct === undefined ? null : f.net_pct,
-        incomplete: !!f.incomplete,
-      });
-    }
+    const apr = positionApr(book, P, tokens, usdOf);
+    view.apr = apr ? pctText(apr.pct) : '–';
+    live.push(view);
   }
   for (const c of Object.values(chains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
-  history.sort((x, y) => String(y.closed).localeCompare(String(x.closed)));
   live.sort((x, y) => (x.chain + x.id).localeCompare(y.chain + y.id));
-
+  claimList.sort((x, y) => y.ts - x.ts);
   const feeNow = usdOf(feeTokens);
-  /* the fee curve, every point repriced at today's prices: it shows how much was earned
-     by when, in what the tokens are worth now, and can fall on a day prices fall */
-  const nowTs = Math.floor(Date.now() / 1000);
-  /* Net beside it: the fees as repriced today plus the PnL recorded at that point. A point
-     saved before PnL was recorded has no Net and the Net line passes it by. */
-  const series = book.fee_series.slice().sort((x, y) => x.ts - y.ts).map((p) => {
-    const usd = usdOf(p.tokens).usd;
-    return { ts: p.ts, usd, net: typeof p.pnl_usd === 'number' ? r2(usd + p.pnl_usd) : null };
-  });
-  const netNow = unread.length ? null : r2(feeNow.usd + realised + unrealised);
-  series.push({ ts: nowTs, usd: feeNow.usd, net: netNow, live: true });
 
+  /* the live curve: claimed fees of the open positions, stepping at each claim and priced
+     today; Net beside it wherever the PnL of exactly these positions was recorded */
+  const openKeys = new Set(open.map((P) => P.key));
+  const start = open.length ? Math.min(...open.map((P) => P.opened_ts || nowTs)) : nowTs;
+  const claimedAt = (t) => {
+    const tok = {};
+    for (const P of open) for (const c of P.claims || []) if (c.ts <= t) sumInto(tok, c.tokens);
+    return usdOf(tok).usd;
+  };
+  const pnlAt = (p) => {
+    if (p.pp) {
+      let s = 0;
+      for (const P of open) if (P.opened_ts <= p.ts) { if (typeof p.pp[P.key] !== 'number') return null; s += p.pp[P.key]; }
+      return s;
+    }
+    /* a point saved before per-position PnL: usable only if every position then open is open now */
+    if (typeof p.pnl_usd !== 'number') return null;
+    const then = all.filter((P) => P.opened_ts <= p.ts && (!P.closed_ts || P.closed_ts > p.ts));
+    return then.every((P) => openKeys.has(P.key)) ? p.pnl_usd : null;
+  };
+  const marks = new Map();
+  marks.set(start, 0);
+  for (const P of open) for (const c of P.claims || []) { marks.set(c.ts - 1, null); marks.set(c.ts, null); }
+  const points = {};
+  for (const p of book.fee_series || []) if (p.ts > start && p.ts < nowTs) { marks.set(p.ts, null); points[p.ts] = p; }
+  const series = [...marks.keys()].filter((t) => t >= start && t < nowTs).sort((x, y) => x - y).map((t) => {
+    const usd = claimedAt(t);
+    const pn = t === start ? 0 : points[t] ? pnlAt(points[t]) : null;
+    return { ts: t, usd, net: pn === null ? null : r2(usd + pn) };
+  });
+  series.push({ ts: nowTs, usd: feeNow.usd, net: unread.length ? null : r2(feeNow.usd + unrealised), live: true });
+
+  /* ===== all-time: closed positions, fixed ===== */
+  const aChains = {};
+  const aTouch = (c) => aChains[c] || (aChains[c] = { realised_usd: 0, fees_usd: 0, net_usd: 0, closed: 0 });
+  V3.forEach((c) => aTouch(c.key));
+  const history = [], fixedClaims = [];
+  let realised = 0, feesFixed = 0, capDays = 0, first = Infinity, last = 0, incomplete = false;
+  for (const P of closed) {
+    const C = aTouch(P.chain);
+    C.closed++;
+    const f = P.frozen || {};
+    const pnl = typeof f.pnl_usd === 'number' ? f.pnl_usd : r2(P.out_usd - P.cost_usd);
+    let fees = 0, feeInc = false;
+    const ftok = {};
+    for (const c of P.claims || []) {
+      sumInto(ftok, c.tokens);
+      if (c.usd === null || c.usd === undefined) feeInc = true; else { fees += c.usd; fixedClaims.push({ ts: c.ts, usd: c.usd }); }
+    }
+    fees = r2(fees);
+    const days = P.opened_ts && P.closed_ts ? Math.max(0, (P.closed_ts - P.opened_ts) / 86400) : 0;
+    capDays += P.cost_usd * days;
+    if (P.opened_ts) first = Math.min(first, P.opened_ts);
+    if (P.closed_ts) last = Math.max(last, P.closed_ts);
+    realised += pnl; feesFixed += fees;
+    C.realised_usd += pnl; C.fees_usd += fees; C.net_usd += pnl + fees;
+    const out = { a0: 0, a1: 0 };
+    for (const x of P.withdrawals || []) { out.a0 += x.a0; out.a1 += x.a1; }
+    if (P.unpriced || feeInc || f.incomplete) incomplete = true;
+    history.push({
+      chain: P.chain, id: P.id, pair: P.pair, wallet: walletLabel(P.wallet),
+      opened: P.opened_ts ? new Date(P.opened_ts * 1000).toISOString() : null,
+      closed: P.closed_ts ? new Date(P.closed_ts * 1000).toISOString() : null,
+      held_hours: days ? r2(days * 24) : null,
+      cost_usd: r2(P.cost_usd), principal_usd: r2(P.out_usd),
+      out_tokens: { [sym(P.t0)]: out.a0, [sym(P.t1)]: out.a1 },
+      pnl_usd: r2(pnl), fee_usd: fees, fee_tokens: Object.fromEntries(Object.entries(ftok).map(([k, a]) => [sym(k), a])),
+      net_usd: r2(pnl + fees), net_pct: P.cost_usd > 0 ? r2((pnl + fees) / P.cost_usd * 100) : null,
+      incomplete: !!(P.unpriced || feeInc || f.incomplete),
+    });
+  }
+  for (const c of Object.values(aChains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
+  history.sort((x, y) => String(y.closed).localeCompare(String(x.closed)));
+  const spanDays = last > first ? (last - first) / 86400 : 0;
+  fixedClaims.sort((x, y) => x.ts - y.ts);
+  let run = 0;
+  const aSeries = closed.length ? [{ ts: first, usd: 0 }] : [];
+  for (const c of fixedClaims) { aSeries.push({ ts: c.ts - 1, usd: r2(run) }); run += c.usd; aSeries.push({ ts: c.ts, usd: r2(run) }); }
+  if (closed.length) aSeries.push({ ts: nowTs, usd: r2(run) });
   const pairs = rebalances(book.events);
+
   return {
     started: book.started,
     wallets: book.wallets.map((a) => ({ address: a, label: walletLabel(a) })),
+    /* the LIVE page */
     cards: {
-      value_usd: r2(value),
-      pnl_usd: r2(realised + unrealised), realised_usd: r2(realised), unrealised_usd: r2(unrealised),
-      chains,
-      fees_usd: feeNow.usd, fee_tokens: feeTokens,
-      /* what the book has made: fees earned, less what IL and price took (or plus what they gave) */
-      net_usd: r2(feeNow.usd + realised + unrealised),
-      fee_tokens_usd: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [k, prices[k] === undefined ? null : r2(a * prices[k])])),
-      carried_usd: usdOf(carried).usd, carried_tokens: carried,
-      rebalances: pairs.length,
+      value_usd: r2(value), pnl_usd: r2(unrealised),
+      fees_usd: feeNow.usd, fee_tokens: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [sym(k), a])),
+      fee_tokens_usd: Object.fromEntries(Object.entries(feeTokens).map(([k, a]) => [sym(k), prices[k] === undefined ? null : r2(a * prices[k])])),
+      net_usd: r2(feeNow.usd + unrealised),
+      open: open.length, chains,
     },
-    rebalances: pairs.slice().reverse(),
-    live, history, series, prices,
+    claims: claimList,
+    series, live, prices,
+    /* the ALL-TIME page */
+    alltime: {
+      cards: {
+        avg_value_usd: spanDays > 0 ? r2(capDays / spanDays) : 0,
+        realised_usd: r2(realised), fees_usd: r2(feesFixed), net_usd: r2(realised + feesFixed),
+        apr_pct: capDays > 0 ? r2(feesFixed / capDays * 365 * 100) : null,
+        closed: closed.length, days: r2(spanDays), rebalances: pairs.length, incomplete,
+        chains: aChains,
+      },
+      series: aSeries, history, rebalances: pairs.slice().reverse(),
+    },
     health: {
       errors: errors || {}, behind: behind || {}, unread,
       unpriced: feeNow.missing,

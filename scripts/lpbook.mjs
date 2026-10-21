@@ -46,7 +46,14 @@ export async function updateLpBook(root) {
     const pnl = bookPnl(book, live.rows);
     /* each open position's own fees too, so its live APR can be measured over the last day */
     const pos = Object.fromEntries(Object.entries(positionFees(book, live.rows)).map(([k, t]) => [k, round(t)]));
-    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos });
+    /* each open position's own PnL too, so the live page's Net line can follow exactly the
+       positions open at the time it is drawn */
+    const pp = {};
+    for (const P of Object.values(book.positions)) {
+      const row = live.rows[P.key];
+      if (P.status === 'open' && row && typeof row.liquidity_usd === 'number') pp[P.key] = Math.round((row.liquidity_usd + P.out_usd - P.cost_usd) * 100) / 100;
+    }
+    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 

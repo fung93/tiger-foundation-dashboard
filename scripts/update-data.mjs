@@ -824,12 +824,23 @@ async function getKatana(prevStakedIds, markets = CFG.morphoMarkets) {
     const loan = keyOf(toAddr(w(mp.data, 0))), col = keyOf(toAddr(w(mp.data, 1)));
     const ld = loan ? CFG.tokens[loan].d : 18, cd = col ? CFG.tokens[col].d : 18;
     morpho.push({
-      id, loan, col, lltv: Number(toBig(w(mp.data, 4))) / 1e16,
+      id, loan, col, lltv: Number(toBig(w(mp.data, 4))) / 1e16, oracle: toAddr(w(mp.data, 2)), ld, cd,
       supplied: Number(sShares * (tSA + 1n) / (tSS + 1000000n)) / 10 ** ld,
       debt: Number((bShares * (tBA + 1n) + tBS + 1000000n - 1n) / (tBS + 1000000n)) / 10 ** ld,
       collateral: Number(coll) / 10 ** cd,
     });
   });
+  /* Each market's own oracle — what Morpho itself values the collateral at when it decides a
+     liquidation. It is not always the redemption value: the vbUSDC-on-avKAT oracle reads avKAT
+     near KAT's own price, a quarter below what an avKAT redeems for. Its price carries 36 +
+     loan decimals - collateral decimals. */
+  const orc = morpho.filter((m) => m.oracle && !m.error);
+  if (orc.length) {
+    try {
+      const op = await multicall(orc.map((m) => ({ to: m.oracle, data: '0xa035b1fe' })));
+      orc.forEach((m, i) => { if (op[i] && op[i].ok) m.oracle_px = Number(toBig(w(op[i].data, 0))) / 1e36 * 10 ** (m.cd - m.ld); });
+    } catch { /* without the oracle the health falls back to market prices */ }
+  }
   let nftCount = Number(toBig(w(r[B + 3].data, 0)));
   if (nftCount > 200) nftCount = 200;
 
@@ -2173,16 +2184,17 @@ const morphoRows = kat.morpho.map((m) => {
   const supUsd = round2(m.supplied * katPriceOf(m.loan));
   const net = round2(Math.max(0, colUsd + supUsd - debtUsd));
   const avk = m.col === 'avKAT';
+  /* health exactly as Morpho reckons it: collateral at its oracle, times LLTV, over the loan */
+  const health = m.oracle_px && m.debt > 0 ? m.collateral * m.oracle_px * (m.lltv / 100) / m.debt : null;
   let note;
   if (avk && m.loan === 'KAT') {
     const colKat = m.collateral * kat.avkatRate;
     note = `Net ${Math.round(colKat + m.supplied - m.debt).toLocaleString('en-US')} KAT = $${net} · avKAT rate ${kat.avkatRate.toFixed(4)}`;
   } else if ((avk || m.col === 'KAT') && m.debt > 0) {
     /* a dollar loan on KAT, held as avKAT or as KAT itself: what matters is the KAT price at
-       which it is liquidated */
-    const liq = debtUsd / (m.collateral * (avk ? kat.avkatRate : 1) * (m.lltv / 100));
-    note = `Liquidates if KAT falls to $${liq.toFixed(6)} (now $${kat.katPrice.toFixed(6)})`
-      + (avk ? ` · avKAT rate ${kat.avkatRate.toFixed(4)}` : '');
+       which it is liquidated — measured on Morpho's own oracle, which falls with KAT */
+    const liq = health ? kat.katPrice / health : debtUsd / (m.collateral * (avk ? kat.avkatRate : 1) * (m.lltv / 100));
+    note = `Liquidates if KAT falls to $${liq.toFixed(6)} (now $${kat.katPrice.toFixed(6)})`;
   } else note = `Net $${net}`;
   return {
     type: 'Lending', protocol: 'Morpho Blue', market: `${L(m.loan)} / ${L(m.col)}`, market_id: m.id,
@@ -2190,6 +2202,7 @@ const morphoRows = kat.morpho.map((m) => {
     debt: { amount: m.debt, token: L(m.loan), usd: debtUsd },
     ...(m.supplied > 0 ? { supplied: { amount: m.supplied, token: L(m.loan), usd: supUsd } } : {}),
     lltv: `${m.lltv}%`, ...(avk ? { avkat_rate: kat.avkatRate } : {}), value_usd: net, note,
+    ...(health ? { health: Math.round(health * 10000) / 10000, oracle_price: m.oracle_px } : {}),
   };
 }).filter(Boolean);
 const morphoNet = round2(morphoRows.reduce((a, p) => a + (p.value_usd || 0), 0));
