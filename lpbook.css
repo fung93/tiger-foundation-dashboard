@@ -49,12 +49,11 @@ h1 b{font-weight:400;color:var(--text)}
 .label{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
 
 .stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.stats.s5{grid-template-columns:repeat(5,minmax(0,1fr))}
-@media (max-width:1060px){.stats.s5{grid-template-columns:repeat(6,minmax(0,1fr))}
-  .stats.s5 .card{grid-column:span 2}.stats.s5 .card:nth-child(n+4){grid-column:span 3}}
+/* a second row of three straight under the first (All-Time: rates and time under the money) */
+.stats.s3{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:-4px}
 @media (max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:720px){.stats,.stats.s5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .stats.s5 .card,.stats.s5 .card:nth-child(n+4){grid-column:auto}.stats.s5 .card:last-child{grid-column:1/-1}}
+@media (max-width:720px){.stats,.stats.s3{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .stats.s3{margin-top:-8px}.stats.s3 .card:last-child{grid-column:1/-1}}
 .big{font-size:32px;font-weight:300;margin-top:12px;letter-spacing:-.025em;white-space:nowrap;line-height:1.1}
 @media (max-width:720px){.big{font-size:24px}.card{padding:16px}}
 .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}

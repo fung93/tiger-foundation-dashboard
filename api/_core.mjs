@@ -1644,6 +1644,10 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   V3.forEach((c) => aTouch(c.key));
   const history = [], fixedClaims = [];
   let realised = 0, feesFixed = 0, capDays = 0, first = Infinity, last = 0, incomplete = false;
+  /* how long positions stay open, and how much of that time they spend in range: the in-range
+     share is weighted by time, so a long position counts for more than a short one */
+  const held = [];
+  let rangeIn = 0, rangeAll = 0, unmeasured = 0;
   for (const P of closed) {
     const C = aTouch(P.chain);
     C.closed++;
@@ -1658,6 +1662,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     fees = r2(fees);
     const days = P.opened_ts && P.closed_ts ? Math.max(0, (P.closed_ts - P.opened_ts) / 86400) : 0;
     capDays += P.cost_usd * days;
+    if (days > 0) held.push(days);
+    if (P.range && P.range.all_s > 0) { rangeIn += P.range.in_s; rangeAll += P.range.all_s; } else unmeasured++;
     if (P.opened_ts) first = Math.min(first, P.opened_ts);
     if (P.closed_ts) last = Math.max(last, P.closed_ts);
     realised += pnl; feesFixed += fees;
@@ -1706,6 +1712,10 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
         avg_value_usd: spanDays > 0 ? r2(capDays / spanDays) : 0,
         realised_usd: r2(realised), fees_usd: r2(feesFixed), net_usd: r2(realised + feesFixed),
         apr_pct: capDays > 0 ? r2(feesFixed / capDays * 365 * 100) : null,
+        avg_days: held.length ? r2(held.reduce((a, d) => a + d, 0) / held.length) : null,
+        min_days: held.length ? r2(Math.min(...held)) : null, max_days: held.length ? r2(Math.max(...held)) : null,
+        in_range_pct: rangeAll > 0 ? r2(rangeIn / rangeAll * 100) : null,
+        in_range_days: r2(rangeIn / 86400), range_days: r2(rangeAll / 86400), range_unmeasured: unmeasured,
         closed: closed.length, days: r2(spanDays), rebalances: pairs.length, incomplete,
         chains: aChains,
       },

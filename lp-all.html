@@ -36,12 +36,17 @@
   <span class="what">All-time &middot; closed positions, fixed</span>
 </div>
 
-<div class="stats s5">
+<!-- the money first, then the rates and the time -->
+<div class="stats">
   <div class="card"><div class="label">Average LP value</div><div class="big" id="a1">&ndash;</div><div class="note" id="a1n">&nbsp;</div></div>
   <div class="card"><div class="label">Realised PnL &middot; IL + price</div><div class="big" id="a2">&ndash;</div><div class="note" id="a2n">&nbsp;</div></div>
   <div class="card"><div class="label">Total fees earned</div><div class="big" id="a3">&ndash;</div><div class="note" id="a3n">&nbsp;</div></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="a4">&ndash;</div><div class="note" id="a4n">&nbsp;</div></div>
+</div>
+<div class="stats s3">
   <div class="card"><div class="label">APR &middot; time-weighted</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div><div class="note" id="a5n">&nbsp;</div></div>
+  <div class="card"><div class="label">Average days open</div><div class="big" id="a9">&ndash;</div><div class="note" id="a9n">&nbsp;</div></div>
+  <div class="card"><div class="label">Average time in range</div><div class="big" id="a10">&ndash;</div><div class="note" id="a10n">&nbsp;</div></div>
 </div>
 
 <div class="main">
@@ -83,6 +88,13 @@
     $('a4n').textContent = 'fees ' + money(C.fees_usd) + ' · PnL ' + signed(C.realised_usd);
     $('a5').textContent = C.apr_pct == null ? '–' : (C.apr_pct >= 100 ? Math.round(C.apr_pct).toLocaleString('en-US') : C.apr_pct.toFixed(1)) + '%';
     $('a5n').textContent = 'fees ÷ (value × days open) × 365' + (C.incomplete ? ' · some prices missing' : '');
+    $('a9').textContent = C.avg_days == null ? '–' : C.avg_days.toFixed(1) + ' days';
+    $('a9n').textContent = C.avg_days == null ? 'per closed position'
+      : 'shortest ' + C.min_days.toFixed(1) + ' · longest ' + C.max_days.toFixed(1) + ' days';
+    $('a10').textContent = C.in_range_pct == null ? '–' : Math.round(C.in_range_pct) + '%';
+    $('a10n').textContent = C.in_range_pct == null ? 'share of open time inside the range'
+      : C.in_range_days.toFixed(1) + ' of ' + C.range_days.toFixed(1) + ' days in range'
+        + (C.range_unmeasured ? ' · ' + C.range_unmeasured + ' not measured' : '');
 
     $('a6').innerHTML = Object.keys(C.chains).filter(function (k) { return C.chains[k].closed; }).map(function (k) {
       var c = C.chains[k];
