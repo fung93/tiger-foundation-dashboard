@@ -39,7 +39,8 @@
 <!-- the money first, then the rates and the time -->
 <div class="stats">
   <div class="card"><div class="label">Average LP value</div><div class="big" id="a1">&ndash;</div><div class="note" id="a1n">&nbsp;</div></div>
-  <div class="card"><div class="label">Realised PnL &middot; IL + price</div><div class="big" id="a2">&ndash;</div><div class="note" id="a2n">&nbsp;</div></div>
+  <div class="card with-rec"><div class="label">Realised PnL &middot; IL + price</div><div class="big" id="a2">&ndash;</div><div class="note" id="a2n">&nbsp;</div>
+    <button class="rec" id="chainsBtn" type="button" title="By chain" aria-label="Realised PnL by chain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Total fees earned</div><div class="big" id="a3">&ndash;</div><div class="note" id="a3n">&nbsp;</div></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="a4">&ndash;</div><div class="note" id="a4n">&nbsp;</div></div>
 </div>
@@ -50,16 +51,10 @@
 </div>
 
 <div class="main">
-  <div class="two">
-    <div class="card">
-      <div class="label">Realised PnL by chain</div>
-      <div id="a6"></div>
-    </div>
-    <div class="card">
-      <div class="label">Fees earned, all-time &middot; each claim at its own day's price</div>
-      <div class="chart" id="a7"></div>
-      <div class="axis" id="a7x"></div>
-    </div>
+  <div class="card">
+    <div class="label">Fees earned, all-time &middot; each claim at its own day's price</div>
+    <div class="chart" id="a7"></div>
+    <div class="axis" id="a7x"></div>
   </div>
   <div class="card">
     <div class="label" id="a8l">History</div>
@@ -68,11 +63,20 @@
   </div>
 </div>
 
+<div class="modal-back" id="chainsModal" role="dialog" aria-modal="true" aria-label="Realised PnL by chain">
+  <div class="modal">
+    <div class="modal-head"><span class="label">Realised PnL by chain &middot; closed positions</span><button class="modal-x" type="button" aria-label="Close">&times;</button></div>
+    <div class="modal-body"></div>
+  </div>
+</div>
+
 <script src="/lpcards.js"></script>
 <script src="/lpbook.js"></script>
 <script>
 (function () {
   var B = LPBook, $ = B.$, esc = B.esc, money = B.money, signed = B.signed, cls = B.cls, amt = B.amt, day = B.day, held = B.held;
+  var byChain = B.modal('chainsModal'), CHAINS = '';
+  $('chainsBtn').addEventListener('click', function () { byChain.body.innerHTML = CHAINS; byChain.open(); });
 
   function render(v) {
     var A = v.alltime, C = A.cards;
@@ -96,7 +100,7 @@
       : C.in_range_days.toFixed(1) + ' of ' + C.range_days.toFixed(1) + ' days in range'
         + (C.range_unmeasured ? ' · ' + C.range_unmeasured + ' not measured' : '');
 
-    $('a6').innerHTML = Object.keys(C.chains).filter(function (k) { return C.chains[k].closed; }).map(function (k) {
+    CHAINS = Object.keys(C.chains).filter(function (k) { return C.chains[k].closed; }).map(function (k) {
       var c = C.chains[k];
       return '<div class="chain"><div class="name">' + esc(k) + '</div>'
         + '<div class="v" style="color:var(--dim)">fees ' + esc(money(c.fees_usd)) + '</div>'

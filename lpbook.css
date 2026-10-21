@@ -66,6 +66,7 @@ h1 b{font-weight:400;color:var(--text)}
   border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer}
 .rec:hover{color:var(--gold);border-color:rgba(214,185,123,.4)}
 .rec svg{width:13px;height:13px;display:block}
+.card.with-rec .label{padding-right:28px}
 
 .main{max-width:1240px;margin:0 auto;display:grid;gap:18px;min-width:0}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
