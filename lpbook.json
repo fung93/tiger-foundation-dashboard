@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46028857,
-  "robinhood": 96066801
+  "katana": 46045709,
+  "robinhood": 96228781
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -306,11 +306,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1792771667,
-    "block": 96066801,
+    "ts": 1792788520,
+    "block": 96228781,
     "in": true,
-    "in_s": 624328,
-    "all_s": 624328
+    "in_s": 641181,
+    "all_s": 641181
    },
    "claims": [
     {
@@ -445,11 +445,11 @@
    "pool_id": "0xcce8dcf7c4dcfee6b6588db724240d9d6a22ee456f9387bb831c8fcea970869e",
    "slot": "0x807ea74d2da7410eb08783821c2b60cccc5e6807794e957f57ad658751968c75",
    "range": {
-    "ts": 1792771667,
-    "block": 96066801,
+    "ts": 1792788520,
+    "block": 96228781,
     "in": false,
     "in_s": 170135.03529334068,
-    "all_s": 199178
+    "all_s": 216031
    },
    "claims": [
     {
@@ -626,11 +626,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1792771668,
-    "block": 46028857,
+    "ts": 1792788520,
+    "block": 46045709,
     "in": false,
     "in_s": 37873,
-    "all_s": 173990
+    "all_s": 190842
    },
    "claimed_seen": {
     "KAT@katana": 963.7115769023436
@@ -1207,6 +1207,34 @@
     "robinhood:Ff346f1a5-b378": -4.55,
     "katana:491073": -18.59
    }
+  },
+  {
+   "ts": 1792788520,
+   "tokens": {
+    "WETH@robinhood": 0.00257342,
+    "USDG@robinhood": 6.521947,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 9319.84693201
+   },
+   "pnl_usd": -48.73,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00257342,
+     "USDG@robinhood": 6.136804
+    },
+    "robinhood:Ff346f1a5-b378": {
+     "USDG@robinhood": 0.385143,
+     "FABLES@robinhood": 25.22319939
+    },
+    "katana:491073": {
+     "KAT@katana": 963.7115769
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -24.25,
+    "robinhood:Ff346f1a5-b378": -5.97,
+    "katana:491073": -20.69
+   }
   }
  ],
  "runs": [
@@ -1276,6 +1304,13 @@
   },
   {
    "ts": 1792771668,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1792788520,
    "behind": {
     "katana": 0,
     "robinhood": 0
