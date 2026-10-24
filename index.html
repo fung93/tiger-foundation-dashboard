@@ -30,6 +30,7 @@ catch(e){document.documentElement.classList.add('classy');}
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
 
 *{margin:0;padding:0;box-sizing:border-box}
+html{scrollbar-gutter:stable}
 body{font-family:'SF Mono',Monaco,monospace;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
 /* Background art: fixed layer + dark overlay. Uses a pinned pseudo-element rather than
    background-attachment:fixed, which iOS Safari renders badly. */

@@ -12,19 +12,20 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg)}
+html{scrollbar-gutter:stable}
 body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
   -webkit-font-smoothing:antialiased;letter-spacing:.005em;
   padding:0 20px max(32px,env(safe-area-inset-bottom))}
 a{color:inherit}
 
 /* the same Tiger Foundation masthead as Portfolio */
-header{margin:0 -20px 14px;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+header{margin:0 -20px;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
 .hdr-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0}
 .hdr-brand{text-decoration:none;flex:0 0 auto;-webkit-user-select:none;user-select:none}
 header h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
 header h1 em{font-style:italic;color:var(--gold)}
 header h1 b{font-weight:400;color:var(--text)}
-header .sub{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px;white-space:nowrap}
+header .sub{color:var(--dim);font-size:10.5px;font-weight:500;line-height:normal;letter-spacing:.16em;margin-top:9px;white-space:nowrap}
 header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 .hdr-brand:focus-visible{outline:2px solid var(--gold);outline-offset:5px;border-radius:2px}
 @media(max-width:768px){
@@ -34,7 +35,10 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 }
 
 /* the menu bar under the header: one icon per page, the open one lit */
-.menu{max-width:1240px;margin:0 auto 22px;display:flex;gap:8px}
+/* The full-width wrapper cancels the book's body padding, matching Portfolio's menu frame. */
+.menu-wrap{margin:0 -20px;display:flow-root}
+.menu{max-width:1200px;margin:14px auto 22px;padding:0 28px;display:flex;gap:8px}
+@media(max-width:768px){.menu{margin-top:12px;padding:0 16px}}
 .menu a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;text-decoration:none;
   color:var(--dim);border:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
 .menu a svg{width:16px;height:16px;display:block}

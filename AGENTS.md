@@ -91,13 +91,19 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
 | `widget.html`, `widget.webmanifest` | A separately installable phone shortcut showing the LP cards, with a small warning when a chain cannot be read. It has its own LP-range icon. |
-| `docs/hedge-desk/` | Historical Hedge Desk guides. The page has been withdrawn locally; see §7. |
+| `docs/hedge-desk/` | Historical Hedge Desk guides. The page has been withdrawn from the website; see §7. |
 | `sw.js` | Service worker. **Bump `CACHE_VERSION` on every page or asset change**, or returning visitors keep the old shell. |
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
 Portfolio and both LP Book pages have a menu bar under the header:
 **Portfolio · LP Book**, with the open page lit. The standalone widget has no menu;
 tapping its Tiger Foundation masthead opens the full LP Book.
+
+The two menu buttons must keep the same position and size when switching between
+Portfolio and either LP Book page. Match the 1200 px menu frame, side padding (28 px
+desktop, 16 px at 768 px and below), gap below the masthead (14 px desktop, 12 px phone)
+and subtitle line height. The LP Book's `menu-wrap` cancels its body padding; the full
+pages reserve a stable scrollbar gutter to avoid a sideways jump on shorter pages.
 
 These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local.html`,
 `server.py`, `ChatGPT Image Jul 16, 2026, 08_05_14 PM.png`. `serve.ps1` is the local server
@@ -329,9 +335,15 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents (24 Oct 2026)
 
-- **This release, approved after local review:** Hedge Desk removed; all current
+- **This release, approved after local review:** navigation buttons aligned between
+  Portfolio and both LP Book pages; `sw.js` → `tiger-v93`. Position and size match at
+  360 px, 375 px and 1366 px, with no sideways scroll.
+- **Previous published release:** `a9c7c95`, with `tiger-v92`. The notes below record
+  that change.
+
+- **That release:** Hedge Desk removed; all current
   headers use Tiger Foundation; extra LP Book titles removed; `sw.js` → `tiger-v92`.
-- **Previous release:** `4134210`, with `tiger-v90`. The list below records that release,
+- **Earlier release:** `4134210`, with `tiger-v90`. The list below records that release,
   including the Hedge Desk that this release withdraws.
 
 - **Application baseline before the previous release:** commit `243c352` (Chain Breakdown
