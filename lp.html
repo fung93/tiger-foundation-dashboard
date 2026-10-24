@@ -34,6 +34,7 @@
 </nav>
 </div>
 
+<main class="book-content">
 <div class="health" id="health"></div>
 
 <div class="bar">
@@ -45,7 +46,7 @@
   <div class="card"><div class="label">Total LP value</div><div class="big" id="c1">&ndash;</div><div class="note" id="c1n">&nbsp;</div></div>
   <div class="card with-rec"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div>
     <button class="rec" id="chainsBtn" type="button" title="By chain" aria-label="PnL by chain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
-  <div class="card"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div>
+  <div class="card with-rec"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div>
     <button class="rec" id="claimsBtn" type="button" title="Claim record" aria-label="Claim record"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="c9">&ndash;</div><div class="note" id="c9n">&nbsp;</div></div>
 </div>
@@ -62,6 +63,8 @@
     <div class="lpw-grid" id="c6"></div>
   </div>
 </div>
+
+</main>
 
 <div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Claim record">
   <div class="modal">

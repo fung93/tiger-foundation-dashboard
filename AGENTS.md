@@ -102,8 +102,13 @@ tapping its Tiger Foundation masthead opens the full LP Book.
 The two menu buttons must keep the same position and size when switching between
 Portfolio and either LP Book page. Match the 1200 px menu frame, side padding (28 px
 desktop, 16 px at 768 px and below), gap below the masthead (14 px desktop, 12 px phone)
-and subtitle line height. The LP Book's `menu-wrap` cancels its body padding; the full
+and subtitle line height. The menu stays outside the LP Book's content wrapper; the full
 pages reserve a stable scrollbar gutter to avoid a sideways jump on shorter pages.
+
+The cards' outside edges must also match between Portfolio and both LP Book pages.
+Portfolio's `.wrap` and the LP Book's `.book-content` use a 1200 px outer frame with
+28 px inside padding on each side at every screen width. Keep the view controls,
+warnings and every row of cards inside that same frame; fixed modals remain outside it.
 
 These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local.html`,
 `server.py`, `ChatGPT Image Jul 16, 2026, 08_05_14 PM.png`. `serve.ps1` is the local server
@@ -335,7 +340,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents (24 Oct 2026)
 
-- **This release, approved after local review:** navigation buttons aligned between
+- **This release, approved for push after local review:** LP Book card edges match
+  Portfolio's content frame; `sw.js` → `tiger-v94`. Both outside edges match exactly
+  at 360 px, 375 px and 1366 px; phone figures fit with no sideways scroll.
+- **Previous published release:** `ec3e724`, with `tiger-v93`. The notes below record
+  that release and earlier changes.
+
+- **That release, approved after local review:** navigation buttons aligned between
   Portfolio and both LP Book pages; `sw.js` → `tiger-v93`. Position and size match at
   360 px, 375 px and 1366 px, with no sideways scroll.
 - **Previous published release:** `a9c7c95`, with `tiger-v92`. The notes below record

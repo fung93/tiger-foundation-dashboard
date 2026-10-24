@@ -15,11 +15,11 @@ html,body{background:var(--bg)}
 html{scrollbar-gutter:stable}
 body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
   -webkit-font-smoothing:antialiased;letter-spacing:.005em;
-  padding:0 20px max(32px,env(safe-area-inset-bottom))}
+  padding:0 0 max(32px,env(safe-area-inset-bottom))}
 a{color:inherit}
 
 /* the same Tiger Foundation masthead as Portfolio */
-header{margin:0 -20px;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+header{margin:0;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
 .hdr-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0}
 .hdr-brand{text-decoration:none;flex:0 0 auto;-webkit-user-select:none;user-select:none}
 header h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
@@ -35,8 +35,8 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 }
 
 /* the menu bar under the header: one icon per page, the open one lit */
-/* The full-width wrapper cancels the book's body padding, matching Portfolio's menu frame. */
-.menu-wrap{margin:0 -20px;display:flow-root}
+/* The menu has its own full-width frame, matching Portfolio. */
+.menu-wrap{display:flow-root}
 .menu{max-width:1200px;margin:14px auto 22px;padding:0 28px;display:flex;gap:8px}
 @media(max-width:768px){.menu{margin-top:12px;padding:0 16px}}
 .menu a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;text-decoration:none;
@@ -48,12 +48,15 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 /* each label stays on one line, with slightly tighter pills on a phone */
 @media (max-width:400px){.menu{gap:6px}.menu a{padding:0 10px;gap:6px;letter-spacing:.08em}}
 
-.health{max-width:1240px;margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
+/* Match Portfolio's .wrap: the same outer width and inside padding on every screen. */
+.book-content{max-width:1200px;margin:0 auto;padding:0 28px}
+
+.health{margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
   border-radius:12px;padding:11px 14px;font-size:12px;display:none}
 .health.on{display:block}
 
 /* the page's own line above the cards: what it is, and the way to the other page */
-.bar{max-width:1240px;margin:0 auto 12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.bar{margin:0 auto 12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
 .bar .what{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
 .bar a{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.14em;
   text-transform:uppercase;text-decoration:none;padding:6px 11px;border:1px solid var(--line);border-radius:999px}
@@ -64,14 +67,14 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
   border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0;position:relative}
 .label{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase}
 
-.stats{max-width:1240px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stats{margin:0 auto 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 /* a second row of three straight under the first (All-Time: rates and time under the money) */
 .stats.s3{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:-4px}
 @media (max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:720px){.stats,.stats.s3{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .stats.s3{margin-top:-8px}.stats.s3 .card:last-child{grid-column:1/-1}}
 .big{font-size:32px;font-weight:300;margin-top:12px;letter-spacing:-.025em;white-space:nowrap;line-height:1.1}
-@media (max-width:720px){.big{font-size:24px}.card{padding:16px}}
+@media (max-width:720px){.big{font-size:clamp(20px,6vw,24px)}.card{padding:16px}}
 .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}
 .up{color:var(--up)}.down{color:var(--down)}
 .tag{display:inline-block;font-size:9.5px;font-weight:500;padding:2px 7px;border-radius:999px;border:1px solid var(--line);
@@ -84,7 +87,7 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 .rec svg{width:13px;height:13px;display:block}
 .card.with-rec .label{padding-right:28px}
 
-.main{max-width:1240px;margin:0 auto;display:grid;gap:18px;min-width:0}
+.main{margin:0 auto;display:grid;gap:18px;min-width:0}
 
 /* by chain */
 .chain{display:grid;grid-template-columns:1fr auto auto;gap:6px 22px;padding:15px 0;border-top:1px solid var(--line2);align-items:baseline}
