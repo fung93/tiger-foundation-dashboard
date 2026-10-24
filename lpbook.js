@@ -90,9 +90,17 @@
 
   /* every fifteen seconds, with the last good answer (same key as the widget) shown at once */
   function poll(render, ready) {
-    var KEY = 'tf_lpbook', HOLD = 5 * 60000, lastGood = 0;
-    var stamp = function (failed) { LPCards.stamp($('stamp'), lastGood, failed); };
-    try { var seed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (seed && seed.v && ready(seed.v)) { render(seed.v); lastGood = seed.t; stamp(false); } } catch (e) {}
+    /* lastGood is eligible for a hold only while a full reading is displayed. */
+    var KEY = 'tf_lpbook', HOLD = 5 * 60000, lastGood = 0, lastRead = 0, failed = false;
+    var stamp = function (bad) { if (bad !== undefined) failed = bad; LPCards.stamp($('stamp'), lastRead, failed); };
+    try {
+      var seed = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (seed && seed.v && ready(seed.v)) {
+        var seedPartial = Object.keys((seed.v.health && seed.v.health.errors) || {}).length > 0;
+        render(seed.v); health(seed.v.health || {}); lastRead = seed.t;
+        lastGood = seedPartial ? 0 : lastRead; stamp(seedPartial);
+      }
+    } catch (e) {}
     var inflight = false, lastTry = 0;
     function load() {
       var now = Date.now();
@@ -108,15 +116,15 @@
              the last full reading stays on screen instead, under the warning; past that the
              partial answer is shown, and it is never saved as the last good one. */
           var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
-          if (partial && lastGood && Date.now() - lastGood < HOLD) { health(v.health, true); return; }
-          render(v); health(v.health); lastGood = Date.now(); stamp(false);
+          if (partial && lastGood && Date.now() - lastGood < HOLD) { health(v.health, true); stamp(true); return; }
+          render(v); health(v.health || {}); lastRead = Date.now(); lastGood = partial ? 0 : lastRead; stamp(partial);
           if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
         })
         .catch(function () { inflight = false; stamp(true); });
     }
     load();
     setInterval(load, 15000);
-    setInterval(function () { stamp(false); }, 1000);
+    setInterval(function () { stamp(); }, 1000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
   }
 

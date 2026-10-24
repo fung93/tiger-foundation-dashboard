@@ -51,6 +51,9 @@ h1 a{text-decoration:none}
 h1 em{font-style:italic;color:var(--gold)}
 h1 b{font-weight:400;color:var(--text)}
 .lpw-grid{max-width:1240px;margin-left:auto;margin-right:auto}
+.health{max-width:1240px;margin:10px auto 12px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
+  border-radius:12px;padding:9px 12px;font-size:12px;overflow-wrap:anywhere;display:none}
+.health.on{display:block}
 .empty{color:var(--faint);font-size:12.5px;padding:14px 0;font-style:italic}
 </style>
 </head>
@@ -59,6 +62,7 @@ h1 b{font-weight:400;color:var(--text)}
   <h1><a href="/lp.html" title="Open the LP Book"><em>LP</em> <b>Book</b></a></h1>
   <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
 </header>
+<div class="health" id="health" role="status" aria-live="polite"></div>
 <div class="lpw-grid" id="cards"></div>
 
 <script src="/lpcards.js"></script>
@@ -66,18 +70,33 @@ h1 b{font-weight:400;color:var(--text)}
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var pin = (new URLSearchParams(location.search).get('pos') || '').replace(/^#/, '');
-  var lastGood = 0;
+  /* lastGood is eligible for a hold only while a full reading is displayed. */
+  var lastGood = 0, lastRead = 0, failed = false;
 
   function paint(v) {
     var views = (v && v.live) || [];
     if (pin) views = views.filter(function (W) { return String(W.id).replace(/^#/, '') === pin; });
     $('cards').innerHTML = LPCards.list(views);
   }
-  function stamp(failed) { LPCards.stamp($('stamp'), lastGood, failed); }
+  function stamp(bad) { if (bad !== undefined) failed = bad; LPCards.stamp($('stamp'), lastRead, failed); }
+  function health(hl, held) {
+    var msgs = [];
+    Object.keys(hl.errors || {}).forEach(function (k) { msgs.push('Could not read ' + k + ': ' + hl.errors[k]); });
+    if (held) msgs.push('Showing the last full reading until it can be read again.');
+    $('health').innerHTML = msgs.map(LPCards.esc).join('<br>');
+    $('health').className = 'health' + (msgs.length ? ' on' : '');
+  }
 
   /* the LP Book's own last answer (same origin, same key) paints at once on opening */
   var KEY = 'tf_lpbook';
-  try { var seed = JSON.parse(localStorage.getItem(KEY) || 'null'); if (seed && seed.v && seed.v.live) { paint(seed.v); lastGood = seed.t; stamp(false); } } catch (e) {}
+  try {
+    var seed = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (seed && seed.v && seed.v.live) {
+      var seedPartial = Object.keys((seed.v.health && seed.v.health.errors) || {}).length > 0;
+      paint(seed.v); health(seed.v.health || {}); lastRead = seed.t;
+      lastGood = seedPartial ? 0 : lastRead; stamp(seedPartial);
+    }
+  } catch (e) {}
 
   /* opening fires both the first load and the visibility handler; a request in flight or
      barely finished stands */
@@ -95,15 +114,15 @@ h1 b{font-weight:400;color:var(--text)}
         /* a chain that could not be read keeps the last full cards for a few minutes, as on the
            LP Book, and a partial answer is never saved as the last good one */
         var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
-        if (partial && lastGood && Date.now() - lastGood < 5 * 60000) return;
-        paint(v); lastGood = Date.now(); stamp(false);
+        if (partial && lastGood && Date.now() - lastGood < 5 * 60000) { health(v.health, true); stamp(true); return; }
+        paint(v); health(v.health || {}); lastRead = Date.now(); lastGood = partial ? 0 : lastRead; stamp(partial);
         if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
       })
       .catch(function () { inflight = false; stamp(true); });
   }
   load();
   setInterval(load, 15000);                                  /* as on the LP Book */
-  setInterval(function () { stamp(false); }, 1000);          /* the clock runs */
+  setInterval(function () { stamp(); }, 1000);               /* the clock keeps the warning state */
   /* a widget app may keep this alive and hidden for hours: refresh the moment it is shown */
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
 })();

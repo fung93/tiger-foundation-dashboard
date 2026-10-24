@@ -31,6 +31,9 @@ h1 b{font-weight:400;color:var(--text)}
 .menu a svg{width:16px;height:16px;display:block}
 .menu a:hover{color:var(--text);border-color:rgba(255,255,255,.16)}
 .menu a.on{color:var(--gold);border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
+.menu a{white-space:nowrap}
+/* three pages on a phone: each label stays on one line, the pills a little tighter */
+@media (max-width:400px){.menu{gap:6px}.menu a{padding:0 10px;gap:6px;letter-spacing:.08em}}
 
 .health{max-width:1240px;margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
   border-radius:12px;padding:11px 14px;font-size:12px;display:none}

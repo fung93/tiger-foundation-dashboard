@@ -1,0 +1,2867 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<title>Hedge Desk</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="/icons/tiger.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap">
+<!--
+  Hedge Desk: Uniswap v3 liquidity on Robinhood Chain, hedged with a short on Hyperliquid.
+  Ported on 22 Oct 2026 from Minara/lp-hedge-desk (kept there as an archive); this copy is
+  the one that changes from now on. Only the skin, the header and the menu bar are the site's:
+  the model, the readers and the storage keys are the desk's own, as verified. Why the code
+  is shaped as it is: docs/hedge-desk/BUILD-GUIDE.md. It reads public data and signs nothing.
+-->
+<style>
+:root{
+  --ground:#050505; --surface:#0b0b0c; --sunk:#121214; --ink:#f2f0eb; --muted:#8f8b82; --faint:#58554f; --line:rgba(255,255,255,.08);
+  --accent:#d6b97b; --accent-soft:rgba(214,185,123,.10);
+  --lp:#d6b97b; --short:#e0796d; --net:#f2f0eb;
+  --good:#6fcf97; --good-soft:rgba(111,207,151,.12); --bad:#e0796d; --bad-soft:rgba(224,121,109,.12); --warn:#e2b75c; --warn-soft:rgba(226,183,92,.10);
+  --z-low:#1d1913; --z-in:#122019; --z-high:#16171d;
+  --gold:#d6b97b;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 var(--sans)}
+.num,.mono{font-family:var(--sans);font-variant-numeric:tabular-nums}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:18px 56px}
+@media(min-width:700px){.wrap{padding-inline:24px}}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 28px;padding-block:6px 16px;border-bottom:1px solid var(--line);margin-bottom:20px}
+h1{font-stretch:70%;font-weight:760;font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:.95;margin:0;letter-spacing:-.005em;text-wrap:balance}
+h1 .pair{color:var(--accent)}
+.sub{color:var(--muted);margin:8px 0 0;max-width:64ch}
+.live{font-size:12px;color:var(--muted);display:grid;grid-template-columns:auto auto;gap:2px 14px;align-content:end;min-width:260px}
+.live b{color:var(--ink);font-weight:500;text-align:right}
+.livehead{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.livehead b{text-align:left}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--faint);flex:none}
+.dot.on{background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
+.dot.stale{background:var(--warn)}
+.dot.off{background:var(--bad)}
+.tog{margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted)}
+.tog input{accent-color:var(--accent)}
+.lvnote{grid-column:1/-1;font-size:11px;color:var(--faint);max-width:34ch;line-height:1.35;margin-top:2px}
+input[readonly]{color:var(--accent);border-style:dashed}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:0}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:28px 1fr auto;gap:4px 12px;align-items:baseline;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+ol.steps li:last-child{border-bottom:0}
+ol.steps li::before{content:counter(s);display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--sunk);font:600 12px/1 var(--sans);color:var(--ink)}
+ol.steps .where{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
+@media(max-width:560px){ol.steps .where{white-space:normal;max-width:90px;text-align:right}}
+ol.steps b{font-family:var(--sans);font-weight:600}
+
+.need{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:20px}
+@media(min-width:760px){.need{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.need-cell{background:var(--surface);padding:16px 20px 18px;display:grid;gap:6px;align-content:start;min-width:0}
+.need-lbl{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-stretch:88%;color:var(--muted)}
+.need-lbl i{width:10px;height:10px;border-radius:2px;flex:none}
+.need-big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font:600 clamp(2rem,4.2vw,2.9rem)/1.05 var(--sans);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
+.need-big small{font:600 14px/1 var(--sans);letter-spacing:.06em;color:var(--muted)}
+.need-sub{font-size:13px;color:var(--muted)}
+.need-total{grid-column:1/-1;margin:0;background:var(--sunk);padding:12px 20px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.need-total b{color:var(--ink);font-family:var(--sans);font-weight:600}
+
+/* inputs */
+.inputs{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 16px 16px}
+fieldset{border:0;border-bottom:1px solid var(--line);margin:0;padding:14px 0 16px;display:grid;gap:10px;min-width:0}
+legend{display:flex;align-items:baseline;gap:8px;padding:0;font-weight:700;font-stretch:85%;font-size:15px;float:left;width:100%;margin-bottom:10px}
+legend .step{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--surface);font-size:11px;font-stretch:100%;transform:translateY(-1px)}
+legend .unit{margin-left:auto;font-weight:500;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-stretch:90%}
+.pair2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--muted);letter-spacing:.02em}
+label.f small{font-size:11px;color:var(--faint);min-height:1em}
+input[type=number]{width:100%;font:500 15px/1.2 var(--sans);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 9px}
+input[type=number]:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+select{width:100%;font:500 13.5px/1.2 var(--sans);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 9px}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{font:600 12px/1 var(--sans);font-stretch:88%;letter-spacing:.02em;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:7px 11px;cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.solid{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+button.solid:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.ranges{display:grid;gap:8px;margin-top:6px}
+.rtabs{display:flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px;width:fit-content}
+.rtabs button{border:0;padding:6px 14px;border-radius:999px;color:var(--muted);background:transparent}
+.rtabs button:hover{color:var(--ink)}
+.rtabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.rtable{display:grid}
+.rhead,.rrow{display:grid;grid-template-columns:30px minmax(0,1fr) 54px 54px;column-gap:8px;align-items:center;padding:0 8px}
+.rhead{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600;padding-bottom:5px}
+.rhead .r,.rrow .rf,.rrow .rn{text-align:right}
+.rrow{width:100%;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding-top:9px;padding-bottom:9px;text-align:left;font:500 13px/1.2 var(--sans);color:var(--ink);font-variant-numeric:tabular-nums}
+.rrow:hover{background:var(--sunk);color:var(--ink)}
+.rrow.sel{background:var(--accent-soft);border-radius:6px;border-top-color:transparent}
+.rrow.sel + .rrow{border-top-color:transparent}
+.rrow .rl{font:700 12px/1 var(--sans);color:var(--muted);letter-spacing:.03em}
+.rrow .rf{color:var(--muted)}
+.rrow .rn{font-weight:600}
+.rfoot{margin:2px 0 0;font-size:11px;color:var(--faint)}
+.hint{font-size:12px;color:var(--muted);margin:0;line-height:1.45}
+.hint b{color:var(--ink);font-weight:600}
+details.assume{padding-top:12px}
+details.assume summary{cursor:pointer;font-weight:700;font-stretch:85%;font-size:15px;list-style:none;display:flex;align-items:baseline;gap:8px}
+details.assume summary::-webkit-details-marker{display:none}
+details.assume summary::after{content:"+";margin-left:auto;color:var(--muted);font-weight:500}
+details.assume[open] summary::after{content:"–"}
+.agrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+label.f.wide{grid-column:1/-1}
+input[type=text]{width:100%;font:500 13px/1.2 var(--sans);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 9px}
+.agrid h4{grid-column:1/-1;margin:6px 0 -4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+
+/* outputs */
+.out{display:grid;gap:18px;min-width:0}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:12px 14px;font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-bottom:12px}
+h2{font-stretch:78%;font-weight:720;font-size:19px;margin:0;letter-spacing:.005em}
+.ph p{margin:0;color:var(--muted);font-size:13px}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;font-stretch:90%}
+
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.vcell{min-width:0;background:var(--surface);padding:14px 16px;display:grid;gap:4px;align-content:start}
+.vcell .big{font-family:var(--sans);font-weight:600;font-size:22px;line-height:1.15;font-variant-numeric:tabular-nums}
+.vcell .small{font-size:12.5px;color:var(--muted);line-height:1.4}
+.vcell .small .duo{display:grid;grid-template-columns:auto auto;gap:1px 10px;width:max-content;align-items:baseline}
+.vcell .small .duo .v{font-family:var(--sans);font-weight:600;color:var(--ink);text-align:right}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:999px;width:fit-content;max-width:100%}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.info{background:var(--accent-soft);color:var(--accent)}
+
+svg text{font-family:var(--sans)}
+.tape-wrap{overflow-x:auto}
+#tape{width:100%;min-width:560px;height:auto;display:block}
+
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px 28px}
+.kv section{display:grid;gap:0;align-content:start}
+.kv h3{margin:0 0 6px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;font-stretch:90%}
+.row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:var(--muted)}
+.row .num{text-align:right;white-space:nowrap}
+.row.total{border-top:1px solid var(--ink);border-bottom:0;font-weight:700;margin-top:2px}
+.row.total span:first-child{color:var(--ink)}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+.edges{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.edge{border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:2px;align-content:start;background:var(--ground)}
+.edge .head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.edge .head b{font-stretch:85%;font-size:15px}
+.bandnote{margin:14px 0 4px;font-size:13.5px;color:var(--ink);max-width:80ch}
+#band{width:100%;height:auto;display:block}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.chartbox{position:relative}
+#chart{width:100%;height:auto;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.12);min-width:190px}
+.tip .row{padding:2px 0;font-size:12px}
+
+.exits{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.exit{border-radius:6px;padding:14px;display:grid;gap:8px;align-content:start;border:1px solid var(--line)}
+.exit.up{background:linear-gradient(var(--z-high),var(--z-high)) top/100% 4px no-repeat,var(--ground)}
+.exit.down{background:linear-gradient(var(--z-low),var(--z-low)) top/100% 4px no-repeat,var(--ground)}
+.exit.guard{background:var(--ground)}
+.exit h3{margin:0;font-stretch:80%;font-size:16px}
+.exit .when{font-size:13px;color:var(--muted);margin:0}
+.ticket{font-family:var(--sans);font-size:12.5px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 10px;line-height:1.55}
+.ticket b{font-weight:600}
+.opt{border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}
+.opt .t{font-weight:700;font-size:13px}
+.exit p{margin:0;font-size:13px}
+
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap}
+th{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+tbody tr{border-top:1px solid var(--line)}
+tbody tr.now td{background:var(--accent-soft)}
+tbody tr.edge-row td{font-weight:600}
+td .tag{font-family:var(--sans);font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
+td.act{text-align:left;font-family:var(--sans)}
+
+.warns{display:grid;gap:8px}
+.warns div{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:9px 12px;font-size:13px;font-weight:600}
+.notes{font-size:12.5px;color:var(--muted);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 28px;padding:4px 2px}
+.notes h3{margin:0 0 4px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink);font-weight:600}
+.notes p{margin:0 0 6px}
+.notes code{font-family:var(--sans);font-size:11.5px;word-break:break-all}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin:-4px 0 18px;scrollbar-width:thin}
+.mkts{display:flex;gap:6px;margin:-6px 0 12px;flex-wrap:wrap}
+.mkts button{padding:7px 14px;font-size:13px;border:1px solid var(--line);background:var(--surface);
+  border-radius:6px;cursor:pointer;color:var(--muted);font-weight:600;text-align:left}
+.mkts button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.mkts button small{display:block;font-size:10.5px;font-weight:400;letter-spacing:.04em}
+.tabs button{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface)}
+.tabs button small{font:500 11px/1 var(--sans);color:var(--muted)}
+.tabs button b{font:600 12px/1 var(--sans)}
+.tabs button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.tabs button.on small{color:inherit;opacity:.75}
+.tabs button.on b.pos{color:var(--good-soft)} .tabs button.on b.neg{color:var(--bad-soft)}
+.tdot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.tdot.in{background:var(--good)} .tdot.out{background:var(--warn)}
+.deploy{grid-column:1/-1;background:var(--surface);padding:12px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.deploy .solid{padding:10px 16px;font-size:13px}
+.deploy button:disabled,.hist-actions button:disabled{opacity:.45;cursor:not-allowed}
+.deploy-note{flex-basis:100%}
+.pos-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:10px 20px;margin-bottom:14px}
+.pos-name{font-stretch:75%;font-size:26px;display:flex;align-items:baseline;gap:10px}
+.pos-meta{margin:4px 0 0;color:var(--muted);font-size:13px}
+.pos-rates{display:grid;grid-template-columns:auto auto auto;gap:1px 14px;margin:8px 0 2px;width:max-content;
+  align-items:baseline;font-size:13px;color:var(--muted)}
+.pos-rates .k{font-weight:600;color:var(--ink)}
+.pos-rates .v{font-family:var(--sans);font-weight:600;font-size:15px;color:var(--ink);text-align:right}
+.pos-rates .now .v{color:var(--net)}
+.pos-rates .soon .v{color:var(--lp)}
+.pos-meta b{color:var(--ink);font-family:var(--sans);font-weight:600}
+.pos-chips{display:flex;gap:6px;flex-wrap:wrap}
+.linkbtn{border:0;padding:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline;border-radius:0}
+.linkbtn:hover{color:var(--accent)}
+.scen{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin:14px 0 18px}
+@media(min-width:760px){.scen{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sc{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:grid;gap:2px;align-content:start}
+.sc-big{font:600 clamp(1.9rem,3.6vw,2.6rem)/1.1 var(--sans);margin-top:4px;font-variant-numeric:tabular-nums}
+.sc-sub{font-size:13px;color:var(--muted);margin-bottom:8px}
+.muted{color:var(--muted)}
+#posChart{width:100%;height:auto;display:block}
+#viewPos > .panel,#viewPos > .warns{margin-bottom:18px}
+.filebtn{display:inline-flex;align-items:center;font:600 12px/1 var(--sans);font-stretch:88%;border:1px solid var(--line);border-radius:999px;padding:7px 11px;cursor:pointer}
+.filebtn:hover{border-color:var(--accent);color:var(--accent)}
+.filebtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.hist-actions{margin-bottom:12px;align-items:center}
+table.hist td{vertical-align:top}
+table.hist td .tag{display:block;margin:2px 0 0}
+table.hist tfoot td{border-top:1px solid var(--ink);font-weight:600;padding-top:9px}
+.vswitch{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px}
+.vswitch button{border:0;padding:5px 12px;border-radius:999px;color:var(--muted);background:transparent;font-size:12px}
+.vswitch button:hover{color:var(--ink)}
+.vswitch button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.pos-chips{align-items:center}
+.plan-head{margin:30px 0 14px;padding-top:20px;border-top:1px solid var(--line)}
+.plan-head h2{font-size:22px}
+.plan-head p{margin:4px 0 0;color:var(--muted);font-size:13px;max-width:80ch}
+.warns:empty{display:none}
+.legend i.dot{width:8px;height:8px;border-radius:50%}
+h3.subchart{margin:14px 0 4px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;font-stretch:90%}
+#posPrice{width:100%;height:auto;display:block}
+.hzbox{margin-left:auto}
+.hzbox:empty{display:none}
+.vswitch.hz button{padding:5px 10px}
+table.swaps{min-width:660px;font-variant-numeric:tabular-nums}
+table.swaps tfoot td{border-top:1px solid var(--ink);font-weight:600;padding-top:8px}
+table.swaps td.muted{color:var(--faint)}
+table.exp{min-width:620px}
+table.exp td:first-child{color:var(--muted)}
+table.exp tr.edge-row td{border-top:1px solid var(--ink)}
+table.exp td .tag{display:block;margin:2px 0 0}
+.pos-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.pos-btns{display:flex;gap:6px}
+.pos-btns button{padding:7px 13px;font-size:12.5px}
+.pos-msg{margin:6px 0 0;font-size:13px;color:var(--warn);font-weight:600}
+.pos-meta .lvl{white-space:nowrap}
+.pos-meta .lvl.lo b{color:var(--lp)}
+.pos-meta .lvl.hi b{color:var(--short)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* ---------- Tiger Foundation: the classy skin ----------
+   Laid over the desk's rules rather than through them, so the original layout stays
+   readable above. Serif titles, gold for what is selected, soft cards, figures in Inter. */
+body{font:400 14px/1.55 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased;letter-spacing:.005em;
+  padding-top:env(safe-area-inset-top)}
+a{color:inherit}
+header.top{align-items:flex-end;padding-block:6px 14px;margin-bottom:14px}
+h1{font:400 34px/1 var(--serif);letter-spacing:.01em;font-stretch:normal}
+h1 em{font-style:italic;color:var(--gold)}
+h1 b{font-weight:400;color:var(--ink)}
+h1 .pair{font:500 10.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-left:10px;vertical-align:middle}
+.sub{font-size:13px}
+.menu{display:flex;gap:8px;margin:0 0 22px}
+.menu a{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;text-decoration:none;
+  color:var(--muted);border:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+.menu a svg{width:16px;height:16px;display:block}
+.menu a:hover{color:var(--ink);border-color:rgba(255,255,255,.16)}
+.menu a.on{color:var(--gold);border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
+.menu a{white-space:nowrap}
+/* three pages on a phone: each label stays on one line, the pills a little tighter */
+@media (max-width:400px){.menu{gap:6px}.menu a{padding:0 10px;gap:6px;letter-spacing:.08em}}
+h2{font:400 21px/1.15 var(--serif);letter-spacing:.01em}
+.plan-head h2{font-size:24px}
+.pos-name{font:400 26px/1.1 var(--serif)}
+.exit h3{font:400 18px/1.2 var(--serif)}
+legend,details.assume summary{font-weight:600;font-size:14px}
+.panel,.sc{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 55%),var(--surface);border-radius:16px;padding:18px 20px}
+.inputs{border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,0) 55%),var(--surface)}
+/* the planner reads top to bottom: the inputs card, what it takes, then the results at full width */
+.setup{padding:4px 20px 16px;margin-bottom:20px}
+.setup-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 32px}
+@media(min-width:900px){
+  .setup-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .setup-grid fieldset{border-bottom:0;align-content:start}
+  .setup details.assume{border-top:1px solid var(--line);margin-top:2px}
+  .setup .agrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px}
+  .setup .agrid label.f.wide{grid-column:span 2}
+}
+.need{border-radius:16px}
+.need-big{font-weight:300;letter-spacing:-.025em}
+.vcell .big{font-weight:400}
+.sc-big{font-weight:300;letter-spacing:-.02em}
+.verdict{border-radius:14px}
+.tablebox{border-radius:12px}
+.edge,.exit{border-radius:12px}
+.err,.warns div{border-radius:10px}
+input[type=number],input[type=text],select{border-radius:8px}
+.ticket{border-radius:8px}
+legend .step{background:var(--gold);color:#050505}
+ol.steps li::before{background:rgba(214,185,123,.12);color:var(--gold)}
+button.solid{background:rgba(214,185,123,.10);color:var(--gold);border-color:rgba(214,185,123,.45)}
+button.solid:hover{background:var(--gold);border-color:var(--gold);color:#050505}
+.tabs button{border-radius:999px}
+.tabs button.on{background:rgba(214,185,123,.08);color:var(--gold);border-color:rgba(214,185,123,.45)}
+.tabs button.on b.pos{color:var(--good)} .tabs button.on b.neg{color:var(--bad)}
+.mkts button{border-radius:999px;background:transparent}
+.row.total,table.hist tfoot td,table.swaps tfoot td,table.exp tr.edge-row td{border-top-color:rgba(255,255,255,.22)}
+.tip{background:#0e0e10;box-shadow:0 10px 28px rgba(0,0,0,.5)}
+@media(max-width:560px){h1{font-size:clamp(26px,8vw,32px)}h1 .pair{display:block;margin:8px 0 0}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><em>Hedge</em> <b>Desk</b> <span class="pair">CRCL / USDG</span></h1>
+      <p class="sub">Uniswap v3 liquidity on Robinhood Chain, hedged with a 1x CRCL short on Hyperliquid. Enter your range and your capital; the desk sizes the short, splits the deposit and writes the exit orders for both edges.</p>
+    </div>
+    <div class="live mono" aria-label="Market data">
+      <div class="livehead">
+        <span class="dot" id="liveDot"></span><b id="liveState">Connecting…</b>
+        <label class="tog"><input type="checkbox" id="liveOn" checked> auto-refresh</label>
+      </div>
+      <span>pool price</span><b id="lvPool">—</b>
+      <span>perp mark</span><b id="lvMark">—</b>
+      <span>volume / day</span><b id="lvVol">—</b>
+      <span>funding 30d</span><b id="lvFund">—</b>
+      <span class="lvnote" id="lvNote"></span>
+    </div>
+  </header>
+  <!-- the menu bar: one icon per page, the open one lit -->
+  <nav class="menu">
+    <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+    <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+    <a href="/hedge.html" class="on" title="Hedge Desk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M8.5 12h7"/></svg><span>Hedge</span></a>
+  </nav>
+
+  <nav class="mkts" id="mkts" aria-label="Market"></nav>
+  <nav class="tabs" id="tabs" aria-label="Views"></nav>
+
+  <div id="viewPlanner">
+  <!-- 1 · the three choices, side by side; the market assumptions fold away beneath them -->
+  <section class="inputs setup" aria-label="Inputs">
+    <div class="setup-grid">
+      <fieldset>
+        <legend><span class="step">1</span>LP range<span class="unit">USDG per CRCL</span></legend>
+        <div class="pair2">
+          <label class="f">Lower price<input id="pa" type="number" inputmode="decimal" step="any"><small id="paPct"></small></label>
+          <label class="f">Upper price<input id="pb" type="number" inputmode="decimal" step="any"><small id="pbPct"></small></label>
+        </div>
+        <div class="btns" id="presets" aria-label="Range presets">
+          <button type="button" data-w="0.10">±10%</button>
+          <button type="button" data-w="0.15">±15%</button>
+          <button type="button" data-w="0.20">±20%</button>
+          <button type="button" data-w="0.30">±30%</button>
+        </div>
+        <div class="ranges" id="ranges"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="step">2</span>Capital<span class="unit">US dollars</span></legend>
+        <label class="f">Amount ($)<input id="cap" type="number" inputmode="decimal" step="any"></label>
+        <label class="f">This amount is
+          <select id="capMode">
+            <option value="lp">LP capital only (hedge collateral on top)</option>
+            <option value="total">Total budget (split into LP + hedge)</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="step">3</span>Hedge size<span class="unit">auto · Hyperliquid</span></legend>
+        <label class="f">Sizing method
+          <select id="hedgeMode">
+            <option value="balanced">Balanced edges (recommended)</option>
+            <option value="neutral">Neutral now</option>
+            <option value="manual">Manual size</option>
+          </select>
+        </label>
+        <div class="pair2">
+          <label class="f" id="shortWrap">Short size (USDC)<input id="short" type="number" inputmode="decimal" step="1"><small id="shortUsd"></small></label>
+          <label class="f">Collateral ÷ notional<input id="coll" type="number" inputmode="decimal" step="0.1" min="1"><small>1 = no leverage</small></label>
+        </div>
+        <p class="hint" id="shortHint"></p>
+      </fieldset>
+    </div>
+      <details class="assume" id="assume">
+        <summary>Market &amp; assumptions</summary>
+        <div class="agrid">
+          <h4>Prices now</h4>
+          <label class="f">Pool price<input id="P0" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Perp mark<input id="E" type="number" inputmode="decimal" step="any"></label>
+          <h4>Fee income</h4>
+          <label class="f">Pool volume / day ($)<input id="vol24" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Active liquidity (L)<input id="Lpool" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Fee tier %<input id="feeTier" type="number" inputmode="decimal" step="any"></label>
+          <label class="f wide">Fees per unit of liquidity a day ($, measured over 7 days)<input id="feeL" type="number" inputmode="decimal" step="any" placeholder="measuring…"></label>
+          <label class="f">LP keeps % of fee<input id="lpKeep" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Fee APR override %<input id="feeApr" type="number" inputmode="decimal" step="any" placeholder="auto"></label>
+          <h4>Perp</h4>
+          <label class="f">Funding APR % (+ = shorts earn)<input id="fundApr" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Taker fee %<input id="taker" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Maintenance margin %<input id="mm" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Swap slippage %<input id="slip" type="number" inputmode="decimal" step="any"></label>
+          <h4>Your wallet</h4>
+          <label class="f wide" title="Read-only. Used to list your real Uniswap positions in this pool and add up the fees they have earned, claimed and unclaimed.">Wallet address (optional, read-only)<input id="wallet" type="text" inputmode="latin" spellcheck="false" placeholder="0x…"></label>
+          <h4>Connection</h4>
+          <label class="f wide">Your RPC URL (optional, e.g. Alchemy)<input id="rpcUrl" type="text" inputmode="url" spellcheck="false" placeholder="https://…"></label>
+          <h4>Plan</h4>
+          <label class="f">Days in range<input id="days" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Daily volatility %<input id="sigma" type="number" inputmode="decimal" step="any"></label>
+          <label class="f" title="How far above the top edge the short is closed. The gap is a cost, not a cushion: you buy the short back at the top of it and re-sell at the bottom.">Close short above top edge %<input id="bufUp" type="number" inputmode="decimal" step="any"></label>
+          <label class="f" title="How far below the bottom edge the LP and the short are closed together. 1% on the backtest: tight enough to cut early, wide enough not to be stopped out by noise sitting on the edge.">Exit LP below bottom edge %<input id="bufDn" type="number" inputmode="decimal" step="any"></label>
+          <label class="f">Re-hedge every % move<input id="step" type="number" inputmode="decimal" step="any"></label>
+        </div>
+        <div class="btns" style="margin-top:14px"><button type="button" id="reset" class="solid">Reset all inputs</button></div>
+      </details>
+  </section>
+
+  <!-- 2 · what it takes: the tokens for the pool and the collateral for the hedge -->
+  <section class="need" aria-label="What you need">
+    <div class="need-cell">
+      <span class="need-lbl"><i style="background:var(--accent)"></i>USDG needed</span>
+      <span class="need-big"><span id="needUsdg">—</span><small>USDG</small></span>
+      <span class="need-sub" id="needUsdgSub"></span>
+    </div>
+    <div class="need-cell">
+      <span class="need-lbl"><i style="background:var(--lp)"></i>CRCL needed</span>
+      <span class="need-big"><span id="needCrcl">—</span><small>CRCL</small></span>
+      <span class="need-sub" id="needCrclSub"></span>
+    </div>
+    <div class="need-cell">
+      <span class="need-lbl"><i style="background:var(--short)"></i>USDC needed to hedge</span>
+      <span class="need-big"><span id="needUsdc">—</span><small>USDC</small></span>
+      <span class="need-sub" id="needUsdcSub"></span>
+    </div>
+    <p class="need-total" id="needTotal"></p>
+    <div class="deploy">
+      <button type="button" id="deployBtn" class="solid">Deploy as simulated position</button>
+      <span id="deployMsg" class="hint"></span>
+      <span class="hint deploy-note">Paper trade: fees from the pool's real swaps, the short on Hyperliquid's real price and funding. No money moves.</span>
+    </div>
+  </section>
+
+    <section class="out" aria-live="polite">
+      <div id="err" class="err" hidden></div>
+      <div class="verdict" id="verdict"></div>
+      <div class="warns" id="warns"></div>
+
+      <div class="panel">
+        <div class="ph"><h2>Do this, in order</h2><p>Amounts update with the live price. Recheck them right before you trade.</p></div>
+        <ol class="steps" id="steps"></ol>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Expected return</h2><p id="expNote"></p></div>
+        <div class="tablebox"><table id="expRet" class="exp"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Where the price sits</h2><p id="tapeNote">Pool price on a price line. Beyond each edge the LP stops earning and turns into one token.</p></div>
+        <div class="tape-wrap"><svg id="tape" viewBox="0 0 1000 140" role="img" aria-label="Price range tape"></svg></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Profit and loss by final price</h2><p id="chartNote"></p><div id="hzChart" class="hzbox"></div></div>
+        <div class="legend">
+          <span><i style="background:var(--lp)"></i>LP + fees</span>
+          <span><i style="background:var(--short)"></i>Short + funding − fees</span>
+          <span><i style="background:var(--net);height:4px"></i>Combined</span>
+        </div>
+        <div class="chartbox" id="chartbox">
+          <svg id="chart" data-pfx="" viewBox="0 0 1000 400" role="img" aria-label="Profit and loss chart"></svg>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Capital and position</h2><p id="capNote"></p></div>
+        <div class="kv" id="capital"></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Both edges check</h2><p id="edgeNote"></p><div id="hzEdges" class="hzbox"></div></div>
+        <div class="edges" id="edges"></div>
+        <p class="bandnote" id="bandNote"></p>
+        <svg id="band" viewBox="0 0 1000 86" role="img" aria-label="Safe short size band"></svg>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h2>Exit plan</h2><p id="exitNote">What to do the moment the pool price leaves your range.</p><div id="hzExits" class="hzbox"></div></div>
+        <div class="exits" id="exits"></div>
+      </div>
+
+      <div class="notes">
+        <div>
+          <h3>The pool</h3>
+          <p id="poolNote">Uniswap v3 USDG/CRCL 0.30%, Robinhood Chain: <code>0x654e4143e82a5824445ade0824351c2a9acd95a8</code>. On 18 Sep it held $2.10M and traded $22.8M in 7 days. Live price, liquidity and volume are read straight from this pool.</p>
+          <p id="poolNote2"></p>
+        </div>
+        <div>
+          <h3>The perp</h3>
+          <p id="perpNote">Hyperliquid <code>xyz:CRCL</code> (trade.xyz builder market). Isolated margin only, max 10x, so maintenance is 5%. Settles in USDC, so USDG has to be swapped to USDC first. Order size can be typed in USD on Hyperliquid, which is why this desk speaks in USDC.</p>
+          <p>Funding is paid hourly. The 30-day average is refreshed every 30 minutes. On 18 Sep it was +10.1% a year and positive 86% of hours: shorts were getting paid.</p>
+        </div>
+        <div>
+          <h3>How the numbers are made</h3>
+          <p>Fees = your share of active liquidity × 7-day average volume × fee tier × 5/6, counted only while in range. This pool's protocol fee is switched on and keeps 1/6 of every swap fee. The perp is assumed to track the pool at today's gap. Hedging cost = σ²·L·√P / 4 a day: the loss a continuously re-hedged LP realises, which is the impermanent loss that hedging cannot remove.</p>
+          <p>Volatility: 30 days of hourly perp candles, refreshed every 30 minutes (4.7% a day on 18 Sep). Largest 7-day moves in the 120 days to 18 Sep: −30% and +28%.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="viewPos" hidden></div>
+  <div id="viewChain" hidden></div>
+<div id="viewHist" hidden></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+// ---------- the markets this desk can run ----------
+// Both pools put an 18-decimal risk asset against 6-decimal USDG, so the price
+// factor (1e12) and the liquidity normalisation are shared. What differs is
+// which side is token0, the tick spacing, the fee tier and the perp.
+const MARKETS = {
+  crcl: {key:"crcl", label:"CRCL / USDG", tierTxt:"0.30%", tier:0.30, spacing:60,
+    pool:"0x654e4143e82a5824445ade0824351c2a9acd95a8",
+    risk:{sym:"CRCL", addr:"0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5", dec:18, token0:false},
+    cash:{sym:"USDG", addr:"0x5fc5360d0400a0fd4f2af552add042d716f1d168", dec:6},
+    perp:{coin:"xyz:CRCL", venue:"xyz:CRCL", dex:"xyz"}, range:[75, 102],
+    wallet:"0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",   // the main wallet
+    snap:{P0:87.81, E:88.17, vol24:3261879, Lpool:1303942, lpKeep:83.33,
+           fundApr:10.1, taker:0.009, mm:5, sigma:4.7}},
+  eth: {key:"eth", label:"ETH / USDG", tierTxt:"0.05%", tier:0.05, spacing:10,
+    pool:"0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a",
+    risk:{sym:"ETH", addr:"0x0bd7d308f8e1639fab988df18a8011f41eacad73", dec:18, token0:true},
+    cash:{sym:"USDG", addr:"0x5fc5360d0400a0fd4f2af552add042d716f1d168", dec:6},
+    perp:{coin:"ETH", venue:"ETH", dex:null}, range:[2100, 2600],
+    wallet:"0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",   // the Tiger Vault, which holds the ETH LP
+    snap:{P0:2369.33, E:2367.90, vol24:44248495, Lpool:930121, lpKeep:75,
+           fundApr:9.1, taker:0.045, mm:2, sigma:2.24}},
+};
+const MKT_KEY = "crcl-lp-market";
+let MKT = MARKETS.crcl;
+try{ const _k = localStorage.getItem(MKT_KEY); if(_k && MARKETS[_k]) MKT = MARKETS[_k]; }catch(e){}
+// Price is always cash per risk asset. sqrtPriceX96 squared is token1/token0 in
+// raw units, so the direction depends on which side is token0.
+const SCALE = Math.pow(10, MKT.risk.dec - MKT.cash.dec);   // 1e12 for both markets
+const RISK_T1 = !MKT.risk.token0;                          // CRCL-style: risk is token1
+const RDIV = Math.pow(10, MKT.risk.dec), CDIV = Math.pow(10, MKT.cash.dec);
+const priceFromSqrt = sq => RISK_T1 ? SCALE/(sq*sq) : (sq*sq)*SCALE;
+// the signed cash and risk legs of a swap, whichever way round the pair sits
+const cashLeg = (a0, a1) => (RISK_T1 ? a0 : a1)/CDIV;
+const riskLeg = (a0, a1) => (RISK_T1 ? a1 : a0)/RDIV;
+// storage stays separate per market; CRCL keeps the original keys
+const ks = k => MKT.key === "crcl" ? k : k + "-" + MKT.key;
+const RSYM = MKT.risk.sym, CSYM = MKT.cash.sym;   // what to call the two sides on screen
+
+const SNAP = {asOf:MKT.key === "crcl" ? "18 Sep 2026 10:16 UTC" : "15 Oct 2026",
+  pool:MKT.snap.P0, mark:MKT.snap.E, vol:MKT.snap.vol24, fund:MKT.snap.fundApr,
+  hist:{7:[78.32,98.05], 14:[78.32,105.74], 30:[77.43,105.74]}};
+
+// "short" is the manual short size in USDC (order size on Hyperliquid)
+// each market looks first at the wallet that holds its LP; any address can be typed instead
+const DEFAULTS = {wallet:MKT.wallet,
+  pa:MKT.range[0], pb:MKT.range[1], cap:10000, capMode:"lp", hedgeMode:"balanced",
+  short:"", coll:1, feeL:"", rpcUrl:"", feeTier:MKT.tier, feeApr:"",
+  slip:0.3, days:7, bufUp:0, bufDn:1, step:5,
+  // the rest come from the market's own snapshot, not whichever shipped first
+  P0:MKT.snap.P0, E:MKT.snap.E, vol24:MKT.snap.vol24, Lpool:MKT.snap.Lpool,
+  lpKeep:MKT.snap.lpKeep, fundApr:MKT.snap.fundApr, taker:MKT.snap.taker,
+  mm:MKT.snap.mm, sigma:MKT.snap.sigma};
+const FIELDS = Object.keys(DEFAULTS);
+const TEXT = ["capMode","hedgeMode","rpcUrl","wallet"];
+const KEY = ks("crcl-lp-hedge-v3");
+const RULES_KEY = "crcl-lp-rules-v3";     // exit rules changed; move saved settings across once
+const $ = id => document.getElementById(id);
+
+/* ---------- formatting ---------- */
+const nf = (v,d=2) => Number.isFinite(v) ? v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}) : "—";
+const usd = (v,d=0) => Number.isFinite(v) ? (v<0?"−$":"$")+nf(Math.abs(v),d) : "—";
+const sgn = (v,d=0) => Number.isFinite(v) ? (v>0.0000001?"+":v<-0.0000001?"−":"")+"$"+nf(Math.abs(v),d) : "—";
+const pc = (v,d=1) => Number.isFinite(v) ? (v>0?"+":v<0?"−":"")+nf(Math.abs(v*100),d)+"%" : "—";
+const cls = v => v>0.0000001 ? "pos" : v<-0.0000001 ? "neg" : "";
+const px = v => nf(v,2);
+const qty = v => nf(v,3);
+const days = v => !Number.isFinite(v) ? "never" : v<=0 ? "now" : v<1 ? nf(v*24,0)+" hours" : nf(v,1)+" days";
+const row = (k,v,c="") => `<div class="row"><span>${k}</span><span class="num ${c}">${v}</span></div>`;
+
+/* ---------- state ---------- */
+function load(){
+  let saved=null;
+  try{ saved = JSON.parse(localStorage.getItem(KEY) || "null"); }catch(e){ saved=null; }
+  const st = Object.assign({}, DEFAULTS, saved || {});
+  // A saved blank must not beat the default. Settings saved before the wallet
+  // field existed carry wallet:"", which hid the real-positions tab entirely.
+  if(!String(st.wallet || "").trim()) st.wallet = DEFAULTS.wallet;
+  // The rules settled at: close the short at the top edge, exit both 1% below
+  // the bottom one. Both free margin rather than needing more, which is what
+  // a fixed pot of collateral allows. Backtested on the real week to 19 Sept.
+  try{
+    if(saved && localStorage.getItem(RULES_KEY) == null){
+      st.bufUp = DEFAULTS.bufUp; st.bufDn = DEFAULTS.bufDn;
+      localStorage.setItem(RULES_KEY, "3");
+    }
+  }catch(e){}
+  FIELDS.forEach(f => { $(f).value = st[f]; });
+}
+function save(){
+  // the measured fee is not kept: an old session's figure must not pass for this one's
+  try{ const o={}; FIELDS.forEach(f => { if(f !== "feeL") o[f] = $(f).value; }); localStorage.setItem(KEY, JSON.stringify(o)); }catch(e){}
+}
+function read(){
+  const s={};
+  FIELDS.forEach(f => {
+    const v = String($(f).value).trim();
+    s[f] = TEXT.includes(f) ? v : v==="" ? null : Number(v);
+  });
+  return s;
+}
+
+/* ---------- the model ---------- */
+// Uniswap only allows range edges on ticks that are multiples of the pool's
+// tick spacing (60 here, about 0.6% apart) and rounds a typed price to the
+// nearest one. Doing the same here keeps every amount equal to what the
+// Uniswap app will ask for. Which way price maps to ticks depends on which
+  // side is token0, which priceOf and tickOf handle.
+const TICK_SPACING = MKT.spacing;
+const tickOf = p => RISK_T1 ? Math.log(SCALE/p)/Math.log(1.0001) : Math.log(p/SCALE)/Math.log(1.0001);
+const priceOf = t => RISK_T1 ? SCALE/Math.pow(1.0001, t) : Math.pow(1.0001, t)*SCALE;
+const snap = p => p > 0 ? priceOf(Math.round(tickOf(p)/TICK_SPACING)*TICK_SPACING) : p;
+function model(input){
+  const s = Object.assign({}, input);
+  if(s.pa > 0 && s.pb > 0 && !s.noSnap){ s.typedPa = s.pa; s.typedPb = s.pb; s.pa = snap(s.pa); s.pb = snap(s.pb); }
+  const m = {s, warn:[]};
+  const need = ["pa","pb","P0","E","cap","coll","vol24","Lpool","feeTier","lpKeep","fundApr","taker","mm","slip","days","sigma","bufUp","bufDn","step"];
+  if(s.hedgeMode==="manual") need.push("short");
+  for(const f of need){ if(!Number.isFinite(s[f])){ m.err = "Fill in every field (" + f + " is empty)."; return m; } }
+  if(!(s.pa>0 && s.pb>s.pa)){ m.err = s.typedPb > s.typedPa ? "This range is narrower than one Uniswap price step (about 0.6%). Widen it." : "The lower price must be above 0 and below the upper price."; return m; }
+  if(!(s.P0>0 && s.E>0)){ m.err = "Pool price and perp mark must be above 0."; return m; }
+  if(!(s.cap>0)){ m.err = "Enter the capital in dollars."; return m; }
+  if(s.coll<1){ m.warn.push("Collateral below 1× notional is leverage. Set it to 1 or more to keep the no-leverage rule."); }
+
+  const {pa,pb,P0,E} = s;
+  const sa=Math.sqrt(pa), sb=Math.sqrt(pb), s0=Math.sqrt(P0);
+  // "While in range" is a conditional, so it has to be quoted at a price inside
+  // the range even when the pool is currently outside it. Otherwise the Fees
+  // tile reads zero while the P&L chart claims to include those same fees.
+  const Pin = Math.min(Math.max(P0, pa), pb), sIn = Math.sqrt(Pin);
+  const inRange = P0>pa && P0<pb;
+  m.inRange = inRange;
+  const amt = (L,P) => {
+    if(P<=pa) return {x:L*(1/sa-1/sb), y:0};
+    if(P>=pb) return {x:0, y:L*(sb-sa)};
+    const r=Math.sqrt(P); return {x:L*(1/r-1/sb), y:L*(r-sa)};
+  };
+  const k = E/P0, t = s.taker/100, mm = s.mm/100, c = Math.max(s.coll, 0);
+
+  // Everything scales with liquidity L, so size one unit of L first:
+  // what it costs to deposit, and how much CRCL it takes to hedge it.
+  const unit = amt(1,P0), perL = unit.x*P0 + unit.y, w = unit.x*P0/perL;
+  const V1 = P => { const a=amt(1,P); return a.x*P + a.y; };
+  const hBalPerL = Math.max(0, (V1(pb)-V1(pa))*P0 / (E*(pb-pa)*(1+t)));
+  const hPerL = s.hedgeMode==="balanced" ? hBalPerL : s.hedgeMode==="neutral" ? unit.x : null;
+  let L;
+  if(s.capMode==="total"){
+    if(hPerL!=null) L = s.cap/(perL + hPerL*E*c);                 // LP + collateral = budget
+    else {
+      const left = s.cap - Math.max(0,s.short)*c;
+      if(!(left>0)){ m.err = "The manual short's collateral uses the whole budget. Lower the short or raise the budget."; return m; }
+      L = left/perL;
+    }
+  } else L = s.cap/perL;
+  if(!inRange) m.warn.push("The pool price is outside this range, so you could not open it as it stands and it would earn nothing until price came back. Every figure below is what it earns WHILE price is inside the range — read them as conditional, and the chances of being in range as unreliable, since the price is not in there to start with.");
+
+  const V = P => { const a=amt(L,P); return a.x*P + a.y; };
+  const dep = amt(L,P0), V0 = V(P0);
+  const xmax = L*(1/sa-1/sb), ymax = L*(sb-sa);
+  const share = L/(s.Lpool+L);
+  // Fees: measured per unit of liquidity over 7 days when available (your own
+  // liquidity would dilute that a little); otherwise volume / active liquidity.
+  const band = typeof feeRateIn === "function" ? feeRateIn(pa, pb) : null;
+  const feeUnit = band ? band.rate : s.feeL;
+  const feeDay = s.feeApr!=null ? V0*s.feeApr/100/365
+    : feeUnit > 0 ? feeUnit*s.lpKeep/100*L*s.Lpool/(s.Lpool+L)
+    : s.vol24*s.feeTier/100*s.lpKeep/100*share;
+  m.feeSource = s.feeApr!=null ? "override" : band ? "band" : s.feeL > 0 ? "measured" : "volume";
+  m.feeBand = band;
+  const fundRate = s.fundApr/100/365;           // per day, on entry notional
+  const coef = (P,d) => E*(1-P/P0) + E*fundRate*d - E*t - E*(P/P0)*t;   // P&L per CRCL shorted
+  const base = (P,d) => V(P) - V0 + feeDay*d;                          // LP change + fees
+  const pnl = (h,P,d) => base(P,d) + h*coef(P,d);
+  const rate = h => feeDay + h*E*fundRate;                             // P&L gained per extra day in range
+
+  const hBal = hBalPerL*L;
+  const hNeu = dep.x;
+  const h = hPerL!=null ? hPerL*L : Math.max(0, s.short)/E;   // CRCL; manual input is USDC
+  const d = s.days;
+  const cLo = coef(pa,d), cHi = coef(pb,d);
+  const hLow = cLo>0 ? Math.max(0, -base(pa,d)/cLo) : NaN;
+  const hHigh = cHi<0 ? base(pb,d)/(-cHi) : Infinity;
+  const beDays = hh => {                                   // days in range until both edges >= 0
+    let worst = 0;
+    for(const P of [pa,pb]){
+      const p0 = pnl(hh,P,0), r = rate(hh);                // pnl is linear in days
+      const need = p0>=0 ? 0 : (r>0 ? -p0/r : Infinity);
+      worst = Math.max(worst, need);
+    }
+    return worst;
+  };
+  const la = Math.log(P0/pa), lb = Math.log(pb/P0), sig2 = Math.pow(s.sigma/100,2);
+  const tIn = inRange && sig2>0 ? la*lb/sig2 : NaN;
+  const pLowFirst = inRange ? lb/(la+lb) : NaN;
+  const lvrDay = sig2*L*sIn/4;
+  const rebalDay = s.step>0 ? sig2*t*L*sIn/(2*s.step/100) : 0;
+
+  // liquidation of a 1x isolated short (Hyperliquid formula, flat maintenance)
+  const Qliq = E*(c+1)/(1+mm), Pliq = Qliq/k;
+
+  // exits
+  const bufU = s.bufUp/100, bufD = s.bufDn/100;
+  const Pu = pb*(1+bufU), Qu = Pu*k, Pl = pa*(1-bufD), Ql = Pl*k;
+  const Pre = pb, Qre = pb*k;                    // the short goes back on here, coming back in
+  const bandCost = h*Qu*bufU;                    // one pop above the edge and back, bought high and re-sold low
+  const resU = pnl(h,Pu,d);
+  const resL = pnl(h,Pl,d);
+  const swapCost = xmax*Pl*(s.feeTier+s.slip)/100;
+  const add = xmax - h;
+  const extraColl = Math.max(0,add)*Ql*c;
+  const resB = resL - Math.max(0,add)*Ql*t;
+  const hedgeColl = h*E*c;
+  const capital = V0 + hedgeColl;
+
+  Object.assign(m, {L,amt,V,V0,dep,w,xmax,ymax,k,t,mm,c,share,feeDay,fundRate,coef,base,pnl,rate,
+    hBal,hNeu,h,d,hLow,hHigh,beDays,tIn,pLowFirst,lvrDay,rebalDay,Qliq,Pliq,Pu,Qu,Pl,Ql,Pre,Qre,bandCost,resU,resL,
+    swapCost,add,extraColl,resB,hedgeColl,capital});
+
+  // warnings
+  if(h > xmax*1.0001) m.warn.push(`Your short (${usd(h*E)}) is bigger than all the ${RSYM} the LP can ever hold (${usd(xmax*E)} at today's mark). That is a net bet on ${RSYM} falling.`);
+  if(Pliq <= Pu*1.05) m.warn.push(`Liquidation at ${px(Pliq)} sits too close to the upper exit at ${px(Pu)}. Add collateral.`);
+  if(Math.abs(k-1) > 0.01) m.warn.push(`Pool and perp disagree by ${pc(k-1,2)}. Hedge sizes assume that gap stays fixed.`);
+  return m;
+}
+
+/* ---------- APR and range ideas ---------- */
+function econ(m){                                // per day and a year, with the short kept matched
+  const net = m.feeDay - m.lvrDay + m.hNeu*m.s.E*m.fundRate - m.rebalDay;
+  return {net, feeApr: m.V0>0 ? m.feeDay*365/m.V0 : NaN, netApr: m.capital>0 ? net*365/m.capital : NaN};
+}
+let RANGE_TAB = "past";
+try{ if(localStorage.getItem("crcl-lp-hedge-rtab")==="next") RANGE_TAB = "next"; }catch(e){}
+function renderRanges(s){
+  const k = s.E/s.P0;                            // history is perp prices; shift to pool prices
+  const hist = LIVE.hist || SNAP.hist;
+  const w = s.sigma/100;
+  const r2 = v => Math.round(v*100)/100;
+  const spans = [[1,"24H"],[7,"7D"],[14,"14D"],[21,"21D"],[30,"1M"]];
+  const tab = RANGE_TAB;
+  const rows = tab==="past"
+    ? spans.map(([d,l]) => hist[d] ? {l, lo:r2(hist[d][0]/k), hi:r2(hist[d][1]/k)} : null).filter(Boolean)
+    : spans.map(([d,l]) => ({l, lo:r2(s.P0*Math.exp(-w*Math.sqrt(d))), hi:r2(s.P0*Math.exp(w*Math.sqrt(d)))}));
+  const pct = v => Number.isFinite(v) ? (v<0?"−":"")+nf(Math.abs(v*100),0)+"%" : "—";
+  $("ranges").innerHTML = `
+    <div class="rtabs" role="tablist">
+      <button type="button" role="tab" data-tab="past" aria-selected="${tab==="past"}" class="${tab==="past"?"on":""}">Past range</button>
+      <button type="button" role="tab" data-tab="next" aria-selected="${tab==="next"}" class="${tab==="next"?"on":""}">Expected</button>
+    </div>
+    <div class="rtable">
+      <div class="rhead"><span></span><span>Low – High</span><span class="r">Fee APR</span><span class="r">Net APR</span></div>
+      ${rows.map(r => {
+        const mm = model(Object.assign({}, s, {pa:r.lo, pb:r.hi}));
+        const e = mm.err ? null : econ(mm);
+        const sel = Math.abs(snap(r.lo)-s.pa)<1e-6 && Math.abs(snap(r.hi)-s.pb)<1e-6;
+        return `<button type="button" class="rrow${sel?" sel":""}" data-lo="${r.lo}" data-hi="${r.hi}" aria-pressed="${sel}">
+          <span class="rl">${r.l}</span><span class="rp">${px(r.lo)} – ${px(r.hi)}</span>
+          <span class="rf">${e ? pct(e.feeApr) : "—"}</span><span class="rn ${e ? cls(e.net) : ""}">${e ? pct(e.netApr) : "—"}</span></button>`;
+      }).join("")}
+    </div>
+    <p class="rfoot">${tab==="past" ? RSYM + "'s real low and high" + (LIVE.hist ? "" : " (saved)") : "2-in-3 chance ${RSYM} ends inside"} · APR a year · tap a row to use it</p>`;
+}
+
+/* ---------- rendering ---------- */
+// ---------- horizons ----------
+const HORIZONS = [[1,"24H"],[7,"7D"],[14,"14D"],[21,"21D"],[30,"1M"]];
+const dLabel = d => d === 1 ? "24 hours" : d === 30 ? "1 month" : nf(d, 0) + " days";
+const HZ_KEY = "crcl-lp-hz";
+const HIST_KEY = "crcl-lp-hist";                 // draw a position's real history on the P&L chart?
+let HIST_ON = true;
+try{ HIST_ON = localStorage.getItem(HIST_KEY) !== "0"; }catch(e){}
+function histSwitch(){
+  return `<div class="vswitch hz" role="group" aria-label="Real history on the chart">
+    <button type="button" data-hist="1" class="${HIST_ON ? "on" : ""}" aria-pressed="${HIST_ON}">Show history</button>
+    <button type="button" data-hist="0" class="${HIST_ON ? "" : "on"}" aria-pressed="${!HIST_ON}">Hide</button>
+  </div>`;
+}
+let HZ = {};                                     // chosen horizon per card, per page
+try{ HZ = JSON.parse(localStorage.getItem(HZ_KEY) || "{}") || {}; }catch(e){ HZ = {}; }
+const hzDays = (card, def) => HZ[PFX + card] || def;
+function hzSwitch(card, cur, def){
+  const opts = HORIZONS.some(h => h[0] === def) ? HORIZONS : [[def, nf(def, 0) + "D"], ...HORIZONS];
+  return `<div class="vswitch hz" role="group" aria-label="Holding period">${opts.map(([d, l]) =>
+    `<button type="button" data-hz="${PFX + card}" data-days="${d}" class="${d === cur ? "on" : ""}" aria-pressed="${d === cur}">${l}</button>`).join("")}</div>`;
+}
+// Price as a random walk in log terms with no trend, at today's daily volatility.
+function erf(x){                                 // Abramowitz & Stegun 7.1.26
+  const t = 1/(1 + 0.3275911*Math.abs(x));
+  const y = 1 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - 0.284496736)*t + 0.254829592)*t*Math.exp(-x*x);
+  return x >= 0 ? y : -y;
+}
+const Phi = z => 0.5*(1 + erf(z/Math.SQRT2));
+// chance the price has not touched either edge by day H (checked against a simulation)
+function neverLeft(la, lb, sig, H){
+  if(!(la > 0 && lb > 0)) return 0;
+  const L = la + lb; let p = 0;
+  for(let n = 1; n < 400; n += 2) p += 4/(n*Math.PI)*Math.sin(n*Math.PI*la/L)*Math.exp(-Math.pow(n*Math.PI*sig/L, 2)*H/2);
+  return Math.min(1, Math.max(0, p));
+}
+// chance the price is inside the range on day t (it can leave and come back)
+const inAt = (la, lb, sig, t) => t <= 0 ? (la > 0 && lb > 0 ? 1 : 0) : Phi(lb/(sig*Math.sqrt(t))) - Phi(-la/(sig*Math.sqrt(t)));
+// E[ sqrt(P_t/P_now) while in range ]: the hedging cost scales with sqrt(price)
+const sqrtIn = (la, lb, sig, t) => t <= 0 ? (la > 0 && lb > 0 ? 1 : 0)
+  : Math.exp(sig*sig*t/8)*(Phi((lb - sig*sig*t/2)/(sig*Math.sqrt(t))) - Phi((-la - sig*sig*t/2)/(sig*Math.sqrt(t))));
+function costDays(la, lb, sig, H){               // days in range, each weighted by sqrt(P_t/P_now)
+  const n = 200, h = H/n; let sum = 0;
+  for(let i = 0; i < n; i++) sum += (sqrtIn(la, lb, sig, i*h) + 4*sqrtIn(la, lb, sig, (i + 0.5)*h) + sqrtIn(la, lb, sig, (i + 1)*h))/6*h;
+  return sum;
+}
+function daysIn(la, lb, sig, H){                 // expected days inside over [0, H]
+  const n = 200, h = H/n; let sum = 0;
+  for(let i = 0; i < n; i++) sum += (inAt(la, lb, sig, i*h) + 4*inAt(la, lb, sig, (i + 0.5)*h) + inAt(la, lb, sig, (i + 1)*h))/6*h;
+  return sum;
+}
+// the short sizes that keep both edges at break-even or better after d days
+function bandAt(m, d){
+  const s = m.s, cLo = m.coef(s.pa, d), cHi = m.coef(s.pb, d);
+  return {lo: cLo > 0 ? Math.max(0, -m.base(s.pa, d)/cLo) : NaN, hi: cHi < 0 ? m.base(s.pb, d)/(-cHi) : Infinity};
+}
+function renderExpected(m){
+  const s = m.s, P = m.live ? m.live.P : s.P0, sig = s.sigma/100;
+  const la = Math.log(P/s.pa), lb = Math.log(s.pb/P);
+  const xNow = m.amt(m.L, P).x;
+  const fundDay = m.hNeu*s.E*m.fundRate;
+  // one-off costs: a new position pays the entry swap and both perp fees; a
+  // running one has already paid to get in and only has the close ahead
+  const oneOff = m.live ? m.h*s.E*m.t : m.dep.x*s.P0*s.feeTier/100 + 2*m.h*s.E*m.t;
+  const cols = HORIZONS.map(([H, lbl]) => {
+    const din = daysIn(la, lb, sig, H);
+    // hedging cost per day in range is sig^2 * L * sqrt(P) / 4 at the price of the day
+    const lvr = -sig*sig*m.L*Math.sqrt(P)/4*costDays(la, lb, sig, H);
+    const fees = m.feeDay*din, fund = fundDay*din, reb = -m.rebalDay*din;
+    const net = fees + lvr + fund + reb - oneOff;
+    return {H, lbl, never: neverLeft(la, lb, sig, H), end: inAt(la, lb, sig, H), din, fees, lvr, fund, reb, net,
+      swingU: xNow*P*sig*Math.sqrt(H), swingH: Math.abs(xNow - m.h)*P*sig*Math.sqrt(H)};
+  });
+  const r = (label, f, c) => `<tr><td>${label}</td>${cols.map(x => `<td class="num ${c ? c(x) : ""}">${f(x)}</td>`).join("")}</tr>`;
+  $$("expNote").textContent = (m.live ? `From now (${px(P)}). ` : "") +
+    `The average outcome if ${RSYM} keeps moving like the last 30 days (${nf(s.sigma, 1)}% a day) with no trend, keeping the short matched to the LP. The swing rows show how far a typical outcome lands from that average.`;
+  $$("expRet").innerHTML = `<thead><tr><th></th>${cols.map(x => `<th>${x.lbl}</th>`).join("")}</tr></thead><tbody>
+    ${r("Never leaves the range", x => nf(x.never*100, 0) + "%")}
+    ${r("In range at the end", x => nf(x.end*100, 0) + "%")}
+    ${r("Expected days in range", x => nf(x.din, 1))}
+    ${r("Fees", x => sgn(x.fees, 2), x => cls(x.fees))}
+    ${r("Hedging cost (volatility)", x => sgn(x.lvr, 2), x => cls(x.lvr))}
+    ${r("Funding on the short", x => sgn(x.fund, 2), x => cls(x.fund))}
+    ${r("Re-hedge trading fees", x => sgn(x.reb, 2), x => cls(x.reb))}
+    ${r(m.live ? "Perp fee to close" : "Entry swap + perp fees", () => sgn(-oneOff, 2), () => "neg")}
+    <tr class="edge-row"><td>Expected net</td>${cols.map(x => `<td class="num ${cls(x.net)}"><b>${sgn(x.net, 2)}</b><span class="tag">${pc(x.net/m.capital, 2)}</span></td>`).join("")}</tr>
+    ${r("Typical swing, unhedged (±1σ)", x => "±" + usd(x.swingU, 0))}
+    ${r("Typical swing, with your short (±1σ)", x => "±" + usd(x.swingH, 0))}
+  </tbody>`;
+}
+// The planner's panels draw into whichever page PFX points at: "" is the
+// Planner itself, "p_" is the open position's tab.
+let PFX = "";
+const $$ = id => document.getElementById(PFX + id);
+const chartStates = {};
+function planPanels(pfx){
+  return `
+    <div class="verdict" id="${pfx}verdict"></div>
+    <div class="warns" id="${pfx}warns"></div>
+    <div class="panel">
+      <div class="ph"><h2>Expected return</h2><p id="${pfx}expNote"></p></div>
+      <div class="tablebox"><table id="${pfx}expRet" class="exp"></table></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Where the price sits</h2><p id="${pfx}tapeNote"></p></div>
+      <div class="tape-wrap"><svg id="${pfx}tape" viewBox="0 0 1000 140" role="img" aria-label="Price range tape"></svg></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Profit and loss by final price</h2><p id="${pfx}chartNote"></p><div id="${pfx}hzChart" class="hzbox"></div></div>
+      <div class="legend">
+        <span><i style="background:var(--lp)"></i>LP + fees</span>
+        <span><i style="background:var(--short)"></i>Short + funding − fees</span>
+        <span><i style="background:var(--net);height:4px"></i>Combined</span>
+        <span><i class="dot" style="background:var(--net)"></i>Real result, hedged</span>
+        <span><i class="dot" style="background:var(--lp)"></i>Real result, unhedged</span>
+      </div>
+      <div class="chartbox" id="${pfx}chartbox">
+        <svg id="${pfx}chart" data-pfx="${pfx}" viewBox="0 0 1000 400" role="img" aria-label="Profit and loss chart"></svg>
+        <div class="tip" id="${pfx}tip" hidden></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Capital and position</h2><p id="${pfx}capNote"></p></div>
+      <div class="kv" id="${pfx}capital"></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Both edges check</h2><p id="${pfx}edgeNote"></p><div id="${pfx}hzEdges" class="hzbox"></div></div>
+      <div class="edges" id="${pfx}edges"></div>
+      <p class="bandnote" id="${pfx}bandNote"></p>
+      <svg id="${pfx}band" viewBox="0 0 1000 86" role="img" aria-label="Safe short size band"></svg>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>Exit plan</h2><p id="${pfx}exitNote">What to do the moment the pool price leaves this range.</p><div id="${pfx}hzExits" class="hzbox"></div></div>
+      <div class="exits" id="${pfx}exits"></div>
+    </div>
+`;
+}
+function render(m){
+  const err = $("err");
+  if(m.err){
+    err.textContent = m.err; err.hidden = false;
+    ["needUsdg","needCrcl","needUsdc"].forEach(id => { $(id).textContent = "—"; });
+    return;
+  }
+  err.hidden = true;
+  const s = m.s;
+  renderRanges(s);
+
+  // what Uniswap will actually use, after rounding to its price steps
+  $("paPct").textContent = "Uniswap: " + px(s.pa) + " · " + pc(s.pa/s.P0-1);
+  $("pbPct").textContent = "Uniswap: " + px(s.pb) + " · " + pc(s.pb/s.P0-1);
+  const U = h => h*s.E;                       // a CRCL amount as USDC at today's perp mark
+  // Hyperliquid's lowest setting is 1x; less than 1x means 1x plus extra margin added to the position
+  const extra = Math.max(0, m.hedgeColl - U(m.h));
+  const levTxt = m.c>=1 ? "1x" + (extra>0.5 ? " + " + usd(extra) + " extra margin" : "") : nf(1/m.c,1) + "x";
+  $("shortUsd").textContent = "= " + qty(m.h) + " " + RSYM + " at mark " + px(s.E);
+  $("shortWrap").hidden = s.hedgeMode!=="manual";
+
+  // the three numbers: what goes into the pool, and what goes to Hyperliquid
+  const buyCost = m.dep.x*s.P0;
+  const ratio = m.dep.x>0 ? m.h/m.dep.x : 0;
+  const crclDp = m.dep.x >= 100 ? 2 : m.dep.x >= 1 ? 3 : 4;
+  $("needUsdg").textContent = nf(m.dep.y,2);
+  $("needUsdgSub").textContent = `${nf(100-m.w*100,0)}% of the LP · range ${px(s.pa)} – ${px(s.pb)}`;
+  $("needCrcl").textContent = nf(m.dep.x,crclDp);
+  $("needCrclSub").textContent = `≈ ${usd(buyCost,2)} at ${px(s.P0)} · ${nf(m.w*100,0)}% of the LP`;
+  $("needUsdc").textContent = nf(m.hedgeColl,2);
+  $("needUsdcSub").textContent = `Short ${RSYM} on Hyperliquid · ${levTxt} · order size ${usd(U(m.h),2)}`;
+  $("needTotal").innerHTML = `Total <b>${usd(m.capital,2)}</b> = LP ${usd(m.V0,2)} + hedge ${usd(m.hedgeColl,2)}.
+    Holding only stablecoins? Swap <b>${usd(buyCost,2)}</b> USDG → ${RSYM} first, so bring <b>${usd(m.V0,2)}</b> USDG to Robinhood Chain and <b>${usd(m.hedgeColl,2)}</b> USDC to Hyperliquid.
+    The hedge covers ${nf(ratio*100,0)}% of the LP's ${RSYM} today.`;
+  $("shortHint").innerHTML = s.hedgeMode==="balanced"
+    ? `Balanced: the same result at both edges, so the short and the fees share the work evenly. Neutral now would be ${usd(U(m.hNeu))}.`
+    : s.hedgeMode==="neutral"
+    ? `Neutral now: matches the ${RSYM} inside the LP today, then re-hedging at each step keeps it matched. Balanced would be ${usd(U(m.hBal))}.`
+    : `Auto sizes for reference: balanced ${usd(U(m.hBal))} · neutral now ${usd(U(m.hNeu))}.`;
+
+  // the plain to-do list
+  $("steps").innerHTML = [
+    ["Uniswap · Robinhood Chain", `Swap <b>${usd(buyCost)}</b> USDG → ${RSYM} in the USDG/${RSYM} 0.30% pool`],
+    ["Uniswap · Robinhood Chain", `Add liquidity, range <b>${px(s.pa)} – ${px(s.pb)}</b>, with <b>${usd(buyCost)}</b> of ${RSYM} + <b>${usd(m.dep.y)}</b> USDG`],
+    ["Hyperliquid", `Deposit <b>${usd(m.hedgeColl)}</b> USDC (swap USDG → USDC first)`],
+    ["Hyperliquid · " + MKT.perp.venue, `Set isolated, leverage <b>${levTxt}</b>. Sell / short, size <b>${usd(U(m.h))}</b>`],
+    ["Hyperliquid · " + MKT.perp.venue, `Add a stop: close 100% of the short if mark rises to <b>${px(m.Qu)}</b>`],
+    ["Watch", `If the pool price falls below <b>${px(m.Pl)}</b>, exit the LP and the short together (see Exit plan)`],
+  ].map(([w,t]) => `<li><span>${t}</span><span class="where">${w}</span></li>`).join("");
+
+  renderPanels(m);
+}
+
+function renderPanels(m){
+  const s = m.s;
+  const U = h => h*s.E;                       // a CRCL amount as USDC at the perp price
+  // verdict: the four numbers that say whether this range is worth it
+  const dYou = m.beDays(m.h);
+  const ec = econ(m);
+  const net = ec.net;
+  const tIn = m.tIn;
+  const beOK = Number.isFinite(tIn) && dYou <= tIn;
+  // Two lines, never more. A running position leads with what it has really
+  // earned per day of holding; the planner leads with what the range pays
+  // while price is inside it. The quiet second line carries the other basis,
+  // so the two are never read as the same kind of number.
+  const feeLine = m => {
+    const s = m.s, apr = d => nf(d*365/m.V0*100, 0) + "%";
+    const perDay = r => r*s.lpKeep/100*m.L*s.Lpool/(s.Lpool + m.L);
+    const quiet = x => "<br><span class=\"muted\">" + x + "</span>";
+    const lv = m.live;
+    if(lv && Number.isFinite(lv.feeRate)){
+      const row = (k, d) => `<span>${k}</span><span class="v">${usd(d, 2)} / day</span>`;
+      return `<div class="duo">${row("Per day so far", lv.feeRate)}${row("Expected", m.feeDay)}</div>`
+        + quiet("on your " + usd(m.V0) + " LP · " + (lv.realFees ? "measured on chain" : "replayed from swaps")
+          + (lv.inPct != null ? " · in range " + nf(lv.inPct*100, 0) + "% of the time" : ""));
+    }
+    if(m.feeSource === "band"){
+      // Same range, same sum, two lookbacks. Side by side in a column, so the
+      // only thing that differs between them reads as the only thing that differs.
+      const b24 = feeRateIn(s.pa, s.pb, 1), b6 = feeRateIn(s.pa, s.pb, 0.25);
+      const row = (k, d) => `<span>${k}</span><span class="v">${usd(d, 2)} / day</span>`;
+      // say the window actually read, not the one intended: a partial read of the
+      // busiest recent days reads far higher than the full week
+      const win = LIVE.volFull ? "Past 7 days"
+        : "Past " + nf(m.feeBand.days, 1) + "d read";
+      return `<div class="duo">${row(win, m.feeDay)}` +
+             (b24 && m.inRange ? row("Last 24h", perDay(b24.rate)) : "") +
+             (b6 && m.inRange ? row("Last 6h", perDay(b6.rate)) : "") + `</div>` +
+             quiet("on your " + usd(m.V0) + " LP · the longer window is the steadier guide,"
+               + " the shortest is what the pool is paying now");
+    }
+    let t = usd(m.feeDay, 2) + " / day while price is in your range";
+    if(m.feeSource === "override") t += quiet("your own figure");
+    else if(m.feeSource === "volume") t += quiet("rough estimate" + (LIVE.volProgress != null && LIVE.volProgress < 1
+      ? " · still reading history, " + nf(LIVE.volProgress*100, 0) + "%" : ""));
+    return t;
+  };
+  const lvNet = m.live && Number.isFinite(m.live.netDay);
+  const netLine = m => {
+    const row = (k, d) => `<span>${k}</span><span class="v">${sgn(d, 2)} / day</span>`;
+    const base = k => `<br><span class="muted">on all ` + usd(lvNet ? m.live.capH : m.capital)
+      + ` (LP + hedge) · ` + k + `</span>`;
+    if(lvNet) return `<div class="duo">${row("Per day so far", m.live.netDay)}${row("Expected", net)}</div>`
+      + base("expected assumes no trend in " + RSYM);
+    return sgn(net, 2) + " / day after hedging" + base("assumes no trend in " + RSYM);
+  };
+  const tile = (label, big, bigCls, line, chip, tip) =>
+    `<div class="vcell" title="${tip}"><span class="eyebrow">${label}</span><span class="big ${bigCls}">${big}</span>
+      <span class="small">${line}</span>${chip ? `<span class="chip ${chip[0]}">${chip[1]}</span>` : ""}</div>`;
+  $$("verdict").innerHTML =
+    tile(m.live && Number.isFinite(m.live.feeRate) ? "Fees earned" : "Fees · while in range",
+      nf((m.live && Number.isFinite(m.live.feeRate) ? m.live.feeRate*365/m.V0 : ec.feeApr)*100, 0)+"%", "", feeLine(m), null,
+      m.live && Number.isFinite(m.live.feeRate)
+        ? "Top: what this position has actually earned in fees, per day of holding it, counting the hours it sat out of range earning nothing. Underneath: what the same range pays at the last 7 days’ rate, which is what every forecast below — Expected return, Both edges, Scenarios — is built on."
+        : "Trading fees on your LP deposit, a year, while price stays inside your range. Measured from the swaps that happened inside it, over the time price spent inside it. Fees come unevenly — far fewer when NYSE is closed — and any hour out of range earns nothing.") +
+    tile(lvNet ? "After all costs" : "After all costs · no trend",
+      pc(lvNet ? m.live.netDay*365/m.live.capH : ec.netApr, 0), cls(lvNet ? m.live.netDay : net),
+      netLine(m), net>0 ? ["good","fees > hedge cost"] : ["bad","fees < hedge cost"],
+      lvNet
+        ? "Top: what this position has really returned, per day of holding, on LP plus hedge collateral. Underneath: fees minus hedging cost plus funding, which is the average outcome only if the asset has no trend. Checked against real swaps the hedging cost is a fair estimate of impermanent loss — about 25% high — but it cannot know about a trend, and a trend is usually what decides the difference."
+        : "Fees minus hedging cost plus funding minus trading fees, a year, on total capital (LP + hedge). It assumes the asset drifts neither up nor down: the hedging cost is the impermanent loss a moving price causes, and a real trend can swamp it in either direction.") +
+    tile("Break-even", days(dYou), "", "fees needed to cover an edge",
+      beOK ? ["good","before typical exit"] : ["warn","after typical exit"],
+      "Days of fees in range before a move to either edge stops losing money") +
+    tile("Time in range", Number.isFinite(tIn)?nf(tIn,1)+" days":"—", "",
+      Number.isFinite(m.pLowFirst) ? "average · exits low "+nf(m.pLowFirst*100,0)+"%" : "average", null,
+      "Average days before price touches an edge, at "+nf(s.sigma,1)+"% daily volatility");
+
+  $$("warns").innerHTML = m.warn.map(w => `<div>${w}</div>`).join("");
+
+  drawTape(m);
+
+  // capital
+  $$("capNote").textContent = `Liquidity L = ${nf(m.L,1)} · your share of active liquidity ${nf(m.share*100,2)}%`;
+  const netDelta = m.dep.x - m.h;
+  $$("capital").innerHTML = `
+    <section><h3>Capital</h3>
+      ${row("LP deposit (Robinhood Chain)", usd(m.V0))}
+      ${row("Short collateral (USDC, Hyperliquid)", usd(m.hedgeColl))}
+      <div class="row total"><span>Total</span><span class="num">${usd(m.capital)}</span></div>
+      ${row("Reserve to fully hedge below the range", usd(m.extraColl))}
+      ${row("Always-neutral hedge, collateral at lower edge", usd(m.V0*m.k*m.c))}
+    </section>
+    <section><h3>Exposure ${m.live ? "at entry" : "now"} (in USDC)</h3>
+      ${row(RSYM + " inside the LP", usd(m.dep.x*s.P0))}
+      ${row(RSYM + " shorted", "−"+usd(U(m.h)))}
+      ${row("Net " + RSYM + " exposure", sgn(netDelta*s.P0))}
+      ${row("Hedge ratio", nf(m.dep.x>0?m.h/m.dep.x*100:0,0)+"%")}
+      ${row("LP at lower edge: all " + RSYM, usd(m.xmax*s.pa))}
+      ${row("LP at upper edge: all USDG", usd(m.ymax))}
+    </section>
+    <section><h3>Per day while in range</h3>
+      ${row("Trading fees earned", sgn(m.feeDay,2), "pos")}
+      ${row("Fee APR on your LP", nf(m.feeDay*365/m.V0*100,0)+"%")}
+      ${row("Hedging cost (volatility)", sgn(-m.lvrDay,2), "neg")}
+      ${row("Funding on your short", sgn(m.h*s.E*m.fundRate,2), cls(m.h*s.E*m.fundRate))}
+      ${row("Re-hedge trading fees", sgn(-m.rebalDay,2), "neg")}
+      ${row("Short liquidates at (pool price)", px(m.Pliq)+" · "+pc(m.Pliq/s.P0-1,0))}
+    </section>`;
+
+  // edges, on the holding period chosen on this card
+  const dE = hzDays("edges", m.d), bd = bandAt(m, dE);
+  $$("hzEdges").innerHTML = hzSwitch("edges", dE, m.d);
+  $$("edgeNote").textContent = (m.live
+    ? `Your total from entry at ${px(s.P0)} if price reaches each edge after ${dLabel(dE)} more in range, counting what you have already banked.`
+    : `Price reaches each edge after ${dLabel(dE)} in range.`) + ` Your rule: the short covers the drop, fees cover the rise.`;
+  const edgeCard = (label, P, lower) => {
+    const lpChg = m.V(P) - m.V0;
+    const hold = m.dep.x*P + m.dep.y;
+    const il = m.V(P) - hold;
+    const fees = m.feeDay*dE;
+    const shortP = m.h*s.E*(1-P/s.P0);
+    const fund = m.h*s.E*m.fundRate*dE;
+    const cost = -(m.h*s.E*m.t + m.h*s.E*(P/s.P0)*m.t);
+    const banked = m.live ? m.live.banked : 0;
+    const tot = m.pnl(m.h,P,dE) + banked;
+    return `<div class="edge">
+      <div class="head"><b>${label} · ${px(P)} (${pc(P/s.P0-1)})</b><span class="chip ${tot>=0?"good":"bad"}">${tot>=0?"covered":"not covered"}</span></div>
+      ${row("LP value change", sgn(lpChg), cls(lpChg))}
+      ${row("&nbsp;&nbsp;of which impermanent loss", sgn(il), cls(il))}
+      ${row(lower?"Short profit":"Short loss", sgn(shortP), cls(shortP))}
+      ${row("Fees, "+dLabel(dE), sgn(fees), cls(fees))}
+      ${row("Funding", sgn(fund), cls(fund))}
+      ${row("Perp trading fees", sgn(cost), cls(cost))}
+      ${m.live ? row("Already banked since entry", sgn(banked), cls(banked)) : ""}
+      <div class="row total"><span>Net</span><span class="num ${cls(tot)}">${sgn(tot)} · ${pc(tot/m.capital,2)}</span></div>
+    </div>`;
+  };
+  $$("edges").innerHTML = edgeCard("Lower edge", s.pa, true) + edgeCard("Upper edge", s.pb, false);
+
+  // band
+  let bn;
+  const dBal = m.beDays(m.hBal);
+  if(Number.isFinite(bd.lo) && bd.lo <= bd.hi){
+    bn = `Any short from <b class="num">${usd(U(bd.lo))}</b> to <b class="num">${Number.isFinite(bd.hi)?usd(U(bd.hi)):"any size"}</b> covers both edges after ${dLabel(dE)}. `;
+    bn += (m.h>=bd.lo && m.h<=bd.hi) ? `Yours (${usd(U(m.h))}) is inside.` : `Yours (${usd(U(m.h))}) is outside. Move it toward ${usd(U(m.hBal))}.`;
+  } else {
+    const gap = -m.pnl(m.hBal, s.pa, dE);
+    bn = `No short size covers both edges yet: ${dLabel(dE)} of fees leave both edges ${usd(gap)} short even with the balanced short. The balanced short (${usd(U(m.hBal))}) breaks even after <b>${days(dBal)}</b> in range.`;
+  }
+  $$("bandNote").innerHTML = bn;
+  drawBand(m, bd);
+
+  const dC = hzDays("chart", m.d);
+  $$("hzChart").innerHTML = (m.live ? histSwitch() : "") + hzSwitch("chart", dC, m.d);
+  drawChart(m, dC);
+  const dX = hzDays("exits", m.d);
+  $$("hzExits").innerHTML = hzSwitch("exits", dX, m.d);
+  renderExits(m, dX);
+  renderExpected(m);
+}
+
+function drawTape(m){
+  const s=m.s, W=1000, x0=20, x1=980;
+  // the real price movement: since entry for a position, the past 7 days in the Planner
+  const seen = m.live ? m.live.path : (LIVE.hist && LIVE.hist[7] ? LIVE.hist[7].map(v => v*s.P0/s.E) : []);
+  const sMin = seen.length ? Math.min(...seen) : s.P0, sMax = seen.length ? Math.max(...seen) : s.P0;
+  const lo = Math.min(m.Pl*0.93, s.P0*0.72, sMin*0.97), hi = Math.max(m.Pu*1.07, s.P0*1.28, sMax*1.03);
+  const X = p => x0 + (p-lo)/(hi-lo)*(x1-x0);
+  const yT=40, yB=74;
+  let g = "";
+  g += `<rect x="${X(lo)}" y="${yT}" width="${X(s.pa)-X(lo)}" height="${yB-yT}" fill="var(--z-low)"/>`;
+  g += `<rect x="${X(s.pa)}" y="${yT}" width="${X(s.pb)-X(s.pa)}" height="${yB-yT}" fill="var(--z-in)"/>`;
+  g += `<rect x="${X(s.pb)}" y="${yT}" width="${X(hi)-X(s.pb)}" height="${yB-yT}" fill="var(--z-high)"/>`;
+  const zl = (a,b,txt) => { if(X(b)-X(a) > txt.length*7+10) g += `<text x="${(X(a)+X(b))/2}" y="${(yT+yB)/2+4}" text-anchor="middle" font-size="12" fill="var(--muted)">${txt}</text>`; };
+  zl(lo, s.pa, "LP = all " + RSYM);
+  zl(s.pa, s.pb, "earning fees");
+  zl(s.pb, hi, "LP = all USDG");
+  // ticks
+  const tk = niceTicks(lo, hi, 8);
+  tk.forEach(v => { g += `<line x1="${X(v)}" x2="${X(v)}" y1="${yB}" y2="${yB+4}" stroke="var(--faint)"/><text x="${X(v)}" y="${yB+17}" text-anchor="middle" font-size="11" fill="var(--faint)">${nf(v,0)}</text>`; });
+  // edges
+  [[s.pa,"lower "+px(s.pa)],[s.pb,"upper "+px(s.pb)]].forEach(([p,t]) => {
+    g += `<line x1="${X(p)}" x2="${X(p)}" y1="${yT-4}" y2="${yB+26}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    g += `<text x="${X(p)}" y="${yB+40}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${t}</text>`;
+  });
+  // exits
+  g += `<line x1="${X(m.Pl)}" x2="${X(m.Pl)}" y1="${yT-14}" y2="${yB}" stroke="var(--lp)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  g += `<text x="${X(m.Pl)-5}" y="${yT-18}" text-anchor="end" font-size="11.5" fill="var(--lp)">exit both ${px(m.Pl)}</text>`;
+  g += `<line x1="${X(m.Pu)}" x2="${X(m.Pu)}" y1="${yT-14}" y2="${yB}" stroke="var(--short)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  g += `<text x="${X(m.Pu)+5}" y="${yT-18}" text-anchor="start" font-size="11.5" fill="var(--short)">close short ${px(m.Pu)}</text>`;
+  // the range actually traded: since entry, or over the past 7 days
+  if(seen.length){
+    g += `<rect x="${X(sMin)}" y="${yB-7}" width="${Math.max(2, X(sMax)-X(sMin))}" height="5" rx="2" fill="var(--accent)" opacity=".5"/>` +
+      `<title>${m.live ? "Traded since entry" : "Past 7 days"}: ${px(sMin)} – ${px(sMax)}</title>`;
+  }
+  // now (and, for a position, where it was entered)
+  const nowP = m.live ? m.live.P : s.P0;
+  if(m.live){
+    const xe = X(s.P0);
+    g += `<line x1="${xe}" x2="${xe}" y1="${yT-26}" y2="${yB}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    g += `<text x="${xe}" y="${yT-29}" text-anchor="middle" font-size="11" fill="var(--muted)">entry ${px(s.P0)}</text>`;
+  }
+  const xn = X(nowP);
+  g += `<path d="M${xn-6},${yT-10} L${xn+6},${yT-10} L${xn},${yT-2} Z" fill="var(--accent)"/>`;
+  g += `<line x1="${xn}" x2="${xn}" y1="${yT-2}" y2="${yB}" stroke="var(--accent)" stroke-width="2"/>`;
+  g += `<text x="${xn}" y="${yT-16}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--accent)">now ${px(nowP)}</text>`;
+  // liquidation
+  if(m.Pliq < hi) g += `<line x1="${X(m.Pliq)}" x2="${X(m.Pliq)}" y1="${yT}" y2="${yB}" stroke="var(--bad)" stroke-width="2"/><text x="${X(m.Pliq)}" y="${yT-4}" font-size="11" text-anchor="middle" fill="var(--bad)">liq</text>`;
+  else g += `<text x="${x1}" y="${yB+60}" text-anchor="end" font-size="11" fill="var(--bad)">short liquidates at ${px(m.Pliq)} →</text>`;
+  const seenTxt = seen.length ? `${m.live ? "Traded since entry" : "Past 7 days"} ${px(sMin)} – ${px(sMax)} (gold band). ` : "";
+  $$("tapeNote").textContent = m.live
+    ? `Entry ${px(s.P0)}, now ${px(nowP)}. ${seenTxt}Beyond each edge the LP stops earning and turns into one token.`
+    : `${seenTxt}Beyond each edge the LP stops earning and turns into one token.`;
+  $$("tape").innerHTML = g;
+}
+
+function drawBand(m, bd){
+  const W=1000, x0=20, x1=980, y=34;
+  const hLow = bd ? bd.lo : m.hLow, hHigh = bd ? bd.hi : m.hHigh;
+  const top = Math.max(m.xmax, Number.isFinite(hHigh)?hHigh:0, m.h, Number.isFinite(hLow)?hLow:0)*1.12 || 1;
+  const X = v => x0 + Math.min(Math.max(v,0),top)/top*(x1-x0);
+  let g = `<rect x="${x0}" y="${y-6}" width="${x1-x0}" height="12" rx="6" fill="var(--sunk)"/>`;
+  if(Number.isFinite(hLow)){
+    if(hLow <= hHigh){
+      g += `<rect x="${X(hLow)}" y="${y-6}" width="${Math.max(2,X(Number.isFinite(hHigh)?hHigh:top)-X(hLow))}" height="12" rx="6" fill="var(--good)" opacity=".55"/>`;
+    } else {
+      g += `<rect x="${X(hHigh)}" y="${y-6}" width="${Math.max(2,X(hLow)-X(hHigh))}" height="12" rx="3" fill="var(--bad)" opacity=".35"/>`;
+      g += `<text x="${(X(hHigh)+X(hLow))/2}" y="${y-12}" text-anchor="middle" font-size="11" fill="var(--bad)">gap</text>`;
+    }
+  }
+  const mark = (v, label, color, below) => {
+    g += `<line x1="${X(v)}" x2="${X(v)}" y1="${y-11}" y2="${y+11}" stroke="${color}" stroke-width="2.5"/>`;
+    g += `<text x="${X(v)}" y="${below?y+28:y-16}" text-anchor="middle" font-size="11.5" fill="${color}">${label}</text>`;
+  };
+  const E = m.s.E;
+  mark(m.hBal, "balanced "+usd(m.hBal*E), "var(--muted)", true);
+  mark(m.xmax, "LP max "+usd(m.xmax*E), "var(--faint)", true);
+  mark(m.h, "yours "+usd(m.h*E), "var(--accent)", false);
+  g += `<text x="${x0}" y="${y+48}" font-size="11" fill="var(--faint)">$0 short</text><text x="${x1}" y="${y+48}" text-anchor="end" font-size="11" fill="var(--faint)">${usd(top*E)} short</text>`;
+  $$("band").innerHTML = g;
+}
+
+function niceTicks(a,b,n){
+  const span=b-a; if(!(span>0)) return [a];
+  const raw=span/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/mag;
+  const st=(f<1.5?1:f<3?2:f<7?5:10)*mag;
+  const out=[]; for(let v=Math.ceil(a/st)*st; v<=b+st*1e-9; v+=st) out.push(Math.round(v/st)*st);
+  return out;
+}
+
+function drawChart(m, d){
+  d = d || m.d;
+  const s=m.s, W=1000, H=400, l=78, r=16, t=14, b=38;
+  const tr = m.live && HIST_ON ? m.live.traj : [];   // [price, hedged, unhedged] actually seen
+  const tp = tr.map(x => x[0]);
+  const lo = Math.min(m.Pl*0.9, s.P0*0.65, ...tp.map(v => v*0.97)), hi = Math.max(m.Pu*1.1, s.P0*1.35, ...tp.map(v => v*1.03));
+  const N=240, pts=[];
+  for(let i=0;i<=N;i++){
+    const P = lo+(hi-lo)*i/N;
+    const lp = m.base(P,d);
+    const sh = m.h*m.coef(P,d);
+    pts.push({P, lp, sh, net: lp+sh});
+  }
+  let ymin=Math.min(0,...pts.map(p=>Math.min(p.lp,p.sh,p.net)),...tr.map(x=>Math.min(x[1],x[2]))), ymax=Math.max(0,...pts.map(p=>Math.max(p.lp,p.sh,p.net)),...tr.map(x=>Math.max(x[1],x[2])));
+  const pad=(ymax-ymin)*0.08||1; ymin-=pad; ymax+=pad;
+  const X = P => l + (P-lo)/(hi-lo)*(W-l-r);
+  const Y = v => t + (ymax-v)/(ymax-ymin)*(H-t-b);
+  let g = `<rect x="${X(s.pa)}" y="${t}" width="${X(s.pb)-X(s.pa)}" height="${H-t-b}" fill="var(--z-in)" opacity=".7"/>`;
+  niceTicks(ymin,ymax,6).forEach(v => {
+    g += `<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" ${Math.abs(v)<1e-9?'stroke-width="1.5" stroke="var(--faint)"':''}/>`;
+    g += `<text x="${l-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--faint)">${sgn(v)}</text>`;
+  });
+  niceTicks(lo,hi,9).forEach(v => {
+    g += `<line x1="${X(v)}" x2="${X(v)}" y1="${H-b}" y2="${H-b+4}" stroke="var(--faint)"/>`;
+    g += `<text x="${X(v)}" y="${H-b+18}" text-anchor="middle" font-size="11" fill="var(--faint)">${nf(v,0)}</text>`;
+  });
+  g += `<line x1="${l}" x2="${W-r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--faint)" stroke-width="1.2"/>`;
+  const vline = (P,color,dash,label,anchor) => {
+    g += `<line x1="${X(P)}" x2="${X(P)}" y1="${t}" y2="${H-b}" stroke="${color}" stroke-width="1.3" ${dash?'stroke-dasharray="4 3"':''}/>`;
+    if(label) g += `<text x="${X(P)+(anchor==="end"?-5:5)}" y="${t+12}" text-anchor="${anchor}" font-size="11" fill="${color}">${label}</text>`;
+  };
+  vline(m.Pl,"var(--lp)",true,"exit "+px(m.Pl),"end");
+  vline(m.Pu,"var(--short)",true,"close "+px(m.Pu),"start");
+  if(m.live){
+    vline(s.P0,"var(--muted)",true,"entry","start");
+    vline(m.live.P,"var(--accent)",false,"now","start");
+  } else vline(s.P0,"var(--accent)",false,"","start");
+  const path = key => pts.map((p,i)=>(i?"L":"M")+X(p.P).toFixed(1)+","+Y(p[key]).toFixed(1)).join("");
+  g += `<path d="${path("lp")}" fill="none" stroke="var(--lp)" stroke-width="2"/>`;
+  g += `<path d="${path("sh")}" fill="none" stroke="var(--short)" stroke-width="2"/>`;
+  g += `<path d="${path("net")}" fill="none" stroke="var(--net)" stroke-width="3.2"/>`;
+  // what actually happened: a faint trail, a few dots faded by age, and
+  // clear markers for the start and for now
+  if(tr.length){
+    const step = Math.max(1, Math.ceil(tr.length/20));
+    [[2,"var(--lp)"],[1,"var(--net)"]].forEach(([k,c]) => {
+      g += `<path d="${tr.map((x,i)=>(i?"L":"M")+X(x[0]).toFixed(1)+","+Y(x[k]).toFixed(1)).join("")}" fill="none" stroke="${c}" stroke-width="1.1" stroke-dasharray="2 3" opacity=".45"/>`;
+      tr.forEach((x, i) => {
+        const last = i === tr.length-1;
+        if(!last && i % step) return;                       // about twenty dots, not hundreds
+        const age = tr.length > 1 ? i/(tr.length-1) : 1;    // older = fainter
+        g += `<circle cx="${X(x[0]).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${last ? 6 : 2.6}" fill="${c}" opacity="${last ? 1 : (0.25 + 0.55*age).toFixed(2)}" ${last ? 'stroke="var(--surface)" stroke-width="2"' : ""}/>`;
+      });
+    });
+    const s0 = tr[0], sN = tr[tr.length-1];
+    g += `<circle cx="${X(s0[0]).toFixed(1)}" cy="${Y(s0[1]).toFixed(1)}" r="5" fill="none" stroke="var(--muted)" stroke-width="2"/>`;
+    g += `<text x="${X(s0[0])}" y="${Y(s0[1])-10}" text-anchor="middle" font-size="11" fill="var(--muted)">start</text>`;
+    g += `<text x="${X(sN[0])}" y="${Y(sN[1])-12}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--net)">now ${sgn(sN[1], 2)}</text>`;
+  }
+  g += `<text x="${W-r}" y="${H-4}" text-anchor="end" font-size="11" fill="var(--faint)">final pool price (USDG per ${RSYM})</text>`;
+  g += `<g id="${PFX}hover" style="display:none"><line id="${PFX}hl" y1="${t}" y2="${H-b}" stroke="var(--ink)" stroke-width="1" opacity=".5"/><circle id="${PFX}hc" r="5" fill="var(--net)" stroke="var(--surface)" stroke-width="2"/></g>`;
+  g += `<rect x="${l}" y="${t}" width="${W-l-r}" height="${H-t-b}" fill="transparent"/>`;
+  $$("chart").innerHTML = g;
+  chartStates[PFX] = {m, d, lo, hi, X, Y, l, r, W};
+  $$("chartNote").textContent = m.live
+    ? `Lines: the plan from entry, with ${dLabel(d)} of fees. Dots: the real result at each real price since entry.`
+    : `Shaded = your range. Assumes ${dLabel(d)} of fees and funding, then the price lands here.`;
+}
+
+function hover(e){
+  const pfx = e.currentTarget.dataset.pfx || "", cs = chartStates[pfx];
+  if(!cs) return;
+  const g = id => document.getElementById(pfx + id);
+  const {m, d, lo, hi, X, Y, l, r, W} = cs, s=m.s;
+  const svg=g("chart"), box=svg.getBoundingClientRect();
+  const vx = (e.clientX-box.left)/box.width*W;
+  if(vx<l || vx>W-r){ out(pfx); return; }
+  const P = lo + (vx-l)/(W-l-r)*(hi-lo);
+  const lp = m.base(P,d), sh = m.h*m.coef(P,d), net = lp+sh;
+  g("hover").style.display = "";
+  g("hl").setAttribute("x1",X(P)); g("hl").setAttribute("x2",X(P));
+  g("hc").setAttribute("cx",X(P)); g("hc").setAttribute("cy",Y(net));
+  const tip=g("tip");
+  tip.innerHTML = `<div class="row"><span>Pool price</span><span class="num">${px(P)} (${pc(P/s.P0-1)})</span></div>`+
+    row("LP + fees", sgn(lp), cls(lp)) + row("Short + funding", sgn(sh), cls(sh)) +
+    `<div class="row total"><span>Combined</span><span class="num ${cls(net)}">${sgn(net)}</span></div>`;
+  tip.hidden=false;
+  const bw=g("chartbox").clientWidth, xpx=(X(P)/W)*box.width;
+  tip.style.left = (xpx > bw*0.6 ? xpx-tip.offsetWidth-14 : xpx+14) + "px";
+  tip.style.top = "10px";
+}
+function out(e){
+  const pfx = typeof e === "string" ? e : (e && e.currentTarget && e.currentTarget.dataset.pfx) || "";
+  const h = document.getElementById(pfx + "hover"), t = document.getElementById(pfx + "tip");
+  if(h) h.style.display = "none";
+  if(t) t.hidden = true;
+}
+
+function renderExits(m, d){
+  const s=m.s;
+  d = d || m.d;
+  // results if the exit happens after this many days of fees in range
+  const resU = m.pnl(m.h, m.Pu, d), resL = m.pnl(m.h, m.Pl, d), resB = resL - Math.max(0, m.add)*m.Ql*m.t;
+  $$("exitNote").textContent = `What to do the moment the pool price leaves this range. Results assume ${dLabel(d)} of fees first.`;
+  const upSlope = m.h*m.Qu*0.01;
+  const downSlope = (m.xmax-m.h)*m.Pl*0.01;
+  const bag = m.xmax*m.Pl;                         // the LP's CRCL, in dollars, at the lower exit
+  const addUsd = Math.abs(m.add)*m.Ql;
+  const addTxt = m.add>0
+    ? `Sell / short <b>${usd(addUsd)}</b> more at market<br>Short becomes <b>${usd(m.xmax*m.Ql)}</b> = the whole ${RSYM} bag<br>Extra margin <b>${usd(m.extraColl)}</b> USDC`
+    : `Buy back <b>${usd(addUsd)}</b> of the short, reduce-only<br>Short becomes <b>${usd(m.xmax*m.Ql)}</b> = the whole ${RSYM} bag`;
+  $$("exits").innerHTML = `
+  <div class="exit up">
+    <span class="eyebrow">Price rises above ${px(s.pb)}</span>
+    <h3>Close the short. Keep the USDG.</h3>
+    <p class="when">Above the upper edge the LP is 100% USDG and stops moving. The short is the only thing left moving, and it loses ${usd(upSlope)} for every further 1% rise.</p>
+    <div class="ticket">Hyperliquid · ${MKT.perp.venue}<br>Stop market · <b>close 100%</b> of the short · reduce-only<br>Trigger mark <b>${px(m.Qu)}</b> (pool ≈ ${px(m.Pu)})</div>
+    ${row("Result if closed at trigger", sgn(resU)+" · "+pc(resU/m.capital,2), cls(resU))}
+    ${row("Cost of one pop above and back", sgn(-m.bandCost,2), "neg")}
+    <div class="ticket">Then arm the way back · <b>sell ${usd(m.h*s.E)}</b> · stop market<br>Trigger mark <b>${px(m.Qre)}</b> (pool ≈ ${px(m.Pre)})</div>
+    <p>The LP starts buying ${RSYM} again the moment price re-enters, so the short has to come back with it. Leaving it off is the worst rule on the board.</p>
+    <p>The gap between those two triggers is a cost, not a cushion: you buy the short back at the top of it and re-sell at the bottom, ${usd(m.bandCost,2)} every round trip. It only saves the ${nf(s.taker*2,3)}% of perp fees a round trip costs, so keep it thin.</p>
+  </div>
+  <div class="exit down">
+    <span class="eyebrow">Price falls below ${px(s.pa)}</span>
+    <h3>Exit both. Never close the short alone.</h3>
+    <p class="when">Below the lower edge the LP is 100% ${RSYM}, worth about <b>${usd(bag)}</b>, and the short covers only ${usd(m.h*m.Pl)} of it. Uncovered now: ${usd(Math.abs(downSlope))} per 1% ${m.xmax>=m.h?"fall":"rise"}. Never close the short alone.</p>
+    <div class="opt"><span class="t">A · Exit both (recommended)</span>
+      <div class="ticket">1 Uniswap: remove liquidity, swap all ${RSYM} (≈ ${usd(bag)}) → USDG<br>2 Hyperliquid: <b>close 100%</b> of the short at market<br>Do both at pool ≈ <b>${px(m.Pl)}</b> / mark ≈ <b>${px(m.Ql)}</b></div>
+      ${row("Swap fee + slippage", sgn(-m.swapCost), "neg")}
+      ${row("Result", sgn(resL-m.swapCost)+" · "+pc((resL-m.swapCost)/m.capital,2), cls(resL-m.swapCost))}
+      <p>Closing the short releases its margin, so this needs no new money. On the real week to 19 Sept a 1% stop was the best of every width tried — tighter gets you stopped out by noise sitting on the edge, wider bleeds more before it cuts.</p>
+    </div>
+    <div class="opt"><span class="t">B · Cover the bag instead — needs ${usd(m.extraColl)} more USDC</span>
+      <div class="ticket">${addTxt}</div>
+      ${row("Result locked near", sgn(resB)+" · "+pc(resB/(m.capital+m.extraColl),2), cls(resB))}
+      <p>Freezes the position and keeps the LP alive to earn again if price comes back, and it measured better than exiting — but only if <b>${usd(m.extraColl)}</b> of margin is already standing by on Hyperliquid before the edge is reached. Skip it if that money is committed elsewhere.</p>
+    </div>
+  </div>
+  <div class="exit guard">
+    <span class="eyebrow">Safety lines</span>
+    <h3>Liquidation and gaps</h3>
+    ${row("Short liquidates at mark", px(m.Qliq)+" · "+pc(m.Qliq/s.E-1,0))}
+    ${row("Upper exit trigger (mark)", px(m.Qu))}
+    ${row("Room between them", pc(m.Qliq/m.Qu-1,0))}
+    <p>The perp trades on its own oracle when NYSE is closed, and the Robinhood Chain token keeps trading. A weekend gap can move them apart. Check the pool-to-perp gap before placing either exit.</p>
+  </div>`;
+}
+
+/* ---------- wiring ---------- */
+function update(){
+  const s = read();
+  if(s.hedgeMode==="manual" && s.short==null){
+    // start manual sizing from the balanced size rather than an empty box
+    const auto = model(Object.assign({}, s, {hedgeMode:"balanced"}));
+    if(!auto.err){ const v = Math.round(auto.h*s.E); $("short").value = v; s.short = v; }
+  }
+  const m = model(s);
+  save();
+  render(m);
+  return m;
+}
+let last = null;
+function run(){ last = update(); }
+
+/* ---------- live market data ----------
+   Read straight from the chain and from Hyperliquid by this page itself.
+   Works on the site and from a file; a sandboxed copy (an artifact preview)
+   blocks outside requests, so there it falls back to the saved snapshot. */
+const RPC = "https://rpc.mainnet.chain.robinhood.com";
+const HL = "https://api.hyperliquid.xyz/info";
+const POOL = MKT.pool;
+const SWAP = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
+const BPD = Math.round(9.91*86400);             // measured blocks per day
+const LIVE_FIELDS = ["P0","E","vol24","Lpool","feeL","lpKeep","fundApr","taker","sigma"];
+const LIVE = {on:true, pool:null, L:null, mark:null, vol:null, fund:null, sigma:null,
+  tPool:0, tMark:0, tVol:0, buckets:{}, fbuckets:{}, pfee:{}, ptime:{}, lastBlock:0, firstBlock:0, win:100000, coverFrom:0, fails:0, blocked:false, busy:{}};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Chain endpoints, tried in order. Only the official one serves swap history;
+// the others are there so the price never goes stale when it is busy.
+// Its "too many requests" reply carries a malformed CORS header, so the
+// browser only ever sees "Failed to fetch"; each endpoint backs off on its own.
+const EPS = [
+  {name:"Robinhood", url:"https://rpc.mainnet.chain.robinhood.com", logs:true},
+  {name:"PublicNode", url:"https://robinhood-rpc.publicnode.com", logs:false},
+  {name:"Ordofi", url:"https://rpc.ordofi.network", logs:false},
+];
+const CUSTOM = {name:"Your RPC", url:"", logs:true};
+[...EPS, CUSTOM].forEach(e => { e.until = 0; e.backoff = 0; });
+function endpoints(forLogs){
+  const list = [];
+  const u = String($("rpcUrl").value || "").trim();
+  if(/^https:\/\/\S+$/.test(u)){
+    if(CUSTOM.url !== u){ CUSTOM.url = u; CUSTOM.until = 0; CUSTOM.backoff = 0; }
+    list.push(CUSTOM);
+  }
+  EPS.forEach(e => { if(!forLogs || e.logs) list.push(e); });
+  return list;
+}
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(body)});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+const BUSY_MSG = /busy|rate|limit|too many|token|capacity/i;
+async function callEp(ep, body){
+  const j = await post(ep.url, body);
+  const first = Array.isArray(j) ? j.find(x => x.error) : (j.error ? j : null);
+  if(first && BUSY_MSG.test(first.error.message || "")) throw new Error("BUSY " + first.error.message);
+  return j;
+}
+async function rpcRaw(body, forLogs){
+  const list = endpoints(forLogs);
+  let lastErr = null, tried = 0;
+  for(const ep of list){
+    if(ep.until > Date.now()) continue;
+    tried++;
+    try{
+      const j = await callEp(ep, body);
+      ep.backoff = 0; ep.ok = Date.now();
+      if(!forLogs) LIVE.via = ep.name;
+      return j;
+    }catch(e){
+      // A refusal lasts seconds: wait 5s, 10s, 20s, then 30s at most.
+      lastErr = e;
+      ep.backoff = Math.min(30000, ep.backoff ? ep.backoff*2 : 5000);
+      ep.until = Date.now() + ep.backoff;
+    }
+  }
+  if(!tried){                                    // all cooling down: wait for the first one back
+    const soon = Math.min(...list.map(e => e.until));
+    await sleep(Math.max(0, soon - Date.now()));
+    return rpcRaw(body, forLogs);
+  }
+  throw lastErr;
+}
+async function rpc(method, params, forLogs){
+  const j = await rpcRaw({jsonrpc:"2.0", id:1, method, params}, forLogs);
+  if(j.error) throw new Error(j.error.message || "chain error");
+  return j.result;
+}
+async function rpcBatch(calls){                  // several reads, one request
+  const j = await rpcRaw(calls.map((c,i) => ({jsonrpc:"2.0", id:i, method:c[0], params:c[1]})), false);
+  if(!Array.isArray(j)) throw new Error((j.error && j.error.message) || "chain error");
+  const out = [];
+  j.forEach(x => { if(x.error) throw new Error(x.error.message); out[x.id] = x.result; });
+  return out;
+}
+const hl = body => post(HL, body);
+const hex = n => "0x" + n.toString(16);
+function int256(h){ let v = BigInt("0x" + h); if(v >= (1n<<255n)) v -= (1n<<256n); return v; }
+
+async function readPool(){
+  const [head, slot0, liq] = await rpcBatch([
+    ["eth_blockNumber", []],
+    ["eth_call", [{to:POOL, data:"0x3850c7bd"}, "latest"]],
+    ["eth_call", [{to:POOL, data:"0x1a686502"}, "latest"]]]);
+  const sqrt = Number(BigInt("0x" + slot0.slice(2, 66))) / 2**96;
+  LIVE.pool = priceFromSqrt(sqrt);               // cash per risk asset, either orientation
+  LIVE.L = Number(BigInt(liq)) / 1e12;
+  LIVE.head = parseInt(head, 16);
+  // slot0.feeProtocol: the protocol keeps 1/n of every swap fee (0 = off).
+  const fp = parseInt(slot0.slice(2+5*64, 2+6*64), 16) & 0xff;
+  const n0 = fp % 16;
+  LIVE.lpKeep = n0 ? 1 - 1/n0 : 1;
+  LIVE.tPool = Date.now();
+}
+async function readPerp(){
+  const q = {type:"metaAndAssetCtxs"};
+  if(MKT.perp.dex) q.dex = MKT.perp.dex;        // builder markets live on their own dex
+  const [meta, ctxs] = await hl(q);
+  const i = meta.universe.findIndex(a => a.name === MKT.perp.coin);
+  if(i < 0) throw new Error(MKT.perp.coin + " not listed");
+  LIVE.mark = Number(ctxs[i].markPx);
+  // Builder (HIP-3) markets charge the base 0.045% taker times a multiplier set
+  // by the deployer, and "growth mode" cuts the all-in fee by 90% -- xyz:CRCL on
+  // 19 Sep: scale 1.0 (x2) with growth mode on, so 0.009%. The main dex has
+  // neither field and simply charges the base rate.
+  const a = meta.universe[i];
+  if(MKT.perp.dex){
+    const scale = Number(a.deployerFeeScale ?? 1);
+    const mult = scale < 1 ? scale + 1 : scale*2;
+    LIVE.taker = 0.045*mult*(a.growthMode === "enabled" ? 0.1 : 1);
+  }else LIVE.taker = 0.045;
+  LIVE.tMark = Date.now();
+}
+async function readSlow(){                       // 30-day funding and volatility
+  const now = Date.now(), start = now - 30*86400000;
+  const rates = new Map(); let cur = start;
+  for(let n=0; n<4; n++){                        // the API returns 500 rows at most
+    const page = await hl({type:"fundingHistory", coin:MKT.perp.coin, startTime:cur});
+    if(!page.length) break;
+    page.forEach(r => rates.set(r.time, Number(r.fundingRate)));
+    if(page.length < 500) break;
+    cur = page[page.length-1].time + 1;
+  }
+  const vals = [...rates.values()];
+  if(vals.length) LIVE.fund = vals.reduce((a,b)=>a+b,0)/vals.length*24*365*100;
+  const c = await hl({type:"candleSnapshot", req:{coin:MKT.perp.coin, interval:"1h", startTime:start, endTime:now}});
+  const hist = {};
+  [1,7,14,21,30].forEach(d => {
+    const sub = c.filter(x => x.t >= now - d*86400000);
+    if(sub.length) hist[d] = [Math.min(...sub.map(x => Number(x.l))), Math.max(...sub.map(x => Number(x.h)))];
+  });
+  if(hist[7]) LIVE.hist = hist;
+  LIVE.hourClose = new Map(c.map(x => [x.t, Number(x.c)]));
+  const cl = c.map(x => Number(x.c)), r = [];
+  for(let k=1; k<cl.length; k++) r.push(Math.log(cl[k]/cl[k-1]));
+  if(r.length > 24){
+    const mu = r.reduce((a,b)=>a+b,0)/r.length;
+    const v = r.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(r.length-1);
+    LIVE.sigma = Math.sqrt(v*24)*100;
+  }
+}
+const busyError = e => e instanceof TypeError || /^(HTTP|BUSY)/.test(e.message || "");
+async function logsOnce(a, b){
+  return rpc("eth_getLogs", [{address:POOL, fromBlock:hex(a), toBlock:hex(b), topics:[SWAP]}], true);
+}
+// Swap volume is kept as hourly totals and saved in this browser, so opening
+// the page again only reads the blocks since last time. Re-reading all seven
+// days on every reload is what tripped the endpoint's rate limit in testing.
+const BPH = Math.round(9.91*3600);               // blocks per hour
+const VOL_KEY = ks("crcl-lp-hedge-volume-v3");   // v3 adds fees and dwell time per price bin
+const BPD_I = Math.round(9.91*86400);            // blocks per day, for binning
+const LOGSTEP = Math.log(1.001);                 // price bins a tenth of a percent wide
+const binOf = p => Math.floor(Math.log(p)/LOGSTEP);
+function loadVolume(){
+  try{
+    const v = JSON.parse(localStorage.getItem(VOL_KEY) || "null");
+    if(v && v.lastBlock && v.buckets && v.fbuckets && v.pfee){ LIVE.lastBlock = v.lastBlock; LIVE.firstBlock = v.firstBlock || 0; LIVE.coverFrom = v.coverFrom; LIVE.buckets = v.buckets; LIVE.fbuckets = v.fbuckets; LIVE.pfee = v.pfee || {}; LIVE.ptime = v.ptime || {}; }
+  }catch(e){}
+}
+function saveVolume(){
+  try{ localStorage.setItem(VOL_KEY, JSON.stringify({lastBlock:LIVE.lastBlock, firstBlock:LIVE.firstBlock, coverFrom:LIVE.coverFrom, buckets:LIVE.buckets, fbuckets:LIVE.fbuckets, pfee:LIVE.pfee, ptime:LIVE.ptime})); }catch(e){}
+}
+async function readVolume(){                     // swaps: new ones forward, the 7-day history backwards
+  if(!LIVE.tPool || Date.now()-LIVE.tPool > 60000) return;   // price first; history can wait
+  // The head comes from the endpoint that serves the logs, so no block is
+  // marked as read before that node has it.
+  const head = parseInt(await rpc("eth_blockNumber", [], true), 16) - 3;
+  const from = head - 7*BPD;
+  if(LIVE.lastBlock && LIVE.lastBlock < from) LIVE.lastBlock = 0;          // saved copy too old
+  if(!LIVE.lastBlock){
+    // Fresh start: begin where the open positions stopped (or now), read
+    // forward from there and backwards for the older history.
+    const stops = SIM.open.map(p => p.lastBlock).filter(x => x >= from);
+    LIVE.buckets = {}; LIVE.fbuckets = {}; LIVE.pfee = {}; LIVE.ptime = {}; LIVE.coverFrom = from;
+    LIVE.lastBlock = Math.min(head, ...stops);
+    LIVE.firstBlock = LIVE.lastBlock + 1;
+  }
+  if(!LIVE.firstBlock) LIVE.firstBlock = Math.max(from, LIVE.coverFrom || from);   // cache from before newest-first
+  // Between two swaps the pool price does not move, so the gap belongs to the
+  // earlier swap's price. Windows arrive in two contiguous runs -- forward from
+  // lastBlock, backward from firstBlock -- so the seam between windows is
+  // stitched, or the long quiet gaps (exactly the in-range ones) are lost.
+  const addTime = (bin, from, to) => {
+    if(bin == null || !(to > from) || to - from > BPD_I) return;
+    const key = Math.floor(to/BPH) + "|" + bin;
+    LIVE.ptime[key] = (LIVE.ptime[key] || 0) + (to - from)/BPD;
+  };
+  const bucketize = (got, back) => {
+    let pBin = null, pBlk = 0, firstBlk = null;
+    got.forEach(l => {
+      const blk = parseInt(l.blockNumber,16), k = Math.floor(blk/BPH);
+      const _a0 = Number(int256(l.data.slice(2,66))), _a1 = Number(int256(l.data.slice(66,130)));
+      LIVE.buckets[k] = (LIVE.buckets[k] || 0) + Math.abs(cashLeg(_a0, _a1));
+      // the fee one unit of in-range liquidity earned on this swap (before the protocol's cut),
+      // in dollars, with the liquidity actually active at that moment
+      const Lr = Number(BigInt("0x" + l.data.slice(194, 258)));
+      if(Lr > 0){
+        const a0 = Number(int256(l.data.slice(2, 66))), a1 = Number(int256(l.data.slice(66, 130)));
+        const Pw = priceFromSqrt(Number(BigInt("0x" + l.data.slice(130, 194)))/2**96);
+        const cl = cashLeg(a0, a1), rl = riskLeg(a0, a1);
+        const fee = (MKT.tier/100)*1e12/Lr*(cl > 0 ? cl : rl*Pw);
+        LIVE.fbuckets[k] = (LIVE.fbuckets[k] || 0) + fee;
+        // and again by price, so the rate can be taken inside one range only
+        const bin = binOf(Pw), key = k + "|" + bin;        // k is this swap's hour
+        LIVE.pfee[key] = (LIVE.pfee[key] || 0) + fee;
+        if(firstBlk === null) firstBlk = blk;
+        addTime(pBin, pBlk, blk);
+        pBin = bin; pBlk = blk;
+      }
+    });
+    if(firstBlk === null) return;                // no priced swaps in this window
+    if(back){                                    // reading backwards: stitch up to the window above
+      if(LIVE.aB != null) addTime(pBin, pBlk, LIVE.aB);
+      LIVE.aB = firstBlk;
+    }else{                                       // reading forwards: stitch from the window below
+      if(LIVE.aF) addTime(LIVE.aF.bin, LIVE.aF.blk, firstBlk);
+      LIVE.aF = {blk: pBlk, bin: pBin};
+    }
+  };
+
+  // Open positions come first: if any stopped before the newest block read,
+  // pay them from where they stopped (the forward reader skips what they have).
+  const behind = SIM.open.filter(p => p.lastBlock < head - 30);
+  if(behind.length){
+    const lag = Math.min(...behind.map(p => p.lastBlock));
+    if(LIVE.lastBlock < lag){
+      let a2 = lag + 1, n2 = 0;
+      while(a2 <= head && n2 < 6){
+        if(!visible()) return;
+        const b2 = Math.min(head, a2 + LIVE.win);
+        simFeed(await logsOnce(a2, b2), a2, b2);
+        a2 = b2 + 1; n2++;
+        if(a2 <= head) await sleep(4000);
+      }
+    }
+  }
+
+  let n = 0;
+  // 1. forward: every new swap, in order. These also pay the simulated positions.
+  //    Recent windows are always retried: a server a few blocks behind is not lost history.
+  let a = LIVE.lastBlock + 1;
+  while(a <= head && n < 8){
+    if(!visible()) return;
+    const b = Math.min(head, a + LIVE.win);
+    let got;
+    try{ got = await logsOnce(a, b); }
+    catch(e){ LIVE.win = Math.max(5000, Math.round(LIVE.win/2)); throw e; }
+    bucketize(got);
+    simFeed(got, a, b);
+    LIVE.win = Math.min(100000, Math.round(LIVE.win*1.5));
+    LIVE.lastBlock = b; a = b + 1; n++;
+    saveVolume();
+    if(a <= head || LIVE.firstBlock > from) await sleep(4000);   // leave room for the price reads
+  }
+  // 2. backwards: the older history, newest first, so an early measurement is about recent days
+  while(LIVE.firstBlock > Math.max(from, LIVE.coverFrom) && n < 8){
+    if(!visible()) return;
+    const hi = LIVE.firstBlock - 1, lo = Math.max(from, hi - LIVE.win);
+    try{
+      bucketize(await logsOnce(lo, hi), true);
+      LIVE.win = Math.min(100000, Math.round(LIVE.win*1.5));
+      LIVE.firstBlock = lo;
+    }catch(e){
+      LIVE.win = Math.max(5000, Math.round(LIVE.win/2));
+      if(busyError(e) || lo > head - 5*BPD) throw e;
+      LIVE.coverFrom = hi + 1;                   // history the node no longer keeps
+      break;
+    }
+    n++;
+    saveVolume();
+    LIVE.volProgress = Math.min(1, (LIVE.lastBlock - LIVE.firstBlock)/Math.max(1, LIVE.lastBlock - Math.max(from, LIVE.coverFrom)));
+    showLive();
+    if(LIVE.firstBlock > Math.max(from, LIVE.coverFrom)) await sleep(4000);
+  }
+  LIVE.firstBlock = Math.max(LIVE.firstBlock, from);
+  LIVE.volProgress = Math.min(1, (LIVE.lastBlock - LIVE.firstBlock)/Math.max(1, LIVE.lastBlock - Math.max(from, LIVE.coverFrom)));
+
+  // Totals over whole hours read so far: all 7 days once filled in, the most
+  // recent part before that. Anything under half a day is too thin to use.
+  const oldest = Math.max(from, LIVE.coverFrom, LIVE.firstBlock);
+  const firstHour = Math.ceil(oldest/BPH), drop = Math.ceil(from/BPH);
+  let sum = 0, fsum = 0;
+  Object.keys(LIVE.buckets).forEach(k => { if(+k < drop) delete LIVE.buckets[k]; else if(+k >= firstHour) sum += LIVE.buckets[k]; });
+  Object.keys(LIVE.fbuckets).forEach(k => { if(+k < drop) delete LIVE.fbuckets[k]; else if(+k >= firstHour) fsum += LIVE.fbuckets[k]; });
+  // the price bins expire on the same seven days
+  [LIVE.pfee, LIVE.ptime].forEach(o => Object.keys(o).forEach(k => { if(+k.split("|")[0] < drop) delete o[k]; }));
+  saveVolume();
+  const span = (LIVE.lastBlock - firstHour*BPH) / BPD;
+  if(span > 0.5){
+    LIVE.vol = sum / span;
+    LIVE.feeL = fsum / span;
+    // the last 24 hours on their own, once the history reaches back that far
+    const h1 = Math.floor(LIVE.lastBlock/BPH), h0 = h1 - 23;
+    if(oldest <= h0*BPH){
+      let f24 = 0;
+      for(let k = h0; k <= h1; k++) f24 += LIVE.fbuckets[k] || 0;
+      LIVE.feeL24 = f24 / ((LIVE.lastBlock - h0*BPH)/BPD);
+    }
+    LIVE.volDays = span;
+    LIVE.volFull = LIVE.firstBlock <= Math.max(from, LIVE.coverFrom);   // the whole 7 days are in
+    LIVE.tVol = Date.now();
+  }
+}
+
+// Fee per unit of liquidity per day EARNED INSIDE [pa,pb]: the fees from swaps
+// that happened in there, over the time the price actually spent in there. The
+// pool-wide average is measured mostly while price is travelling, which is when
+// a narrow range is out of range earning nothing, so it reads far too high.
+function feeRateIn(pa, pb, days){
+  if(!LIVE.pfee || !LIVE.lastBlock) return null;
+  const lo = binOf(pa), hi = binOf(pb);
+  const from = Math.floor(LIVE.lastBlock/BPH) - Math.round((days || 7)*24) + 1;
+  let f = 0, t = 0;
+  for(const k in LIVE.pfee){
+    const [d, b] = k.split("|");
+    if(+d >= from && +b >= lo && +b <= hi) f += LIVE.pfee[k];
+  }
+  for(const k in LIVE.ptime){
+    const [d, b] = k.split("|");
+    if(+d >= from && +b >= lo && +b <= hi) t += LIVE.ptime[k];
+  }
+  const need = Math.min(0.35, (days || 7)*0.15);   // too little time in range to quote a rate
+  return t > need ? {rate: f/t, days: t} : null;
+}
+
+// ---------- pairing a deployed position with its real twin on chain ----------
+// The pool's Mint event indexes tickLower and tickUpper, so the real NFT behind
+// a position can be found from the range alone -- no wallet address. The id
+// comes from the manager's IncreaseLiquidity log in the same transaction.
+const MINT_T = "0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde";
+const TWIN_KEY = ks("crcl-lp-twin-v1");
+const tickTopic = t => "0x" + ((BigInt(Math.round(t)) + 2n**256n) % 2n**256n).toString(16).padStart(64, "0");
+function twinLoad(){ try{ return JSON.parse(localStorage.getItem(TWIN_KEY) || "{}") || {}; }catch(e){ return {}; } }
+function twinSave(o){ try{ localStorage.setItem(TWIN_KEY, JSON.stringify(o)); }catch(e){} }
+
+async function findTwin(p){
+  const store = twinLoad();
+  if(store[p.id] !== undefined) return store[p.id];          // null means "looked, found nothing"
+  const tu = Math.round(tickOf(p.pa)), tl = Math.round(tickOf(p.pb));   // lower price = higher tick
+  const from = Math.max(0, (p.deployBlock || 0) - 3*BPD), to = (p.deployBlock || 0) + 3*BPD;
+  let best = null;
+  for(let a = from; a <= to; a += 400000){
+    const b = Math.min(to, a + 400000);
+    let got;
+    try{
+      got = await rpc("eth_getLogs", [{address: POOL, fromBlock: hex(a), toBlock: hex(b),
+        topics: [MINT_T, null, tickTopic(tl), tickTopic(tu)]}], true);
+    }catch(e){ return undefined; }                            // try again next pass
+    (got || []).forEach(l => {
+      const blk = parseInt(l.blockNumber, 16);
+      const d = Math.abs(blk - (p.deployBlock || blk));
+      if(!best || d < best.d) best = {d, blk, tx: l.transactionHash};
+    });
+    await sleep(500);
+  }
+  let id = null;
+  if(best){
+    try{
+      const rec = await rpc("eth_getTransactionReceipt", [best.tx], true);
+      (rec.logs || []).forEach(l => {
+        if(l.address.toLowerCase() === NPM && l.topics[0] === INCREASE_T) id = BigInt(l.topics[1]).toString();
+      });
+    }catch(e){ return undefined; }
+  }
+  if(best) p.twinBlk = best.blk;         // its exact mint block, so the scan has a floor
+  store[p.id] = id; twinSave(store);
+  return id;
+}
+
+// fees for one NFT: unclaimed from Uniswap's own arithmetic, claimed from Collects
+async function twinFees(id){
+  const one = CHAIN.pos.find(q => q.id === id);
+  if(one) return one;
+  return null;
+}
+
+// ---------- real positions held by a wallet ----------
+// Uniswap's page shows only UNCLAIMED fees. Collect twice and it reads near
+// zero on a position that has earned for days, which is exactly what confused
+// this desk before. Claimed fees come from the manager's Collect events.
+const NPM = "0x73991a25c818bf1f1128deaab1492d45638de0d3";   // one manager for the chain
+const TOKEN0 = MKT.risk.token0 ? MKT.risk.addr : MKT.cash.addr;
+const TOKEN1 = MKT.risk.token0 ? MKT.cash.addr : MKT.risk.addr;
+const COLLECT_T = "0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01";
+const INCREASE_T = "0x3067048beee31b25b2f1681f88dac838c8bba36af25bfb2b7cf7473a5847e35f";
+const DECREASE_T = "0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4";
+const Q128 = 2n ** 128n, M256 = 2n ** 256n;
+const CHAIN = {pos: [], t: 0, err: "", scanned: 0, busy: false};
+const w32 = (h, i) => BigInt("0x" + h.slice(2 + i*64, 66 + i*64));
+// int24 inside a 256-bit word. The ETH pool's ticks are negative (about
+// -198,600), which a 24-bit sign extension turned into a 77-digit number.
+const s24 = v => v >= 2n**255n ? v - 2n**256n : (v >= 2n**23n ? v - 2n**24n : v);
+const subm = (a, b) => (a - b + M256) % M256;      // Uniswap's fee growth wraps on purpose
+const pad = x => x.replace(/^0x/, "").toLowerCase().padStart(64, "0");
+
+async function readChain(){
+  const addr = String($("wallet").value || "").trim();
+  if(!/^0x[0-9a-fA-F]{40}$/.test(addr)){
+    // keep the ones found by pairing a deployed position; only wallet-listed go
+    const paired = new Set(SIM.open.map(p => p.twin).filter(Boolean));
+    CHAIN.pos = CHAIN.pos.filter(q => paired.has(q.id));
+    CHAIN.err = addr ? "That does not look like an address." : "";
+    return;
+  }
+  if(CHAIN.busy) return;
+  CHAIN.busy = true;
+  try{
+    const n = Number(BigInt(await rpc("eth_call", [{to:NPM, data:"0x70a08231" + pad(addr)}, "latest"])));
+    const slot0 = await rpc("eth_call", [{to:POOL, data:"0x3850c7bd"}, "latest"]);
+    const tick = Number(s24(w32(slot0, 1)));
+    const g0 = BigInt(await rpc("eth_call", [{to:POOL, data:"0xf3058399"}, "latest"]));
+    const g1 = BigInt(await rpc("eth_call", [{to:POOL, data:"0x46141319"}, "latest"]));
+    const tickInfo = async t => {
+      const r = await rpc("eth_call", [{to:POOL, data:"0xf30dba93" + pad("0x" + ((BigInt(t) + M256) % M256).toString(16))}, "latest"]);
+      return [w32(r, 2), w32(r, 3)];
+    };
+    const out = [];
+    for(let i = 0; i < Math.min(n, 30); i++){
+      const idHex = await rpc("eth_call", [{to:NPM, data:"0x2f745c59" + pad(addr) + pad("0x" + i.toString(16))}, "latest"]);
+      const id = BigInt(idHex);
+      const p = await rpc("eth_call", [{to:NPM, data:"0x99fbab88" + pad("0x" + id.toString(16))}, "latest"]);
+      const t0 = "0x" + p.slice(2 + 2*64 + 24, 2 + 3*64), t1 = "0x" + p.slice(2 + 3*64 + 24, 2 + 4*64);
+      if(t0.toLowerCase() !== TOKEN0.toLowerCase() || t1.toLowerCase() !== TOKEN1.toLowerCase()) continue;
+      const tl = Number(s24(w32(p, 5))), tu = Number(s24(w32(p, 6))), liq = w32(p, 7);
+      const [lo0, lo1] = await tickInfo(tl), [hi0, hi1] = await tickInfo(tu);
+      const b0 = tick >= tl ? lo0 : subm(g0, lo0), b1 = tick >= tl ? lo1 : subm(g1, lo1);
+      const a0 = tick <  tu ? hi0 : subm(g0, hi0), a1 = tick <  tu ? hi1 : subm(g1, hi1);
+      const in0 = subm(subm(g0, b0), a0), in1 = subm(subm(g1, b1), a1);
+      // owed per token, then mapped onto cash and risk: which is which depends
+      // on the pair's order, and the decimals go with it
+      const ow0 = Number(w32(p, 10) + liq*subm(in0, w32(p, 8))/Q128);
+      const ow1 = Number(w32(p, 11) + liq*subm(in1, w32(p, 9))/Q128);
+      const unc0 = (RISK_T1 ? ow0 : ow1)/CDIV;      // cash leg
+      const unc1 = (RISK_T1 ? ow1 : ow0)/RDIV;      // risk leg
+      // claimed fees come from the cache, not from zero: this runs on every
+      // live tick and must not wipe what the backwards scan has found
+      const c = (chainLoad() || {})[id.toString()] || {};
+      // a higher tick is a higher price when the risk asset is token0, so take
+      // the min and max rather than assuming CRCL's inverted order
+      out.push({id: id.toString(), tl, tu,
+        pa: Math.min(priceOf(tl), priceOf(tu)), pb: Math.max(priceOf(tl), priceOf(tu)),
+        L: Number(liq)/1e12, unc0, unc1,
+        col0: c.col0 || 0, col1: c.col1 || 0, opened: c.opened || 0, to: c.to || 0,
+        scanned: !!c.from && (c.opened > 0 ? c.from <= c.opened : false)});
+    }
+    const paired = CHAIN.pos.filter(q => SIM.open.some(p => p.twin === q.id) && !out.some(o => o.id === q.id));
+    CHAIN.pos = out.concat(paired); CHAIN.err = ""; CHAIN.t = Date.now();
+  }catch(e){ CHAIN.err = "Could not read positions: " + (e.message || e); }
+  finally{ CHAIN.busy = false; }
+}
+
+// Claimed fees and the opening block, read backwards a window at a time and
+// cached, the same way the swap history is.
+const CH_KEY = ks("crcl-lp-chain-v4");   // v4: v3 counted withdrawn principal as fees
+function chainLoad(){ try{ return JSON.parse(localStorage.getItem(CH_KEY) || "{}") || {}; }catch(e){ return {}; } }
+function chainSave(o){ try{ localStorage.setItem(CH_KEY, JSON.stringify(o)); }catch(e){} }
+// Positions deployed in the dashboard get their real twin read too, whether or
+// not a wallet address is set: the range is enough to find it.
+async function readTwins(){
+  for(const p of SIM.open){
+    if(p.twin === undefined){
+      const id = await findTwin(p);
+      if(id === undefined) continue;                 // read failed, retry next pass
+      p.twin = id; simSave();
+    }
+    if(!p.twin) continue;
+    // every pass, so unclaimed fees move on their own
+    const q = await readOne(p.twin);
+    if(q){
+      const i = CHAIN.pos.findIndex(x => x.id === p.twin);
+      if(i >= 0) CHAIN.pos[i] = q; else CHAIN.pos.push(q);
+    }
+  }
+}
+
+// one position by id, without enumerating a wallet
+async function readOne(id){
+  try{
+    const slot0 = await rpc("eth_call", [{to:POOL, data:"0x3850c7bd"}, "latest"]);
+    const tick = Number(s24(w32(slot0, 1)));
+    const g0 = BigInt(await rpc("eth_call", [{to:POOL, data:"0xf3058399"}, "latest"]));
+    const g1 = BigInt(await rpc("eth_call", [{to:POOL, data:"0x46141319"}, "latest"]));
+    const p = await rpc("eth_call", [{to:NPM, data:"0x99fbab88" + pad("0x" + BigInt(id).toString(16))}, "latest"]);
+    const tl = Number(s24(w32(p, 5))), tu = Number(s24(w32(p, 6))), liq = w32(p, 7);
+    const ti = async t => { const r = await rpc("eth_call", [{to:POOL, data:"0xf30dba93" + pad("0x" + ((BigInt(t) + M256) % M256).toString(16))}, "latest"]); return [w32(r,2), w32(r,3)]; };
+    const [lo0, lo1] = await ti(tl), [hi0, hi1] = await ti(tu);
+    const b0 = tick >= tl ? lo0 : subm(g0, lo0), b1 = tick >= tl ? lo1 : subm(g1, lo1);
+    const a0 = tick <  tu ? hi0 : subm(g0, hi0), a1 = tick <  tu ? hi1 : subm(g1, hi1);
+    const in0 = subm(subm(g0, b0), a0), in1 = subm(subm(g1, b1), a1);
+    const c = (twinLoad(), chainLoad()[String(id)] || {});
+    return {id: String(id), tl, tu,
+      pa: Math.min(priceOf(tl), priceOf(tu)), pb: Math.max(priceOf(tl), priceOf(tu)),
+      L: Number(liq)/1e12,
+      unc0: ((RISK_T1 ? Number(w32(p,10) + liq*subm(in0, w32(p,8))/Q128)
+                      : Number(w32(p,11) + liq*subm(in1, w32(p,9))/Q128))/CDIV),
+      unc1: ((RISK_T1 ? Number(w32(p,11) + liq*subm(in1, w32(p,9))/Q128)
+                      : Number(w32(p,10) + liq*subm(in0, w32(p,8))/Q128))/RDIV),
+      col0: c.col0 || 0, col1: c.col1 || 0, opened: c.opened || 0, to: c.to || 0,
+      scanned: !!c.from && c.opened > 0 && c.from <= c.opened - 1999};
+  }catch(e){ return null; }
+}
+
+async function readChainFees(){
+  if(!CHAIN.pos.length) return;
+  // its own head: the swap reader may not have run yet, and claimed fees must
+  // not wait on it
+  let head = LIVE.head;
+  if(!head){ try{ head = parseInt(await rpc("eth_blockNumber", [], true), 16); }catch(e){ return; } }
+  const store = chainLoad();
+  for(const q of CHAIN.pos){
+    const c = store[q.id] || {col0: 0, col1: 0, from: head, to: head, opened: 0};
+    // The floor is this position's own mint, not a rolling window -- a position
+    // older than seven days would otherwise never be counted as fully read.
+    // deployBlock is the fallback: it is within minutes of the mint.
+    const own = SIM.open.find(p => p.twin === q.id);
+    const mintB = own ? (own.twinBlk || own.deployBlock || 0) : 0;
+    const floor = mintB ? Math.max(0, mintB - 2000) : head - 7*BPD;
+    if(mintB && !c.opened) c.opened = mintB;
+    // One window of Collect/IncreaseLiquidity logs for this token.
+    const win = async (lo, hi) => {
+      // A Collect hands over everything the position is owed -- fees, and after a
+      // decreaseLiquidity the principal as well. So Collect alone counts the whole
+      // LP back as "fees" the moment a position closes. Fees are Collect minus
+      // DecreaseLiquidity, read as two single-value queries because the node caps
+      // a multi-value topic filter at 100k blocks and rejects anything wider.
+      const tokTopic = "0x" + pad("0x" + BigInt(q.id).toString(16));
+      const logs = async topic => await rpc("eth_getLogs", [{address: NPM,
+        fromBlock: hex(lo), toBlock: hex(hi), topics: [topic, tokTopic]}], true);
+      const add = (got, sign) => (got || []).forEach(l => {
+        const d = l.data, k = (d.length - 2)/64;
+        const t0 = Number(w32(d, k-2)), t1 = Number(w32(d, k-1));
+        c.col0 += sign*(RISK_T1 ? t0 : t1)/CDIV;    // cash leg
+        c.col1 += sign*(RISK_T1 ? t1 : t0)/RDIV;    // risk leg
+      });
+      add(await logs(COLLECT_T), 1);
+      add(await logs(DECREASE_T), -1);
+    };
+    let n = 0;
+    // Forwards FIRST. A new collect lands above everything read so far, so a
+    // backwards-only scan would never see it and the claimed total would sit
+    // frozen while the position kept being harvested.
+    while(c.to < head && n < 8){
+      const lo = c.to + 1, hi = Math.min(head, lo + 1500000);
+      try{ await win(lo, hi); }catch(e){ break; }
+      c.to = hi; n++;
+      await sleep(700);
+    }
+    // then backwards for the history, on its own budget: enough windows to reach
+    // a mint anywhere in the seven days on the first pass, so a fresh cache
+    // settles at once rather than waiting for later refreshes to inch back.
+    let m = 0;
+    while(c.from > floor && m < 40){
+      const hi = c.from - 1, lo = Math.max(floor, hi - 1500000);
+      try{ await win(lo, hi); }catch(e){ break; }
+      c.from = lo; m++;
+      await sleep(500);
+    }
+    store[q.id] = c;
+    q.col0 = c.col0; q.col1 = c.col1; q.opened = c.opened; q.to = c.to;
+    // within a few minutes of the head counts as caught up, or the note never clears
+    q.scanned = c.to >= head - 2000 && c.from <= floor;
+  }
+  chainSave(store);
+  renderSim();
+}
+
+function applyLive(){
+  const set = (id, v, d) => { if(v!=null && Number.isFinite(v)) $(id).value = +v.toFixed(d); };
+  if(LIVE.on){
+    set("P0", LIVE.pool, 2); set("E", LIVE.mark, 2); set("vol24", LIVE.volFull ? LIVE.vol : null, 0);
+    set("Lpool", LIVE.L, 0); set("feeL", LIVE.volFull ? LIVE.feeL : null, 6); set("lpKeep", LIVE.lpKeep!=null ? LIVE.lpKeep*100 : null, 2); set("fundApr", LIVE.fund, 1); set("taker", LIVE.taker, 4); set("sigma", LIVE.sigma, 2);
+  }
+  LIVE_FIELDS.forEach(id => { $(id).readOnly = LIVE.on && !LIVE.blocked; });
+  showLive();
+  run();
+  simTick();
+  renderSim();
+  readChain().then(readTwins).then(() => { renderSim(); return readChainFees(); }).catch(e => console.warn("chain:", e));
+}
+const ago = t => { if(!t) return ""; const s = Math.round((Date.now()-t)/1000); return s<60 ? s+"s ago" : Math.round(s/60)+"m ago"; };
+function showLive(){
+  const dot = $("liveDot"), st = $("liveState"), note = $("lvNote");
+  $("lvPool").textContent = LIVE.pool ? px(LIVE.pool)+" · "+ago(LIVE.tPool) : px(SNAP.pool)+" · saved";
+  $("lvMark").textContent = LIVE.mark ? px(LIVE.mark)+" · "+ago(LIVE.tMark) : px(SNAP.mark)+" · saved";
+  $("lvVol").textContent = LIVE.vol ? usd(LIVE.vol)+" · "+nf(LIVE.volDays,1)+"d avg"+(LIVE.volProgress != null && LIVE.volProgress < 1 ? " · reading "+nf(LIVE.volProgress*100,0)+"%" : "")
+    : (LIVE.volProgress!=null && LIVE.volProgress<1) ? "reading 7 days " + nf((LIVE.volProgress||0)*100,0) + "%" : usd(SNAP.vol)+" · saved";
+  $("lvFund").textContent = (LIVE.fund!=null ? pc(LIVE.fund/100,1) : pc(SNAP.fund/100,1)) + " / yr";
+  dot.className = "dot";
+  if(!LIVE.on){ st.textContent = "Paused"; note.textContent = "Auto-refresh is off. Market fields are yours to edit."; return; }
+  if(!visible() && LIVE.tPool){ st.textContent = "Paused"; note.textContent = "Paused while this tab is in the background. It refreshes the moment you come back."; return; }
+  if(LIVE.blocked){ dot.classList.add("off"); st.textContent = "Saved " + SNAP.asOf;
+    note.textContent = "Cannot reach the chain or Hyperliquid from here. Showing the saved numbers."; return; }
+  const now = Date.now(), wait = Math.max(0, Math.round((EPS[0].until-now)/1000));
+  const poolOK = LIVE.tPool && now-LIVE.tPool < 90000, markOK = LIVE.tMark && now-LIVE.tMark < 90000;
+  if(poolOK && markOK){ dot.classList.add("on"); st.textContent = "Live";
+    note.textContent = "Pool and perp every 20s, swaps every 30s, funding and volatility every 30 min. Paused while this tab is hidden." + (LIVE.via && LIVE.via !== "Robinhood" ? " Price via " + LIVE.via + " while the main endpoint is busy." : ""); }
+  else if(LIVE.tPool || LIVE.tMark){ dot.classList.add("stale"); st.textContent = "Partly live";
+    note.textContent = (poolOK ? "" : "Chain busy" + (wait ? ", retrying in " + wait + "s" : "") + ". ")
+      + (markOK ? "" : "Hyperliquid not answering. ") + "Showing the last good read. If this lasts, close other dashboard tabs: they share the chain\u2019s small allowance."; }
+  else { st.textContent = "Connecting…"; note.textContent = wait ? "Chain busy, retrying in " + wait + "s." : ""; }
+}
+const visible = () => document.visibilityState !== "hidden";
+async function tick(name, fn, force){
+  // A tab in the background does not poll. Every extra tab used to draw on
+  // the same small allowance and keep the price stale in all of them.
+  // The first read on opening still happens, so a tab opened behind others has numbers.
+  if(!LIVE.on || LIVE.busy[name] || (!visible() && !force)) return;
+  LIVE.busy[name] = true;
+  try{ await fn(); LIVE.fails = 0; }
+  catch(e){
+    LIVE.fails++;
+    // An online copy's sandbox refuses every request, Hyperliquid's included.
+    // A busy chain node only refuses the chain's. Only the first means "blocked".
+    if(!LIVE.tPool && !LIVE.tMark && LIVE.fails >= 3) LIVE.blocked = true;
+  }
+  finally{ LIVE.busy[name] = false; }
+  applyLive();
+}
+document.addEventListener("visibilitychange", () => {
+  if(visible()){ tick("pool", readPool); tick("perp", readPerp); showLive(); }
+});
+document.addEventListener("securitypolicyviolation", e => {
+  if(/robinhood|hyperliquid/.test(e.blockedURI || "")){ LIVE.blocked = true; showLive(); }
+});
+function startLive(){
+  tick("perp", readPerp, true);
+  tick("pool", readPool, true).then(() => tick("vol", readVolume));
+  tick("slow", readSlow, true).then(() => tick("simfund", simFunding, true));
+  setInterval(() => { tick("perp", readPerp); tick("pool", readPool); }, 20000);
+  setInterval(() => tick("vol", readVolume), 30000);
+  setInterval(() => tick("slow", readSlow), 30*60000);
+  setInterval(() => tick("simfund", simFunding), 10*60000);
+  setInterval(showLive, 5000);
+}
+
+/* ---------- simulated positions ----------
+   A paper position that behaves like a real one in this pool. It is credited
+   its share of the fee on every real swap that trades through its range, its
+   tokens move with the real pool price, and its short is marked to the real
+   Hyperliquid price with the real hourly funding. Nothing is sent anywhere;
+   it all lives in this browser. */
+const SIM_KEY = ks("crcl-lp-sim-v1");
+const SIM_BPS = 9.91;                            // measured blocks per second
+const SIM = {open:[], closed:[], seq:0, tab:"planner", msg:"", view:"swap"};
+// Two ways to read every result: "swap" counts the 0.30% fee paid to buy the
+// CRCL half with USDG; "noswap" is for when the CRCL was already held.
+const viewAdd = p => SIM.view === "noswap" ? p.entryFee : 0;
+function viewSwitch(){
+  return `<div class="vswitch" role="group" aria-label="Count the entry swap">
+    <button type="button" data-view="swap" class="${SIM.view === "swap" ? "on" : ""}" aria-pressed="${SIM.view === "swap"}">With swap</button>
+    <button type="button" data-view="noswap" class="${SIM.view === "noswap" ? "on" : ""}" aria-pressed="${SIM.view === "noswap"}">Without swap</button>
+  </div>`;
+}
+
+function simLoad(){
+  try{
+    const v = JSON.parse(localStorage.getItem(SIM_KEY) || "null");
+    if(v){ SIM.open = v.open || []; SIM.closed = v.closed || []; SIM.seq = v.seq || 0; }
+  }catch(e){}
+  // Until 19 Sep the desk charged 0.09% per perp trade. xyz:CRCL is in growth
+  // mode and really charges 0.009%, so positions opened before the fix are
+  // corrected: open fee, close fee, and the hedged line of their chart.
+  [...SIM.open, ...SIM.closed].forEach(p => {
+    if(p.feeFix || Math.abs(p.taker - 0.0009) > 1e-12) return;
+    const real = 0.00009, oldOpen = p.openFee;
+    p.taker = real;
+    p.openFee = p.h*p.E0*real;
+    const saved = (oldOpen - p.openFee)*2;           // open + the close fee counted in every value
+    p.points.forEach(pt => { pt[2] = +(pt[2] + saved).toFixed(4); });
+    if(p.closed){
+      const c = p.closed;
+      c.closeFee = p.h*c.Q*real;
+      c.hedge = c.shortPnl + p.funding - p.openFee - c.closeFee;
+      c.hedged = c.unhedged + c.hedge;
+    }
+    p.feeFix = 1;
+  });
+  try{ SIM.tab = localStorage.getItem(SIM_KEY + "-tab") || "planner"; }catch(e){}
+  try{ SIM.view = localStorage.getItem(SIM_KEY + "-view") === "noswap" ? "noswap" : "swap"; }catch(e){}
+}
+function simSave(){
+  try{ localStorage.setItem(SIM_KEY, JSON.stringify({open:SIM.open, closed:SIM.closed, seq:SIM.seq})); SIM.saveError = false; }
+  catch(e){ SIM.saveError = true; }
+}
+
+function posAmt(p, P){
+  const sa = Math.sqrt(p.pa), sb = Math.sqrt(p.pb);
+  if(P <= p.pa) return {x:p.L*(1/sa-1/sb), y:0};
+  if(P >= p.pb) return {x:0, y:p.L*(sb-sa)};
+  const r = Math.sqrt(P); return {x:p.L*(1/r-1/sb), y:p.L*(r-sa)};
+}
+// Everything a position is worth at pool price P and perp price Q.
+// Claimed + unclaimed on the real NFT behind a position, once its history has
+// been read all the way back past the mint. Null until then, so a half-read
+// figure never passes for the total.
+function realFeesOf(p, P){
+  if(!p || !p.twin || typeof CHAIN === "undefined") return null;
+  const r = CHAIN.pos.find(x => x.id === p.twin);
+  if(!r || !r.scanned) return null;
+  return r.col0 + r.unc0 + (r.col1 + r.unc1)*P;
+}
+function posValue(p, P, Q){
+  const a = posAmt(p, P), V = a.x*P + a.y;
+  // Fees from the real position when its twin has been read right through --
+  // claimed plus unclaimed is the same quantity the replay estimates, measured
+  // instead of reconstructed, so it wins. Otherwise fall back to the replay.
+  const real = realFeesOf(p, P);
+  const feesUsd = real != null ? real : p.fees0 + p.fees1*P;
+  const hold = p.x0*P + p.y0;                    // the same tokens, never deposited
+  const lpPnl = V - p.V0;                        // price move, impermanent loss included
+  const unhedged = lpPnl + feesUsd - p.entryFee;
+  let shortPnl, closeFee;
+  if(p.liq){ shortPnl = -p.coll; closeFee = 0; }
+  else { shortPnl = p.h*(p.E0 - Q); closeFee = p.h*Q*p.taker; }
+  const hedge = shortPnl + p.funding - p.openFee - closeFee;
+  return {a, V, feesUsd, hold, il:V-hold, lpPnl, unhedged, shortPnl, closeFee, hedge,
+    hedged: unhedged + hedge, capU: p.V0, capH: p.V0 + p.coll};
+}
+function perpAt(t, P, p){                        // perp price at a past moment
+  const hc = LIVE.hourClose && LIVE.hourClose.get(Math.floor(t/3600000)*3600000);
+  return hc || P*p.E0/p.P0;
+}
+function simPoint(p, t, P, Q){
+  const v = posValue(p, P, Q);
+  p.points.push([Math.round(t), +v.unhedged.toFixed(4), +v.hedged.toFixed(4), +P.toFixed(4)]);
+  p.lastPointT = t;
+  if(p.points.length > 3000){                    // thin the old half, keep the recent detail
+    const keep = p.points.length - 800;
+    p.points = p.points.filter((x, i) => i >= keep || i % 2 === 0);
+  }
+}
+
+// One real swap, credited to one simulated position the way Uniswap v3 does:
+// the fee is paid in the input token, only for the part of the price move
+// inside the range, split by liquidity, less the pool's protocol cut.
+function simSwap(p, r){
+  const P = priceFromSqrt(r.sqrt/2**96);
+  const prev = p.lastPrice;
+  const dB = r.blk - p.lastSwapBlock;
+  if(dB > 0){ p.allBlocks += dB; if(prev > p.pa && prev < p.pb) p.inBlocks += dB; }
+  const s1 = Math.sqrt(Math.min(prev, P)), s2 = Math.sqrt(Math.max(prev, P));
+  const la = Math.sqrt(p.pa), lb = Math.sqrt(p.pb);
+  const frac = s2 - s1 < 1e-9 ? ((P > p.pa && P < p.pb) ? 1 : 0)
+    : Math.max(0, Math.min(s2, lb) - Math.max(s1, la)) / (s2 - s1);
+  if(frac > 0){
+    const Lraw = p.L*1e12, k = p.feeTier*p.lpKeep*frac*Lraw/(r.L + Lraw);
+    const cl = cashLeg(r.a0, r.a1), rl = riskLeg(r.a0, r.a1);
+    const f0 = cl > 0 ? cl*k : 0;                // USDG came in
+    const f1 = rl > 0 ? rl*k : 0;                // the risk asset came in
+    p.fees0 += f0; p.fees1 += f1;
+    p.swaps++;
+    // the swaps that actually paid this LP, newest kept. Size is signed: plus
+    // means USDG came in and the price rose, minus means CRCL came in.
+    const vol = cl > 0 ? cl : -rl*P;
+    (p.swapLog || (p.swapLog = [])).push([r.blk, +P.toFixed(4), +vol.toFixed(2),
+      +f0.toFixed(8), +f1.toFixed(10), +frac.toFixed(4)]);
+    if(p.swapLog.length > 300) p.swapLog.splice(0, p.swapLog.length - 300);
+  }
+  p.lastPrice = P; p.lastSwapBlock = r.blk;
+  const t = p.createdAt + (r.blk - p.deployBlock)/SIM_BPS*1000;
+  if(t - p.lastPointT >= 3600000) simPoint(p, t, P, perpAt(t, P, p));
+}
+// Called by the swap reader for every window of pool swaps it reads, in order.
+function simFeed(logs, a, b){
+  if(!SIM.open.length) return;
+  const rows = logs.map(l => ({
+    blk: parseInt(l.blockNumber, 16),
+    a0: Number(int256(l.data.slice(2, 66))),
+    a1: Number(int256(l.data.slice(66, 130))),
+    sqrt: Number(BigInt("0x" + l.data.slice(130, 194))),
+    L: Number(BigInt("0x" + l.data.slice(194, 258))),
+  }));
+  let changed = false;
+  SIM.open.forEach(p => {
+    if(p.lastBlock >= b) return;
+    if(p.lastBlock < a-1){ p.gaps.push([p.lastBlock+1, a-1]); }   // swaps the node could not give us
+    rows.forEach(r => { if(r.blk > p.lastBlock) simSwap(p, r); });
+    p.lastBlock = b; changed = true;
+  });
+  if(changed) simSave();
+}
+function simGap(a, b){
+  SIM.open.forEach(p => { if(p.lastBlock < b){ p.gaps.push([Math.max(a, p.lastBlock+1), b]); p.lastBlock = b; } });
+  simSave();
+}
+// Real hourly funding on each short: size × price at that hour × rate.
+async function simFunding(){
+  const act = SIM.open.filter(p => !p.liq && p.h > 0);
+  if(!act.length) return;
+  let cur = Math.min(...act.map(p => p.fundingThrough)) + 1;
+  for(let n = 0; n < 12; n++){
+    const page = await hl({type:"fundingHistory", coin:MKT.perp.coin, startTime:cur});
+    if(!page.length) break;
+    page.forEach(r => {
+      const rate = Number(r.fundingRate);
+      // Payments land a few milliseconds after the hour: price them at the
+      // close of the hourly candle that just ended.
+      const hr = Math.floor(r.time/3600000)*3600000;
+      const px = (LIVE.hourClose && (LIVE.hourClose.get(hr - 3600000) || LIVE.hourClose.get(hr))) || LIVE.mark;
+      act.forEach(p => {
+        if(r.time > p.fundingThrough && r.time >= p.createdAt){ p.funding += p.h*px*rate; p.fundingThrough = r.time; p.fundingPrints++; }
+      });
+    });
+    if(page.length < 500) break;
+    cur = page[page.length-1].time + 1;
+  }
+  simSave();
+}
+function simTick(){                              // on every live update
+  if(!SIM.open.length || !LIVE.mark || !LIVE.pool) return;
+  const now = Date.now(); let changed = false;
+  SIM.open.forEach(p => {
+    if(!p.liq && p.h > 0 && LIVE.mark >= p.liqMark){ p.liq = {t:now, mark:LIVE.mark}; changed = true; }
+    if(now - p.lastPointT >= 600000 && LIVE.head && p.lastBlock >= LIVE.head - 900){ simPoint(p, now, LIVE.pool, LIVE.mark); changed = true; }
+  });
+  if(changed) simSave();
+}
+const liveFresh = () => LIVE.on && !LIVE.blocked && LIVE.tPool && Date.now()-LIVE.tPool < 60000 && LIVE.tMark && Date.now()-LIVE.tMark < 60000;
+
+function simDeploy(){
+  if(!liveFresh()){ SIM.msg = "Deploying needs live prices. Wait for the green Live dot."; renderSim(); return; }
+  const s = Object.assign({}, read(), {P0:LIVE.pool, E:LIVE.mark});
+  const m = model(s);
+  if(m.err){ SIM.msg = m.err; renderSim(); return; }
+  if(!m.inRange){ SIM.msg = "The range has to contain the current pool price."; renderSim(); return; }
+  const now = Date.now(), deployBlock = Math.max(LIVE.head || 0, LIVE.lastBlock || 0);
+  SIM.seq++;
+  const p = {id:"p" + now.toString(36), name:"LP " + SIM.seq, createdAt:now,
+    deployBlock, lastBlock:deployBlock, lastSwapBlock:deployBlock, lastPrice:s.P0,
+    pa:m.s.pa, pb:m.s.pb, L:m.L, P0:s.P0, E0:s.E, x0:m.dep.x, y0:m.dep.y, V0:m.V0,   // Uniswap's rounded range
+    entryFee:m.dep.x*s.P0*s.feeTier/100,         // buying the CRCL side with USDG
+    feeTier:s.feeTier/100, lpKeep:s.lpKeep/100,
+    hedgeMode:s.hedgeMode, h:m.h, collMult:m.c, coll:m.hedgeColl, taker:m.t,
+    openFee:m.h*s.E*m.t, liqMark:m.Qliq,
+    fees0:0, fees1:0, swaps:0, inBlocks:0, allBlocks:0,
+    funding:0, fundingThrough:now, fundingPrints:0, gaps:[], points:[], lastPointT:0, liq:null};
+  simPoint(p, now, s.P0, s.E);
+  SIM.open.push(p); SIM.msg = ""; simSave(); setTab(p.id);
+}
+function simClose(id){
+  const p = SIM.open.find(x => x.id === id); if(!p) return;
+  if(!liveFresh()){ SIM.msg = "Closing needs live prices. Wait for the green Live dot."; renderSim(); return; }
+  const behind = Math.max(0, (LIVE.head || 0) - p.lastBlock);
+  const ask = behind > 600
+    ? `Fees are still being counted (${dur(behind/SIM_BPS)} of swaps not yet read). Close anyway?`
+    : `Close ${p.name} now at pool ${px(LIVE.pool)} and perp ${px(LIVE.mark)}?`;
+  if(!confirm(ask)) return;
+  const v = posValue(p, LIVE.pool, LIVE.mark);
+  simPoint(p, Date.now(), LIVE.pool, LIVE.mark);
+  p.closed = {t:Date.now(), P:LIVE.pool, Q:LIVE.mark, V:v.V, x:v.a.x, y:v.a.y, feesUsd:v.feesUsd, il:v.il,
+    lpPnl:v.lpPnl, unhedged:v.unhedged, shortPnl:v.shortPnl, closeFee:v.closeFee, hedge:v.hedge, hedged:v.hedged};
+  SIM.open = SIM.open.filter(x => x !== p); SIM.closed.unshift(p); simSave(); setTab("history");
+}
+function simDiscard(id){
+  const p = SIM.open.find(x => x.id === id); if(!p) return;
+  if(!confirm(`Discard ${p.name} without saving it to history?`)) return;
+  SIM.open = SIM.open.filter(x => x !== p); simSave(); setTab("planner");
+}
+function simRename(id){
+  const p = SIM.open.find(x => x.id === id) || SIM.closed.find(x => x.id === id); if(!p) return;
+  const n = prompt("Name this position", p.name);
+  if(n && n.trim()){ p.name = n.trim().slice(0, 40); simSave(); renderSim(); }
+}
+function simDeleteClosed(id){
+  const p = SIM.closed.find(x => x.id === id); if(!p) return;
+  if(!confirm(`Delete ${p.name} from history for good?`)) return;
+  SIM.closed = SIM.closed.filter(x => x !== p); simSave(); renderSim();
+}
+
+/* files: history as CSV, everything as a backup */
+function saveFile(name, text, type){
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = document.createElement("a"); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function simExportCsv(){
+  const head = ["name","range_low","range_high","opened_utc","closed_utc","days","lp_capital","hedge_collateral",
+    "entry_pool","close_pool","entry_perp","close_perp","fees_usd","impermanent_loss","unhedged_pnl","unhedged_pct",
+    "short_pnl","funding","perp_fees","hedged_pnl","hedged_pct","time_in_range_pct",
+    "entry_swap_fee","unhedged_pnl_without_swap","hedged_pnl_without_swap"];
+  const rows = SIM.closed.map(p => {
+    const c = p.closed, d = (c.t - p.createdAt)/86400000;
+    return [p.name, p.pa, p.pb, new Date(p.createdAt).toISOString(), new Date(c.t).toISOString(), d.toFixed(3),
+      p.V0.toFixed(2), p.coll.toFixed(2), p.P0.toFixed(4), c.P.toFixed(4), p.E0.toFixed(4), c.Q.toFixed(4),
+      c.feesUsd.toFixed(4), c.il.toFixed(4), c.unhedged.toFixed(4), (c.unhedged/p.V0*100).toFixed(3),
+      c.shortPnl.toFixed(4), p.funding.toFixed(4), (p.openFee + c.closeFee).toFixed(4), c.hedged.toFixed(4),
+      (c.hedged/(p.V0 + p.coll)*100).toFixed(3), (p.allBlocks ? p.inBlocks/p.allBlocks*100 : 100).toFixed(1),
+      p.entryFee.toFixed(4), (c.unhedged + p.entryFee).toFixed(4), (c.hedged + p.entryFee).toFixed(4)];
+  });
+  const csv = [head, ...rows].map(r => r.map(x => /[",\n]/.test(String(x)) ? '"' + String(x).replace(/"/g, '""') + '"' : x).join(",")).join("\n");
+  saveFile("crcl-lp-history-" + new Date().toISOString().slice(0,10) + ".csv", csv, "text/csv");
+}
+function simBackup(){
+  saveFile("crcl-lp-backup-" + new Date().toISOString().slice(0,10) + ".json",
+    JSON.stringify({kind:"crcl-lp-sim", version:1, saved:new Date().toISOString(), open:SIM.open, closed:SIM.closed, seq:SIM.seq}, null, 1), "application/json");
+}
+function simRestore(file){
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      const v = JSON.parse(fr.result);
+      if(v.kind !== "crcl-lp-sim") throw new Error("not a backup from this dashboard");
+      const have = new Set([...SIM.open, ...SIM.closed].map(p => p.id));
+      let added = 0;
+      (v.open || []).forEach(p => { if(!have.has(p.id)){ SIM.open.push(p); added++; } });
+      (v.closed || []).forEach(p => { if(!have.has(p.id)){ SIM.closed.push(p); added++; } });
+      SIM.closed.sort((a, b) => b.closed.t - a.closed.t);
+      SIM.seq = Math.max(SIM.seq, v.seq || 0);
+      simSave(); SIM.msg = added ? `Restored ${added} position${added > 1 ? "s" : ""}.` : "Nothing new in that backup.";
+    }catch(e){ SIM.msg = "Could not restore: " + e.message; }
+    renderSim();
+  };
+  fr.readAsText(file);
+}
+
+/* ---------- tabs and views ---------- */
+function dur(sec){
+  if(!(sec > 0)) return "0m";
+  const d = Math.floor(sec/86400), h = Math.floor(sec%86400/3600), m = Math.floor(sec%3600/60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+const when = t => new Date(t).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
+function setTab(t){
+  SIM.tab = t;
+  try{ localStorage.setItem(SIM_KEY + "-tab", t); }catch(e){}
+  renderSim();
+}
+function nowValue(p){ return (LIVE.pool && LIVE.mark) ? posValue(p, LIVE.pool, LIVE.mark) : null; }
+// The page is built for one pair at a time, so the fixed copy is named here
+// rather than hard-coded to whichever market shipped first.
+function applyMarketLabels(){
+  document.title = `Hedge Desk · ${RSYM} / ${CSYM}`;
+  const h1 = document.querySelector("header h1");
+  if(h1) h1.innerHTML = `<em>Hedge</em> <b>Desk</b> <span class="pair">${RSYM} / ${CSYM}</span>`;
+  const sub = document.querySelector("header .sub");
+  if(sub) sub.textContent = `Uniswap v3 liquidity on Robinhood Chain, hedged with a 1x ${RSYM} `
+    + `short on Hyperliquid. Enter your range and your capital; the desk sizes the short, `
+    + `splits the deposit and writes the exit orders for both edges.`;
+  const nl = document.querySelector(".need-lbl i[style*='--lp']");
+  if(nl && nl.parentElement) nl.parentElement.innerHTML =
+    `<i style="background:var(--lp)"></i>${RSYM} needed`;
+  const small = document.querySelector("#needCrcl + small");
+  if(small) small.textContent = RSYM;
+  document.querySelectorAll("legend .unit").forEach(u => {
+    if(/per /.test(u.textContent)) u.textContent = `${CSYM} per ${RSYM}`;
+  });
+  const poolNote = document.getElementById("poolNote");
+  if(poolNote) poolNote.innerHTML =
+    `Uniswap v3 ${CSYM}/${RSYM} ${MKT.tierTxt}, Robinhood Chain: <code>${MKT.pool}</code>. `
+    + `Tick spacing ${MKT.spacing}, so typed edges snap to the grid the Uniswap app uses.`;
+  const n2 = document.getElementById("poolNote2");
+  if(n2) n2.textContent = MKT.key === "crcl"
+    ? `The 0.05% and 1% ${CSYM} pools for ${RSYM} are empty, and the "USDC" tokens paired with `
+      + `${RSYM} on v4 are fakes: 18 decimals, names like "Unstable Coin", supplies of 1B-100B.`
+    : `All four fee tiers exist for this pair with real liquidity. This desk is pointed at the `
+      + `${MKT.tierTxt} pool; which tier pays an LP best is a separate question.`;
+  const perpNote = document.getElementById("perpNote");
+  if(perpNote) perpNote.textContent = MKT.perp.dex
+    ? `Hyperliquid ${MKT.perp.venue} (trade.xyz builder market). Isolated margin only, settles in USDC, `
+      + `so ${CSYM} has to be swapped to USDC first.`
+    : `Hyperliquid ${MKT.perp.venue} on the main exchange. Settles in USDC, so ${CSYM} has to be `
+      + `swapped to USDC first. Standard fees: 0.045% taker.`;
+}
+
+function renderMkts(){
+  $("mkts").innerHTML = Object.values(MARKETS).map(m =>
+    `<button type="button" data-mkt="${m.key}" class="${m.key === MKT.key ? "on" : ""}"
+       aria-pressed="${m.key === MKT.key}">${esc(m.label)}<small>Uniswap v3 · ${m.tierTxt}</small></button>`).join("");
+}
+
+function renderSim(){
+  if(SIM.tab !== "planner" && SIM.tab !== "history" && SIM.tab !== "chain" && !SIM.open.some(p => p.id === SIM.tab)) SIM.tab = "planner";
+  const tabs = [`<button type="button" data-tab="planner" class="${SIM.tab === "planner" ? "on" : ""}">Planner</button>`];
+  SIM.open.forEach(p => {
+    const v = nowValue(p), inR = LIVE.pool > p.pa && LIVE.pool < p.pb;
+    tabs.push(`<button type="button" data-tab="${p.id}" class="${SIM.tab === p.id ? "on" : ""}">
+      <span class="tdot ${LIVE.pool ? (inR ? "in" : "out") : ""}"></span>${esc(p.name)}
+      <small>${px(p.pa)}–${px(p.pb)}</small>${v ? `<b class="${cls(v.hedged + viewAdd(p))}">${sgn(v.hedged + viewAdd(p), 2)}</b>` : ""}</button>`);
+  });
+  if(CHAIN.pos.length || String($("wallet").value || "").trim())
+    tabs.push(`<button type="button" data-tab="chain" class="${SIM.tab === "chain" ? "on" : ""}">My real LPs <small>${CHAIN.pos.filter(q => q.L > 0).length}</small></button>`);
+  tabs.push(`<button type="button" data-tab="history" class="${SIM.tab === "history" ? "on" : ""}">History <small>${SIM.closed.length}</small></button>`);
+  $("tabs").innerHTML = tabs.join("");
+
+  $("viewPlanner").hidden = SIM.tab !== "planner";
+  $("viewPos").hidden = !SIM.open.some(p => p.id === SIM.tab);
+  $("viewHist").hidden = SIM.tab !== "history";
+  $("viewChain").hidden = SIM.tab !== "chain";
+
+  const can = liveFresh() && last && !last.err && last.inRange;
+  $("deployBtn").disabled = !can;
+  $("deployMsg").textContent = SIM.msg || (LIVE.blocked ? "Simulation needs the dashboard opened from your PC."
+    : !liveFresh() ? "Waiting for live prices…" : last && !last.err && !last.inRange ? "The range must contain the current price." : "");
+
+  const p = SIM.open.find(x => x.id === SIM.tab);
+  if(p) renderPos(p);
+  if(SIM.tab === "history") renderHist();
+  if(SIM.tab === "chain") renderChain();
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function renderPos(p){
+  const el = $("viewPos");
+  const v = nowValue(p);
+  if(!v){ el.innerHTML = `<div class="panel"><p class="hint">Waiting for live prices…</p></div>`; return; }
+  const U = v.unhedged + viewAdd(p), H = v.hedged + viewAdd(p);   // as the switch says
+  // exit levels, the same rule as the Planner's exit plan: the range edges
+  // moved out by the exit buffer; the perp stop is placed on the mark price
+  const bufU = (Number($("bufUp").value) || 0)/100, bufD = (Number($("bufDn").value) || 0)/100;
+  const xLo = p.pa*(1 - bufD), xHi = p.pb*(1 + bufU), xHiMark = xHi*p.E0/p.P0;
+  const xReMark = p.pb*p.E0/p.P0;
+  const xFrom = x => `<span class="muted">(${pc(x/P - 1, 1)})</span>`;
+  const P = LIVE.pool, Q = LIVE.mark, age = (Date.now() - p.createdAt)/1000, days = age/86400;
+  const apr = (x, cap) => days > 0.02 ? pc(x/cap*365/days, 0) : "—";
+  const inR = P > p.pa && P < p.pb;
+  const status = inR ? ["good", "In range · earning fees"] : P <= p.pa ? ["warn", "Below range · LP is all " + RSYM] : ["warn", "Above range · LP is all USDG"];
+  const behind = LIVE.head ? Math.max(0, LIVE.head - p.lastBlock) : 0;
+  const sync = behind < 900 ? ["info", "fees up to date"] : ["warn", "counting fees · " + dur(behind/SIM_BPS) + " to go"];
+  const hint = inR ? "" : P >= p.pb
+    ? `In real life: close the short now. Above ${px(p.pb)} it is the only thing still moving.`
+    : `In real life: exit the LP and the short together now. Never close the short alone — the LP is all ${RSYM} down here.`;
+  const inPct = p.allBlocks ? p.inBlocks/p.allBlocks*100 : (inR ? 100 : 0);
+  const gapH = p.gaps.reduce((t, g) => t + (g[1]-g[0]+1), 0)/SIM_BPS/3600;
+  const fmtTok = (x, d) => nf(x, d);
+  // the paying swaps, newest first
+  const swapTable = (q, val) => {
+    const log = q.swapLog || [];
+    if(!log.length) return `<p class="hint">No paying swaps recorded yet. They appear as the reader
+      works through the blocks since this position opened.</p>`;
+    const rows = log.slice(-5).reverse();        // the five most recent, nothing more
+    const cur = LIVE.pool || q.lastPrice;
+    return `<table class="swaps"><thead><tr>
+      <th>When</th><th class="num">Pool price</th><th class="num">Size</th>
+      <th class="num">Fee ${CSYM}</th><th class="num">Fee ${RSYM}</th><th class="num">Worth</th><th class="num">In range</th>
+      </tr></thead><tbody>` + rows.map(r => {
+        const t = q.createdAt + (r[0] - q.deployBlock)/SIM_BPS*1000;
+        const worth = r[3] + r[4]*r[1];
+        return `<tr><td>${when(t)}</td><td class="num">${px(r[1])}</td>
+          <td class="num ${r[2] > 0 ? "pos" : "neg"}">${r[2] > 0 ? "+" : "−"}${usd(Math.abs(r[2]))}</td>
+          <td class="num">${r[3] ? nf(r[3], 6) : "—"}</td>
+          <td class="num">${r[4] ? nf(r[4], 8) : "—"}</td>
+          <td class="num">${usd(worth, 4)}</td>
+          <td class="num muted">${nf(r[5]*100, 0)}%</td></tr>`;
+      }).join("") + `</tbody><tfoot><tr>
+        <td><b>${nf(q.swaps, 0)}</b> swaps since opening</td>
+        <td class="num"></td><td class="num"></td><td class="num"></td>
+        <td class="num muted">total fees</td>
+        <td class="num"><b>${usd(val ? val.feesUsd : 0, 4)}</b></td><td></td>
+      </tr></tfoot></table>`;
+  };
+  // the real position this one mirrors, found from its range
+  const twinLine = q => {
+    if(!q.twin) return "";
+    const r = CHAIN.pos.find(x => x.id === q.twin);
+    if(!r) return "";
+    const Pn = LIVE.pool || 0, tot = r.col0 + r.unc0 + (r.col1 + r.unc1)*Pn;
+    // before the history is read through, the claimed side is still only partly
+    // counted, so show the position without quoting a total that would be wrong
+    if(!r.scanned) return `<p class="pos-meta">Real position <b>#${esc(q.twin)}</b> · liquidity <b>${nf(r.L, 1)}</b></p>`;
+    const d = r.opened && (r.to || LIVE.head) ? ((r.to || LIVE.head) - r.opened)/BPD : 0;
+    return `<p class="pos-meta">Real position <b>#${esc(q.twin)}</b> · liquidity <b>${nf(r.L, 1)}</b>
+      · fees claimed <b>${usd(r.col0 + r.col1*Pn, 2)}</b> + unclaimed <b>${usd(r.unc0 + r.unc1*Pn, 2)}</b>
+      = <b>${usd(tot, 2)}</b>${d > 0.04 ? " · " + usd(tot/d, 2) + " / day" : ""}</p>`;
+  };
+  // Earned so far against what the range pays now: the two numbers worth a
+  // glance, before any of the detail underneath.
+  const earnedDay = v.feesUsd/Math.max(1/24, days);
+  const fwdBand = typeof feeRateIn === "function" ? feeRateIn(p.pa, p.pb) : null;
+  const fwdDay = fwdBand && LIVE.L ? fwdBand.rate*p.lpKeep*p.L*(LIVE.L/(LIVE.L + p.L)) : null;
+  const rateRow = (cls, k, day, note) => day == null ? "" :
+    `<span class="k ${cls}">${k}</span><span class="v ${cls}">${nf(day*365/p.V0*100, 0)}%</span>` +
+    `<span class="${cls}">${usd(day, 2)} / day ${note}</span>`;
+  const rateRows = `<div class="pos-rates">
+      ${rateRow("now", "Current", earnedDay, "since opened")}
+      ${rateRow("soon", "Expected", fwdDay, "while in range")}
+    </div>`;
+  el.innerHTML = `
+  <div class="pos-head">
+    <div>
+      <div class="pos-title">
+        <h2 class="pos-name">${esc(p.name)} <button type="button" class="linkbtn" data-act="rename" data-id="${p.id}">rename</button></h2>
+        <div class="pos-btns">
+          <button type="button" class="solid" data-act="close" data-id="${p.id}" title="Values it at the live pool and perp prices and moves it to History">Close position</button>
+          <button type="button" data-act="discard" data-id="${p.id}" title="Removes it without saving to History">Discard</button>
+        </div>
+      </div>
+      ${rateRows}
+      ${twinLine(p)}
+      <p class="pos-meta">Range <b>${px(p.pa)} – ${px(p.pb)}</b>
+        · <span class="lvl lo" title="Pool price that triggers the exit: remove the LP, swap the ${RSYM} back to USDG and close the short, all together. Closing the short frees its margin, so this needs no new money.">exit both <b>${px(xLo)}</b> ${xFrom(xLo)}</span>
+        · ${xHi - p.pb < 0.005
+            ? `<span class="lvl hi" title="The short closes here on the way out and goes back on here on the way in — same price, because the buffer above the edge is zero. Only one order rests at a time: a stop-buy while you are short, a stop-sell once you are flat.">close short / back on <b>${px(xHi)}</b> <span class="muted">(mark ${px(xHiMark)})</span> ${xFrom(xHi)}</span>`
+            : `<span class="lvl hi" title="Pool price that triggers closing the short; the stop on Hyperliquid uses the mark price shown">close short <b>${px(xHi)}</b> <span class="muted">(mark ${px(xHiMark)})</span> ${xFrom(xHi)}</span>
+        · <span class="lvl hi" title="Coming back into range the LP buys ${RSYM} again, so the short goes back on here, at the top edge itself">short back on <b>${px(p.pb)}</b> <span class="muted">(mark ${px(xReMark)})</span></span>`}
+        · opened ${when(p.createdAt)} · running ${dur(age)} · short ${usd(p.h*p.E0)} at ${px(p.E0)} (${p.hedgeMode})</p>
+      ${SIM.msg ? `<p class="pos-msg">${esc(SIM.msg)}</p>` : ""}
+    </div>
+    <div class="pos-chips">${viewSwitch()}<span class="chip ${status[0]}">${status[1]}</span><span class="chip ${sync[0]}">${sync[1]}</span></div>
+  </div>
+  ${hint ? `<div class="warns"><div>${hint}</div></div>` : ""}
+  ${p.liq ? `<div class="warns"><div>The short was liquidated at mark ${px(p.liq.mark)} on ${when(p.liq.t)}. Its collateral is counted as lost.</div></div>` : ""}
+  ${gapH > 0.05 ? `<div class="warns"><div>${nf(gapH, 1)} hours of swaps could not be read from the chain, so fees for that time are missing (the page was closed too long).</div></div>` : ""}
+  <div class="scen">
+    <section class="sc">
+      <span class="eyebrow">Unhedged · LP only</span>
+      <span class="sc-big ${cls(U)}">${sgn(U, 2)}</span>
+      <span class="sc-sub">${pc(U/v.capU, 2)} · APR ${apr(U, v.capU)} · on ${usd(v.capU, 2)}</span>
+      ${row("LP value now", usd(v.V, 2) + ` <span class="muted">(in ${usd(p.V0, 2)})</span>`)}
+      ${row("Price move", sgn(v.lpPnl, 2), cls(v.lpPnl))}
+      ${row("&nbsp;&nbsp;of which impermanent loss", sgn(v.il, 2), cls(v.il))}
+      ${row(`<span title="Every fee credited since this position opened. Uniswap’s app shows only what you have not collected yet, so collect twice and its number restarts while this one keeps counting.">Fees earned, total since opening</span>`, sgn(v.feesUsd, v.feesUsd < 10 ? 4 : 2), cls(v.feesUsd))}
+      ${SIM.view === "noswap" ? row("Swap fee to buy the " + RSYM, `<span class="muted">not counted (${sgn(-p.entryFee, 2)})</span>`) : row("Swap fee to buy the " + RSYM, sgn(-p.entryFee, 2), "neg")}
+      <div class="row total"><span>Net</span><span class="num ${cls(U)}">${sgn(U, 2)}</span></div>
+    </section>
+    <section class="sc">
+      <span class="eyebrow">Hedged · LP + short</span>
+      <span class="sc-big ${cls(H)}">${sgn(H, 2)}</span>
+      <span class="sc-sub">${pc(H/v.capH, 2)} · APR ${apr(H, v.capH)} · on ${usd(v.capH, 2)}</span>
+      ${row("LP result (left)", sgn(U, 2), cls(U))}
+      ${row(`Short: ${px(p.E0)} → ${px(Q)}`, sgn(v.shortPnl, 2), cls(v.shortPnl))}
+      ${row(`Funding (${p.fundingPrints} hourly payments)`, sgn(p.funding, 2), cls(p.funding))}
+      ${row("Perp fees (open + close)", sgn(-(p.openFee + v.closeFee), 2), "neg")}
+      <div class="row total"><span>Net</span><span class="num ${cls(H)}">${sgn(H, 2)}</span></div>
+    </section>
+  </div>
+  <div class="panel">
+    <div class="ph"><h2>Profit and loss over time</h2><p>Hourly from the chain's own swaps, every 10 minutes while this page is open.</p></div>
+    <div class="legend"><span><i style="background:var(--lp)"></i>Unhedged</span><span><i style="background:var(--net);height:4px"></i>Hedged</span></div>
+    <svg id="posChart" viewBox="0 0 1000 300" role="img" aria-label="Profit and loss over time"></svg>
+    <h3 class="subchart">${RSYM} pool price since entry</h3>
+    <svg id="posPrice" viewBox="0 0 1000 200" role="img" aria-label="Pool price since entry"></svg>
+  </div>
+  <div class="panel">
+    <div class="kv">
+      <section><h3>Tokens in the LP</h3>
+        ${row("Deposited", fmtTok(p.x0, 4) + " " + RSYM + " + " + fmtTok(p.y0, 2) + " " + CSYM)}
+        ${row("Now", fmtTok(v.a.x, 4) + " " + RSYM + " + " + fmtTok(v.a.y, 2) + " " + CSYM)}
+        ${row("Fees earned in tokens", fmtTok(p.fees1, 5) + " " + RSYM + " + " + fmtTok(p.fees0, 4) + " " + CSYM)}
+        ${row("Liquidity L", nf(p.L, 1))}
+        ${row("Held instead of LP", usd(v.hold, 2))}
+      </section>
+      <section><h3>Prices</h3>
+        ${row("Pool: entry → now", px(p.P0) + " → " + px(P) + " (" + pc(P/p.P0-1) + ")")}
+        ${row("Perp: entry → now", px(p.E0) + " → " + px(Q) + " (" + pc(Q/p.E0-1) + ")")}
+        ${row("Short liquidates at mark", px(p.liqMark))}
+        ${row("Collateral", usd(p.coll, 2) + " USDC")}
+      </section>
+      <section><h3>Activity</h3>
+        ${row("Time in range", nf(inPct, 0) + "%")}
+        ${row("Swaps that paid this LP", nf(p.swaps, 0))}
+        ${row("Fee APR so far", apr(v.feesUsd, p.V0))}
+        ${row("Fees read up to block", nf(p.lastBlock, 0))}
+      </section>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph"><h2>Swaps that paid this LP</h2>
+      <p>Only swaps whose price move passed through your range pay you, and only for the part
+      of the move inside it — that share is the last column. The five most recent; the bottom row counts them all.</p></div>
+    <div class="tablebox">${swapTable(p, v)}</div>
+  </div>
+  <div class="plan-head">
+    <h2>This position in the Planner</h2>
+    <p>The Planner's panels for this range, liquidity and short, from entry at ${px(p.P0)}, with today's market data. Dotted lines and the traded band are what really happened.</p>
+  </div>
+  <div class="out plan">${planPanels("p_")}</div>`;
+  drawPosChart(p, v);
+  const pm = posModel(p, viewAdd(p), v);
+  drawPosPrice(p, pm);
+  if(!pm.err){
+    PFX = "p_";
+    try{ renderPanels(pm); } finally { PFX = ""; }
+    const c = $("p_chart");
+    c.addEventListener("pointermove", hover);
+    c.addEventListener("pointerleave", out);
+  }
+}
+
+// Pool price at each recorded moment. Older records without a price use the
+// perp's hourly close, moved to pool terms at the entry gap.
+function pricePath(p){
+  const k = p.E0/p.P0;
+  const out = p.points.map((x, i) => {
+    if(x[3]) return [x[0], x[3]];
+    if(i === 0) return [x[0], p.P0];
+    const hc = LIVE.hourClose && LIVE.hourClose.get(Math.floor(x[0]/3600000)*3600000);
+    return hc ? [x[0], hc/k] : null;
+  }).filter(Boolean);
+  if(LIVE.pool) out.push([Date.now(), LIVE.pool]);
+  return out;
+}
+// The planner's model, fed this position: its range, liquidity and short from
+// entry, with today's market inputs. m.live carries what really happened.
+function posModel(p, add, v){
+  const s = Object.assign({}, read(), {P0:p.P0, E:p.E0, pa:p.pa, pb:p.pb, cap:p.V0, capMode:"lp",
+    hedgeMode:"manual", short:p.h*p.E0, coll:p.collMult, feeTier:p.feeTier*100, lpKeep:p.lpKeep*100,
+    taker:p.taker*100, noSnap:true});
+  const m = model(s);
+  if(m.err) return m;
+  const path = pricePath(p), P = LIVE.pool;
+  const traj = p.points.map((x, i) => [x[3] || (i === 0 ? p.P0 : null), x[2] + add, x[1] + add]).filter(x => x[0]);
+  traj.push([P, v.hedged + add, v.unhedged + add]);
+  // Two different denominators, and they must not be confused: fees over the
+  // whole holding, and fees over the time actually spent in range. The pool
+  // rates quoted beside them are per day IN RANGE, so the position needs that
+  // basis too or a reader compares a number against an unrelated one.
+  const inD = p.allBlocks ? p.inBlocks/SIM_BPS/86400 : 0;
+  // When the fees are the real position's, measure the age from its mint block
+  // too, or the same money shows two different per-day rates on one screen.
+  const twin = p.twin ? CHAIN.pos.find(x => x.id === p.twin) : null;
+  const twHead = twin && (twin.to || LIVE.head);
+  const heldD = (twin && twin.scanned && twin.opened && twHead)
+    ? Math.max(1/24, (twHead - twin.opened)/BPD)
+    : Math.max(1/24, (Date.now() - p.createdAt)/86400000);
+  m.live = {P, path: path.map(x => x[1]), traj,
+    netDay: v.hedged/heldD, capH: v.capH, realFees: realFeesOf(p, P) != null,
+    // fees and funding already in hand, less the entry swap as the view switch
+    // counts it. The edges card measures the price move from entry, so it has
+    // to count the income from entry too or it reports a loss already paid for.
+    banked: v.feesUsd + p.funding - p.entryFee + add,
+    feeRate: v.feesUsd/heldD,
+    feeRateIn: inD > 1/24 ? v.feesUsd/inD : null,
+    inPct: p.allBlocks ? p.inBlocks/p.allBlocks : null};
+  // time in range counts from where the price is now, not from entry
+  if(P > s.pa && P < s.pb){
+    const la = Math.log(P/s.pa), lb = Math.log(s.pb/P), sig2 = Math.pow(s.sigma/100, 2);
+    m.tIn = la*lb/sig2; m.pLowFirst = lb/(la+lb);
+  } else { m.tIn = 0; m.pLowFirst = NaN; }
+  return m;
+}
+function drawPosPrice(p, m){
+  const path = pricePath(p);
+  if(path.length < 2){ $("posPrice").innerHTML = ""; return; }
+  const W = 1000, H = 200, l = 70, r = 14, t = 12, b = 26;
+  const t0 = path[0][0], t1 = Math.max(path[path.length-1][0], t0 + 60000);
+  const ys = path.map(x => x[1]).concat([p.pa, p.pb]);
+  let lo = Math.min(...ys), hi = Math.max(...ys); const pad = (hi-lo)*0.08 || 1; lo -= pad; hi += pad;
+  const X = x => l + (x-t0)/(t1-t0)*(W-l-r), Y = y => t + (hi-y)/(hi-lo)*(H-t-b);
+  let g = `<rect x="${l}" y="${Y(p.pb)}" width="${W-l-r}" height="${Y(p.pa)-Y(p.pb)}" fill="var(--z-in)" opacity=".7"/>`;
+  niceTicks(lo, hi, 4).forEach(y => {
+    g += `<line x1="${l}" x2="${W-r}" y1="${Y(y)}" y2="${Y(y)}" stroke="var(--line)"/>`;
+    g += `<text x="${l-8}" y="${Y(y)+4}" text-anchor="end" font-size="11" fill="var(--faint)">${nf(y, hi-lo < 5 ? 2 : 0)}</text>`;
+  });
+  [[p.pa,"lower "+px(p.pa)],[p.pb,"upper "+px(p.pb)]].forEach(([v,txt]) => {
+    g += `<text x="${W-r-4}" y="${Y(v)+(v===p.pb?-4:12)}" text-anchor="end" font-size="11" fill="var(--muted)">${txt}</text>`;
+  });
+  g += `<line x1="${l}" x2="${W-r}" y1="${Y(p.P0)}" y2="${Y(p.P0)}" stroke="var(--muted)" stroke-dasharray="3 3"/>`;
+  g += `<text x="${l+4}" y="${Y(p.P0)-4}" font-size="11" fill="var(--muted)">entry ${px(p.P0)}</text>`;
+  g += `<path d="${path.map((x,i)=>(i?"L":"M")+X(x[0]).toFixed(1)+","+Y(x[1]).toFixed(1)).join("")}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+  const e = path[path.length-1];
+  g += `<circle cx="${X(e[0])}" cy="${Y(e[1])}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+  g += `<text x="${l}" y="${H-6}" font-size="11" fill="var(--faint)">${when(t0)}</text><text x="${W-r}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--faint)">now ${px(e[1])}</text>`;
+  $("posPrice").innerHTML = g;
+}
+function drawPosChart(p, v){
+  const add = viewAdd(p);
+  const pts = p.points.map(x => [x[0], x[1] + add, x[2] + add]);
+  pts.push([Date.now(), v.unhedged + add, v.hedged + add]);
+  const W = 1000, H = 300, l = 70, r = 14, t = 12, b = 30;
+  const t0 = pts[0][0], t1 = Math.max(pts[pts.length-1][0], t0 + 60000);
+  let lo = Math.min(0, ...pts.map(x => Math.min(x[1], x[2]))), hi = Math.max(0, ...pts.map(x => Math.max(x[1], x[2])));
+  const pad = (hi - lo)*0.1 || 1; lo -= pad; hi += pad;
+  const X = x => l + (x - t0)/(t1 - t0)*(W - l - r), Y = y => t + (hi - y)/(hi - lo)*(H - t - b);
+  let g = "";
+  niceTicks(lo, hi, 5).forEach(y => {
+    g += `<line x1="${l}" x2="${W-r}" y1="${Y(y)}" y2="${Y(y)}" stroke="var(--line)"/>`;
+    g += `<text x="${l-8}" y="${Y(y)+4}" text-anchor="end" font-size="11" fill="var(--faint)">${sgn(y, Math.abs(hi-lo) < 20 ? 2 : 0)}</text>`;
+  });
+  g += `<line x1="${l}" x2="${W-r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--faint)" stroke-width="1.2"/>`;
+  g += `<text x="${l}" y="${H-8}" font-size="11" fill="var(--faint)">${when(t0)}</text>`;
+  g += `<text x="${W-r}" y="${H-8}" text-anchor="end" font-size="11" fill="var(--faint)">now</text>`;
+  const path = k => pts.map((x, i) => (i ? "L" : "M") + X(x[0]).toFixed(1) + "," + Y(x[k]).toFixed(1)).join("");
+  g += `<path d="${path(1)}" fill="none" stroke="var(--lp)" stroke-width="2"/>`;
+  g += `<path d="${path(2)}" fill="none" stroke="var(--net)" stroke-width="3"/>`;
+  const e = pts[pts.length-1];
+  g += `<circle cx="${X(e[0])}" cy="${Y(e[2])}" r="4" fill="var(--net)"/><circle cx="${X(e[0])}" cy="${Y(e[1])}" r="3.5" fill="var(--lp)"/>`;
+  $("posChart").innerHTML = g;
+}
+
+function renderChain(){
+  const el = $("viewChain"), P = LIVE.pool;
+  const addr = String($("wallet").value || "").trim();
+  if(!addr){ el.innerHTML = `<div class="panel"><p class="hint">Put your wallet address under Market &amp; assumptions → Your wallet to list the positions you really hold in this pool.</p></div>`; return; }
+  if(CHAIN.err){ el.innerHTML = `<div class="panel"><p class="hint">${esc(CHAIN.err)}</p></div>`; return; }
+  if(!CHAIN.pos.length){ el.innerHTML = `<div class="panel"><p class="hint">${CHAIN.t ? "No positions in this pool for that address." : "Reading the chain…"}</p></div>`; return; }
+  const live = CHAIN.pos.filter(q => q.L > 0), past = CHAIN.pos.filter(q => !(q.L > 0));
+  const card = q => {
+    const unc = q.unc0 + q.unc1*P, col = q.col0 + q.col1*P, tot = unc + col;
+    const days = q.opened && LIVE.head ? (LIVE.head - q.opened)/BPD : 0;
+    const inR = P > q.pa && P < q.pb;
+    return `<div class="panel">
+      <div class="ph"><h2>#${q.id} · ${px(q.pa)} – ${px(q.pb)}</h2>
+        <p>Liquidity ${nf(q.L, 1)}${q.opened ? " · opened " + dur(days*86400) + " ago" : ""} ·
+        <span class="chip ${q.L > 0 ? (inR ? "good" : "warn") : ""}">${q.L > 0 ? (inR ? "in range" : "out of range") : "closed"}</span></p></div>
+      <div class="cols">
+        <section><h3>Fees</h3>
+          ${row("Claimed so far", usd(col, 4) + (q.scanned ? "" : " so far"))}
+          ${row("Not yet claimed", usd(unc, 4))}
+          ${row("Total since opening", "<b>" + usd(tot, 4) + "</b>")}
+          ${days > 0.04 ? row("Per day", usd(tot/days, 2)) : ""}
+        </section>
+        <section><h3>In tokens</h3>
+          ${row("Claimed", nf(q.col0, 6) + " " + CSYM + " + " + nf(q.col1, 6) + " " + RSYM)}
+          ${row("Unclaimed", nf(q.unc0, 6) + " " + CSYM + " + " + nf(q.unc1, 6) + " " + RSYM)}
+        </section>
+      </div>
+      ${q.scanned ? "" : `<p class="hint">Claimed fees are still being read backwards; the total can only grow.</p>`}
+    </div>`;
+  };
+  el.innerHTML = `<div class="panel"><div class="ph"><h2>Your real Uniswap positions</h2>
+      <p>Read from the chain for ${esc(addr.slice(0,6))}…${esc(addr.slice(-4))}. Uniswap's own page shows only what is
+      <b>unclaimed</b> — collect twice and it reads near zero. Total since opening adds back what you already collected.</p></div></div>
+    ${live.map(card).join("")}${past.length ? `<div class="panel"><div class="ph"><h2>Closed</h2></div></div>` + past.map(card).join("") : ""}`;
+}
+
+function renderHist(){
+  const el = $("viewHist");
+  const rows = SIM.closed;
+  let tu = 0, th = 0, tf = 0, cu = 0, ch = 0;
+  const body = rows.map(p => {
+    const c = p.closed, d = (c.t - p.createdAt)/86400000, add = viewAdd(p);
+    const cu_ = c.unhedged + add, ch_ = c.hedged + add;
+    tu += cu_; th += ch_; tf += c.feesUsd; cu += p.V0; ch += p.V0 + p.coll;
+    const aprU = d > 0.02 ? pc(cu_/p.V0*365/d, 0) : "—", aprH = d > 0.02 ? pc(ch_/(p.V0 + p.coll)*365/d, 0) : "—";
+    return `<tr>
+      <td>${esc(p.name)}<span class="tag">${px(p.pa)}–${px(p.pb)}</span></td>
+      <td class="num">${when(p.createdAt)}<span class="tag">${dur(d*86400)}</span></td>
+      <td class="num">${usd(p.V0, 0)} + ${usd(p.coll, 0)}</td>
+      <td class="num">${px(p.P0)} → ${px(c.P)}</td>
+      <td class="num ${cls(c.feesUsd)}">${sgn(c.feesUsd, 2)}</td>
+      <td class="num ${cls(c.il)}">${sgn(c.il, 2)}</td>
+      <td class="num ${cls(cu_)}"><b>${sgn(cu_, 2)}</b><span class="tag">${pc(cu_/p.V0, 1)} · ${aprU}</span></td>
+      <td class="num ${cls(ch_)}"><b>${sgn(ch_, 2)}</b><span class="tag">${pc(ch_/(p.V0 + p.coll), 1)} · ${aprH}</span></td>
+      <td><button type="button" class="linkbtn" data-act="delete" data-id="${p.id}" aria-label="Delete ${esc(p.name)}">delete</button></td></tr>`;
+  }).join("");
+  el.innerHTML = `
+  <div class="panel">
+    <div class="ph"><h2>History</h2><p>Closed simulated positions, saved in this browser. Back them up now and then: clearing browser data erases them.</p></div>
+    ${LIVE.blocked ? `<p class="hint">Simulated positions, history and backups need live data, which this page cannot reach right now.</p>` : `
+    <div class="btns hist-actions">
+      ${viewSwitch()}
+      <button type="button" data-act="csv" ${rows.length ? "" : "disabled"}>Export CSV</button>
+      <button type="button" data-act="backup">Back up everything</button>
+      <label class="filebtn">Restore from backup<input type="file" id="restoreFile" accept=".json,application/json"></label>
+      <span class="hint">${esc(SIM.msg)}</span>
+    </div>`}
+    ${rows.length ? `
+    <div class="tablebox"><table class="hist">
+      <thead><tr><th>Position</th><th>Opened · held</th><th>LP + hedge</th><th>Pool price</th><th>Fees</th><th>Imperm. loss</th><th>Unhedged</th><th>Hedged</th><th></th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td>Total · ${rows.length}</td><td></td><td class="num">${usd(cu, 0)} / ${usd(ch, 0)}</td><td></td>
+        <td class="num ${cls(tf)}">${sgn(tf, 2)}</td><td></td>
+        <td class="num ${cls(tu)}"><b>${sgn(tu, 2)}</b><span class="tag">${pc(tu/cu, 1)}</span></td>
+        <td class="num ${cls(th)}"><b>${sgn(th, 2)}</b><span class="tag">${pc(th/ch, 1)}</span></td><td></td></tr></tfoot>
+    </table></div>` : `<p class="hint">No closed positions yet. Deploy one from the Planner, close it from its tab, and it lands here.</p>`}
+  </div>`;
+}
+
+load();
+try{ LIVE.on = localStorage.getItem(KEY+"-live") !== "0"; }catch(e){}
+$("liveOn").checked = LIVE.on;
+$("liveOn").addEventListener("change", () => {
+  LIVE.on = $("liveOn").checked;
+  try{ localStorage.setItem(KEY+"-live", LIVE.on ? "1" : "0"); }catch(e){}
+  if(LIVE.on){ tick("pool", readPool); tick("perp", readPerp); } else applyLive();
+});
+FIELDS.filter(f => !TEXT.includes(f)).forEach(f => $(f).addEventListener("input", run));
+// the wallet is a text field, so it is not in the list above: wire it up or
+// typing an address does nothing at all
+$("wallet").addEventListener("change", () => {
+  save(); CHAIN.pos = []; CHAIN.t = 0; CHAIN.err = ""; renderSim();
+  readChain().then(readTwins).then(() => { renderSim(); return readChainFees(); }).catch(e => console.warn("chain:", e));
+});
+$("presets").addEventListener("click", e => {
+  const b = e.target.closest("button[data-w]"); if(!b) return;
+  const w = Number(b.dataset.w), P0 = Number($("P0").value);
+  if(!(P0>0)) return;
+  $("pa").value = (P0*(1-w)).toFixed(2); $("pb").value = (P0*(1+w)).toFixed(2);
+  run();
+});
+$("hedgeMode").addEventListener("change", () => {
+  // switching to manual keeps the size you were just looking at, in USDC
+  if($("hedgeMode").value==="manual" && last && !last.err) $("short").value = Math.round(last.h*last.s.E);
+  run();
+});
+$("capMode").addEventListener("change", run);
+$("ranges").addEventListener("click", e => {
+  const t = e.target.closest("button[data-tab]");
+  if(t){ RANGE_TAB = t.dataset.tab; try{ localStorage.setItem("crcl-lp-hedge-rtab", RANGE_TAB); }catch(err){} run(); return; }
+  const b = e.target.closest("button[data-lo]"); if(!b) return;
+  $("pa").value = b.dataset.lo; $("pb").value = b.dataset.hi;
+  run();
+});
+$("reset").addEventListener("click", () => { FIELDS.forEach(f => { $(f).value = DEFAULTS[f]; }); applyLive(); });
+const chart = $("chart");
+chart.addEventListener("pointermove", hover);
+chart.addEventListener("pointerleave", out);
+loadVolume();
+simLoad();
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if(b){ SIM.msg = ""; setTab(b.dataset.tab); } });
+// Switching market changes the pool, the perp, the tick spacing, the fee tier
+// and every cache, so reload rather than swap all of that out in place.
+$("mkts").addEventListener("click", e => {
+  const b = e.target.closest("button[data-mkt]");
+  if(!b || b.dataset.mkt === MKT.key) return;
+  try{ localStorage.setItem(MKT_KEY, b.dataset.mkt); }catch(err){}
+  location.reload();
+});
+$("deployBtn").addEventListener("click", simDeploy);
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if(!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if(act === "close") simClose(id);
+  else if(act === "discard") simDiscard(id);
+  else if(act === "rename") simRename(id);
+  else if(act === "delete") simDeleteClosed(id);
+  else if(act === "csv") simExportCsv();
+  else if(act === "backup") simBackup();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-view]"); if(!b) return;
+  SIM.view = b.dataset.view === "noswap" ? "noswap" : "swap";
+  try{ localStorage.setItem(SIM_KEY + "-view", SIM.view); }catch(err){}
+  renderSim();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-hist]"); if(!b) return;
+  HIST_ON = b.dataset.hist === "1";
+  try{ localStorage.setItem(HIST_KEY, HIST_ON ? "1" : "0"); }catch(err){}
+  renderSim();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-hz]"); if(!b) return;
+  HZ[b.dataset.hz] = Number(b.dataset.days);
+  try{ localStorage.setItem(HZ_KEY, JSON.stringify(HZ)); }catch(err){}
+  run(); renderSim();
+});
+document.addEventListener("change", e => { if(e.target.id === "restoreFile" && e.target.files[0]) simRestore(e.target.files[0]); });
+showLive();
+applyMarketLabels();
+renderMkts();
+run();
+renderSim();
+startLive();
+})();
+</script>
+
+</html>
