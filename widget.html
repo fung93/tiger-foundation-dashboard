@@ -15,13 +15,13 @@
 <meta name="apple-mobile-web-app-title" content="LP Range">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!-- the very card the LP Book draws, and its LIVE stamp -->
 <link rel="stylesheet" href="/lpcards.css">
 <!--
   LP range widget — the installed phone shortcut. It shows exactly the LP Book's live
   position cards: the same card (lpcards.js / lpcards.css) drawn from the same
-  /api/lpbook view, so the two can never disagree. Tapping the title opens the full book.
+  /api/lpbook view, so the two can never disagree. Tapping the masthead opens the full book.
 
   There is no copy of this under vercel/ — it lives at the root only. It does not
   register the service worker: a widget wants the live number, not a cached one.
@@ -41,15 +41,23 @@
 html,body{background:var(--bg)}
 body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
   -webkit-font-smoothing:antialiased;letter-spacing:.005em;
-  padding:max(18px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))}
+  padding:0 16px max(20px,env(safe-area-inset-bottom))}
 a{color:inherit}
-header{max-width:1240px;margin:0 auto 4px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
-  padding-bottom:12px;border-bottom:1px solid var(--line)}
-/* the serif title as on the LP Book: "LP" in gold italic, "Book" upright */
-h1{font:400 26px/1 var(--serif);letter-spacing:.01em}
-h1 a{text-decoration:none}
-h1 em{font-style:italic;color:var(--gold)}
-h1 b{font-weight:400;color:var(--text)}
+/* the same Tiger Foundation masthead as Portfolio and both LP Book pages */
+header{margin:0 -16px 16px;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+.hdr-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0}
+.hdr-brand{text-decoration:none;flex:0 0 auto;-webkit-user-select:none;user-select:none}
+header h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
+header h1 em{font-style:italic;color:var(--gold)}
+header h1 b{font-weight:400;color:var(--text)}
+header .sub{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px;white-space:nowrap}
+header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
+.hdr-brand:focus-visible{outline:2px solid var(--gold);outline-offset:5px;border-radius:2px}
+@media(max-width:768px){
+  header{padding:16px}
+  header h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}
+  header .sub{font-size:clamp(8px,2.4vw,10px);letter-spacing:.12em}
+}
 .lpw-grid{max-width:1240px;margin-left:auto;margin-right:auto}
 .health{max-width:1240px;margin:10px auto 12px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;
   border-radius:12px;padding:9px 12px;font-size:12px;overflow-wrap:anywhere;display:none}
@@ -59,8 +67,10 @@ h1 b{font-weight:400;color:var(--text)}
 </head>
 <body>
 <header>
-  <h1><a href="/lp.html" title="Open the LP Book"><em>LP</em> <b>Book</b></a></h1>
-  <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
+  <div class="hdr-inner">
+    <a class="hdr-brand" href="/lp.html" title="Open the LP Book"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    <div class="stamp" id="stamp">LOADING<br>&nbsp;</div>
+  </div>
 </header>
 <div class="health" id="health" role="status" aria-live="polite"></div>
 <div class="lpw-grid" id="cards"></div>

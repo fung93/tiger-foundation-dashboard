@@ -1,8 +1,9 @@
 # Building a hedged Uniswap v3 LP desk
 
-> **In Tiger Foundation** the desk is [`/hedge.html`](../../hedge.html), ported on 22 Oct 2026 from
-> `Minara/lp-hedge-desk` (kept there as an archive). Only the skin, header and menu bar
-> changed; where this guide says `index.html`, read `hedge.html`. Changes go here from now on.
+> **Historical documentation.** Alex requested removal of the Hedge Desk from the website
+> on 24 Oct 2026. This release removes the page after local review and Alex's "push" instruction.
+> The last published source is `hedge.html` in commit `4134210`. Do not restore the page
+> without Alex's instruction. References to `index.html` below mean that former page.
 
 A guide for an agent asked to build, port or extend this thing. Everything here
 was measured against the live chain and checked against independent replays;

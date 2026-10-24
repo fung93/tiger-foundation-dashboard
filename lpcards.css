@@ -18,7 +18,8 @@
 @keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
 
 /* live positions: the widget's card, in the page's own materials */
-.lpw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:16px}
+/* A card inside the LP Book's padded panel can be narrower than 310px on a phone. */
+.lpw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(310px,100%),1fr));gap:14px;margin-top:16px}
 .lpw{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));border:1px solid var(--line);
   border-radius:14px;padding:16px 18px;color:var(--text);display:grid;gap:14px}
 .lpw .top{display:flex;justify-content:space-between;align-items:center;gap:8px}

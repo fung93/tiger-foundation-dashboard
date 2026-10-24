@@ -91,13 +91,13 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
 | `widget.html`, `widget.webmanifest` | A separately installable phone shortcut showing the LP cards, with a small warning when a chain cannot be read. It has its own LP-range icon. |
-| `hedge.html` | **Hedge Desk**: see §7. |
+| `docs/hedge-desk/` | Historical Hedge Desk guides. The page has been withdrawn locally; see §7. |
 | `sw.js` | Service worker. **Bump `CACHE_VERSION` on every page or asset change**, or returning visitors keep the old shell. |
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
-Portfolio, both LP Book pages and Hedge Desk have a menu bar under the header:
-**Portfolio · LP Book · Hedge**, with the open page lit. The standalone widget has no menu;
-tapping its title opens the LP Book.
+Portfolio and both LP Book pages have a menu bar under the header:
+**Portfolio · LP Book**, with the open page lit. The standalone widget has no menu;
+tapping its Tiger Foundation masthead opens the full LP Book.
 
 These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local.html`,
 `server.py`, `ChatGPT Image Jul 16, 2026, 08_05_14 PM.png`. `serve.ps1` is the local server
@@ -114,8 +114,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 - **Classy look.** Black background, Instrument Serif titles, Inter text, gold `#d6b97b` for
   what is selected. Values are off-white; only signed gains and losses are coloured. He
   said "don't want colourful".
-- **Headers** are serif, with the first word italic and gold and the second upright and
-  off-white: *Tiger* Foundation, *LP* Book, *Hedge* Desk.
+- **Headers** use the same *Tiger* Foundation masthead and subtitle as Portfolio on
+  Portfolio, both LP Book pages and the widget: serif, italic gold Tiger, upright off-white
+  Foundation. There is no extra LP Book title on the LP Book pages or widget; the
+  Portfolio/LP Book menu labels remain on the full pages (Alex, 24 Oct 2026).
 - **Chain Breakdown order:** active chains first, then inactive, each sorted by total value
   from largest down.
 - **Asset cards:** On-chain · DeFi Positions · Tiger Vault · **LP Fees** (every LP's
@@ -255,7 +257,15 @@ before touching a chain reader.
 
 ---
 
-## 7. The Hedge Desk (`hedge.html`)
+## 7. The withdrawn Hedge Desk
+
+Alex requested removal of the Hedge Desk from the website on 24 Oct 2026 and authorised
+the push after reviewing the local preview. This release deletes `hedge.html`, removes
+every navigation link and removes it from the service worker's precache.
+
+The last published source is `hedge.html` in commit `4134210`. Keep the guides in
+`docs/hedge-desk/` as historical documentation; do not restore the page without Alex's
+instruction. The description below records the former desk.
 
 A Uniswap v3 LP planner and paper-trading desk for Robinhood Chain, hedged with a short on
 Hyperliquid. It runs two markets:
@@ -313,16 +323,20 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **LP refresh regression check:** `node scripts/test-lp-refresh.mjs` forces incomplete
   reads, the five-minute boundary and recovery for both LP Book and widget. It uses a
   controlled clock and no network or dependencies.
-- **Cross-check figures** against an independent read. For example, the LP Book and the
-  Hedge Desk read the same position separately and must agree.
+- **Cross-check figures** against an independent read of the same position.
 
 ---
 
 ## 9. Release contents (24 Oct 2026)
 
-- **Application baseline before this release:** commit `243c352` (Chain Breakdown
+- **This release, approved after local review:** Hedge Desk removed; all current
+  headers use Tiger Foundation; extra LP Book titles removed; `sw.js` → `tiger-v92`.
+- **Previous release:** `4134210`, with `tiger-v90`. The list below records that release,
+  including the Hedge Desk that this release withdraws.
+
+- **Application baseline before the previous release:** commit `243c352` (Chain Breakdown
   ordering). The scheduled job continues to publish data updates separately.
-- **Included in this release** (Alex authorised the push on 24 Oct 2026):
+- **Included in the previous release** (24 Oct 2026):
   - `hedge.html` and `docs/hedge-desk/`, the Hedge Desk with its new layout.
   - The Hedge link in the menu bars of `index.html`, `vercel/index.html`, `lp.html` and
     `lp-all.html`.

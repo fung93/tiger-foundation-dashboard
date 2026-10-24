@@ -14,15 +14,24 @@
 html,body{background:var(--bg)}
 body{color:var(--text);font:400 13.5px/1.5 var(--sans);font-feature-settings:"tnum" 1,"cv11" 1;
   -webkit-font-smoothing:antialiased;letter-spacing:.005em;
-  padding:max(20px,env(safe-area-inset-top)) 20px max(32px,env(safe-area-inset-bottom))}
+  padding:0 20px max(32px,env(safe-area-inset-bottom))}
 a{color:inherit}
 
-/* header: the serif title, "LP" in gold italic, "Book" upright */
-header{max-width:1240px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center;gap:16px;
-  padding-bottom:14px;border-bottom:1px solid var(--line)}
-h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
-h1 em{font-style:italic;color:var(--gold)}
-h1 b{font-weight:400;color:var(--text)}
+/* the same Tiger Foundation masthead as Portfolio */
+header{margin:0 -20px 14px;padding:24px 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+.hdr-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;min-width:0}
+.hdr-brand{text-decoration:none;flex:0 0 auto;-webkit-user-select:none;user-select:none}
+header h1{font:400 34px/1 var(--serif);letter-spacing:.01em;white-space:nowrap}
+header h1 em{font-style:italic;color:var(--gold)}
+header h1 b{font-weight:400;color:var(--text)}
+header .sub{color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.16em;margin-top:9px;white-space:nowrap}
+header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
+.hdr-brand:focus-visible{outline:2px solid var(--gold);outline-offset:5px;border-radius:2px}
+@media(max-width:768px){
+  header{padding:16px}
+  header h1{font-size:clamp(21px,6.6vw,27px);letter-spacing:.01em}
+  header .sub{font-size:clamp(8px,2.4vw,10px);letter-spacing:.12em}
+}
 
 /* the menu bar under the header: one icon per page, the open one lit */
 .menu{max-width:1240px;margin:0 auto 22px;display:flex;gap:8px}
@@ -32,7 +41,7 @@ h1 b{font-weight:400;color:var(--text)}
 .menu a:hover{color:var(--text);border-color:rgba(255,255,255,.16)}
 .menu a.on{color:var(--gold);border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
 .menu a{white-space:nowrap}
-/* three pages on a phone: each label stays on one line, the pills a little tighter */
+/* each label stays on one line, with slightly tighter pills on a phone */
 @media (max-width:400px){.menu{gap:6px}.menu a{padding:0 10px;gap:6px;letter-spacing:.08em}}
 
 .health{max-width:1240px;margin:0 auto 18px;border:1px solid rgba(226,183,92,.22);background:rgba(226,183,92,.05);color:#e9c98a;

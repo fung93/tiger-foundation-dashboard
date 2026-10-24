@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v90';   /* only full LP readings can be held; the widget warns on incomplete reads */
+var CACHE_VERSION = 'tiger-v92';   /* shared Tiger Foundation headers without a repeated page title; Hedge Desk withdrawn */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -43,8 +43,6 @@ var SHELL_ASSETS = [
   '/lpcards.js',
   /* the LP Book's two pages and what they share */
   '/lp-all.html',
-  /* the Hedge Desk: one page, everything inline */
-  '/hedge.html',
   '/lpbook.css',
   '/lpbook.js',
   '/icons/lp-192.png',
