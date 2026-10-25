@@ -29,6 +29,7 @@ export function validateMorphoHistory(history) {
   for (const sample of history.samples) {
     if (!sample || sample.version !== 1 || sample.chain !== 747474 || sample.wallet !== WALLET) fail('sample identity mismatch');
     if (typeof sample.full !== 'boolean' || !sample.errors || typeof sample.errors !== 'object' || Array.isArray(sample.errors)) fail('invalid sample completeness');
+    if(sample.interval_seconds!==undefined&&![21600,86400].includes(sample.interval_seconds))fail('unsupported sample interval');
     if (!positiveInteger(sample.block) || !positiveInteger(sample.ts) || sample.ts < previousTs || blocks.has(sample.block)) fail('invalid, unordered or duplicate sample block/time');
     blocks.add(sample.block); previousTs = sample.ts;
     if (!Array.isArray(sample.markets) || sample.markets.length !== MARKETS.length
@@ -47,6 +48,18 @@ export function validateMorphoHistory(history) {
       if (!market.no_position && ['debt', 'borrow_shares', 'liquidation_debt', 'total_borrow_assets', 'total_borrow_shares', 'liquidity']
         .some(key => typeof market.raw[key] !== 'string')) fail('position is missing a required raw chain amount');
       if (market.raw && Object.values(market.raw).some(v => typeof v !== 'string' || !/^\d+$/.test(v))) fail('invalid raw chain amount');
+    }
+  }
+  if(history.borrow_starts!==undefined){
+    if(!Array.isArray(history.borrow_starts)||history.borrow_starts.length!==MARKETS.length
+      ||new Set(history.borrow_starts.map(s=>s?.id)).size!==MARKETS.length)fail('borrow starts must identify each market once');
+    for(const start of history.borrow_starts){
+      if(!start||marketDefs.get(start.id)?.key!==start.key||!positiveInteger(start.block)||!positiveInteger(start.ts)
+        ||typeof start.tx_hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(start.tx_hash))fail('invalid borrow start');
+      const observation=history.samples.find(s=>s.block===start.block);
+      const position=observation?.markets.find(m=>m.id===start.id);
+      if(observation?.ts!==start.ts||!position||position.error||position.no_position||!(position.debt_amount>0))fail('borrow start has no matching debt observation');
+      if(history.samples.some(s=>s.ts<start.ts&&s.markets.some(m=>m.id===start.id&&!m.error&&m.debt_amount>0)))fail('borrow start is later than recorded debt');
     }
   }
   if (history.bootstrap) {

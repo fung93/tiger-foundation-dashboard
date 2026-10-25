@@ -9,7 +9,7 @@ const date = (ts, full=false) => new Date(ts*1000).toLocaleString('en-GB', { tim
 const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asia/Kuala_Lumpur', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
 const STORAGE = 'tf_morpho_targets_v1', CACHE = 'tf_morpho_full_v1';
 const HOLD = 5*60, POLL = 15000;
-let targets = {}, records = new Map(), history = [], live = null, days = 14, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
+let targets = {}, records = new Map(), history = [], live = null, days = 0, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
 const editing = new Set(), drafts = new Map();
 try { targets = JSON.parse(localStorage.getItem(STORAGE) || '{}'); } catch {}
 if(!targets || typeof targets!=='object' || Array.isArray(targets))targets={};
@@ -133,12 +133,17 @@ function adopt(sample, isLive) {
   render();
 }
 
-function seriesFor(id) {
-  const latest = records.get(id), end = Math.max(latest?.ts || 0, history.at(-1)?.ts || 0), from = days ? end-days*86400 : 0;
-  const rows = history.filter(s => s.ts>=from).map(s => ({ ts:s.ts, block:s.block, row:s.markets?.find(r=>r.id===id) }));
-  if (latest && (!rows.length || latest.ts>rows.at(-1).ts)) rows.push({ ts:latest.ts, block:latest.block, row:latest });
-  return rows.map(p => ({ ...p, row:p.row && !p.row.error && !p.row.no_position ? p.row : null }));
+// Start at this market's first borrowing, before applying a shorter viewing period.
+// Keep later empty/error readings: they are genuine gaps, not a reason to join lines.
+function lendingSeries(samples,latest,id,periodDays) {
+  const rows=samples.map(s=>({ts:s.ts,block:s.block,interval_seconds:s.interval_seconds||21600,row:s.markets?.find(r=>r.id===id)}));
+  if(latest&&(!rows.length||latest.ts>rows.at(-1).ts))rows.push({ts:latest.ts,block:latest.block,interval_seconds:21600,row:latest});
+  const firstBorrow=rows.findIndex(p=>p.row&&!p.row.error&&!p.row.no_position&&Number.isFinite(p.row.debt_amount)&&p.row.debt_amount>0);
+  if(firstBorrow<0)return [];
+  const end=rows.at(-1).ts,from=periodDays?end-periodDays*86400:0;
+  return rows.slice(firstBorrow).filter(p=>p.ts>=from).map(p=>({...p,row:p.row&&!p.row.error&&!p.row.no_position?p.row:null}));
 }
+function seriesFor(id) {return lendingSeries(history,records.get(id),id,days);}
 
 function render() {
   let below=0, known=0, colTotal=0, debtTotal=0, complete=true;
@@ -189,6 +194,8 @@ function render() {
 
 function draw(box, points, target, isHealth) {
   box.dataset.savedTarget=String(target);
+  box.dataset.start=points.length?String(points[0].ts):'';
+  box.dataset.end=points.length?String(points.at(-1).ts):'';
   const valid=points.filter(p=>p.row && (isHealth?Number.isFinite(p.row.health):Number.isFinite(p.row.oracle_collateral_usd)&&Number.isFinite(p.row.debt_usd)&&Number.isFinite(p.row.liquidation_usd)));
   if (valid.length<2) { box.innerHTML='<div class="plot-empty">'+(valid.length?'One recorded reading. The line will grow with history.':'No recorded position in this period.')+'</div>'; box.onpointermove=null; box.onkeydown=null; box.onpointerleave=null; box.onblur=null; delete box.dataset.points; return; }
   const W=Math.max(200,box.clientWidth),H=190,P={l:44,r:10,t:10,b:26}, end=points.at(-1).ts, start=points[0].ts, span=Math.max(1,end-start);
@@ -199,8 +206,8 @@ function draw(box, points, target, isHealth) {
   let svg='';
   for(let i=0;i<=3;i++){const v=hi*i/3,yy=y(v);svg+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yy}" y2="${yy}" stroke="rgba(255,255,255,.06)"/><text x="${P.l-7}" y="${yy+3}" fill="#6e6a62" font-family="Inter,system-ui,sans-serif" font-size="10" text-anchor="end">${isHealth?number(v,1):'$'+number(v,0)}</text>`;}
   for (const d of defs) {
-    let path='',pen=false,lastTs=0;
-    for(const p of points){const val=p.row?d.get(p.row):null;if(!Number.isFinite(val)){pen=false;continue;}const gap=lastTs&&p.ts-lastTs>21600*1.75;path+=(pen&&!gap?'L':'M')+x(p.ts).toFixed(2)+','+y(val).toFixed(2)+' ';pen=true;lastTs=p.ts;}
+    let path='',pen=false,lastTs=0,lastInterval=21600;
+    for(const p of points){const val=p.row?d.get(p.row):null;if(!Number.isFinite(val)){pen=false;continue;}const gap=lastTs&&p.ts-lastTs>Math.max(lastInterval,p.interval_seconds||21600)*1.75;path+=(pen&&!gap?'L':'M')+x(p.ts).toFixed(2)+','+y(val).toFixed(2)+' ';pen=true;lastTs=p.ts;lastInterval=p.interval_seconds||21600;}
     svg+=`<path d="${path}" data-series="${esc(d.name)}" fill="none" stroke="${d.color}" stroke-width="${d.name.includes('saved')?1.8:1.4}" ${d.dash?`stroke-dasharray="${d.dash}"`:''} stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
     const last=valid.at(-1),v=d.get(last.row);svg+=`<circle cx="${x(last.ts)}" cy="${y(v)}" r="2.5" fill="${d.color}"/>`;
   }
@@ -226,7 +233,7 @@ async function loadHistory() {
     history=[...byBlock.values()].sort((a,b)=>a.ts-b.ts);historyReadAt=Date.now();
     if(history.length&&!live)adopt(history.at(-1),false);
     const first=history[0],last=history.at(-1);
-    $('history-note').textContent=first?`${history.length} recorded samples · ${date(first.ts,true)} to ${date(last.ts,true)} MYT. Refreshed every 15 seconds; the scheduled job saves history every 6 hours.`:'History begins with the first complete market reading.';
+    $('history-note').textContent=first?`${history.length} recorded samples · ${date(first.ts,true)} to ${date(last.ts,true)} MYT. Each chart begins with that market’s first borrowing. Older history is sampled daily, recent history every 6 hours; live values refresh every 15 seconds.`:'History begins with the first complete market reading.';
     render();
   } catch(e) { $('history-note').textContent='Recorded history could not be refreshed. Existing chart points and live readings remain available.'; }
   finally {historyBusy=false;}

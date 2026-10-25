@@ -93,7 +93,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lp-all.html` | LP Book, **All-time**: closed positions, every figure fixed at close. |
 | `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
-| `scripts/morpho.mjs`, `morpho-history.json` | Six-hour historical observations, valued at their own pinned blocks. |
+| `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
 | `widget.html`, `widget.webmanifest` | A separately installable phone shortcut showing the LP cards, with a small warning when a chain cannot be read. It has its own LP-range icon. |
@@ -217,6 +217,13 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   by market liquidity. No wallet connection, signature, loan or repayment transaction.
 - Historical observations use the prices, oracle and balances at their own pinned blocks.
   Never reprice saved history at today's prices or substitute zeros for failed reads.
+  Each market's two charts start at its first actual Borrow event, never at the global
+  file's first date or a collateral-only deposit. All is the default range; 7D/14D zoom
+  into recent history. Trim only the prefix before borrowing, preserving later repayments
+  and unreadable gaps. `borrow_starts` records the receipt-verified opening block/time.
+  Initial history includes daily archive readings from 18 May 2026, with exact opening
+  observations for avKAT/KAT (18 May), avKAT/USDC (17 Oct) and KAT/USDC (20 Oct), all MYT.
+  Sample `interval_seconds` distinguishes daily archive points from recent six-hour points.
   The scheduled job appends six-hour observations; the browser refreshes current values
   every 15 seconds. Failed reads retain the last reading with a visible stale warning.
   Hide borrow/repay amounts when that market's reading is over five minutes old. A full
@@ -388,17 +395,24 @@ It has four views: Planner, simulated positions, My real LPs and History.
   personal targets and history preservation without network access. At this local build,
   96 assertions pass; browser checks cover incomplete reads, full failure, five-minute
   expiry, recovery and saved settings. Phone widths 360/375 px have no sideways scroll.
+- **Lending chart starts:** `node scripts/test-lending-series.mjs` tests the actual browser
+  series function: 35 assertions cover each verified opening block, shorter date windows,
+  repayments, gaps and mixed archive intervals. The one-time, resumable archive recovery
+  is `scripts/backfill-morpho-starts.mjs`; keep its checkpoint outside the repository.
 - **Cross-check figures** against an independent read of the same position.
 
 ---
 
 ## 9. Release contents
 
-- **This release, approved for push after local review (25 Oct 2026):** the Katana Lending page,
+- **This release, requested and approved for push (25 Oct 2026):** Lending charts begin
+  at each market's actual first borrowing, with older daily archive readings recovered
+  and the original 57 observations unchanged; `sw.js` → `tiger-v98`.
+- **Previous published release:** `7d95712`, with `tiger-v97`. It added the Katana Lending page,
   three-market personal thresholds, shared Morpho reader, historical observations and
   scheduled-job integration; third Lending menu button; Edit/Save targets and per-market
   liquidation thresholds and compact controls; `sw.js` → `tiger-v97`.
-- **Last published release:** `31b2dab`, with `tiger-v94`. The notes below record it and
+- **Earlier published release:** `31b2dab`, with `tiger-v94`. The notes below record it and
   earlier changes.
 
 - **That release, approved for push after local review:** LP Book card edges match
