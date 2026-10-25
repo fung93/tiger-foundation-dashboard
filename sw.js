@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v94';   /* Portfolio and LP Book cards share the same outside edges */
+var CACHE_VERSION = 'tiger-v97';   /* Lending page, saved limits and compact controls */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -45,6 +45,11 @@ var SHELL_ASSETS = [
   '/lp-all.html',
   '/lpbook.css',
   '/lpbook.js',
+  /* Katana Morpho positions, personal limits and historical charts */
+  '/lending.html',
+  '/lending.css',
+  '/lending.js',
+  '/morpho-core.mjs',
   '/icons/lp-192.png',
   '/icons/lp-512.png',
   '/icons/lp-maskable-512.png',
@@ -114,7 +119,8 @@ self.addEventListener('fetch', function (e) {
   /* Data + third-party APIs → network-first, cache fallback.
      Strip the cache-buster ?t= so offline lookups hit. */
   var isData = url.pathname === '/data.json' || url.pathname === '/history.json' ||
-               url.pathname === '/claims.json' || url.pathname === '/positions.json';
+               url.pathname === '/claims.json' || url.pathname === '/positions.json' ||
+               url.pathname === '/morpho-history.json';
   var isCrossOrigin = url.origin !== self.location.origin;
   /* /api/* reads the chain on every request — the widget's whole point is that the price is
      current, so it must never be answered from the cache first. Without this it fell through

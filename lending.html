@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<title>Lending · Tiger Foundation</title>
+<link rel="icon" href="/icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lpcards.css">
+<link rel="stylesheet" href="/lpbook.css">
+<link rel="stylesheet" href="/lending.css">
+</head>
+<body>
+<header>
+  <div class="hdr-inner">
+    <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
+  </div>
+</header>
+<div class="menu-wrap">
+<nav class="menu" aria-label="Main navigation">
+  <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+  <a href="/lending.html" class="on" aria-current="page" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
+</nav>
+</div>
+
+<main class="book-content lending-content">
+  <div class="health" id="health" role="status"></div>
+  <div class="lending-intro">
+    <div><div class="label">Katana · Morpho Blue</div><h2>Tiger borrowing room</h2></div>
+    <div class="ranges" role="group" aria-label="Chart period"><button type="button" data-days="7">7D</button><button type="button" data-days="14" class="on" aria-pressed="true">14D</button><button type="button" data-days="0">All</button></div>
+  </div>
+  <div class="lending-overview" id="overview" aria-live="polite"><span>Reading your three markets…</span></div>
+  <div class="markets" id="markets"></div>
+  <noscript><div class="card">Turn on JavaScript to read the markets and draw your lending history.</div></noscript>
+  <div class="lending-method">
+    <details><summary>How these limits are calculated</summary><p>Your minimum health is your personal setting. At health 2, your debt limit is half the market’s liquidation limit. Your maximum LTV is the market’s LLTV divided by your chosen health.</p><p>The charts use collateral valued by each market’s Morpho oracle, including at historical blocks. The separately shown market value uses avKAT’s redemption rate and KAT’s pool price. These values can differ.</p><p>Debt includes interest accrued to the reading’s block. Borrowing room is also limited by the loan tokens currently available in that market. Each market stands on its own; room in one does not offset a repayment in another.</p><p>Choose Edit to change a target. Save applies it to that market’s graph and amounts, including the limit across recorded history. Unsaved changes leave the graph at your saved target. Saving does not change the recorded collateral or debt. Targets are saved in this browser.</p><p>The KAT liquidation prices for USDC loans are estimates from the current oracle relationship. They assume debt, collateral amounts, avKAT conversion and other oracle inputs stay unchanged. The actual trigger is Morpho’s oracle and accrued debt. For avKAT/KAT, both sides are in KAT, so there is no single KAT dollar price that triggers liquidation; its avKAT-to-KAT ratio is shown instead.</p><p>Historical points are six-hour samples, not a record of every price move. Times are shown in Malaysia time. Missing readings appear as gaps.</p><p><a href="https://github.com/morpho-org/morpho-blue/blob/main/src/Morpho.sol" target="_blank" rel="noopener noreferrer">Morpho’s contract rules ↗</a></p></details>
+    <span id="history-note">Loading recorded history…</span>
+  </div>
+</main>
+<script type="module" src="/lending.js"></script>
+</body>
+</html>

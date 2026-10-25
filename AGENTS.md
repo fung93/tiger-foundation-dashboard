@@ -60,12 +60,14 @@ Chains with less than $5 and no LP show as INACTIVE.
 
 1. **Scheduled job, every 6 hours** (`.github/workflows/update-data.yml`, Node 20, zero
    dependencies). It runs `scripts/update-data.mjs`, which reads everything server-side and,
-   at its end, calls `scripts/lpbook.mjs`. It commits these files as `github-actions[bot]`:
+   at its end, calls `scripts/lpbook.mjs` and `scripts/morpho.mjs` in separate error
+   boundaries. It commits these files as `github-actions[bot]`:
    - `data.json`: the snapshot and discovery state (meteora_refs, morpho_markets, fables, ...)
    - `history.json`: daily totals, one entry per UTC date
    - `claims.json`: the claim record, including `lp_fees`
    - `positions.json`: LP ledgers per chain
    - `lpbook.json`: the LP Book ledger
+   - `morpho-history.json`: Katana lending observations at six-hour intervals
 2. **Browser live overlay, every 15 seconds.** The pages read the chain and the `/api/*`
    functions directly. The Portfolio starts from the saved snapshot. The LP Book and
    widget can show their shared last full browser reading immediately; refresh failures
@@ -79,6 +81,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `api/lpbook.mjs` | Carries `lpbook.json` to chain head in memory, then returns the finished view. `s-maxage=10, swr=5`. |
 | `api/vault.mjs` | The second wallet's live value. |
 | `api/fables.mjs` | Fables LP ranges and veFABLES locks. |
+| `api/morpho.mjs` | Current Katana Morpho positions, including accrued debt and oracle values. |
 | `api/lp.mjs` | Legacy widget endpoint; no longer used by the widget. |
 
 ### Pages and shared assets
@@ -88,6 +91,9 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `index.html` | The main **Portfolio** dashboard, ~5,000 lines inline. Classy theme by default; the cute tiger is the alternative theme (localStorage `tf_theme2`='tiger'). `vercel/index.html` must stay **byte-identical**: copy it after every edit. |
 | `lp.html` | LP Book, **Live**: open positions at live prices. |
 | `lp-all.html` | LP Book, **All-time**: closed positions, every figure fixed at close. |
+| `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
+| `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
+| `scripts/morpho.mjs`, `morpho-history.json` | Six-hour historical observations, valued at their own pinned blocks. |
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
 | `widget.html`, `widget.webmanifest` | A separately installable phone shortcut showing the LP cards, with a small warning when a chain cannot be read. It has its own LP-range icon. |
@@ -95,17 +101,19 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `sw.js` | Service worker. **Bump `CACHE_VERSION` on every page or asset change**, or returning visitors keep the old shell. |
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
-Portfolio and both LP Book pages have a menu bar under the header:
-**Portfolio · LP Book**, with the open page lit. The standalone widget has no menu;
+Portfolio, both LP Book pages and Lending have a menu bar under the header:
+**Portfolio · LP Book · Lending**, with the open page lit. The standalone widget has no menu;
 tapping its Tiger Foundation masthead opens the full LP Book.
 
-The two menu buttons must keep the same position and size when switching between
-Portfolio and either LP Book page. Match the 1200 px menu frame, side padding (28 px
+The menu buttons must keep the same position and size when switching between
+Portfolio, either LP Book page and Lending. Match the 1200 px menu frame, side padding (28 px
 desktop, 16 px at 768 px and below), gap below the masthead (14 px desktop, 12 px phone)
 and subtitle line height. The menu stays outside the LP Book's content wrapper; the full
 pages reserve a stable scrollbar gutter to avoid a sideways jump on shorter pages.
+At 400 px and below, use a 5 px gap, 8 px pill side padding, 10 px labels with .06em
+letter spacing, and 14 px icons so all three labels fit on one line.
 
-The cards' outside edges must also match between Portfolio and both LP Book pages.
+The cards' outside edges must also match between Portfolio, both LP Book pages and Lending.
 Portfolio's `.wrap` and the LP Book's `.book-content` use a 1200 px outer frame with
 28 px inside padding on each side at every screen width. Keep the view controls,
 warnings and every row of cards inside that same frame; fixed modals remain outside it.
@@ -120,7 +128,7 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Display
 
-- **One card per DeFi type, never one per position.** All LPs roll into one "Liquidity
+- **On Portfolio, one card per DeFi type, never one per position.** All LPs roll into one "Liquidity
   Pools" card and Morpho into one card. Each card has a record icon that opens the detail.
 - **Classy look.** Black background, Instrument Serif titles, Inter text, gold `#d6b97b` for
   what is selected. Values are off-white; only signed gains and losses are coloured. He
@@ -172,6 +180,48 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   the widget follows the same rule). A full read clears the warning and restores LIVE.
 - A request that fails entirely leaves the displayed figures in place with a STALE stamp;
   this is separate from the five-minute hold for an incomplete answer.
+
+### Katana Lending (Alex, 25 Oct 2026)
+
+- The dedicated Lending page shows the three requested markets separately: avKAT/KAT,
+  avKAT/USDC and KAT/USDC. The actual USDC loan token is vbUSDC; keep that token identity
+  visible. Portfolio still rolls the markets into its one Morpho card.
+- The personal minimum health is editable per market and starts at **2** for all three.
+  It belongs to Alex and is saved in that browser. It must never change the on-chain LLTV.
+  Alex chooses Edit, then changes minimum health or maximum LTV; the other field follows.
+  Only Save applies and stores the new target and adjusts the graph. Cancel discards the
+  draft. Live polling must not overwrite unsaved inputs. Personal maximum LTV = market
+  LLTV ÷ chosen minimum health. Invalid inputs keep the last saved setting.
+- Edit, Save and Cancel sit beside the My max LTV % label, with no extra button row
+  below the inputs. The figures run: collateral, My debt limit, Borrowed with interest,
+  then borrow/repay amount. Do not restore the removed introductory subtitle or the
+  separate "Why is health 1 the liquidation boundary?" explanation (Alex, 25 Oct 2026).
+- Each market shows collateral, debt, the personal debt limit and the amount that can
+  still be borrowed or must be repaid. Keep repayment needs separate from other markets'
+  headroom; do not net them into an apparent available-to-borrow total.
+- **Health = oracle collateral value × LLTV ÷ debt.** Health 1 is the liquidation
+  boundary; exactly 1 is still healthy, and below 1 permits liquidation. Health 2 permits
+  debt at half the liquidation boundary, not automatically
+  50% of collateral. Use each market's own oracle, never avKAT redemption value for this.
+- The page heading is **Tiger borrowing room**. Each USDC market shows an estimated KAT
+  dollar price at the liquidation boundary, using Morpho's own KAT/USD feed at the pinned
+  block and assuming current debt/collateral and the oracle's other inputs stay unchanged.
+  A pool-price fallback must be explicitly labelled. The oracle remains the actual trigger.
+  avKAT/KAT has no single KAT dollar liquidation price: collateral and debt both move
+  with KAT. Show its avKAT-to-KAT oracle boundary and current ratio instead.
+- Show market/redemption collateral value separately from oracle collateral value.
+  Clearly label the chart's value basis so its debt-limit lines and health agree.
+- Debt includes interest accrued to the observation's block, using a read-only
+  `eth_call` simulation of Morpho's `accrueInterest` followed by its position/market reads.
+  Round debt up, borrow headroom down and required repayment up; cap available borrowing
+  by market liquidity. No wallet connection, signature, loan or repayment transaction.
+- Historical observations use the prices, oracle and balances at their own pinned blocks.
+  Never reprice saved history at today's prices or substitute zeros for failed reads.
+  The scheduled job appends six-hour observations; the browser refreshes current values
+  every 15 seconds. Failed reads retain the last reading with a visible stale warning.
+  Hide borrow/repay amounts when that market's reading is over five minutes old. A full
+  recovery clears the warning. The browser reloads saved history every ten minutes.
+  An invalid existing history file must fail before any network request or write.
 
 ---
 
@@ -334,13 +384,24 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **LP refresh regression check:** `node scripts/test-lp-refresh.mjs` forces incomplete
   reads, the five-minute boundary and recovery for both LP Book and widget. It uses a
   controlled clock and no network or dependencies.
+- **Lending check:** `node scripts/test-morpho.mjs` checks loan rounding, liquidity,
+  personal targets and history preservation without network access. At this local build,
+  96 assertions pass; browser checks cover incomplete reads, full failure, five-minute
+  expiry, recovery and saved settings. Phone widths 360/375 px have no sideways scroll.
 - **Cross-check figures** against an independent read of the same position.
 
 ---
 
-## 9. Release contents (24 Oct 2026)
+## 9. Release contents
 
-- **This release, approved for push after local review:** LP Book card edges match
+- **This release, approved for push after local review (25 Oct 2026):** the Katana Lending page,
+  three-market personal thresholds, shared Morpho reader, historical observations and
+  scheduled-job integration; third Lending menu button; Edit/Save targets and per-market
+  liquidation thresholds and compact controls; `sw.js` → `tiger-v97`.
+- **Last published release:** `31b2dab`, with `tiger-v94`. The notes below record it and
+  earlier changes.
+
+- **That release, approved for push after local review:** LP Book card edges match
   Portfolio's content frame; `sw.js` → `tiger-v94`. Both outside edges match exactly
   at 360 px, 375 px and 1366 px; phone figures fit with no sideways scroll.
 - **Previous published release:** `ec3e724`, with `tiger-v93`. The notes below record

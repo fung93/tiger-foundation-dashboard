@@ -2432,11 +2432,20 @@ console.log(`Claim record: ${Object.keys(claims.days).length} day(s) with claims
 console.log(`Position ledger: ${positions.closed.length} closed (realised ${round2(positions.closed.reduce((s, c) => s + c.pnl_usd, 0))}), ${Object.keys(positions.open).length} open (${Object.values(positions.open).map((o) => '#' + (o.opened || '?') + ' $' + (o.open_value_usd ?? '-')).join(', ')})`);
 
 /* The LP book keeps its own ledger, lpbook.json, separately from everything above. It runs
-   last and in its own try, so a book that cannot be moved forward costs the book and
+   here in its own try, so a book that cannot be moved forward costs the book and
    nothing else this run has already written. */
 try {
   const { updateLpBook } = await import('./lpbook.mjs');
   await updateLpBook(ROOT);
 } catch (e) {
   console.warn('lp book could not be updated, keeping the existing one:', e.message);
+}
+
+/* Lending history has its own archive reads and file. A failed update must not stop the
+   existing dashboard or LP Book from keeping the data they have already written. */
+try {
+  const { updateMorphoHistory } = await import('./morpho.mjs');
+  await updateMorphoHistory(ROOT);
+} catch (e) {
+  console.warn('morpho history could not be updated, keeping the existing one:', e.message);
 }

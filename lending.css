@@ -1,0 +1,79 @@
+/* The masthead, navigation and content frame are shared with the LP Book. */
+.lending-content{padding-bottom:20px}
+.lending-intro{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:30px 0 22px}
+.lending-intro h2{font:400 clamp(32px,4vw,43px)/1.15 var(--serif);margin-top:9px;letter-spacing:-.015em}
+.ranges{display:flex;gap:3px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px;flex-shrink:0}
+.ranges button{background:none;border:0;border-radius:99px;padding:7px 13px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.08em;cursor:pointer}
+.ranges button.on{color:var(--gold);background:rgba(214,185,123,.09)}
+.lending-overview{display:flex;gap:24px;flex-wrap:wrap;padding:14px 0 20px;color:var(--dim);font-size:11.5px;border-top:1px solid var(--line)}
+.lending-overview strong{font-weight:500;color:var(--text)}
+.markets{display:grid;gap:24px}
+.market-card{padding:25px 26px 20px;min-width:0}
+.market-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.market-name{font:400 29px/1.1 var(--serif);letter-spacing:.005em}
+.market-context{color:var(--dim);font-size:11px;margin-top:8px}
+.market-state{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.status-pill{border:1px solid var(--line);border-radius:99px;padding:4px 9px;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.status-pill.below{color:var(--warn);border-color:rgba(226,183,92,.25);background:rgba(226,183,92,.04)}
+.status-pill.liquidatable{color:var(--down);border-color:rgba(224,121,109,.4)}
+.reading-time{font-size:10px;color:var(--faint)}
+.target-box{position:relative;flex:0 0 auto;width:282px;max-width:100%}
+.target-fields{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:flex-start}
+.target-field{display:grid;gap:6px;min-width:0}
+.target-field label{color:var(--dim);font-size:9px;letter-spacing:.09em;text-transform:uppercase;height:20px;display:flex;align-items:center;white-space:nowrap}
+.target-label-row{display:flex;align-items:center;justify-content:space-between;gap:5px;height:20px}
+.target-field input{width:100%;border:1px solid rgba(214,185,123,.23);border-radius:8px;background:rgba(214,185,123,.025);color:var(--gold);padding:8px 10px;font:400 16px var(--sans);font-variant-numeric:tabular-nums;outline-offset:3px;color-scheme:dark}
+.target-field input:focus{outline:1px solid var(--gold)}
+.target-field input[aria-invalid=true]{border-color:var(--down)}
+.target-field input[readonly]{color:var(--text);border-color:var(--line);background:rgba(255,255,255,.015);cursor:default}
+.target-actions{display:flex;gap:3px;flex-shrink:0}
+.target-actions button{font:500 9px/16px var(--sans);height:18px;border:1px solid var(--line);border-radius:5px;padding:0 6px;cursor:pointer;background:transparent;color:var(--dim)}
+.target-actions .target-cancel{padding:0 5px;font-size:13px}
+.target-actions button[hidden]{display:none}
+.target-actions .target-save{color:var(--gold);border-color:rgba(214,185,123,.4);background:rgba(214,185,123,.06)}
+.target-actions button:focus-visible{outline:1px solid var(--gold);outline-offset:3px}
+.target-help{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.target-box.has-error .target-help{top:calc(100% + 7px);left:0;z-index:4;width:100%;height:auto;margin:0;padding:8px 10px;overflow:visible;clip-path:none;white-space:normal;border:1px solid rgba(224,121,109,.3);border-radius:7px;background:#17110f;color:var(--warn);font-size:10px;line-height:1.5;box-shadow:0 6px 20px #0006}
+.liquidation-box{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 28px;padding:0 0 22px;margin-top:-3px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+.liquidation-value{font-size:26px;font-weight:300;line-height:1.25;margin-top:8px;letter-spacing:-.02em}
+.liquidation-value.ratio-message{font:400 25px/1.2 var(--serif);letter-spacing:0}
+.liquidation-current{font-size:10.5px;line-height:1.7;color:var(--dim);margin-top:6px}
+.liquidation-explanation{font-size:11px;color:var(--dim);line-height:1.8;align-self:center;max-width:500px}
+.market-figures{display:grid;grid-template-columns:1fr 1fr 1fr 1.3fr;gap:18px;margin:24px 0;padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.market-figures>div{min-width:0}
+.metric-label{color:var(--dim);font-size:9px;letter-spacing:.11em;text-transform:uppercase}
+.metric-value{font-size:25px;font-weight:300;line-height:1.25;letter-spacing:-.025em;margin-top:8px;overflow-wrap:anywhere}
+.metric-sub{font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6}
+.metric-sub small{font-size:10px;color:var(--faint)}
+.room-value{color:var(--text)}
+.room-value{font-size:clamp(19px,2vw,25px)}
+.repay-value{color:var(--warn)}
+.market-graphs{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:28px}
+.plot-block{min-width:0}
+.plot-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;color:var(--dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.plot-heading span:last-child{font-size:10px;letter-spacing:.03em;color:var(--faint);text-transform:none}
+.plot{height:185px;position:relative;margin-top:10px;touch-action:pan-y;outline-offset:4px}
+.plot svg{width:100%;height:100%;display:block;overflow:visible}
+.plot:focus-visible{outline:1px solid var(--gold);border-radius:4px}
+.plot-empty{display:flex;height:100%;align-items:center;justify-content:center;color:var(--faint);font-size:11px;text-align:center}
+.plot-tooltip{position:absolute;z-index:3;pointer-events:none;background:#111112;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:10px 12px;max-width:240px;min-width:170px;box-shadow:0 8px 30px #0008;font-size:10px;line-height:1.8;white-space:nowrap}
+.plot-tooltip strong{display:block;color:var(--text);font-weight:500;margin-bottom:5px}
+.plot-tooltip .tip-row{display:flex;justify-content:space-between;gap:18px;color:var(--dim)}
+.plot-tooltip .tip-row span:last-child{color:var(--text)}
+.plot-legend{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:11px;color:var(--dim);font-size:9px;line-height:1.5}
+.plot-legend span{display:flex;align-items:center;gap:6px}
+.plot-legend i{height:0;width:13px;border-top:2px solid;display:inline-block}
+.plot-legend .dash{border-top-style:dashed}
+.market-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line2);margin-top:22px;padding-top:12px;font-size:10px;color:var(--faint)}
+.market-foot a{text-decoration:none;color:var(--dim)}
+.market-foot a:hover{color:var(--gold)}
+.lending-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
+.lending-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
+.lending-method p{max-width:780px;margin:8px 0}
+.lending-method>span{display:block;margin-top:14px}
+.market-error{margin-top:20px;color:var(--warn);font-size:12px}
+@media(max-width:900px){.market-figures{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.market-graphs{grid-template-columns:1fr;gap:24px}.plot{height:195px}.health-plot{height:130px}}
+@media(max-width:600px){.lending-intro{align-items:flex-start;margin-top:20px;gap:14px;flex-direction:column}.lending-intro h2{font-size:34px}.lending-overview{gap:8px 20px;font-size:11px}.market-card{padding:20px 16px 16px}.market-head{flex-direction:column;gap:18px}.market-name{font-size:27px}.target-fields{grid-template-columns:106px minmax(0,1fr);gap:12px}.target-field label{font-size:8px;letter-spacing:.04em}.target-field input{width:100%;font-size:15px}.market-figures{gap:18px 12px;margin:20px 0;padding:18px 0}.metric-value{font-size:clamp(18px,5.4vw,24px)}.metric-sub{font-size:10px}.metric-label{font-size:8px;letter-spacing:.08em}.plot{height:180px}.health-plot{height:125px}.plot-tooltip{font-size:9px;min-width:150px;padding:8px}.market-foot{font-size:9px}.plot-heading{font-size:9px}.plot-legend{font-size:8.5px;gap:6px 11px}}
+@media(hover:hover){.ranges button:hover{color:var(--text)}}
+@media(max-width:600px){.liquidation-box{grid-template-columns:1fr;gap:9px}.liquidation-value{font-size:25px}.liquidation-value.ratio-message{font-size:23px}.liquidation-current,.liquidation-explanation{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.stamp .dot{animation:none}}
