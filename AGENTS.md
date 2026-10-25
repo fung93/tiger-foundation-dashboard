@@ -186,10 +186,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 - The dedicated Lending page shows the three requested markets separately: avKAT/KAT,
   avKAT/USDC and KAT/USDC. The actual USDC loan token is vbUSDC; keep that token identity
   visible. Portfolio still rolls the markets into its one Morpho card.
-- The personal minimum health is editable per market and starts at **2** for all three.
-  It belongs to Alex and is saved in that browser. It must never change the on-chain LLTV.
+- Personal maximum LTV starts at **70% for avKAT/KAT, 35% for avKAT/USDC and 35% for
+  KAT/USDC on every page opening or reload** (Alex, 25 Oct 2026). Minimum health follows
+  from each market's LLTV. Edits apply only for the current visit, never from a previous
+  browser setting. They must never change the on-chain LLTV.
   Alex chooses Edit, then changes minimum health or maximum LTV; the other field follows.
-  Only Save applies and stores the new target and adjusts the graph. Cancel discards the
+  Only Save applies the new target for this visit and adjusts the graph. Cancel discards the
   draft. Live polling must not overwrite unsaved inputs. Personal maximum LTV = market
   LLTV ÷ chosen minimum health. Invalid inputs keep the last saved setting.
 - Edit, Save and Cancel sit beside the My max LTV % label, with no extra button row
@@ -203,7 +205,11 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   boundary; exactly 1 is still healthy, and below 1 permits liquidation. Health 2 permits
   debt at half the liquidation boundary, not automatically
   50% of collateral. Use each market's own oracle, never avKAT redemption value for this.
-- The page heading is **Tiger borrowing room**. Each USDC market shows an estimated KAT
+- There is no **Tiger borrowing room** heading or **3 of 3 markets shown** count.
+  Oracle collateral, Borrowed and Below your target are three separate summary cards
+  at the top, calculated from the current readings. Mobile health charts have the same
+  height as the value charts, with the SVG drawn at its measured size to avoid distortion.
+  Each USDC market shows an estimated KAT
   dollar price at the liquidation boundary, using Morpho's own KAT/USD feed at the pinned
   block and assuming current debt/collateral and the oracle's other inputs stay unchanged.
   A pool-price fallback must be explicitly labelled. The oracle remains the actual trigger.
@@ -405,7 +411,10 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
-- **This release, requested and approved for push (25 Oct 2026):** Lending charts begin
+- **This release, requested and approved for push (25 Oct 2026):** Lending opens with
+  70% / 35% / 35% max LTV, edits apply for the visit, three separate summary cards,
+  removed page heading/count, and undistorted mobile health charts; `sw.js` → `tiger-v99`.
+- **Previous published release:** `410a9b6`, with `tiger-v98`. Lending charts begin
   at each market's actual first borrowing, with older daily archive readings recovered
   and the original 57 observations unchanged; `sw.js` → `tiger-v98`.
 - **Previous published release:** `7d95712`, with `tiger-v97`. It added the Katana Lending page,

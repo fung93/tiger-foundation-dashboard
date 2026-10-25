@@ -7,13 +7,16 @@ const number = (value, digits=2) => Number.isFinite(value) ? value.toLocaleStrin
 const pct = value => number(value * 100, 2) + '%';
 const date = (ts, full=false) => new Date(ts*1000).toLocaleString('en-GB', { timeZone:'Asia/Kuala_Lumpur', day:'numeric', month:'short', ...(full ? { year:'numeric' } : {}), hour:'2-digit', minute:'2-digit', hour12:false });
 const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asia/Kuala_Lumpur', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
-const STORAGE = 'tf_morpho_targets_v1', CACHE = 'tf_morpho_full_v1';
+const CACHE = 'tf_morpho_full_v1';
+const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
 const HOLD = 5*60, POLL = 15000;
 let targets = {}, records = new Map(), history = [], live = null, days = 0, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
 const editing = new Set(), drafts = new Map();
-try { targets = JSON.parse(localStorage.getItem(STORAGE) || '{}'); } catch {}
-if(!targets || typeof targets!=='object' || Array.isArray(targets))targets={};
-for (const m of MARKETS) if (!(Number.isFinite(targets[m.id]) && targets[m.id] > 1 && targets[m.id] <= 100)) targets[m.id] = 2;
+// Each page opening starts from Alex's defaults; edits apply only to this visit.
+function resetTargets() {
+  for (const m of MARKETS) targets[m.id] = targetMetrics({lltv:m.lltv,error:'default'},m.lltv/DEFAULT_MAX_LTV[m.key]).target_health;
+}
+resetTargets();
 
 function tokenAmount(value, token, direction='normal') {
   if (!Number.isFinite(value)) return '—';
@@ -96,10 +99,7 @@ function editTarget(m) {
 function saveTarget(m) {
   const target=drafts.get(m.id);
   if(!Number.isFinite(target)||target<=1||target>100){targetMessage(m,'Enter a valid minimum health or max LTV before saving.',true);return;}
-  const next={...targets,[m.id]:target};
-  try {localStorage.setItem(STORAGE,JSON.stringify(next));}
-  catch {targetMessage(m,'Could not save in this browser. The saved target and graph are unchanged.',true);return;}
-  targets=next;finishEditing(m,'Saved in this browser · graph updated');
+  targets={...targets,[m.id]:target};finishEditing(m,'Saved for this visit · graph updated');
   render();
 }
 $('markets').addEventListener('input', e => { if(e.target.matches('input[data-target],input[data-ltv]'))draftTarget(e.target); });
@@ -146,13 +146,13 @@ function lendingSeries(samples,latest,id,periodDays) {
 function seriesFor(id) {return lendingSeries(history,records.get(id),id,days);}
 
 function render() {
-  let below=0, known=0, colTotal=0, debtTotal=0, complete=true;
+  let below=0, colTotal=0, debtTotal=0, complete=true, targetsKnown=true;
   for (const m of MARKETS) {
     const el=$(m.key), row=records.get(m.id), target=targets[m.id];
     const find=s=>el.querySelector(s);
     const points=seriesFor(m.id);
     draw(find('.value-plot'),points,target,false); draw(find('.health-plot'),points,target,true);
-    if (!row) { complete=false; continue; }
+    if (!row) { complete=false; targetsKnown=false; continue; }
     const metric=targetMetrics(row,target), expired=Date.now()/1000-row.ts>HOLD, stale=row.stale || expired;
     el.dataset.health=String(row.health); el.dataset.target=String(target); el.dataset.debt=String(row.debt_amount);
     el.dataset.borrow=String(metric.borrow_amount); el.dataset.repay=String(metric.repay_amount); el.dataset.block=String(row.block);
@@ -180,10 +180,11 @@ function render() {
       find('.action-label').textContent='Still able to borrow'; action.textContent=tokenAmount(metric.borrow_amount,m.loan_token,'borrow');
       find('.action-sub').textContent=money(metric.borrow_usd)+` · keep health at least ${number(target,4)}`+(stale?' · at last reading':'')+(metric.liquidity_limited?' · capped by market liquidity':'');
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
-    if (Number.isFinite(row.oracle_collateral_usd)&&Number.isFinite(row.debt_usd)) { known++; colTotal+=row.oracle_collateral_usd; debtTotal+=row.debt_usd; } else complete=false;
+    if (Number.isFinite(row.oracle_collateral_usd)&&Number.isFinite(row.debt_usd)) { colTotal+=row.oracle_collateral_usd; debtTotal+=row.debt_usd; } else complete=false;
+    if (!['repay','borrow','at-target','no-position'].includes(metric.status)) targetsKnown=false;
     if (metric.status==='repay') below++;
   }
-  $('overview').innerHTML=`<span><strong>${known} of 3</strong> markets shown</span><span>Oracle collateral <strong>${complete?money(colTotal):'—'}</strong></span><span>Borrowed <strong>${complete?money(debtTotal):'—'}</strong></span><span><strong>${below}</strong> below your target</span>`;
+  $('overview').innerHTML=`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${complete?money(colTotal):'—'}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${complete?money(debtTotal):'—'}</div></div><div class="card overview-card"><div class="metric-label">Below your target</div><div class="overview-value">${targetsKnown?below:'—'}</div></div>`;
   const age=Date.now()/1000-lastRead, fresh=lastFull&&age<=90;
   $('stamp').className='stamp'+(fresh?'':' stale');
   $('stamp').innerHTML=`<span class="dot"></span><span class="st">${fresh?'LIVE':lastRead?'STALE':'LOADING'}</span><br>${lastRead?time(lastRead):'—'}`;
@@ -198,7 +199,7 @@ function draw(box, points, target, isHealth) {
   box.dataset.end=points.length?String(points.at(-1).ts):'';
   const valid=points.filter(p=>p.row && (isHealth?Number.isFinite(p.row.health):Number.isFinite(p.row.oracle_collateral_usd)&&Number.isFinite(p.row.debt_usd)&&Number.isFinite(p.row.liquidation_usd)));
   if (valid.length<2) { box.innerHTML='<div class="plot-empty">'+(valid.length?'One recorded reading. The line will grow with history.':'No recorded position in this period.')+'</div>'; box.onpointermove=null; box.onkeydown=null; box.onpointerleave=null; box.onblur=null; delete box.dataset.points; return; }
-  const W=Math.max(200,box.clientWidth),H=190,P={l:44,r:10,t:10,b:26}, end=points.at(-1).ts, start=points[0].ts, span=Math.max(1,end-start);
+  const W=Math.max(200,box.clientWidth),H=Math.max(100,box.clientHeight),P={l:44,r:10,t:10,b:26}, end=points.at(-1).ts, start=points[0].ts, span=Math.max(1,end-start);
   const defs=isHealth ? [{name:'Actual health',color:'#f2f0eb',get:r=>r.health},{name:'My saved target',color:'#d6b97b',dash:'5 4',get:()=>target},{name:'Liquidation boundary',color:'#655f54',dash:'2 4',get:()=>1}]
     : [{name:'Collateral · oracle',color:'#f2f0eb',get:r=>r.oracle_collateral_usd},{name:'Borrowed',color:'#96938b',get:r=>r.debt_usd},{name:'My saved limit',color:'#d6b97b',get:r=>r.liquidation_usd/target},{name:'Liquidation boundary · 1',color:'#655f54',dash:'3 4',get:r=>r.liquidation_usd}];
   const values=valid.flatMap(p=>defs.map(d=>d.get(p.row))).filter(Number.isFinite), hi=Math.max(...values,1)*1.13;
@@ -213,7 +214,7 @@ function draw(box, points, target, isHealth) {
   }
   const shortDate=t=>new Date(t*1000).toLocaleDateString('en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'numeric',month:'short'});
   svg+=`<text x="${P.l}" y="${H-5}" fill="#6e6a62" font-family="Inter,system-ui,sans-serif" font-size="10">${esc(shortDate(start))}</text><text x="${W-P.r}" y="${H-5}" fill="#6e6a62" font-family="Inter,system-ui,sans-serif" font-size="10" text-anchor="end">${esc(shortDate(end))}</text>`;
-  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${svg}<line class="crosshair" x1="0" x2="0" y1="${P.t}" y2="${H-P.b}" stroke="rgba(255,255,255,.2)" stroke-dasharray="2 3" style="display:none"/></svg><div class="plot-tooltip" hidden></div>`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${svg}<line class="crosshair" x1="0" x2="0" y1="${P.t}" y2="${H-P.b}" stroke="rgba(255,255,255,.2)" stroke-dasharray="2 3" style="display:none"/></svg><div class="plot-tooltip" hidden></div>`;
   box.dataset.points=String(valid.length);
   let cursor=valid.length-1;
   function show(index){cursor=Math.max(0,Math.min(valid.length-1,index));const p=valid[cursor],tip=box.querySelector('.plot-tooltip'),line=box.querySelector('.crosshair');tip.hidden=false;tip.innerHTML='<strong>'+esc(date(p.ts))+' MYT</strong>'+defs.map(d=>`<div class="tip-row"><span>${esc(d.name)}</span><span>${isHealth?number(d.get(p.row),4):money(d.get(p.row))}</span></div>`).join('');const at=x(p.ts);line.style.display='';line.setAttribute('x1',at);line.setAttribute('x2',at);const left=at/W*box.clientWidth;tip.style.left=Math.max(0,Math.min(left-65,box.clientWidth-tip.offsetWidth))+'px';tip.style.top='5px';}
@@ -254,6 +255,12 @@ setInterval(refresh,POLL);
 setInterval(()=>{if(!document.hidden)render();},30000);
 setInterval(()=>{if(!document.hidden)loadHistory();},600000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();if(Date.now()-historyReadAt>300000)loadHistory();}});
+window.addEventListener('pageshow',e=>{
+  if(!e.persisted)return;
+  resetTargets();
+  for(const m of MARKETS)finishEditing(m,'Opening defaults restored · choose Edit to change');
+  render();
+});
 let resizeTimer;
 new ResizeObserver(()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(render,100);}).observe($('markets'));
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
