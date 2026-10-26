@@ -312,7 +312,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 ### Solana
 
 - `api.mainnet-beta.solana.com` blocks browsers. `solana-rpc.publicnode.com` works in the
-  browser but has no `getProgramAccounts`.
+  browser but has no `getProgramAccounts`. It also rejects `getTokenAccountBalance`
+  with HTTP 403 unless a personal token is supplied. Keep this project key-free: the
+  Portfolio reads the wallet and USDC account together with `getMultipleAccounts`,
+  validates the SPL token program, mint and wallet, and decodes the raw six-decimal amount.
+- A temporary browser RPC failure gets a ten-second cooldown, then is retried on the
+  next refresh. Never blacklist the only working endpoint for the whole page visit.
 - So the job discovers Meteora position refs, and the browser reads them with
   `getMultipleAccounts`.
 
@@ -436,12 +441,20 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **Portfolio refresh status:** `node scripts/test-portfolio-status.mjs` exercises actual
   status, refresh failure/recovery and clock expiry with 66 assertions, including wealth
   retention and currency/vault repaints keeping a failed reading stale.
+- **Portfolio Solana reader:** `node scripts/test-portfolio-solana.mjs` runs 27 assertions
+  against the browser functions: raw balances, account identity, confirmed closed accounts,
+  malformed reads, price failures, cooldown and recovery without a page reload.
 
 ---
 
 ## 9. Release contents
 
-- **This release, fix and push requested (26 Oct 2026):** Portfolio preserves Katana LP,
+- **This release, fix and push requested (26 Oct 2026):** Replace Solana's blocked
+  indexed USDC balance request with public raw account reads and permit transient RPC
+  recovery after ten seconds; `sw.js` → `tiger-v102`. The blocked request returned HTTP
+  403; its raw-account replacement returned HTTP 200 in 523 ms with 890,880 lamports
+  and zero USDC. No API key or historical changes.
+- **Previous published release:** `acd7193`, with `tiger-v101`. Portfolio preserves Katana LP,
   wallet and vKAT values on incomplete reads; honest LIVE/STALE status and source warnings;
   `sw.js` → `tiger-v101`. Independent block 46,277,555 verified staked LP #491843 at
   $868.3962, matching the LP Book API's $868.40. No historical values are rewritten.

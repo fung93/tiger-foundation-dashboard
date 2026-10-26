@@ -982,19 +982,16 @@ var CFG={
   poolWethUsdc:'0x2A2C512beAA8eB15495726C235472D82EFFB7A6B',
   /* vbWBTC/vbUSDC 0.05% — the pool the staked position sits in prices its own BTC leg */
   poolWbtcUsdc:'0x744676b3cEd942D78f9b8E9cd22246dB5C32395c',
-  /* publicnode listed twice: it's the only browser-friendly endpoint, so a transient
-     stall gets a second chance after mainnet-beta rejects browser origins instantly */
-  solRpcs:['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'],
+  solRpcs:['https://solana-rpc.publicnode.com'],
   dlmmProgram:'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
   solMint:'So11111111111111111111111111111111111111112',
   usdcMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  /* The USDC token account, read directly. getTokenAccountsByOwner hangs indefinitely on
-     publicnode — the only Solana endpoint that serves browser origins — and used to cost
-     two 10s timeouts per load. The Action republishes this as usdc_ata every run. */
+  /* Read this account's raw SPL data with getMultipleAccounts. Publicnode now blocks
+     getTokenAccountBalance without a key; raw account reads remain public. */
   usdcAta:'ED4qHSWBm2qUauEez1DejEzShkwEKA8a66aZdtFPjMpS',
   /* Solana calls that work land in 15-470ms, so this is ~5x headroom. publicnode stalls
      intermittently; a low cap plus the dead-endpoint skip keeps that cheap. */
-  solTimeout:2500,
+  solTimeout:6000,
   /* fallback refs — the GitHub Action rediscovers these every run and stores them in data.json */
   meteoraRefs:[{position:'CLY9xG4G75MrJ2KWTUPcJeCnbvq7XWgGTsE77vrB7CJo',
     lbPair:'BGm1tav58oGcsQJehL9WXBFXF7D27vZsKefj4xJKD5Y',
@@ -1168,8 +1165,8 @@ function poolPrice(sqrtPX96,dec0,dec1){
 
 /* ============ solana helpers ============ */
 var solIdx=0;
-/* Endpoints that fail once are skipped for the rest of the page load, so a dead one is
-   paid for at most once instead of on every Solana call. */
+/* A short cooldown avoids repeated failed requests while allowing the next refresh
+   to recover. Never disable the only public endpoint for the whole page visit. */
 var SOL_DEAD={};
 function solRpc(method,params,attempt){
   attempt=attempt||0;
@@ -1178,12 +1175,12 @@ function solRpc(method,params,attempt){
     if(attempt+1>=CFG.solRpcs.length)throw e;
     return solRpc(method,params,attempt+1);
   };
-  if(SOL_DEAD[url])return Promise.resolve().then(function(){return next(new Error('skipped '+url));});
+  if(SOL_DEAD[url]>Date.now())return Promise.resolve().then(function(){return next(new Error('Solana endpoint is cooling down'));});
   return fT(url,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params})},CFG.solTimeout)
-    .then(function(r){return r.json();})
-    .then(function(j){if(j.error)throw new Error(j.error.message);return j.result;})
-    .catch(function(e){SOL_DEAD[url]=1;return next(e);});
+    .then(function(r){if(!r.ok)throw new Error('Solana HTTP '+r.status);return r.json();})
+    .then(function(j){if(j.error)throw new Error(j.error.message);if(!j.result)throw new Error('Solana response is incomplete');delete SOL_DEAD[url];return j.result;})
+    .catch(function(e){SOL_DEAD[url]=Date.now()+10000;return next(e);});
 }
 function b64bytes(b64){
   var bin=atob(b64),u=new Uint8Array(bin.length);
@@ -2082,16 +2079,28 @@ function getArcLive(snap){
   });
 }
 
+function solanaWalletAccounts(result){
+  if(!result||!Array.isArray(result.value)||result.value.length!==2)throw new Error('Solana wallet accounts are incomplete');
+  var wallet=result.value[0],account=result.value[1];
+  if(wallet&&(!Number.isSafeInteger(wallet.lamports)||wallet.lamports<0))throw new Error('Solana balance is invalid');
+  var sol=wallet?wallet.lamports/1e9:0,usdc=0;
+  if(account){
+    if(account.owner!=='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'||!Array.isArray(account.data)||account.data[1]!=='base64')throw new Error('Solana USDC account is invalid');
+    var bytes=b64bytes(account.data[0]);
+    if(bytes.length<165||b58enc(bytes.slice(0,32))!==CFG.usdcMint||b58enc(bytes.slice(32,64))!==CFG.solWallet)throw new Error('Solana USDC account identity does not match');
+    usdc=Number(dvU64(new DataView(bytes.buffer),64))/1e6;
+  }
+  return{sol:sol,usdc:usdc};
+}
 function getSolanaLive(refs,ata){
   return Promise.all([
-    solRpc('getBalance',[CFG.solWallet]),
-    solRpc('getTokenAccountBalance',[ata||CFG.usdcAta]),
+    solRpc('getMultipleAccounts',[[CFG.solWallet,ata||CFG.usdcAta],{encoding:'base64',commitment:'confirmed'}]),
     fT('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',null,CFG.solTimeout)
-      .then(function(r){return r.json();}).then(function(j){return j.solana.usd;})
+      .then(function(r){if(!r.ok)throw new Error('SOL price HTTP '+r.status);return r.json();})
+      .then(function(j){if(!j.solana||!Number.isFinite(j.solana.usd)||j.solana.usd<=0)throw new Error('SOL price unavailable');return j.solana.usd;})
   ]).then(function(rr){
-    var sol=rr[0].value/1e9;
-    var usdc=Number((rr[1]&&rr[1].value&&rr[1].value.uiAmount)||0);
-    var solPrice=rr[2];
+    var balances=solanaWalletAccounts(rr[0]),sol=balances.sol,usdc=balances.usdc;
+    var solPrice=rr[1];
     var posPs=(refs||[]).map(function(ref){return meteoraPosition(ref);});
     return Promise.all(posPs).then(function(positions){
       var lps=[];
