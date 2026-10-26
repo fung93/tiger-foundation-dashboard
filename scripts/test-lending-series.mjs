@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { validateMorphoHistory } from './morpho.mjs';
 
-const source=readFileSync(new URL('../lending.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('../lending.js',import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const match=source.match(/function lendingSeries\([\s\S]*?\n}\nfunction seriesFor/);
 assert.ok(match,'The tested series function must exist in the browser code');
 const fn=vm.runInNewContext('('+match[0].replace(/\nfunction seriesFor$/,'')+')');

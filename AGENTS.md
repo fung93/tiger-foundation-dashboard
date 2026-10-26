@@ -183,9 +183,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Katana Lending (Alex, 25 Oct 2026)
 
-- The dedicated Lending page shows the three requested markets separately: avKAT/KAT,
-  avKAT/USDC and KAT/USDC. The actual USDC loan token is vbUSDC; keep that token identity
-  visible. Portfolio still rolls the markets into its one Morpho card.
+- The Lending page shows avKAT/KAT and KAT/USDC separately. avKAT/USDC is hidden while
+  inactive and returns if a position opens again (Alex, 26 Oct 2026). A successful
+  `no_position` reading confirms no collateral, lending or borrowing; a failed read must
+  never imply inactivity. KAT/USDC remains visible with an Inactive badge when empty.
+  Keep all three markets in the reader, API and history. The actual USDC loan token is
+  vbUSDC; keep that token identity visible. Portfolio still rolls them into one Morpho card.
 - Personal maximum LTV starts at **70% for avKAT/KAT, 35% for avKAT/USDC and 35% for
   KAT/USDC on every page opening or reload** (Alex, 25 Oct 2026). Minimum health follows
   from each market's LLTV. Edits apply only for the current visit, never from a previous
@@ -195,8 +198,11 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   draft. Live polling must not overwrite unsaved inputs. Personal maximum LTV = market
   LLTV ÷ chosen minimum health. Invalid inputs keep the last saved setting.
 - Edit, Save and Cancel sit beside the My max LTV % label, with no extra button row
-  below the inputs. The figures run: collateral, My debt limit, Borrowed with interest,
-  then borrow/repay amount. Do not restore the removed introductory subtitle or the
+  below the inputs. The figures run: collateral, My debt limit, Borrowed with current
+  LTV beside its label, then borrow/repay amount. Keep interest in the debt calculation,
+  but omit "with interest" from the label. Market LLTV sits beside the collateral/borrowed
+  description under each market name (Alex, 26 Oct 2026).
+  Do not restore the removed introductory subtitle or the
   separate "Why is health 1 the liquidation boundary?" explanation (Alex, 25 Oct 2026).
 - Each market shows collateral, debt, the personal debt limit and the amount that can
   still be borrowed or must be repaid. Keep repayment needs separate from other markets'
@@ -206,8 +212,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   debt at half the liquidation boundary, not automatically
   50% of collateral. Use each market's own oracle, never avKAT redemption value for this.
 - There is no **Tiger borrowing room** heading or **3 of 3 markets shown** count.
-  Oracle collateral, Borrowed and Below your target are three separate summary cards
-  at the top, calculated from the current readings. Mobile health charts have the same
+  Oracle collateral, Borrowed and Average LTV are three separate summary cards at the top.
+  Average LTV = total debt USD ÷ total oracle collateral USD, so empty markets do not
+  dilute it. Missing readings or zero total collateral show an unavailable percentage.
+  Each market has its own 7D / 14D / All controls at the top right of its chart section,
+  controlling both its charts independently from other markets (Alex, 26 Oct 2026).
+  Mobile health charts have the same
   height as the value charts, with the SVG drawn at its measured size to avoid distortion.
   Each USDC market shows an estimated KAT
   dollar price at the liquidation boundary, using Morpho's own KAT/USD feed at the pinned
@@ -405,13 +415,19 @@ It has four views: Planner, simulated positions, My real LPs and History.
   series function: 35 assertions cover each verified opening block, shorter date windows,
   repayments, gaps and mixed archive intervals. The one-time, resumable archive recovery
   is `scripts/backfill-morpho-starts.mjs`; keep its checkpoint outside the repository.
+- **Lending market view:** `node scripts/test-lending-view.mjs` checks weighted average
+  LTV, unknown and zero values, inactive markets, reactivation and source preservation
+  against the actual browser functions; 40 assertions pass.
 - **Cross-check figures** against an independent read of the same position.
 
 ---
 
 ## 9. Release contents
 
-- **This release, requested and approved for push (25 Oct 2026):** Lending opens with
+- **This release, approved for push after local review (26 Oct 2026):** Average LTV summary, LLTV beside
+  market description, current LTV beside Borrowed, hidden inactive avKAT/USDC, explicit
+  KAT/USDC inactivity and separate chart periods per market; `sw.js` → `tiger-v100`.
+- **Previous published release:** `b998168` (25 Oct 2026). Lending opens with
   70% / 35% / 35% max LTV, edits apply for the visit, three separate summary cards,
   removed page heading/count, and undistorted mobile health charts; `sw.js` → `tiger-v99`.
 - **Previous published release:** `410a9b6`, with `tiger-v98`. Lending charts begin

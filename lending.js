@@ -10,8 +10,9 @@ const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asi
 const CACHE = 'tf_morpho_full_v1';
 const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
 const HOLD = 5*60, POLL = 15000;
-let targets = {}, records = new Map(), history = [], live = null, days = 0, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
+let targets = {}, records = new Map(), history = [], live = null, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
 const editing = new Set(), drafts = new Map();
+const periods = new Map(MARKETS.map(m=>[m.id,0]));
 // Each page opening starts from Alex's defaults; edits apply only to this visit.
 function resetTargets() {
   for (const m of MARKETS) targets[m.id] = targetMetrics({lltv:m.lltv,error:'default'},m.lltv/DEFAULT_MAX_LTV[m.key]).target_health;
@@ -29,13 +30,14 @@ function tokenAmount(value, token, direction='normal') {
 function shell(m) {
   const article = document.createElement('article');
   article.className = 'card market-card'; article.id = m.key;
-  article.innerHTML = `<div class="market-head"><div><h3 class="market-name">${esc(m.label)}</h3><div class="market-context">${esc(m.collateral_token)} collateral · ${esc(m.loan_token)} borrowed</div><div class="market-state"><span class="status-pill">Loading</span><span class="reading-time"></span></div></div>
+  article.innerHTML = `<div class="market-head"><div><h3 class="market-name">${esc(m.label)}</h3><div class="market-context">${esc(m.collateral_token)} collateral · ${esc(m.loan_token)} borrowed · <span class="market-lltv">Market LLTV ${pct(m.lltv)}</span></div><div class="market-state"><span class="status-pill">Loading</span><span class="reading-time"></span></div></div>
     <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="1.000001" max="100" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="${m.lltv}" max="${m.lltv*100-.000001}" step="any" inputmode="decimal" value="${number(m.lltv/targets[m.id]*100,4).replaceAll(',','')}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
-    <div class="market-figures"><div><div class="metric-label">Collateral · oracle</div><div class="metric-value col-value">—</div><div class="metric-sub col-sub">Reading collateral…</div></div><div><div class="metric-label">My debt limit</div><div class="metric-value limit-value">—</div><div class="metric-sub limit-sub">At my chosen health</div></div><div><div class="metric-label">Borrowed · with interest</div><div class="metric-value debt-value">—</div><div class="metric-sub debt-sub">Reading debt…</div></div><div><div class="metric-label action-label">Borrow or repay</div><div class="metric-value room-value">—</div><div class="metric-sub action-sub">Waiting for a complete reading</div></div></div>
+    <div class="market-figures"><div><div class="metric-label">Collateral · oracle</div><div class="metric-value col-value">—</div><div class="metric-sub col-sub">Reading collateral…</div></div><div><div class="metric-label">My debt limit</div><div class="metric-value limit-value">—</div><div class="metric-sub limit-sub">At my chosen health</div></div><div><div class="metric-label debt-label"><span>Borrowed</span><span class="current-ltv">LTV —</span></div><div class="metric-value debt-value">—</div><div class="metric-sub debt-sub">Reading debt…</div></div><div><div class="metric-label action-label">Borrow or repay</div><div class="metric-value room-value">—</div><div class="metric-sub action-sub">Waiting for a complete reading</div></div></div>
     <div class="liquidation-box"><div><div class="metric-label liquidation-label">KAT liquidation price</div><div class="liquidation-value">—</div><div class="liquidation-current"></div></div><div class="liquidation-explanation">Reading Morpho’s liquidation boundary…</div></div>
+    <div class="market-chart-bar"><div class="metric-label">Market history</div><div class="ranges" role="group" aria-label="${esc(m.label)} chart period"><button type="button" data-days="7" aria-pressed="false">7D</button><button type="button" data-days="14" aria-pressed="false">14D</button><button type="button" data-days="0" class="on" aria-pressed="true">All</button></div></div>
     <div class="market-graphs"><section class="plot-block"><div class="plot-heading"><span>Collateral &amp; borrowing</span><span>USD · oracle value</span></div><div class="plot value-plot" tabindex="0" role="img" aria-label="${esc(m.label)} collateral, debt and borrowing limits over time"></div><div class="plot-legend"><span><i style="border-color:#f2f0eb"></i>Collateral · oracle</span><span><i style="border-color:#96938b"></i>Borrowed</span><span><i style="border-color:#d6b97b"></i>My saved limit</span><span><i class="dash" style="border-color:#655f54"></i>Liquidation boundary · 1</span></div></section>
     <section class="plot-block"><div class="plot-heading"><span>Health</span><span class="health-now">—</span></div><div class="plot health-plot" tabindex="0" role="img" aria-label="${esc(m.label)} health over time, saved target and liquidation boundary"></div><div class="plot-legend"><span><i style="border-color:#f2f0eb"></i>Actual health</span><span><i class="dash" style="border-color:#d6b97b"></i>My saved target</span><span><i class="dash" style="border-color:#655f54"></i>Liquidation boundary · 1</span></div></section></div>
-    <div class="market-foot"><span class="lltv-note">Market LLTV ${pct(m.lltv)} · liquidation boundary at health 1</span><a href="https://app.morpho.org/katana/market/${m.id}" target="_blank" rel="noopener noreferrer">Market on Morpho ↗</a></div>`;
+    <div class="market-foot"><span class="liquidation-note">Health 1 is the liquidation boundary</span><a href="https://app.morpho.org/katana/market/${m.id}" target="_blank" rel="noopener noreferrer">Market on Morpho ↗</a></div>`;
   $('markets').append(article);
 }
 MARKETS.forEach(shell);
@@ -109,11 +111,13 @@ $('markets').addEventListener('click', e => {
   if(button.dataset.edit)editTarget(m);else if(button.dataset.save)saveTarget(m);else finishEditing(m,'Changes cancelled · saved target kept');
 });
 $('markets').addEventListener('keydown',e=>{if(!e.target.matches('input[data-target],input[data-ltv]'))return;const id=e.target.dataset.target||e.target.dataset.ltv,m=MARKETS.find(m=>m.id===id);if(e.key==='Enter'){e.preventDefault();saveTarget(m);}else if(e.key==='Escape'){e.preventDefault();finishEditing(m,'Changes cancelled · saved target kept');}});
-document.querySelectorAll('[data-days]').forEach(button => button.addEventListener('click', () => {
-  days = Number(button.dataset.days);
-  document.querySelectorAll('[data-days]').forEach(b => { b.classList.toggle('on',b===button); b.setAttribute('aria-pressed',String(b===button)); });
+$('markets').addEventListener('click',e=>{
+  const button=e.target.closest('button[data-days]');if(!button)return;
+  const card=button.closest('.market-card'),m=MARKETS.find(m=>m.key===card.id);if(!m)return;
+  periods.set(m.id,Number(button.dataset.days));
+  card.querySelectorAll('[data-days]').forEach(b=>{b.classList.toggle('on',b===button);b.setAttribute('aria-pressed',String(b===button));});
   render();
-}));
+});
 
 function adopt(sample, isLive) {
   if (!sample || !Array.isArray(sample.markets) || !Number.isFinite(sample.ts) || !Number.isFinite(sample.block)) throw new Error('Incomplete market reading');
@@ -143,33 +147,52 @@ function lendingSeries(samples,latest,id,periodDays) {
   const end=rows.at(-1).ts,from=periodDays?end-periodDays*86400:0;
   return rows.slice(firstBorrow).filter(p=>p.ts>=from).map(p=>({...p,row:p.row&&!p.row.error&&!p.row.no_position?p.row:null}));
 }
-function seriesFor(id) {return lendingSeries(history,records.get(id),id,days);}
+function seriesFor(id) {return lendingSeries(history,records.get(id),id,periods.get(id)||0);}
+
+function marketIsInactive(row) {
+  return !!row && !row.error && row.no_position===true;
+}
+function marketIsHidden(m,row) {
+  return m.key==='avkat-usdc' && marketIsInactive(row);
+}
+function lendingOverview(rows) {
+  let collateral=0,debt=0;
+  const unknown={oracle_collateral_usd:null,debt_usd:null,average_ltv:null};
+  for(const row of rows){
+    if(!row || row.error)return unknown;
+    if(marketIsInactive(row))continue;
+    if(!Number.isFinite(row.oracle_collateral_usd)||row.oracle_collateral_usd<0||!Number.isFinite(row.debt_usd)||row.debt_usd<0)return unknown;
+    collateral+=row.oracle_collateral_usd;debt+=row.debt_usd;
+  }
+  return {oracle_collateral_usd:collateral,debt_usd:debt,average_ltv:collateral>0?debt/collateral:null};
+}
 
 function render() {
-  let below=0, colTotal=0, debtTotal=0, complete=true, targetsKnown=true;
   for (const m of MARKETS) {
     const el=$(m.key), row=records.get(m.id), target=targets[m.id];
-    const find=s=>el.querySelector(s);
+    const find=s=>el.querySelector(s), inactive=marketIsInactive(row);
+    el.hidden=marketIsHidden(m,row);el.classList.toggle('inactive',inactive);el.dataset.inactive=String(inactive);
     const points=seriesFor(m.id);
-    draw(find('.value-plot'),points,target,false); draw(find('.health-plot'),points,target,true);
-    if (!row) { complete=false; targetsKnown=false; continue; }
+    if(!el.hidden){draw(find('.value-plot'),points,target,false);draw(find('.health-plot'),points,target,true);}
+    if(!row)continue;
     const metric=targetMetrics(row,target), expired=Date.now()/1000-row.ts>HOLD, stale=row.stale || expired;
     el.dataset.health=String(row.health); el.dataset.target=String(target); el.dataset.debt=String(row.debt_amount);
     el.dataset.borrow=String(metric.borrow_amount); el.dataset.repay=String(metric.repay_amount); el.dataset.block=String(row.block);
     find('.col-value').textContent=money(row.oracle_collateral_usd);
     find('.col-sub').innerHTML=esc(tokenAmount(row.collateral_amount,m.collateral_token))+`<br><small>Market value ${esc(money(row.collateral_usd))}</small>`;
     find('.debt-value').textContent=money(row.debt_usd);
+    find('.current-ltv').textContent='LTV '+(Number.isFinite(row.ltv)?pct(row.ltv):'—');
+    find('.market-lltv').textContent='Market LLTV '+pct(row.lltv);
     find('.debt-sub').textContent=tokenAmount(row.debt_amount,m.loan_token);
     find('.limit-value').textContent=money(metric.target_debt_usd);
     find('.limit-sub').innerHTML=esc(tokenAmount(metric.target_debt_amount,m.loan_token))+`<br><small>Health ${esc(number(target,4))} · LTV ${esc(pct(row.lltv/target))}</small>`;
     const currentHealth = row.debt_amount===0 ? 'No debt' : Number.isFinite(row.health) ? number(row.health,4) : 'Unavailable';
     find('.health-now').textContent=(stale?'At reading ':'Now ')+currentHealth;
     find('.reading-time').textContent=(stale?'Reading ':'')+date(row.ts)+' MYT';
-    find('.lltv-note').textContent=`Current LTV ${row.ltv===null||row.ltv===undefined?'—':pct(row.ltv)} · market LLTV ${pct(row.lltv)} · health 1 is the liquidation boundary`;
     renderLiquidation(el,row,expired,stale);
     const pill=find('.status-pill');
-    pill.className='status-pill'+(row.health!==null&&row.health<1?' liquidatable':row.health!==null&&row.health<target?' below':'');
-    pill.textContent=stale?'Stale reading':row.no_position?'No position':row.health!==null&&row.health<1?'Below liquidation boundary':metric.status==='repay'?'Below my target':row.debt_amount===0?'No debt':'Within my target';
+    pill.className='status-pill'+(inactive?' inactive':row.health!==null&&row.health<1?' liquidatable':row.health!==null&&row.health<target?' below':'');
+    pill.textContent=inactive?(stale?'Inactive · stale':'Inactive'):stale?'Stale reading':row.health!==null&&row.health<1?'Below liquidation boundary':metric.status==='repay'?'Below my target':row.debt_amount===0?'No debt':'Within my target';
     const action=find('.room-value'); action.classList.toggle('repay-value',metric.status==='repay'&&!expired);
     if (expired) {
       find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent='Reading over 5 minutes old. Waiting for refresh.';
@@ -180,11 +203,9 @@ function render() {
       find('.action-label').textContent='Still able to borrow'; action.textContent=tokenAmount(metric.borrow_amount,m.loan_token,'borrow');
       find('.action-sub').textContent=money(metric.borrow_usd)+` · keep health at least ${number(target,4)}`+(stale?' · at last reading':'')+(metric.liquidity_limited?' · capped by market liquidity':'');
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
-    if (Number.isFinite(row.oracle_collateral_usd)&&Number.isFinite(row.debt_usd)) { colTotal+=row.oracle_collateral_usd; debtTotal+=row.debt_usd; } else complete=false;
-    if (!['repay','borrow','at-target','no-position'].includes(metric.status)) targetsKnown=false;
-    if (metric.status==='repay') below++;
   }
-  $('overview').innerHTML=`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${complete?money(colTotal):'—'}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${complete?money(debtTotal):'—'}</div></div><div class="card overview-card"><div class="metric-label">Below your target</div><div class="overview-value">${targetsKnown?below:'—'}</div></div>`;
+  const overview=lendingOverview(MARKETS.map(m=>records.get(m.id)));
+  $('overview').innerHTML=`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
   const age=Date.now()/1000-lastRead, fresh=lastFull&&age<=90;
   $('stamp').className='stamp'+(fresh?'':' stale');
   $('stamp').innerHTML=`<span class="dot"></span><span class="st">${fresh?'LIVE':lastRead?'STALE':'LOADING'}</span><br>${lastRead?time(lastRead):'—'}`;
