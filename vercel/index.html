@@ -358,6 +358,8 @@ html.classy .menu a.on{border-color:rgba(214,185,123,.45);background:rgba(214,18
 .health-bar-bg{background:rgba(255,255,255,.06);border-radius:4px;height:7px;overflow:hidden}
 .health-bar-fill{height:100%;border-radius:4px;transition:width .8s}
 .health-note{font-size:11px;color:var(--dim);margin-top:5px}
+.portfolio-health{display:none;margin:0 0 18px;padding:11px 14px;border:1px solid rgba(214,185,123,.18);border-radius:9px;color:var(--dim);font-size:11px;line-height:1.7}
+.portfolio-health.on{display:block}
 
 /* Change chips */
 .chg-chips{display:flex;gap:8px;flex-wrap:wrap}
@@ -589,6 +591,7 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 </nav>
 
 <div class="wrap">
+  <div class="portfolio-health" id="portfolioHealth" role="status"></div>
 
   <!-- HERO -->
   <div class="hero">
@@ -1269,6 +1272,12 @@ function morphoMarketList(snap){
   });
   return out;
 }
+/* A failed subcall is unknown, never a zero balance or a closed LP. */
+function katanaRead(result,label,words){
+  if(!result||!result.ok||typeof result.data!=='string'||!/^0x[0-9a-f]+$/i.test(result.data)||result.data.length<2+64*words)
+    throw new Error('Katana '+label+' could not be read');
+  return result.data;
+}
 function getKatanaLive(stakedLpIds,markets){
   var W=CFG.wallet.replace(/^0x/,'');
   var T=CFG.tokens;
@@ -1296,7 +1305,7 @@ function getKatanaLive(stakedLpIds,markets){
     var ethBal=Number(BigInt(rr[0]))/1e18;
     var r=rr[1];
     var bal={};
-    TKEYS.forEach(function(k,i){bal[k]=r[i]&&r[i].ok?Number(toBig(w(r[i].data,0)))/Math.pow(10,T[k].d):0;});
+    TKEYS.forEach(function(k,i){bal[k]=Number(toBig(w(katanaRead(r[i],k+' wallet balance',1),0)))/Math.pow(10,T[k].d);});
     var avkatRate=Number(toBig(w(r[B].data,0)))/1e18;
     /* USDC is token0 in both pools → price(token1 in USDC) */
     var katPerUsdc=poolPrice(toBig(w(r[B+1].data,0)),6,18);
@@ -1322,26 +1331,27 @@ function getKatanaLive(stakedLpIds,markets){
         debt:Number((bSh*(tBA+1n)+tBS+1000000n-1n)/(tBS+1000000n))/Math.pow(10,ld),
         collateral:Number(coll)/Math.pow(10,cd)});
     });
-    var nftCount=Number(toBig(w(r[B+3].data,0)));
-    if(nftCount>200)nftCount=200;
+    var nftCount=Number(toBig(w(katanaRead(r[B+3],'LP count',1),0)));
+    if(nftCount>200)throw new Error('Katana LP count exceeds the complete scan limit');
     /* vKAT staking locks: enumerate lock NFTs, then read locked() amounts from the escrow */
-    var lockCount=Number(toBig(w(r[B+4].data,0)));
-    if(lockCount>20)lockCount=20;
+    var lockCount=Number(toBig(w(katanaRead(r[B+4],'vKAT lock count',1),0)));
+    if(lockCount>20)throw new Error('Katana lock count exceeds the complete scan limit');
     var lockP=Promise.resolve({totalKat:0,ids:[]});
     if(lockCount>0){
       var lidCalls=[];
       for(var li=0;li<lockCount;li++)
         lidCalls.push({to:CFG.vkatNft,data:'0x2f745c59'+pad(W)+pad(li.toString(16))});
       lockP=multicall(lidCalls).then(function(lr){
-        var lids=lr.filter(function(x){return x.ok;}).map(function(x){return toBig(w(x.data,0));});
+        if(lr.length!==lockCount)throw new Error('Katana vKAT enumeration is incomplete');
+        var lids=lr.map(function(x){return toBig(w(katanaRead(x,'vKAT enumeration',1),0));});
         if(!lids.length)return{totalKat:0,ids:[]};
         return multicall(lids.map(function(id){return{to:CFG.votingEscrow,data:'0xb45a3c0e'+pad(id.toString(16))};}))
           .then(function(la){
             var tot=0;
-            for(var q=0;q<la.length;q++)if(la[q].ok)tot+=Number(toBig(w(la[q].data,0)))/1e18;
+            for(var q=0;q<lids.length;q++)tot+=Number(toBig(w(katanaRead(la[q],'vKAT locked amount',1),0)))/1e18;
             return{totalKat:tot,ids:lids.map(function(x){return Number(x);})};
           });
-      }).catch(function(){return{totalKat:0,ids:[]};});
+      }).catch(function(e){return{error:e};});
     }
     /* enumerate NFTs */
     var idCalls=[];
@@ -1374,26 +1384,33 @@ function getKatanaLive(stakedLpIds,markets){
       });
       var sIds=Object.keys(seen).map(function(s){return BigInt(s);});
       if(!sIds.length)return[];
-      /* keep only what the staker still holds, so unstaked ones drop out immediately */
+      /* Read ownership before deciding anything disappeared. An unstake can happen
+         after the earlier wallet count, so retain candidates now held by the wallet too. */
       return multicall(sIds.map(function(id){return{to:CFG.npm,data:'0x6352211e'+pad(id.toString(16))};}))
         .then(function(ow){
-          return sIds.filter(function(id,i){
-            return ow[i].ok&&toAddr(w(ow[i].data,0)).toLowerCase()===CFG.lpStaker.toLowerCase();
+          return sIds.map(function(id,i){
+            return{id:id,owner:toAddr(w(katanaRead(ow[i],'LP #'+id+' owner',1),0)).toLowerCase()};
           });
         });
-    }).catch(function(){return[];});
+    });
     return Promise.all([idsP,stakedP]).then(function(pair){
-      var idRes=pair[0],stakedIds=pair[1];
-      var stakedSet={};stakedIds.forEach(function(id){stakedSet[id.toString()]=1;});
-      var owned=idRes.filter(function(x){return x.ok;}).map(function(x){return toBig(w(x.data,0));});
-      var ids=owned.concat(stakedIds);
+      var idRes=pair[0],candidates=pair[1],ownership={},stakedSet={},candidateIds=[];
+      candidates.forEach(function(p){
+        var k=p.id.toString(),staked=p.owner===CFG.lpStaker.toLowerCase();
+        ownership[k]=staked||p.owner===CFG.wallet.toLowerCase();
+        if(ownership[k])candidateIds.push(p.id);
+        if(staked)stakedSet[k]=1;
+      });
+      if(idRes.length!==nftCount)throw new Error('Katana LP enumeration is incomplete');
+      var owned=idRes.map(function(x){return toBig(w(katanaRead(x,'wallet LP enumeration',1),0));})
+        .filter(function(id){return ownership[id.toString()]!==false;});
+      var seenIds={},ids=owned.concat(candidateIds).filter(function(id){var k=id.toString();if(seenIds[k])return false;seenIds[k]=1;return true;});
       var posCalls=ids.map(function(id){return{to:CFG.npm,data:'0x99fbab88'+pad(id.toString(16))};});
       var posP=ids.length>0?multicall(posCalls):Promise.resolve([]);
       return posP.then(function(posRes){
         var active=[];
-        for(var i=0;i<posRes.length;i++){
-          if(!posRes[i].ok)continue;
-          var d=posRes[i].data;
+        for(var i=0;i<ids.length;i++){
+          var d=katanaRead(posRes[i],'LP #'+ids[i]+' position',12);
           var liq=toBig(w(d,7));
           var owed0=toBig(w(d,10)),owed1=toBig(w(d,11));
           if(liq===0n&&owed0===0n&&owed1===0n)continue;
@@ -1408,10 +1425,12 @@ function getKatanaLive(stakedLpIds,markets){
         });
         var poolsP=active.length>0?multicall(poolCalls):Promise.resolve([]);
         return poolsP.then(function(poolRes){
+          if(poolRes.length!==active.length)throw new Error('Katana LP pool lookup is incomplete');
           /* slot0, both fee accumulators and both boundary ticks — enough to count the fees
              earned since each position was last touched, not just the ones already owed */
           var slotCalls=poolRes.reduce(function(a,x,i){
-            var pl=toAddr(w(x.data,0));
+            var pl=toAddr(w(katanaRead(x,'LP #'+active[i].tokenId+' pool',1),0));
+            if(/^0x0{40}$/i.test(pl))throw new Error('Katana LP pool is unavailable');
             return a.concat([{to:pl,data:'0x3850c7bd'},{to:pl,data:'0xf3058399'},{to:pl,data:'0x46141319'},
               {to:pl,data:'0xf30dba93'+enc24(active[i].tickLo)},{to:pl,data:'0xf30dba93'+enc24(active[i].tickHi)}]);
           },[]);
@@ -1434,8 +1453,9 @@ function getKatanaLive(stakedLpIds,markets){
             UNTRACKED_LIVE=UNTRACKED_LIVE.filter(function(u){return u.chain!=='katana';});
             for(var i=0;i<active.length;i++){
               var p=active[i],si=i*5;
-              if(!slotRes[si]||!slotRes[si].ok)continue;
+              katanaRead(slotRes[si],'LP #'+p.tokenId+' pool price',2);
               var sqrtP=toBig(w(slotRes[si].data,0));
+              if(sqrtP<=0n)throw new Error('Katana LP pool price is unavailable');
               var amts=v3Amounts(p.liq,p.tickLo,p.tickHi,sqrtP);
               var t0=p.token0.toLowerCase(),t1=p.token1.toLowerCase();
               /* Out of range? Below tickLower the position is entirely token0, above
@@ -1444,7 +1464,9 @@ function getKatanaLive(stakedLpIds,markets){
                  stable means price ran up, holding the volatile means it fell. */
               var curTick=Number(toSigned(w(slotRes[si].data,1)));
               var fee0=p.owed0,fee1=p.owed1;
-              if(slotRes[si+1].ok&&slotRes[si+2].ok&&slotRes[si+3].ok&&slotRes[si+4].ok){
+              if(!p.staked){
+                katanaRead(slotRes[si+1],'LP fee growth',1);katanaRead(slotRes[si+2],'LP fee growth',1);
+                katanaRead(slotRes[si+3],'LP lower boundary fees',4);katanaRead(slotRes[si+4],'LP upper boundary fees',4);
                 fee0+=arcAccrued(p.liq,arcInside(curTick,p.tickLo,p.tickHi,toBig(w(slotRes[si+1].data,0)),
                   toBig(w(slotRes[si+3].data,2)),toBig(w(slotRes[si+4].data,2))),p.last0);
                 fee1+=arcAccrued(p.liq,arcInside(curTick,p.tickLo,p.tickHi,toBig(w(slotRes[si+2].data,0)),
@@ -1466,7 +1488,9 @@ function getKatanaLive(stakedLpIds,markets){
               var mineF=p.staked?0:1;
               var h0=amts[0]/Math.pow(10,d0)+mineF*Number(fee0)/Math.pow(10,d0);
               var h1=amts[1]/Math.pow(10,d1)+mineF*Number(fee1)/Math.pow(10,d1);
+              if((h0>0&&!(priceOf[t0]>0))||(h1>0&&!(priceOf[t1]>0)))throw new Error('Katana LP token price is unavailable');
               var val=h0*(priceOf[t0]||0)+h1*(priceOf[t1]||0);
+              if(!Number.isFinite(val))throw new Error('Katana LP value is unavailable');
               if(val<0.5)continue;
               lps.push({
                 type:'LP',protocol:'SushiSwap V3',
@@ -1489,6 +1513,7 @@ function getKatanaLive(stakedLpIds,markets){
             }).catch(function(){}):Promise.resolve();
             return Promise.all([lockP,orcP]).then(function(pr){
               var vkat=pr[0];
+              if(vkat.error)throw new Error('Katana vKAT locks could not be read');
               return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,btcPrice:btcPrice,
                 morpho:morpho,lps:lps,vkat:vkat};
             });
@@ -1674,7 +1699,7 @@ function scanRhPositions(base){
                   });
                   /* only overwrite the cache when the pass actually produced values */
                   if(base.lps.length)RH_LAST_LPS=base.lps;
-                  else base.lps=RH_LAST_LPS||[];
+                  else if(RH_LAST_LPS){base.lps=RH_LAST_LPS;base.fromSnapshot=true;}
                   return base;
                 });
             });
@@ -1682,7 +1707,7 @@ function scanRhPositions(base){
     })
     .catch(function(e){
       console.warn('robinhood LP scan failed, keeping last good positions',e);
-      base.lps=RH_LAST_LPS||[];
+      base.lps=RH_LAST_LPS||[];base.fromSnapshot=true;
       return base;
     });
 }
@@ -2049,7 +2074,7 @@ function getArcLive(snap){
       });
     }).catch(function(e){
       console.warn('arc LP scan failed, keeping last good positions',e);
-      base.lps=ARC_LAST_LPS||sa.lp_positions||[];
+      base.lps=ARC_LAST_LPS||sa.lp_positions||[];base.fromSnapshot=true;
     });
     return lpStep
       .then(function(){return arcMerkl(sa.merkl_rewards);})
@@ -2118,7 +2143,7 @@ function getMerklLive(katPrice,fallback,chainId){
       });
       return{total_usd:totalUsd,lp_usd:lpUsd,earned_by_id:byId,rewards:rewards};
     })
-    .catch(function(){return fallback||{total_usd:0,rewards:[]};});
+    .catch(function(){return Object.assign({},fallback||{total_usd:0,rewards:[]},{fromSnapshot:true});});
 }
 
 function getSushiAprs(){
@@ -2135,10 +2160,12 @@ function getSushiAprs(){
 }
 
 function loadLive(refs,snap){
+  var readWarnings=[];
   /* Arc needs nothing from the other chains, so it starts at once. Its own catch: a dead or
      rate-limited Arc RPC costs that chain only — last good pass first, snapshot after. */
   var arcP=getArcLive(snap).catch(function(e){
     console.warn('arc live failed, using last good values',e);
+    readWarnings.push('Arc could not be read; keeping its previous figures.');
     if(ARC_LAST)return ARC_LAST;
     var sa=(snap&&snap.chains&&snap.chains.arc)||{};
     return{usdc:0,tokens:[],walletUsd:sa.onchain_usd||0,lps:sa.lp_positions||[],
@@ -2147,10 +2174,12 @@ function loadLive(refs,snap){
   /* a Solana outage must not kill the whole overlay — degrade to snapshot values for that chain */
   var solP=getSolanaLive(refs,snap&&snap.usdc_ata).catch(function(e){
     console.warn('solana live failed, using snapshot values',e);
+    readWarnings.push('Solana could not be read; showing its saved figures.');
     var ss=(snap&&snap.chains&&snap.chains.solana)||{};
     return{sol:0,usdc:ss.onchain_usd||0,solPrice:0,lps:ss.lp_positions||[],fromSnapshot:true};
   });
-  var katP=discoverMorpho(snap).then(function(){return getKatanaLive((snap&&snap.staked_lp_ids)||[],morphoMarketList(snap));});
+  var katP=discoverMorpho(snap).then(function(){return getKatanaLive((snap&&snap.staked_lp_ids)||[],morphoMarketList(snap));})
+    .catch(function(e){throw new Error('Katana refresh incomplete: '+String(e&&e.message||e));});
   return Promise.all([katP,solP,getSushiAprs()]).then(function(rr){
     var kat=rr[0],sol=rr[1],aprMap=rr[2];
     var merklFallback=(snap&&snap.merkl_rewards)||null;
@@ -2160,6 +2189,8 @@ function loadLive(refs,snap){
       if(p.apr)snapAprs[p.pair+'|'+p.pool_fee]=p.apr;
     });
     return getMerklLive(kat.katPrice,merklFallback).then(function(merkl){
+      if(merkl.fromSnapshot)readWarnings.push('Katana rewards could not be refreshed; showing their saved figures.');
+      if(kat.morpho.some(function(m){return m.error;}))readWarnings.push('A Katana lending market could not be read; showing its saved figures.');
       /* attach APRs to sushi LPs when campaign matches */
       kat.lps.forEach(function(lp){
         var key=lp.pair+'|'+lp.pool_fee;
@@ -2171,6 +2202,7 @@ function loadLive(refs,snap){
          Robinhood RPC must cost this chain only, never the overlay. */
       var rhP=getRobinhoodLive(kat.ethPrice).catch(function(e){
         console.warn('robinhood live failed, using snapshot values',e);
+        readWarnings.push('Robinhood could not be read; showing its saved figures.');
         var rs=(snap&&snap.chains&&snap.chains.robinhood)||{};
         return{eth:0,tokens:rs.tokens||[],walletUsd:rs.onchain_usd||0,
                lpCount:0,lps:rs.lp_positions||[],fromSnapshot:true};
@@ -2215,11 +2247,15 @@ function loadLive(refs,snap){
       var fabP=fT('/api/fables').then(function(r){return r.json();}).catch(function(){return null;});
       return Promise.all([rhP,arcP,fabP]).then(function(pair){
       var rh=pair[0],arc=pair[1],fab=pair[2];
+      if(rh.fromSnapshot)readWarnings.push('Robinhood LPs could not be refreshed; keeping their previous figures.');
+      if(arc.fromSnapshot)readWarnings.push('Arc LPs could not be refreshed; keeping their previous figures.');
+      if(arc.merkl&&arc.merkl.fromSnapshot)readWarnings.push('Arc rewards could not be refreshed; showing their saved figures.');
       var mineW=CFG.wallet.toLowerCase(),fabL,fabK;
       if(fab&&fab.lps){
         fabL=fab.lps.filter(function(l){return l.wallet===mineW;});
         fabK=(fab.locks||[]).filter(function(l){return l.wallet===mineW;});
       }else{
+        readWarnings.push('Fables could not be read; showing its saved figures.');
         var rs0=(snap&&snap.chains&&snap.chains.robinhood)||{};
         fabL=(rs0.lp_positions||[]).filter(function(l){return l.protocol==='Fables';});
         fabK=(rs0.defi_positions||[]).filter(function(p){return p.protocol==='Fables veFABLES';});
@@ -2280,6 +2316,7 @@ function loadLive(refs,snap){
         lp_positions:kat.lps.concat(sol.lps).concat(rh.lps).concat(arc.lps),
         total_usd:grand
       };
+      d.live_health={read_at:d.last_updated,warnings:readWarnings};
       return d;
       });
     });
@@ -2289,12 +2326,37 @@ function loadLive(refs,snap){
 /* ============ rendering ============ */
 var liveRendered=false,LAST_DATA=null;
 
-/* The clock under the LIVE badge runs rather than showing the moment of the last fetch.
-   With the overlay re-reading the chain every REFRESH_MS the two are never far apart, and
-   a frozen readout beside a green "LIVE" dot looks like something has died. */
+/* Freshness belongs to the reading, including across currency and vault repaints. */
+function portfolioReadState(d,isLive,now){
+  var health=d&&d.live_health||{},ts=Date.parse(health.read_at||d&&d.last_updated||'');
+  if(!Number.isFinite(ts))ts=0;
+  var warnings=Array.isArray(health.warnings)?health.warnings.slice():[];
+  var age=(now===undefined?Date.now():now)-ts;
+  return {live:!!isLive&&ts>0&&age>=0&&age<=90000&&warnings.length===0,ts:ts,warnings:warnings};
+}
+function renderPortfolioStatus(d,isLive){
+  var state=portfolioReadState(d,isLive),warnings=state.warnings.slice();
+  LIVE_ON=state.live;
+  if(isLive&&!state.live&&!warnings.length)warnings.push('The last reading is over 90 seconds old. Waiting for a complete refresh.');
+  var header=document.getElementById('lastUpdated'),note=document.getElementById('portfolioHealth');
+  if(header){
+    var at=state.ts?new Date(state.ts).toLocaleTimeString('en-GB',{hour12:false,timeZone:'Asia/Kuala_Lumpur'}):'—';
+    header.innerHTML=state.live?'<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br><span id="liveClock">'+clockNow()+'</span>'
+      :(warnings.length?'STALE':'SNAPSHOT')+'<br>'+at+' MYT';
+  }
+  if(note){note.textContent=warnings.join(' ');note.classList.toggle('on',warnings.length>0);}
+}
+function markPortfolioStale(message){
+  var d=LAST_DATA||{},health=d.live_health||{},warnings=Array.isArray(health.warnings)?health.warnings.slice():[];
+  if(warnings.indexOf(message)<0)warnings.push(message);
+  d.live_health={read_at:health.read_at||d.last_updated,warnings:warnings};
+  renderPortfolioStatus(d,liveRendered);
+}
+
 var LIVE_ON=false;
 function clockNow(){return new Date().toTimeString().slice(0,8);}
 setInterval(function(){
+  if(LAST_DATA&&LIVE_ON&&!portfolioReadState(LAST_DATA,liveRendered).live){renderPortfolioStatus(LAST_DATA,liveRendered);return;}
   if(!LIVE_ON)return;
   var el=document.getElementById('liveClock');
   if(el)el.textContent=clockNow();
@@ -4083,16 +4145,7 @@ function render(d,isLive){
   document.getElementById('merklSub').innerHTML=mbits.length
     ? '<span style="color:var(--green)">&#9679;</span> '+mbits.join(' &nbsp;&#183;&nbsp; ')
     : 'Nothing to claim';
-  var lu=document.getElementById('lastUpdated');
-  if(isLive){
-    LIVE_ON=true;
-    lu.innerHTML='<span class="live-dot"></span><span style="color:var(--green)">LIVE</span><br>'
-      +'<span id="liveClock">'+clockNow()+'</span>';
-  }else if(d.last_updated){
-    /* two lines, like LIVE: the date only when the snapshot is not from today */
-    var lu8=d.last_updated,today8=new Date().toISOString().slice(0,10)===lu8.slice(0,10);
-    lu.innerHTML='SNAPSHOT<br>'+(today8?'':lu8.slice(5,10)+' ')+lu8.slice(11,16)+' UTC';
-  }
+  renderPortfolioStatus(d,isLive);
 
   if(d.tracking){
     var t=d.tracking;
@@ -4739,6 +4792,7 @@ function refreshLive(){
   }).catch(function(e){
     /* a failed pass leaves the last good values on screen and waits for the next one */
     console.warn('live refresh failed, keeping the last good values',e);
+    markPortfolioStale(String(e&&e.message||'Portfolio reading unavailable')+'. Keeping the previous figures.');
   }).then(function(){REFRESHING=false;});
 }
 
@@ -4758,6 +4812,7 @@ document.addEventListener('visibilitychange',function(){
 
 /* ============ boot ============ */
 function load(){
+  REFRESHING=true; /* returning to this tab must not overlap its first live pass */
   /* Currency first, and off to one side: the page renders in whatever was last chosen using
      the cached rate, and refreshes the rate in the background. A failed fetch costs nothing
      — the cached rate stands, and only a first-ever run without one falls back to USD. */
@@ -4787,7 +4842,7 @@ function load(){
     .then(function(snap){
       LAST_SNAP=snap;                              /* refreshLive reads its refs from here */
       var refs=(snap&&snap.meteora_refs)||CFG.meteoraRefs;
-      return loadLive(refs,snap).then(function(d){
+      return posReady.then(function(){return loadLive(refs,snap);}).then(function(d){
         render(d,true);
         /* claims need the live KAT price, so this one does wait — and must never take
            the overlay down if it fails */
@@ -4797,10 +4852,10 @@ function load(){
           .catch(function(e){console.warn('live claim scan failed, using claims.json',e);});
       });
     })
-    .catch(function(e){console.warn('live fetch failed, showing snapshot',e);})
+    .catch(function(e){console.warn('live fetch failed, showing snapshot',e);markPortfolioStale(String(e&&e.message||'Portfolio reading unavailable')+'. Keeping the saved figures.');})
     /* start the timer once the first pass is done either way, so a slow or failed boot
        can't leave two overlays reading the chain at the same time */
-    .then(startAutoRefresh);
+    .then(function(){REFRESHING=false;startAutoRefresh();});
 
   /* KAT claim record */
   fetch('/claims.json?t='+Date.now()).then(function(r){return r.json();})

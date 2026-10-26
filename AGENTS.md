@@ -170,6 +170,17 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Refresh and resilience
 
+- Portfolio Katana reads must finish every required LP ownership, enumeration, position,
+  pool and price read before replacing the displayed total. A failed subcall never proves
+  an LP closed or a balance zero. Keep the previous figures, show STALE with the original
+  reading time and a quiet warning; a complete recovery can restore LIVE. Verified empty
+  positions and successful ownership transfers still remove closed or transferred LPs.
+  Count a position once if wallet enumeration and staked discovery overlap. Wait for the
+  saved position ledger before the first live read so it can supply staked candidates.
+- Portfolio source fallbacks are labelled STALE, including when currency or vault updates
+  repaint the retained data. LIVE expires after 90 seconds without a complete fresh read;
+  its running clock must not hide a failed or stalled refresh. Retain vKAT and wallet
+  values on read failure too. Staked Katana trading fees remain excluded from his wealth.
 - The LP Book, widget and vault refresh every 15 s.
 - If a chain cannot be read on a refresh (usually a Robinhood rate limit), the LP Book
   and widget keep the currently displayed reading only if it is full and less than
@@ -419,12 +430,22 @@ It has four views: Planner, simulated positions, My real LPs and History.
   LTV, unknown and zero values, inactive markets, reactivation and source preservation
   against the actual browser functions; 40 assertions pass.
 - **Cross-check figures** against an independent read of the same position.
+- **Portfolio Katana reader:** `node scripts/test-portfolio-katana.mjs` exercises the actual
+  browser reader with 42 assertions covering required read failures, closures, transfers,
+  discovery fallback, duplicate candidates and recovery.
+- **Portfolio refresh status:** `node scripts/test-portfolio-status.mjs` exercises actual
+  status, refresh failure/recovery and clock expiry with 66 assertions, including wealth
+  retention and currency/vault repaints keeping a failed reading stale.
 
 ---
 
 ## 9. Release contents
 
-- **This release, approved for push after local review (26 Oct 2026):** Average LTV summary, LLTV beside
+- **This release, fix and push requested (26 Oct 2026):** Portfolio preserves Katana LP,
+  wallet and vKAT values on incomplete reads; honest LIVE/STALE status and source warnings;
+  `sw.js` → `tiger-v101`. Independent block 46,277,555 verified staked LP #491843 at
+  $868.3962, matching the LP Book API's $868.40. No historical values are rewritten.
+- **Previous published release:** `2f7cd1c`, with `tiger-v100`. Average LTV summary, LLTV beside
   market description, current LTV beside Borrowed, hidden inactive avKAT/USDC, explicit
   KAT/USDC inactivity and separate chart periods per market; `sw.js` → `tiger-v100`.
 - **Previous published release:** `b998168` (25 Oct 2026). Lending opens with
