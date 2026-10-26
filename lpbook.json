@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46238426,
-  "robinhood": 98066136
+  "katana": 46272776,
+  "robinhood": 98391833
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -313,11 +313,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1792981237,
-    "block": 98066136,
+    "ts": 1793015589,
+    "block": 98391833,
     "in": true,
-    "in_s": 833898,
-    "all_s": 833898
+    "in_s": 868250,
+    "all_s": 868250
    },
    "claims": [
     {
@@ -794,8 +794,8 @@
    "stable0": false,
    "stable1": true,
    "pair": "vbWBTC / vbUSDC",
-   "liq": "3147218612",
-   "status": "open",
+   "liq": "0",
+   "status": "closed",
    "at_start": false,
    "opened_ts": 1792818105,
    "opened_block": 46075294,
@@ -809,8 +809,16 @@
      "usd": 849.4
     }
    ],
-   "out_usd": 0,
-   "withdrawals": [],
+   "out_usd": 834.76,
+   "withdrawals": [
+    {
+     "block": 46243366,
+     "ts": 1792986177,
+     "a0": 0.01050936,
+     "a1": 0,
+     "usd": 834.76
+    }
+   ],
    "owed": {
     "r0": "0",
     "r1": "0"
@@ -823,14 +831,14 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1792981237,
-    "block": 46238426,
+    "ts": 1792986177,
+    "block": 46243366,
     "in": false,
     "in_s": 124363,
-    "all_s": 163132
+    "all_s": 168072
    },
    "claimed_seen": {
-    "KAT@katana": 3100.8061835353747
+    "KAT@katana": 3221.1087814500706
    },
    "claims": [
     {
@@ -848,15 +856,118 @@
      "ts": 1792979488,
      "block": 46236677,
      "tokens": {
-      "KAT@katana": 992.1622724083013
+      "KAT@katana": 993.3596936114122
      },
      "prices": {
       "KAT@katana": 0.003910187617217022
      },
      "usd": 3.88
+    },
+    {
+     "ts": 1792987025,
+     "block": 46244214,
+     "tokens": {
+      "KAT@katana": 119.10517671158505
+     },
+     "prices": {
+      "KAT@katana": 0.00394674102651463
+     },
+     "usd": 0.47
     }
    ],
-   "last_claim_ts": 1792979488
+   "last_claim_ts": 1792987025,
+   "close_sp": 28.183339407285334,
+   "closed_ts": 1792986177,
+   "closed_block": 46243366,
+   "frozen": {
+    "at_ts": 1792986177,
+    "at_block": 46243366,
+    "cost_usd": 849.4,
+    "principal_usd": 834.76,
+    "pnl_usd": -14.64,
+    "fee_tokens": {
+     "KAT@katana": 3221.1087814500706
+    },
+    "fee_usd": 12.69,
+    "net_usd": -1.95,
+    "net_pct": -0.23,
+    "prices": {
+     "vbWBTC@katana": 79430.06201462426,
+     "vbUSDC@katana": 1,
+     "KAT@katana": 0.003938519780915263
+    }
+   }
+  },
+  "katana:491843": {
+   "key": "katana:491843",
+   "chain": "katana",
+   "id": "491843",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+   "lo": 66590,
+   "hi": 66890,
+   "fee": 500,
+   "t0": "vbWBTC@katana",
+   "t1": "vbUSDC@katana",
+   "s0": "vbWBTC",
+   "s1": "vbUSDC",
+   "d0": 8,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "vbWBTC / vbUSDC",
+   "liq": "2058824550",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1792987292,
+   "opened_block": 46244481,
+   "cost_usd": 866.69,
+   "deposits": [
+    {
+     "block": 46244481,
+     "ts": 1792987292,
+     "a0": 0.00426955,
+     "a1": 527.735163,
+     "usd": 866.69
+    }
+   ],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {
+    "KAT@katana": 520.1520422337769
+   },
+   "unpriced": false,
+   "range": {
+    "ts": 1793015587,
+    "block": 46272776,
+    "in": true,
+    "in_s": 27664,
+    "all_s": 28295
+   },
+   "claimed_seen": {
+    "KAT@katana": 250.45996335358726
+   },
+   "claims": [
+    {
+     "ts": 1793009136,
+     "block": 46266325,
+     "tokens": {
+      "KAT@katana": 250.45996335358726
+     },
+     "prices": {
+      "KAT@katana": 0.004503696435050394
+     },
+     "usd": 1.13
+    }
+   ],
+   "last_claim_ts": 1793009136
   }
  },
  "events": [
@@ -939,6 +1050,22 @@
    "id": "Ff346f1a5-b378",
    "block": 96735336,
    "ts": 1792841903
+  },
+  {
+   "t": "open",
+   "chain": "katana",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "491843",
+   "block": 46244481,
+   "ts": 1792987292
+  },
+  {
+   "t": "close",
+   "chain": "katana",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "491468",
+   "block": 46243366,
+   "ts": 1792986177
   }
  ],
  "fee_series": [
@@ -1662,6 +1789,29 @@
     "robinhood:1458357": -73.84,
     "katana:491468": -12.68
    }
+  },
+  {
+   "ts": 1793015587,
+   "tokens": {
+    "WETH@robinhood": 0.00353145,
+    "USDG@robinhood": 8.664902,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 12793.33027732
+   },
+   "pnl_usd": -101.91,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00353145,
+     "USDG@robinhood": 8.279758
+    },
+    "katana:491843": {
+     "KAT@katana": 520.15204223
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -58.9,
+    "katana:491843": 1.94
+   }
   }
  ],
  "runs": [
@@ -1805,13 +1955,20 @@
     "katana": 0,
     "robinhood": 0
    }
+  },
+  {
+   "ts": 1793015587,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
   }
  ],
  "carried": {
   "by_id": {}
  },
  "merkl_claimed": {
-  "KAT@katana": 12421.85053675132
+  "KAT@katana": 12793.330277323867
  },
  "claims": [
   {
@@ -1902,7 +2059,25 @@
    "token": "KAT@katana",
    "amount": 993.3596936114122,
    "price": 0.003910187617217022,
-   "assigned": 992.1622724083013
+   "assigned": 993.3596936114122
+  },
+  {
+   "block": 46244214,
+   "ts": 1792987025,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 120.5427145208267,
+   "price": 0.00394674102651463,
+   "assigned": 119.10517671158505
+  },
+  {
+   "block": 46266325,
+   "ts": 1793009136,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 250.93702605171882,
+   "price": 0.004503696435050394,
+   "assigned": 250.45996335358726
   }
  ]
 }
