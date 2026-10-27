@@ -1,7 +1,7 @@
 {
   "tz": "UTC+8",
   "start_date": "2026-08-01",
-  "last_block": 46356981,
+  "last_block": 46377724,
   "days": {
     "2026-08-01": {
       "kat": 3393.61,
@@ -283,6 +283,14 @@
       "tokens": {
         "KAT": 1081.72
       }
+    },
+    "2026-10-28": {
+      "kat": 997.99,
+      "kat_price": 0.00422869592003574,
+      "value_usd": 4.22,
+      "tokens": {
+        "KAT": 997.99
+      }
     }
   },
   "lp_fees": {
@@ -400,7 +408,7 @@
     },
     "state": {
       "robinhood": {
-        "last_block": 99201559,
+        "last_block": 99402211,
         "owed": {},
         "meta": {
           "1099863": {
@@ -452,7 +460,7 @@
         ]
       },
       "katana": {
-        "last_block": 46356989,
+        "last_block": 46377732,
         "owed": {},
         "meta": {
           "422530": {
@@ -851,7 +859,7 @@
         ]
       },
       "arc": {
-        "last_block": 28126807,
+        "last_block": 28167724,
         "ids": [],
         "owed": {},
         "meta": {}
