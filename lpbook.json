@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46377736,
-  "robinhood": 99402291
+  "katana": 46394207,
+  "robinhood": 99559952
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -313,11 +313,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1793120549,
-    "block": 99402291,
+    "ts": 1793137017,
+    "block": 99559952,
     "in": true,
-    "in_s": 973210,
-    "all_s": 973210
+    "in_s": 989678,
+    "all_s": 989678
    },
    "claims": [
     {
@@ -954,15 +954,15 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 2541.5470515339243
+    "KAT@katana": 2699.539027541401
    },
    "unpriced": false,
    "range": {
-    "ts": 1793120547,
-    "block": 46377736,
-    "in": true,
-    "in_s": 131084,
-    "all_s": 133255
+    "ts": 1793137018,
+    "block": 46394207,
+    "in": false,
+    "in_s": 138070,
+    "all_s": 149726
    },
    "claimed_seen": {
     "KAT@katana": 2330.1708159135223
@@ -1962,6 +1962,29 @@
     "robinhood:1458357": -50.79,
     "katana:491843": 1.98
    }
+  },
+  {
+   "ts": 1793137017,
+   "tokens": {
+    "WETH@robinhood": 0.00407711,
+    "USDG@robinhood": 9.962744,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 14873.04112988
+   },
+   "pnl_usd": -87.35,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00407711,
+     "USDG@robinhood": 9.5776
+    },
+    "katana:491843": {
+     "KAT@katana": 2699.53902754
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -44.39,
+    "katana:491843": 1.99
+   }
   }
  ],
  "runs": [
@@ -2143,6 +2166,13 @@
   },
   {
    "ts": 1793120547,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1793137017,
    "behind": {
     "katana": 0,
     "robinhood": 0
