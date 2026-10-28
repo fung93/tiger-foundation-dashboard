@@ -1644,7 +1644,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const aChains = {};
   const aTouch = (c) => aChains[c] || (aChains[c] = { realised_usd: 0, fees_usd: 0, net_usd: 0, closed: 0 });
   V3.forEach((c) => aTouch(c.key));
-  const history = [], fixedClaims = [];
+  const history = [], fixedEvents = [];
   let realised = 0, feesFixed = 0, capDays = 0, first = Infinity, last = 0, incomplete = false;
   /* how long positions stay open, and how much of that time they spend in range: the in-range
      share is weighted by time, so a long position counts for more than a short one */
@@ -1655,11 +1655,12 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     C.closed++;
     const f = P.frozen || {};
     const pnl = typeof f.pnl_usd === 'number' ? f.pnl_usd : r2(P.out_usd - P.cost_usd);
+    if (P.closed_ts) fixedEvents.push({ ts: P.closed_ts, position: P, pnl });
     let fees = 0, feeInc = false;
     const ftok = {};
     for (const c of P.claims || []) {
       sumInto(ftok, c.tokens);
-      if (c.usd === null || c.usd === undefined) feeInc = true; else { fees += c.usd; fixedClaims.push({ ts: c.ts, usd: c.usd }); }
+      if (c.usd === null || c.usd === undefined) feeInc = true; else { fees += c.usd; fixedEvents.push({ ts: c.ts, position: P, fees: c.usd }); }
     }
     fees = r2(fees);
     const days = P.opened_ts && P.closed_ts ? Math.max(0, (P.closed_ts - P.opened_ts) / 86400) : 0;
@@ -1688,11 +1689,24 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   for (const c of Object.values(aChains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
   history.sort((x, y) => String(y.closed).localeCompare(String(x.closed)));
   const spanDays = last > first ? (last - first) / 86400 : 0;
-  fixedClaims.sort((x, y) => x.ts - y.ts);
-  let run = 0;
-  const aSeries = closed.length ? [{ ts: first, usd: 0 }] : [];
-  for (const c of fixedClaims) { aSeries.push({ ts: c.ts - 1, usd: r2(run) }); run += c.usd; aSeries.push({ ts: c.ts, usd: r2(run) }); }
-  if (closed.length) aSeries.push({ ts: nowTs, usd: r2(run) });
+  /* Closed-position fees stay at each claim's saved price/date; realised PnL enters only
+     at the actual close. Group simultaneous events so the step curve cannot go backwards
+     when multiple positions claim together, and keep a boundary just before each change. */
+  fixedEvents.sort((x, y) => x.ts - y.ts);
+  const aTimes = new Set(closed.length ? [first, nowTs] : []);
+  for (const e of fixedEvents) { if (e.ts > first) aTimes.add(e.ts - 1); aTimes.add(e.ts); }
+  const fixedBalances = new Map(closed.map((P) => [P, { fees: 0, pnl: 0 }]));
+  let eventAt = 0;
+  const aSeries = [...aTimes].sort((x, y) => x - y).map((ts) => {
+    while (eventAt < fixedEvents.length && fixedEvents[eventAt].ts <= ts) {
+      const e = fixedEvents[eventAt++], balance = fixedBalances.get(e.position);
+      balance.fees += e.fees || 0; balance.pnl += e.pnl || 0;
+    }
+    let fees = 0, pnl = 0;
+    // Match the cards' per-position fee rounding, rather than rounding each claim.
+    for (const balance of fixedBalances.values()) { fees += r2(balance.fees); pnl += balance.pnl; }
+    return { ts, usd: r2(fees), net: r2(fees + pnl) };
+  });
   const pairs = rebalances(book.events);
 
   return {

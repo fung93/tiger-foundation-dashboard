@@ -57,7 +57,7 @@
         + 'width:7px;height:7px;border-radius:50%;background:' + (netLast >= 0 ? 'var(--up)' : 'var(--down)') + '"></div>'
         + '<div class="now2 ' + cls(netLast) + '">Net ' + esc(signed(netLast)) + '</div>'
       : '';
-    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-label="Cumulative fees">'
+    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-label="' + (opts.net ? 'Cumulative fees and net PnL' : 'Cumulative fees') + '">'
       + '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold)" stop-opacity=".22"/>'
       + '<stop offset="1" stop-color="var(--gold)" stop-opacity="0"/></linearGradient></defs>'
       + rules

@@ -66,7 +66,9 @@
 
 <div class="main">
   <div class="card">
-    <div class="label">Fees earned, all-time &middot; each claim at its own day's price</div>
+    <div class="label">Fees earned &amp; net PnL &middot; all-time</div>
+    <div class="note">Fees at each claim's price &middot; PnL fixed at each close</div>
+    <div class="legend"><span><i style="background:var(--gold)"></i>Fees earned</span><span><i style="background:var(--text)"></i>Net PnL</span></div>
     <div class="chart" id="a7"></div>
     <div class="axis" id="a7x"></div>
   </div>
@@ -124,7 +126,7 @@
         + '<div class="split">' + c.closed + ' closed · net ' + esc(signed(c.net_usd)) + '</div></div>';
     }).join('') || '<div class="empty">No position has closed since tracking began.</div>';
 
-    B.chart($('a7'), $('a7x'), A.series, { empty: 'No fees from closed positions yet.' });
+    B.chart($('a7'), $('a7x'), A.series, { net: true, empty: 'No closed positions yet.' });
 
     $('a8l').textContent = 'History · ' + C.closed + ' closed · ' + C.rebalances + ' rebalance' + (C.rebalances === 1 ? '' : 's');
     var r = A.rebalances[0];
