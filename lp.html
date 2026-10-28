@@ -61,6 +61,7 @@
 </div>
 
 <div class="main">
+  <div class="card" id="liveComparison"></div>
   <div class="card">
     <div class="label">Fees claimed &amp; net &middot; open positions</div>
     <div class="legend"><span><i style="background:var(--gold)"></i>Fees claimed</span><span><i style="background:var(--text)"></i>Net &middot; fees + PnL</span></div>
@@ -136,6 +137,7 @@
     }).join('') || '<div class="empty">Nothing open on any chain.</div>';
 
     B.chart($('c7'), $('c7x'), v.series, { net: true, empty: 'Nothing open yet.' });
+    $('liveComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, key: 'summary:open', title: 'LP vs holding · open positions' });
     $('c6').innerHTML = LPCards.list(v.live);
   }
 

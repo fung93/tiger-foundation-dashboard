@@ -59,12 +59,13 @@
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="a4">&ndash;</div><div class="note" id="a4n">&nbsp;</div></div>
 </div>
 <div class="stats s3">
-  <div class="card"><div class="label">APR &middot; time-weighted</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div><div class="note" id="a5n">&nbsp;</div></div>
+  <div class="card"><div class="label">Fee APR &middot; closed lifetimes</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div><div class="note" id="a5n">&nbsp;</div></div>
   <div class="card"><div class="label">Average days open</div><div class="big" id="a9">&ndash;</div><div class="note" id="a9n">&nbsp;</div></div>
   <div class="card"><div class="label">Average time in range</div><div class="big" id="a10">&ndash;</div><div class="note" id="a10n">&nbsp;</div></div>
 </div>
 
 <div class="main">
+  <div class="card" id="closedComparison"></div>
   <div class="card">
     <div class="label">Fees earned &amp; net PnL &middot; all-time</div>
     <div class="note">Fees at each claim's price &middot; PnL fixed at each close</div>
@@ -108,8 +109,12 @@
     $('a4').textContent = signed(C.net_usd);
     $('a4').className = 'big ' + cls(C.net_usd);
     $('a4n').textContent = 'fees ' + money(C.fees_usd) + ' · PnL ' + signed(C.realised_usd);
-    $('a5').textContent = C.apr_pct == null ? '–' : (C.apr_pct >= 100 ? Math.round(C.apr_pct).toLocaleString('en-US') : C.apr_pct.toFixed(1)) + '%';
-    $('a5n').textContent = 'fees ÷ (value × days open) × 365' + (C.incomplete ? ' · some prices missing' : '');
+    var apr = C.apr_detail, rate = apr && (!apr.available || !apr.complete) ? null : C.apr_pct;
+    $('a5').textContent = rate == null ? '–' : (rate >= 100 ? Math.round(rate).toLocaleString('en-US') : rate.toFixed(1)) + '%';
+    var periodDate = function (ts) { return new Date(ts * 1000).toLocaleDateString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'short', year: 'numeric' }); };
+    $('a5n').textContent = apr && apr.available && apr.complete
+      ? money(apr.earned_usd) + ' earned · ' + periodDate(apr.start_ts) + '–' + periodDate(apr.end_ts) + ' MYT. Annualised across each position’s days open.'
+      : apr ? apr.reason : 'Full closed-position lifetimes · period details unavailable for this saved reading.';
     $('a9').textContent = C.avg_days == null ? '–' : C.avg_days.toFixed(1) + ' days';
     $('a9n').textContent = C.avg_days == null ? 'per closed position'
       : 'shortest ' + C.min_days.toFixed(1) + ' · longest ' + C.max_days.toFixed(1) + ' days';
@@ -127,6 +132,7 @@
     }).join('') || '<div class="empty">No position has closed since tracking began.</div>';
 
     B.chart($('a7'), $('a7x'), A.series, { net: true, empty: 'No closed positions yet.' });
+    $('closedComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, closed: true, key: 'summary:closed', title: 'LP vs holding · closed positions' });
 
     $('a8l').textContent = 'History · ' + C.closed + ' closed · ' + C.rebalances + ' rebalance' + (C.rebalances === 1 ? '' : 's');
     var r = A.rebalances[0];
@@ -134,6 +140,7 @@
       + (r.closed_chain !== r.opened_chain ? ' (' + r.closed_chain + ' → ' + r.opened_chain + ')' : '')
       + ' · ' + day(new Date(r.ts * 1000).toISOString()) : '';
     $('a8').innerHTML = A.history.length ? A.history.map(function (h) {
+      var detailKey = h.chain + ':' + h.id;
       var fees = Object.keys(h.fee_tokens || {}).map(function (k) { return amt(h.fee_tokens[k]) + ' ' + k; }).join(' + ');
       var out = Object.keys(h.out_tokens || {}).filter(function (k) { return h.out_tokens[k] > 0; })
         .map(function (k) { return amt(h.out_tokens[k]) + ' ' + k; }).join(' + ');
@@ -144,6 +151,9 @@
         + '<div class="l3"><span>cost ' + esc(money(h.cost_usd)) + ' → out ' + esc(money(h.principal_usd))
         + (out ? ' <span style="color:var(--faint)">' + esc(out) + '</span>' : '') + '</span><span>IL + price ' + esc(signed(h.pnl_usd)) + '</span></div>'
         + '<div class="l3"><span>fees ' + esc(money(h.fee_usd)) + (fees ? ' <span style="color:var(--faint)">' + esc(fees) + '</span>' : '') + '</span></div>'
+        + '<details class="history-comparison" data-lp-detail="' + esc(detailKey + ':history') + '"' + (LPCards.detailsOpen(detailKey + ':history') ? ' open' : '') + '><summary>LP vs holding'
+        + (h.comparison && h.comparison.available && h.comparison.complete && Number.isFinite(h.comparison.difference_usd) ? '<span class="' + cls(h.comparison.difference_usd) + '">' + esc(signed(h.comparison.difference_usd)) + '</span>' : '')
+        + '</summary>' + LPCards.comparison(h.comparison, { closed: true, key: detailKey + ':comparison' }) + '</details>'
         + (h.incomplete ? '<div class="l3" style="color:var(--warn)">a price could not be read; this row is partial</div>' : '')
         + '</div>';
     }).join('') : '<div class="empty">A position appears here, fixed, when it closes.</div>';

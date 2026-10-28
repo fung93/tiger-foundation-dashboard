@@ -1407,26 +1407,173 @@ export function positionFees(book, rows) {
   return out;
 }
 
-/* What a position earns on the capital it holds, annualised simply (not compounded).
-   Live means the last day: measured from the oldest saved reading between 3 and 26 hours
-   old, so it follows the range — out of range a position earns nothing and the rate falls
-   with it. Both readings are priced at today's prices, so only earning moves it, not the
-   token price. Until a day of readings exists, it is the rate since the position opened. */
-function positionApr(book, P, tokensNow, usdOf) {
-  const now = Date.now() / 1000;
-  if (!(P.cost_usd > 0) || !P.opened_ts) return null;
-  const earnedNow = usdOf(tokensNow).usd;
-  const base = (book.fee_series || [])
-    .filter((p) => p.pos && p.pos[P.key] && now - p.ts >= 3 * 3600 && now - p.ts <= 26 * 3600)
-    .sort((x, y) => x.ts - y.ts)[0];
-  if (base) {
-    const days = (now - base.ts) / 86400;
-    const gained = Math.max(0, earnedNow - usdOf(base.pos[P.key]).usd);
-    return { pct: gained / P.cost_usd / days * 36500, basis: 'last ' + Math.round(days * 24) + 'h' };
+const validTokenAmounts = (tokens) => tokens && typeof tokens === 'object' && !Array.isArray(tokens)
+  && Object.values(tokens).every((a) => Number.isFinite(a) && a >= 0);
+const comparisonAmounts = ['cost_usd', 'principal_usd', 'hold_usd', 'market_usd', 'il_usd', 'earned_usd', 'lp_outcome_usd', 'difference_usd'];
+function comparisonDollars(cost, principal, held, earned) {
+  // Derive every displayed difference from the displayed cents, so the figures reconcile.
+  const c = r2(cost), p = r2(principal), h = r2(held), e = r2(earned), outcome = r2(p + e);
+  return { cost_usd: c, principal_usd: p, hold_usd: h, earned_usd: e,
+    market_usd: r2(h - c), il_usd: r2(p - h), lp_outcome_usd: outcome, difference_usd: r2(outcome - h) };
+}
+const unavailableComparison = (reason) => ({ available: false, complete: false, reason,
+  basis: null, start_ts: null, end_ts: null, deposit_count: null,
+  ...Object.fromEntries(comparisonAmounts.map((k) => [k, null])) });
+const unavailableApr = (reason) => ({ available: false, complete: false, reason,
+  basis: null, start_ts: null, end_ts: null, elapsed_hours: null, period_label: null,
+  earned_usd: null, capital_usd: null, pct: null });
+
+/* These display-only metrics need complete cashflows. A photographed starting balance is
+   not an original deposit, and partial withdrawals need a cashflow-matched benchmark. */
+function positionCashflows(P) {
+  if (!['open', 'closed'].includes(P.status) || P.transferred || P.transferred_in || P.transferred_out)
+    return { reason: 'A transferred position needs a complete ownership and deposit history.' };
+  if (P.at_start || P.unpriced || P.incomplete || P.tracking_incomplete)
+    return { reason: 'The position does not have complete, priced tracking from its original deposits.' };
+  if (Object.values(P.start_merkl || {}).some((a) => a > 0) || Object.values(P.start_uncollected || {}).some((a) => a > 0))
+    return { reason: 'Earnings tracking began after the original deposit; a full-lifetime comparison is unavailable.' };
+  if (!Number.isFinite(P.opened_ts) || P.opened_ts <= 0 || !Number.isFinite(P.cost_usd) || P.cost_usd <= 0)
+    return { reason: 'The original opening time or deposited dollar value is unavailable.' };
+  const deposits = P.deposits;
+  if (!Array.isArray(deposits) || !deposits.length || deposits.some((d) =>
+    !Number.isFinite(d.ts) || d.ts < P.opened_ts || !Number.isFinite(d.a0) || d.a0 < 0
+    || !Number.isFinite(d.a1) || d.a1 < 0 || !(d.a0 + d.a1 > 0) || !Number.isFinite(d.usd) || d.usd <= 0))
+    return { reason: 'Original deposit token amounts, dates or dollar values are missing.' };
+  if (Math.min(...deposits.map((d) => d.ts)) !== P.opened_ts
+    || Math.abs(r2(deposits.reduce((s, d) => s + d.usd, 0)) - r2(P.cost_usd)) > .010001)
+    return { reason: 'The recorded deposits do not cover the position\'s complete original capital.' };
+  if (!Array.isArray(P.withdrawals) || !Number.isFinite(P.out_usd) || P.out_usd < 0)
+    return { reason: 'The withdrawal history is incomplete.' };
+  if (P.status === 'open' && (P.withdrawals.length || P.out_usd > 0))
+    return { reason: 'Partial withdrawals need a cashflow-matched holding benchmark.' };
+  if (P.status === 'closed') {
+    const w = P.withdrawals[0];
+    if (P.withdrawals.length !== 1 || !w || w.ts !== P.closed_ts
+      || !Number.isFinite(P.closed_ts) || P.closed_ts < P.opened_ts
+      || !Number.isFinite(w.a0) || w.a0 < 0 || !Number.isFinite(w.a1) || w.a1 < 0 || !(w.a0 + w.a1 > 0)
+      || !Number.isFinite(w.usd) || w.usd < 0 || Math.abs(r2(w.usd) - r2(P.out_usd)) > .010001
+      || (Number.isFinite(w.block) && Number.isFinite(P.closed_block) && w.block !== P.closed_block))
+      return { reason: 'The position needs one complete final withdrawal; partial withdrawals are not supported.' };
+    if (deposits.some((d) => d.ts > P.closed_ts) || !P.frozen || P.frozen.incomplete
+      || P.frozen.at_ts !== P.closed_ts)
+      return { reason: 'The complete closing valuation is unavailable.' };
   }
-  const days = (now - P.opened_ts) / 86400;
-  if (!(days > 0.02)) return null;
-  return { pct: earnedNow / P.cost_usd / days * 36500, basis: 'since opened' };
+  return { deposits, latest: Math.max(...deposits.map((d) => d.ts)) };
+}
+
+function livePerformanceIssue(P, row, merkl, errors, behind) {
+  if (!row || !Number.isFinite(row.liquidity_usd) || row.liquidity_usd < 0 || row.error || row.incomplete)
+    return 'A complete live principal reading is unavailable.';
+  if (row.wallet && P.wallet && lc(row.wallet) !== lc(P.wallet))
+    return 'The live wallet does not match the tracked deposit history.';
+  if (Object.keys(errors || {}).some((k) => k === P.chain || k.startsWith(P.chain + ' ')
+    || k === 'wallets' || (P.kind === 'fables' && k.startsWith('fables')))
+    || (behind || {})[P.chain] > 0)
+    return 'This chain\'s position history or live reading is incomplete.';
+  if (isMerkl(P.chain) && (merkl?.error || (errors || {}).merkl))
+    return 'The position\'s current reward reading is unavailable.';
+  return null;
+}
+
+/* Validate the source before feeTokensOf's legacy positive-only filter can hide a bad
+   reading. Katana DAO trading fees are deliberately excluded: only its own Merkl rewards. */
+function livePerformanceTokens(P, row, merkl) {
+  let source, initial;
+  if (isMerkl(P.chain)) {
+    const fresh = merkl?.earned_tokens_by_id;
+    if (!fresh || typeof fresh !== 'object') return { reason: 'Current per-position rewards were not verified.' };
+    if (!Object.hasOwn(fresh, P.id) && Object.values(P.merkl || {}).some((a) => a > 0))
+      return { reason: 'The last saved rewards have no matching fresh per-position reading.' };
+    source = Object.hasOwn(fresh, P.id) ? fresh[P.id] : {};
+    initial = P.start_merkl || {};
+  } else {
+    if (!validTokenAmounts(P.fees) || !row.raw || !Number.isFinite(row.raw.fee0) || row.raw.fee0 < 0
+      || !Number.isFinite(row.raw.fee1) || row.raw.fee1 < 0)
+      return { reason: 'Collected and unclaimed fee amounts were not completely read.' };
+    source = sumInto({ ...P.fees }, { [P.t0]: row.raw.fee0, [P.t1]: row.raw.fee1 });
+    initial = P.start_uncollected || {};
+  }
+  if (!validTokenAmounts(source) || !validTokenAmounts(initial)) return { reason: 'The cumulative earning amounts are invalid.' };
+  const tokens = sumInto({ ...source }, initial, -1);
+  if (Object.values(tokens).some((a) => a < 0)) return { reason: 'Cumulative earnings fell below the tracking baseline.' };
+  return { tokens };
+}
+
+function performanceValue(tokens, prices) {
+  if (!validTokenAmounts(tokens)) return { reason: 'The cumulative earning amounts are incomplete.' };
+  let usd = 0;
+  for (const [k, a] of Object.entries(tokens)) {
+    if (a === 0) continue;
+    if (!Number.isFinite(prices[k]) || prices[k] <= 0) return { reason: 'A required token dollar price is unavailable.' };
+    usd += a * prices[k];
+  }
+  return Number.isFinite(usd) ? { usd } : { reason: 'The earning valuation is unavailable.' };
+}
+
+function positionComparison(P, cashflows, principal, prices, earned, now) {
+  if (cashflows.reason) return unavailableComparison(cashflows.reason);
+  if (earned.reason) return unavailableComparison(earned.reason);
+  if (!Number.isFinite(principal) || principal < 0) return unavailableComparison('The position\'s principal value is unavailable.');
+  const amounts = { [P.t0]: 0, [P.t1]: 0 };
+  for (const d of cashflows.deposits) { amounts[P.t0] += d.a0; amounts[P.t1] += d.a1; }
+  const held = performanceValue(amounts, prices);
+  if (held.reason) return unavailableComparison('The deposited tokens cannot be valued: ' + held.reason);
+  const closed = P.status === 'closed', count = cashflows.deposits.length;
+  return { available: true, complete: true, reason: null,
+    basis: (closed ? 'Prices at close; fees at their recorded claim prices' : 'Current prices')
+      + (count > 1 ? '; all ' + count + ' recorded deposits' : ''),
+    start_ts: P.opened_ts, end_ts: closed ? P.closed_ts : now, deposit_count: count,
+    ...comparisonDollars(P.cost_usd, principal, held.usd, earned.usd) };
+}
+
+function aggregateComparisons(comparisons, expected, closed = false) {
+  const available = comparisons.filter((c) => c.available && c.complete);
+  const coverage = { available_count: available.length, expected_count: expected };
+  if (!expected || available.length !== expected) return { ...unavailableComparison(expected
+    ? available.length + ' of ' + expected + ' positions have a complete holding comparison.'
+    : 'There are no positions to compare.'), ...coverage };
+  return { available: true, complete: true, reason: null, ...coverage,
+    basis: closed ? 'Each position at its own close; fees at their recorded claim prices' : 'Current prices; all recorded deposits',
+    start_ts: Math.min(...available.map((c) => c.start_ts)), end_ts: Math.max(...available.map((c) => c.end_ts)),
+    deposit_count: available.reduce((s, c) => s + c.deposit_count, 0),
+    ...comparisonDollars(...['cost_usd', 'principal_usd', 'hold_usd', 'earned_usd']
+      .map((k) => available.reduce((s, c) => s + c[k], 0))) };
+}
+
+/* Preserve the recent-observation method, but reveal the actual interval and dollars.
+   A top-up must be behind the baseline; otherwise total capital was not present for the
+   measured period. Both endpoints use the same current prices, isolating token earnings. */
+function positionApr(book, P, cashflows, tokensNow, prices, now) {
+  if (cashflows.reason) return unavailableApr(cashflows.reason);
+  if (tokensNow.reason) return unavailableApr(tokensNow.reason);
+  const candidates = (book.fee_series || []).filter((p) => Number.isFinite(p.ts)
+    && p.ts >= cashflows.latest && now - p.ts >= 3 * 3600 && now - p.ts <= 26 * 3600)
+    .sort((x, y) => x.ts - y.ts);
+  const base = candidates.find((p) => p.pos && Object.hasOwn(p.pos, P.key));
+  if (!base && candidates.length) return unavailableApr('The recent earning baseline does not contain this position.');
+  if (base && (!validTokenAmounts(base.pos[P.key]) || !Number.isFinite(base.pp?.[P.key]) || base.incomplete
+    || Object.keys(base.errors || {}).length)) return unavailableApr('The historical earning baseline is incomplete.');
+  if (!base && cashflows.latest > P.opened_ts) return unavailableApr('A top-up needs a saved earning reading after the latest deposit.');
+  const start = base ? base.ts : P.opened_ts, hours = (now - start) / 3600;
+  if (!(hours > .48)) return unavailableApr('There is not yet enough elapsed time to measure an annualised rate.');
+  const current = tokensNow.tokens, previous = base ? base.pos[P.key] : {};
+  const earnedNow = performanceValue(current, prices), earnedBefore = performanceValue(previous, prices);
+  if (earnedNow.reason || earnedBefore.reason) return unavailableApr(earnedNow.reason || earnedBefore.reason);
+  const delta = {};
+  // Saved observations round token quantities to 1e-8; compare at that recorded precision.
+  const sampleAmount = (a) => base ? Math.round(a * 1e8) / 1e8 : a;
+  for (const k of new Set([...Object.keys(current), ...Object.keys(previous)])) {
+    const change = sampleAmount(current[k] || 0) - sampleAmount(previous[k] || 0);
+    if (change < -1e-12) return unavailableApr('Cumulative token earnings decreased; this interval cannot be treated as earned income.');
+    delta[k] = change;
+  }
+  const gained = performanceValue(delta, prices);
+  if (gained.reason) return unavailableApr(gained.reason);
+  return { available: true, complete: true, reason: null,
+    basis: 'Earned tokens at the same current prices; simple annualised estimate',
+    start_ts: start, end_ts: now, elapsed_hours: hours,
+    period_label: base ? 'Last ' + hours.toFixed(1) + ' hours' : 'Since opened (' + hours.toFixed(1) + ' hours)',
+    earned_usd: r2(gained.usd), capital_usd: r2(P.cost_usd), pct: gained.usd / P.cost_usd / (hours / 24) * 36500 };
 }
 const pctText = (p) => (p >= 100 ? Math.round(p).toLocaleString('en-US') : p.toFixed(1)) + '%';
 
@@ -1565,7 +1712,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0 });
   V3.forEach((c) => touch(c.key));
   let value = 0, unrealised = 0;
-  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {};
+  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {}, liveComparisons = [];
   for (const P of open) {
     const C = touch(P.chain);
     C.open++;
@@ -1577,7 +1724,9 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
         usd_now: prices[k] === undefined ? null : r2(a * prices[k]) });
     }
     const row = rows[P.key];
-    if (!row || row.liquidity_usd === null) { unread.push(P.key); continue; }
+    if (!row || row.liquidity_usd === null) {
+      unread.push(P.key); liveComparisons.push(unavailableComparison('A complete live principal reading is unavailable.')); continue;
+    }
     const u = row.liquidity_usd + P.out_usd - P.cost_usd;
     pnlNow[P.key] = u;
     value += row.liquidity_usd; unrealised += u;
@@ -1597,8 +1746,18 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       const inS = P.range.in_s + (row.in_range ? tail : 0), allS = P.range.all_s + tail;
       if (allS > 0) view.in_range_pct = Math.round(inS / allS * 100);
     }
-    const apr = positionApr(book, P, tokens, usdOf);
-    view.apr = apr ? pctText(apr.pct) : '–';
+    const cashflows = positionCashflows(P);
+    const issue = livePerformanceIssue(P, row, merkl, errors, behind);
+    let metricPrices;
+    // The benchmark's pair prices must come from the same pool reading as its principal.
+    try { metricPrices = { ...prices, [P.t0]: undefined, [P.t1]: undefined, ...rowPrices(row) }; } catch { metricPrices = {}; }
+    const earnings = issue ? { reason: issue } : livePerformanceTokens(P, row, merkl);
+    const earnedValue = earnings.reason ? earnings : performanceValue(earnings.tokens, metricPrices);
+    view.comparison = positionComparison(P, cashflows, row.liquidity_usd, metricPrices, earnedValue, nowTs);
+    liveComparisons.push(view.comparison);
+    const apr = positionApr(book, P, cashflows, earnings, metricPrices, nowTs);
+    view.apr_detail = apr;
+    view.apr = apr.available ? pctText(apr.pct) : '–';
     live.push(view);
     /* what it has earned and not yet claimed: its own fees since opening, less its claims */
     for (const [k, a] of Object.entries(tokens)) if (a - (got[k] || 0) > 0) sumInto(pending, { [k]: a - (got[k] || 0) });
@@ -1644,7 +1803,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const aChains = {};
   const aTouch = (c) => aChains[c] || (aChains[c] = { realised_usd: 0, fees_usd: 0, net_usd: 0, closed: 0 });
   V3.forEach((c) => aTouch(c.key));
-  const history = [], fixedEvents = [];
+  const history = [], fixedEvents = [], closedComparisons = [];
   let realised = 0, feesFixed = 0, capDays = 0, first = Infinity, last = 0, incomplete = false;
   /* how long positions stay open, and how much of that time they spend in range: the in-range
      share is weighted by time, so a long position counts for more than a short one */
@@ -1674,6 +1833,10 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     const out = { a0: 0, a1: 0 };
     for (const x of P.withdrawals || []) { out.a0 += x.a0; out.a1 += x.a1; }
     if (P.unpriced || feeInc || f.incomplete) incomplete = true;
+    const comparison = positionComparison(P, positionCashflows(P),
+      Number.isFinite(f.principal_usd) ? f.principal_usd : P.out_usd, f.prices || {},
+      feeInc ? { reason: 'Some claimed fees lack their recorded dollar value.' } : { usd: fees }, nowTs);
+    closedComparisons.push(comparison);
     history.push({
       chain: P.chain, id: P.id, pair: P.pair, wallet: walletLabel(P.wallet),
       opened: P.opened_ts ? new Date(P.opened_ts * 1000).toISOString() : null,
@@ -1684,6 +1847,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       pnl_usd: r2(pnl), fee_usd: fees, fee_tokens: Object.fromEntries(Object.entries(ftok).map(([k, a]) => [sym(k), a])),
       net_usd: r2(pnl + fees), net_pct: P.cost_usd > 0 ? r2((pnl + fees) / P.cost_usd * 100) : null,
       incomplete: !!(P.unpriced || feeInc || f.incomplete),
+      comparison,
     });
   }
   for (const c of Object.values(aChains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
@@ -1708,6 +1872,20 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     return { ts, usd: r2(fees), net: r2(fees + pnl) };
   });
   const pairs = rebalances(book.events);
+  const stableClosedCapital = closed.every((P) => {
+    const cashflows = positionCashflows(P);
+    return !cashflows.reason && cashflows.latest === P.opened_ts && P.closed_ts > P.opened_ts;
+  });
+  const alltimeApr = closed.length && capDays > 0 && Number.isFinite(first) && last >= first && !incomplete && stableClosedCapital
+    ? { available: true, complete: true, reason: null,
+      basis: 'Recorded claimed fees divided by each position\'s capital and days open; simple annualised estimate',
+      start_ts: first, end_ts: last, elapsed_hours: (last - first) / 3600,
+      period_label: 'Closed positions over ' + ((last - first) / 86400).toFixed(1) + ' days',
+      earned_usd: r2(feesFixed), capital_usd: spanDays > 0 ? r2(capDays / spanDays) : null,
+      capital_days_usd: r2(capDays), pct: r2(feesFixed / capDays * 36500) }
+    : { ...unavailableApr(!stableClosedCapital
+      ? 'Complete position lifetimes with unchanged capital are required for this annualised measurement.'
+      : 'Complete recorded fees and capital-weighted position lifetimes are required.'), capital_days_usd: null };
 
   return {
     started: book.started,
@@ -1720,6 +1898,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       net_usd: r2(feeNow.usd + unrealised),
       unclaimed_usd: usdOf(pending).usd, last_claim_ts: claimList.length ? claimList[0].ts : null,
       open: open.length, chains,
+      comparison: aggregateComparisons(liveComparisons, open.length),
     },
     claims: claimList,
     series, live, prices,
@@ -1735,6 +1914,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
         in_range_days: r2(rangeIn / 86400), range_days: r2(rangeAll / 86400), range_unmeasured: unmeasured,
         closed: closed.length, days: r2(spanDays), rebalances: pairs.length, incomplete,
         chains: aChains,
+        comparison: aggregateComparisons(closedComparisons, closed.length, true), apr_detail: alltimeApr,
       },
       series: aSeries, history, rebalances: pairs.slice().reverse(),
     },
