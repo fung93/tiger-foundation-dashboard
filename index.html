@@ -16,15 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script>
-/* The classy theme is the main one and goes on before anything paints; the cute tiger is
-   the alternative, remembered on this device only. A new key, so every device opens classy
-   once even if it had switched back to the tiger before (2026-10-20). */
-var TF_THEME_KEY='tf_theme2';
-try{if(localStorage.getItem(TF_THEME_KEY)!=='tiger')document.documentElement.classList.add('classy');
-  else document.querySelector('meta[name="theme-color"]').setAttribute('content','#0f1623');}
-catch(e){document.documentElement.classList.add('classy');}
-</script>
+<script src="/theme.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#080c14;--card:#0f1623;--border:#1a2540;--text:#e8edf5;--dim:#5a6a8a;--accent:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#a855f7;--gold:#fbbf24;--sol:#9945ff}
@@ -569,6 +561,7 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
   html.classy .cv{font-size:26px}
 }
 </style>
+<link rel="stylesheet" href="/theme.css">
 </head>
 <body>
 <div class="hdr">
@@ -5041,29 +5034,12 @@ function setOffline(off){
   }
   el.style.display=off?'block':'none';
 }
-/* Theme: the original night-sky dashboard, or the LP Book's black and gold. The class was
-   put on in the head before first paint, so here it only flips — and the two charts are
-   rebuilt, because Chart.js copies its colours in when a chart is made. */
-(function(){
-  var btn=document.getElementById('themeBtn');
-  if(!btn)return;
-  var meta=document.querySelector('meta[name="theme-color"]');
-  var sync=function(){
-    var on=document.documentElement.classList.contains('classy');
-    btn.setAttribute('aria-pressed',on?'true':'false');
-    btn.title=on?'Switch to the cute tiger theme':'Switch to the classy theme';
-    if(meta)meta.setAttribute('content',on?'#050505':'#0f1623');
-  };
-  sync();
-  btn.addEventListener('click',function(){
-    var on=document.documentElement.classList.toggle('classy');
-    try{localStorage.setItem(TF_THEME_KEY,on?'classy':'tiger');}catch(e){}
-    sync();
-    try{placeRocket();}catch(e){}
-    try{drawHistory();}catch(e){console.warn('history chart redraw',e);}
-    try{if(COMPOUND_CHART){COMPOUND_CHART.destroy();COMPOUND_CHART=null;}buildCompound();}catch(e){console.warn('compound chart redraw',e);}
-  });
-})();
+/* Chart.js copies its palette at construction; redraw from the retained figures. */
+window.addEventListener('tf-theme-change',function(){
+  try{placeRocket();}catch(e){}
+  try{drawHistory();}catch(e){console.warn('history chart redraw',e);}
+  try{if(COMPOUND_CHART){COMPOUND_CHART.destroy();COMPOUND_CHART=null;}buildCompound();}catch(e){console.warn('compound chart redraw',e);}
+});
 window.addEventListener('offline',function(){setOffline(true);});
 window.addEventListener('online',function(){setOffline(false);load();});
 if(navigator.onLine===false)document.addEventListener('DOMContentLoaded',function(){setOffline(true);});

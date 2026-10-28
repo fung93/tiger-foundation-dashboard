@@ -1,0 +1,92 @@
+/* Theme controls and the Portfolio's Cute Tiger materials for the other live pages. */
+:root{
+  --chart-debt:#96938b;--chart-boundary:#655f54;
+  --chart-grid:rgba(255,255,255,.05);--chart-zero:rgba(255,255,255,.16);
+  --chart-accent-halo:rgba(214,185,123,.15);--chart-font:Inter,system-ui,sans-serif;
+}
+.theme-brand{display:flex;align-items:center;gap:14px;min-width:0}
+.theme-mascot{display:none;width:46px;height:46px;flex:0 0 auto}
+.theme-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;flex:1 1 0}
+.themed-page header .stamp{flex:0 1 auto}
+.themed-page header .sub{line-height:normal}
+#themeBtn{flex-shrink:0}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+  flex:0 0 auto;padding:0;border:1px solid var(--line);border-radius:999px;
+  background:transparent;color:var(--dim);cursor:pointer;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none}
+.theme-toggle svg{display:block;width:14px;height:14px;pointer-events:none}
+.theme-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(hover:hover){.theme-toggle:hover{color:var(--gold);border-color:var(--gold)}}
+
+html.tiger{
+  --chart-debt:#7f94b5;--chart-boundary:#687c9d;
+  --chart-grid:rgba(127,148,181,.15);--chart-zero:rgba(127,148,181,.4);
+  --chart-accent-halo:rgba(251,191,36,.15);--chart-font:'SF Mono',Monaco,Consolas,monospace;
+}
+html.tiger .themed-page{
+  --bg:#080c14;--card:#0f1623;--line:#1a2540;--line2:rgba(127,148,181,.14);
+  --text:#e8edf5;--dim:#91a0bb;--faint:#798ba8;--gold:#fbbf24;
+  --up:#10b981;--down:#ef4444;--warn:#fbbf24;--accent:#f59e0b;
+  --sans:'SF Mono',Monaco,Consolas,monospace;--serif:var(--sans);
+  background:var(--bg);font-family:var(--sans);isolation:isolate;
+}
+html.tiger:has(.themed-page){background:#080c14}
+html.tiger .themed-page::before,html.tiger .themed-page::after{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+}
+html.tiger .themed-page::before{
+  background:url('/img/bg.jpg') center/cover no-repeat;filter:brightness(2.06);
+}
+html.tiger .themed-page::after{
+  background:linear-gradient(180deg,rgba(8,12,20,.80),rgba(8,12,20,.89) 50%,rgba(8,12,20,.94));
+}
+html.tiger .themed-page header{
+  background:linear-gradient(135deg,rgba(15,22,35,.88),rgba(26,26,62,.88));
+  border-bottom:2px solid var(--accent);
+}
+html.tiger .theme-mascot{display:block}
+html.tiger .themed-page header h1,html.tiger .hdr h1{
+  font:800 26px/1.2 var(--chart-font);letter-spacing:2px;text-transform:uppercase;
+}
+html.tiger .themed-page header h1 em{font-style:normal}
+html.tiger .themed-page header h1 b{font-weight:800;color:var(--accent)}
+html.tiger .themed-page header .sub,html.tiger .hdr .sub{
+  font-size:13px;line-height:normal;letter-spacing:1px;margin-top:4px;
+}
+html.tiger .theme-toggle{border-radius:7px;background:rgba(255,255,255,.04)}
+html.tiger .themed-page .card,html.tiger .themed-page .lpw{
+  background:linear-gradient(135deg,rgba(15,22,35,.96),rgba(26,26,62,.90));
+  border-color:var(--line);
+}
+html.tiger .themed-page .menu a.on,html.tiger .themed-page .ranges button.on{
+  color:var(--gold);border-color:var(--gold);background:rgba(251,191,36,.08);
+}
+html.tiger .themed-page .modal,html.tiger .themed-page .plot-tooltip{background:var(--card)}
+html.tiger .themed-page .target-field input:not([readonly]){
+  border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.04);
+}
+html.tiger .themed-page .target-field input[aria-invalid=true]{border-color:var(--down)}
+html.tiger .themed-page .target-actions .target-save{
+  border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06);
+}
+html.tiger .themed-page .big,html.tiger .themed-page .overview-value,
+html.tiger .themed-page .metric-value,html.tiger .themed-page .liquidation-value{font-variant-numeric:tabular-nums}
+
+@media(max-width:768px){
+  .theme-brand{gap:8px}
+  .theme-actions{gap:8px}
+  html.tiger .theme-mascot,html.tiger .brand-mark svg{width:30px;height:30px}
+  html.tiger .themed-page header h1,html.tiger .hdr h1{font-size:clamp(15px,4.3vw,21px);letter-spacing:.7px}
+  html.tiger .themed-page header .sub,html.tiger .hdr .sub{
+    font-size:clamp(7px,2vw,10px);letter-spacing:.08em;
+  }
+  html.tiger .themed-page::before{background-image:url('/img/bg-mobile.jpg')}
+}
+@media(max-width:400px){
+  .themed-page .hdr-inner,html.tiger .hdr-inner{gap:8px}
+  .themed-page header .stamp,html.tiger .hdr .ts{font-size:10px}
+  .themed-page header .stamp[data-state="fail"]{white-space:normal}
+  html.tiger .themed-page header h1,html.tiger .hdr h1{font-size:clamp(15px,4.2vw,17px)}
+  html.tiger .themed-page .big{font-size:clamp(16px,4.6vw,20px)}
+  html.tiger .themed-page .lpw .v{font-size:13px}
+}

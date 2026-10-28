@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050505">
+<script src="/theme.js"></script>
 <title>Lending · Tiger Foundation</title>
 <link rel="icon" href="/icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,12 +14,19 @@
 <link rel="stylesheet" href="/lpcards.css">
 <link rel="stylesheet" href="/lpbook.css">
 <link rel="stylesheet" href="/lending.css">
+<link rel="stylesheet" href="/theme.css">
 </head>
-<body>
+<body class="themed-page">
 <header>
   <div class="hdr-inner">
-    <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
-    <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
+    <div class="theme-brand">
+      <img class="theme-mascot" src="/icons/cute-tiger.svg" alt="" aria-hidden="true">
+      <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    </div>
+    <div class="theme-actions">
+      <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
+    </div>
   </div>
 </header>
 <div class="menu-wrap">

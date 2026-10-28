@@ -44,31 +44,31 @@
     for (var i = 1; i <= 3; i++) {
       var v = floor + (top - floor) * i / 4, yy = y(v).toFixed(1);
       if (floor < 0 && Math.abs(v) < (top - floor) * 0.1) continue;
-      rules += '<line x1="0" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,.05)" vector-effect="non-scaling-stroke"/>';
+      rules += '<line x1="0" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--chart-grid)" vector-effect="non-scaling-stroke"/>';
       marks += '<div style="position:absolute;left:0;top:calc(' + (yy / H * 100).toFixed(2) + '% - 15px);font-size:10px;color:var(--faint);letter-spacing:.04em">' + esc(money(v)) + '</div>';
     }
     var lx = x(t1).toFixed(1), ly = y(s[s.length - 1].usd).toFixed(1);
     var netPts = net.map(function (p) { return x(p.ts).toFixed(1) + ',' + y(p.net).toFixed(1); });
     var last = s[s.length - 1], netLast = net.length > 1 && net[net.length - 1] === last ? last.net : null;
-    var zero = floor < 0 ? '<line x1="0" x2="' + W + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="rgba(255,255,255,.16)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>' : '';
-    var netLine = net.length > 1 ? '<polyline points="' + netPts.join(' ') + '" fill="none" stroke="#f2f0eb" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' : '';
+    var zero = floor < 0 ? '<line x1="0" x2="' + W + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="var(--chart-zero)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>' : '';
+    var netLine = net.length > 1 ? '<polyline points="' + netPts.join(' ') + '" fill="none" stroke="var(--text)" stroke-opacity=".8" stroke-width="1.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' : '';
     var netDot = netLast !== null
       ? '<div style="position:absolute;left:calc(' + (lx / W * 100).toFixed(2) + '% - 3.5px);top:calc(' + (y(netLast) / H * 100).toFixed(2) + '% - 3.5px);'
         + 'width:7px;height:7px;border-radius:50%;background:' + (netLast >= 0 ? 'var(--up)' : 'var(--down)') + '"></div>'
         + '<div class="now2 ' + cls(netLast) + '">Net ' + esc(signed(netLast)) + '</div>'
       : '';
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-label="Cumulative fees">'
-      + '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b97b" stop-opacity=".22"/>'
-      + '<stop offset="1" stop-color="#d6b97b" stop-opacity="0"/></linearGradient></defs>'
+      + '<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold)" stop-opacity=".22"/>'
+      + '<stop offset="1" stop-color="var(--gold)" stop-opacity="0"/></linearGradient></defs>'
       + rules
       + '<polygon points="' + P + ',' + (H - P) + ' ' + pts.join(' ') + ' ' + lx + ',' + (H - P) + '" fill="url(#fg)"/>'
       + zero
-      + '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d6b97b" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+      + '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
       + netLine
-      + '<line x1="0" x2="' + W + '" y1="' + (H - P) + '" y2="' + (H - P) + '" stroke="rgba(255,255,255,.08)" vector-effect="non-scaling-stroke"/>'
+      + '<line x1="0" x2="' + W + '" y1="' + (H - P) + '" y2="' + (H - P) + '" stroke="var(--chart-grid)" vector-effect="non-scaling-stroke"/>'
       + '</svg>' + marks
       + '<div style="position:absolute;left:calc(' + (lx / W * 100).toFixed(2) + '% - 4px);top:calc(' + (ly / H * 100).toFixed(2) + '% - 4px);'
-      + 'width:8px;height:8px;border-radius:50%;background:#d6b97b;box-shadow:0 0 0 4px rgba(214,185,123,.15)"></div>'
+      + 'width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px var(--chart-accent-halo)"></div>'
       + netDot
       + '<div class="now">' + esc(money(s[s.length - 1].usd)) + '</div>';
     axis.innerHTML = '<span>' + esc(when(new Date(t0 * 1000).toISOString())) + '</span><span>' + (opts.endLabel || 'now') + '</span>';
