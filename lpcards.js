@@ -11,7 +11,7 @@
                                 LP outcome against keeping the deposited tokens
      LPCards.stamp(el, last, failed)
                                 LIVE with a running clock while figures are fresh;
-                                STALE with their age after twenty minutes without one
+                                STALE with their age after ninety seconds without one
    ========================================================================== */
 (function () {
   var esc = function (s) {
@@ -126,12 +126,48 @@
     return views && views.length ? views.map(card).join('') : '<div class="empty">Nothing open on any chain.</div>';
   }
 
+  /* The response may come from an edge cache or the service worker. Its own reading
+     time, rather than the time it reached this tab, determines freshness. */
+  function readingState(v, savedAt) {
+    var hl = v && v.health || {};
+    var time = v && v.generated ? Date.parse(v.generated) : Number(savedAt);
+    if (!Number.isFinite(time) || time <= 0 || time > Date.now() + 30000) time = 0;
+    var partial = Object.keys(hl.errors || {}).length > 0
+      || Object.keys(hl.behind || {}).some(function (key) { return Number(hl.behind[key]) > 0; })
+      || (hl.unread || []).length > 0 || (hl.unpriced || []).length > 0;
+    var fresh = time > 0 && Date.now() - time <= 90000;
+    return { time: time, partial: partial, fresh: fresh,
+      warning: !time ? 'The reading time is unavailable. Waiting for a fresh LP Book reading.'
+        : !fresh ? 'This LP Book reading is over 90 seconds old. Waiting for a fresh reading.' : '' };
+  }
+
+  /* Bound the whole operation, including a response body that never finishes. Aborting
+     the request also frees the browser connection; the race releases the polling guard
+     even if a transport ignores cancellation. */
+  function fetchBook() {
+    var controller = typeof AbortController === 'function' ? new AbortController() : null, timer;
+    var deadline = new Promise(function (resolve, reject) {
+      timer = setTimeout(function () {
+        if (controller) controller.abort();
+        reject(new Error('LP Book request timed out'));
+      }, 25000);
+    });
+    var request = Promise.resolve().then(function () {
+      return fetch('/api/lpbook', { cache: 'no-store', signal: controller ? controller.signal : undefined });
+    }).then(function (r) {
+      if (!r || !r.ok) throw new Error('LP Book HTTP ' + (r && r.status || 'unavailable'));
+      return r.json();
+    });
+    return Promise.race([request, deadline]).then(function (v) { clearTimeout(timer); return v; },
+      function (error) { clearTimeout(timer); throw error; });
+  }
+
   /* The markup is rebuilt only when the state changes — rebuilding it every second would
      restart the dot's pulse — and the clock alone ticks. */
   function stamp(el, last, failed) {
     if (!el) return;
-    var age = last ? Math.round((Date.now() - last) / 60000) : null;
-    var stale = failed || (age !== null && age > 20);
+    var age = last ? Math.max(0, Math.round((Date.now() - last) / 60000)) : null;
+    var stale = failed || (last && Date.now() - last > 90000);
     var state = age === null ? (failed ? 'fail' : 'load') : stale ? 'stale' + age : 'live';
     if (el.getAttribute('data-state') !== state) {
       el.setAttribute('data-state', state);
@@ -145,5 +181,6 @@
     if (ck) ck.textContent = new Date().toTimeString().slice(0, 8);
   }
 
-  window.LPCards = { card: card, list: list, comparison: comparison, detailsOpen: detailsOpen, stamp: stamp, esc: esc };
+  window.LPCards = { card: card, list: list, comparison: comparison, detailsOpen: detailsOpen,
+    readingState: readingState, fetchBook: fetchBook, stamp: stamp, esc: esc };
 })();

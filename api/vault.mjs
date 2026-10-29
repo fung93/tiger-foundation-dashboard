@@ -5,19 +5,23 @@
    dashboard is read. `complete: false` means a part could not be read, and the
    page then keeps the last good figure instead of showing a smaller one.
    ========================================================================== */
-import { vaultValue } from './_core.mjs';
+import { vaultValue, BOOK_VERSION } from './_core.mjs';
+import { createLiveCache, requestOrigin, fetchJSON, responseHeaders, savedBookValid, savedFables } from './_live-cache.mjs';
+
+const complete = (view) => view && view.complete === true && !Object.keys(view.errors || {}).length;
+const readLive = createLiveCache({ complete });
 
 export default async function handler(req, res) {
-  res.setHeader('access-control-allow-origin', '*');
-  /* asked every fifteen seconds by the dashboard; ten at the edge keeps it fresh */
-  res.setHeader('cache-control', 's-maxage=10, stale-while-revalidate=5');
-  res.setHeader('content-type', 'application/json; charset=utf-8');
+  responseHeaders(res);
   try {
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const proto = req.headers['x-forwarded-proto'] || 'https';
-    const get = (p) => fetch(proto + '://' + host + p + '?t=' + Date.now()).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    const [book, data] = await Promise.all([get('/lpbook.json'), get('/data.json')]);
-    res.status(200).end(JSON.stringify(await vaultValue(undefined, { book, fables: data && data.fables })));
+    const origin = requestOrigin(req);
+    const view = await readLive(origin, async () => {
+      const [book, data] = await Promise.all([fetchJSON(origin + '/lpbook.json'), fetchJSON(origin + '/data.json')]);
+      if (!savedBookValid(book, BOOK_VERSION)) throw new Error('The saved LP book is unavailable or malformed.');
+      return vaultValue(undefined, { book, fables: savedFables(data) });
+    });
+    responseHeaders(res, complete(view));
+    res.status(200).end(JSON.stringify(view));
   } catch (e) {
     res.status(502).end(JSON.stringify({ error: String((e && e.message) || e) }));
   }

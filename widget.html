@@ -89,7 +89,7 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
   var $ = function (id) { return document.getElementById(id); };
   var pin = (new URLSearchParams(location.search).get('pos') || '').replace(/^#/, '');
   /* lastGood is eligible for a hold only while a full reading is displayed. */
-  var lastGood = 0, lastRead = 0, failed = false;
+  var lastGood = 0, lastRead = 0, failed = false, lastHealth = {};
 
   function paint(v) {
     var views = (v && v.live) || [];
@@ -97,10 +97,16 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
     $('cards').innerHTML = LPCards.list(views);
   }
   function stamp(bad) { if (bad !== undefined) failed = bad; LPCards.stamp($('stamp'), lastRead, failed); }
-  function health(hl, held) {
+  function health(hl, held, message) {
     var msgs = [];
     Object.keys(hl.errors || {}).forEach(function (k) { msgs.push('Could not read ' + k + ': ' + hl.errors[k]); });
+    Object.keys(hl.behind || {}).forEach(function (k) {
+      if (hl.behind[k] > 0) msgs.push(k + ' is ' + hl.behind[k].toLocaleString('en-US') + ' blocks behind.');
+    });
+    if ((hl.unread || []).length) msgs.push('Open position(s) not valued this time: ' + hl.unread.join(', '));
+    if ((hl.unpriced || []).length) msgs.push('No live price for ' + hl.unpriced.map(function (k) { return String(k).split('@')[0]; }).join(', '));
     if (held) msgs.push('Showing the last full reading until it can be read again.');
+    if (message) msgs.push(message);
     $('health').innerHTML = msgs.map(LPCards.esc).join('<br>');
     $('health').className = 'health' + (msgs.length ? ' on' : '');
   }
@@ -110,9 +116,10 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
   try {
     var seed = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (seed && seed.v && seed.v.live) {
-      var seedPartial = Object.keys((seed.v.health && seed.v.health.errors) || {}).length > 0;
-      paint(seed.v); health(seed.v.health || {}); lastRead = seed.t;
-      lastGood = seedPartial ? 0 : lastRead; stamp(seedPartial);
+      var seedState = LPCards.readingState(seed.v, seed.t);
+      lastHealth = seed.v.health || {};
+      paint(seed.v); health(lastHealth, false, seedState.warning); lastRead = seedState.time;
+      lastGood = seedState.partial ? 0 : lastRead; stamp(seedState.partial || !seedState.fresh);
     }
   } catch (e) {}
 
@@ -121,22 +128,30 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
   var inflight = false, lastTry = 0;
   function load() {
     var now = Date.now();
-    if (inflight || now - lastTry < 3000) return;
+    if (document.hidden || inflight || now - lastTry < 3000) return;
     inflight = true; lastTry = now;
-    fetch('/api/lpbook', { cache: 'no-store' })
-      .then(function (r) { return r.json(); })
+    LPCards.fetchBook()
       .then(function (v) {
-        inflight = false;
         /* an answer that nothing is open is an answer; only a failed fetch keeps the last cards */
-        if (!v || v.error || !v.live) { stamp(true); return; }
+        if (!v || v.error || !v.live) throw new Error(v && v.error || 'Incomplete LP Book response');
         /* a chain that could not be read keeps the last full cards for a few minutes, as on the
            LP Book, and a partial answer is never saved as the last good one */
-        var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
-        if (partial && lastGood && Date.now() - lastGood < 5 * 60000) { health(v.health, true); stamp(true); return; }
-        paint(v); health(v.health || {}); lastRead = Date.now(); lastGood = partial ? 0 : lastRead; stamp(partial);
-        if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
+        var state = LPCards.readingState(v);
+        lastHealth = v.health || {};
+        if (!state.time && lastRead) {
+          health(lastHealth, false, state.warning + ' Keeping the previous reading.'); stamp(true); return;
+        }
+        if (state.time && lastRead && state.time < lastRead) {
+          health(lastHealth, false, 'An older LP Book reading was returned. Keeping the newer displayed reading.'); stamp(true); return;
+        }
+        if (state.partial && lastGood && Date.now() - lastGood < 5 * 60000) { health(lastHealth, true); stamp(true); return; }
+        paint(v); health(lastHealth, false, state.warning); lastRead = state.time; lastGood = state.partial ? 0 : lastRead;
+        stamp(state.partial || !state.fresh);
+        if (!state.partial && state.fresh) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
       })
-      .catch(function () { inflight = false; stamp(true); });
+      .catch(function () {
+        health(lastHealth, false, 'The LP Book could not be refreshed. Keeping the previous reading and its original time.'); stamp(true);
+      }).finally(function () { inflight = false; });
   }
   load();
   setInterval(load, 15000);                                  /* as on the LP Book */

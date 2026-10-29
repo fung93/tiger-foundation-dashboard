@@ -75,7 +75,7 @@
   }
 
   /* what could not be read, said out loud rather than drawn as an empty portfolio */
-  function health(hl, held) {
+  function health(hl, held, message) {
     var msgs = [];
     Object.keys(hl.errors || {}).forEach(function (k) { msgs.push('Could not read ' + k + ': ' + hl.errors[k]); });
     Object.keys(hl.behind || {}).forEach(function (k) {
@@ -84,6 +84,7 @@
     if ((hl.unread || []).length) msgs.push('Open position(s) not valued this time: ' + hl.unread.join(', '));
     if ((hl.unpriced || []).length) msgs.push('No live price for ' + hl.unpriced.map(function (k) { return String(k).split('@')[0]; }).join(', ') + ' — left out of the fee total.');
     if (held) msgs.push('Showing the last full reading until it can be read again.');
+    if (message) msgs.push(message);
     $('health').innerHTML = msgs.map(esc).join('<br>');
     $('health').className = 'health' + (msgs.length ? ' on' : '');
   }
@@ -91,36 +92,45 @@
   /* every fifteen seconds, with the last good answer (same key as the widget) shown at once */
   function poll(render, ready) {
     /* lastGood is eligible for a hold only while a full reading is displayed. */
-    var KEY = 'tf_lpbook', HOLD = 5 * 60000, lastGood = 0, lastRead = 0, failed = false;
+    var KEY = 'tf_lpbook', HOLD = 5 * 60000, lastGood = 0, lastRead = 0, failed = false, lastHealth = {};
     var stamp = function (bad) { if (bad !== undefined) failed = bad; LPCards.stamp($('stamp'), lastRead, failed); };
     try {
       var seed = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (seed && seed.v && ready(seed.v)) {
-        var seedPartial = Object.keys((seed.v.health && seed.v.health.errors) || {}).length > 0;
-        render(seed.v); health(seed.v.health || {}); lastRead = seed.t;
-        lastGood = seedPartial ? 0 : lastRead; stamp(seedPartial);
+        var seedState = LPCards.readingState(seed.v, seed.t);
+        lastHealth = seed.v.health || {};
+        render(seed.v); health(lastHealth, false, seedState.warning); lastRead = seedState.time;
+        lastGood = seedState.partial ? 0 : lastRead; stamp(seedState.partial || !seedState.fresh);
       }
     } catch (e) {}
     var inflight = false, lastTry = 0;
     function load() {
       var now = Date.now();
-      if (inflight || now - lastTry < 3000) return;
+      if (document.hidden || inflight || now - lastTry < 3000) return;
       inflight = true; lastTry = now;
-      fetch('/api/lpbook', { cache: 'no-store' })
-        .then(function (r) { return r.json(); })
+      LPCards.fetchBook()
         .then(function (v) {
-          inflight = false;
-          if (!v || v.error || !ready(v)) { stamp(true); return; }
+          if (!v || v.error || !ready(v)) throw new Error(v && v.error || 'Incomplete LP Book response');
           /* A chain that could not be read this time (a rate limit, most often) leaves its part
              of the book at the last save, hours old: claims vanish, PnL jumps. For a few minutes
              the last full reading stays on screen instead, under the warning; past that the
              partial answer is shown, and it is never saved as the last good one. */
-          var partial = Object.keys((v.health && v.health.errors) || {}).length > 0;
-          if (partial && lastGood && Date.now() - lastGood < HOLD) { health(v.health, true); stamp(true); return; }
-          render(v); health(v.health || {}); lastRead = Date.now(); lastGood = partial ? 0 : lastRead; stamp(partial);
-          if (!partial) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
+          var state = LPCards.readingState(v);
+          lastHealth = v.health || {};
+          if (!state.time && lastRead) {
+            health(lastHealth, false, state.warning + ' Keeping the previous reading.'); stamp(true); return;
+          }
+          if (state.time && lastRead && state.time < lastRead) {
+            health(lastHealth, false, 'An older LP Book reading was returned. Keeping the newer displayed reading.'); stamp(true); return;
+          }
+          if (state.partial && lastGood && Date.now() - lastGood < HOLD) { health(lastHealth, true); stamp(true); return; }
+          render(v); health(lastHealth, false, state.warning); lastRead = state.time; lastGood = state.partial ? 0 : lastRead;
+          stamp(state.partial || !state.fresh);
+          if (!state.partial && state.fresh) try { localStorage.setItem(KEY, JSON.stringify({ t: lastGood, v: v })); } catch (e) {}
         })
-        .catch(function () { inflight = false; stamp(true); });
+        .catch(function () {
+          health(lastHealth, false, 'The LP Book could not be refreshed. Keeping the previous reading and its original time.'); stamp(true);
+        }).finally(function () { inflight = false; });
     }
     load();
     setInterval(load, 15000);

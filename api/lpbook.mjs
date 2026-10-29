@@ -8,39 +8,45 @@
    now is what the ledger will say after the next run — then values it all at
    live prices.
    ========================================================================== */
-import { merklLp, advanceBook, bookLiveRows, livePrices, bookView } from './_core.mjs';
+import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION } from './_core.mjs';
+import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders, savedBookValid } from './_live-cache.mjs';
+
+const readLive = createLiveCache({ complete: lpViewComplete });
+const checkpoints = new Map();
+
+async function readBook(origin) {
+  const source = await fetchJSON(origin + '/lpbook.json');
+  if (!savedBookValid(source, BOOK_VERSION)) throw new Error('The saved LP book is unavailable or malformed.');
+  const identity = JSON.stringify(source);
+  let checkpoint = checkpoints.get(origin);
+  if (!checkpoint || checkpoint.identity !== identity) {
+    checkpoint = { identity, book: source };
+    checkpoints.set(origin, checkpoint);
+    if (checkpoints.size > 8) checkpoints.delete(checkpoints.keys().next().value);
+  }
+  const merkl = await merklLp();
+  /* Resume a warm function's validated ledger instead of replaying the same six-hour
+     backlog on every page poll. A new committed snapshot replaces the checkpoint whole;
+     advanceBook itself rolls back a failed chain while retaining successful chains. */
+  const { book: now, errors, behind } = await advanceBook(checkpoint.book, { merkl, maxWindows: 4, ranges: 'new' });
+  checkpoint.book = now;
+  const [live, prices] = await Promise.all([bookLiveRows(now), livePrices(now, merkl.token_price)]);
+  const view = bookView(now, {
+    rows: live.rows, prices, merkl,
+    errors: { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])),
+      ...(merkl.error ? { merkl: 'rewards could not be read' } : {}) },
+    behind,
+  });
+  view.generated = new Date().toISOString();
+  return view;
+}
 
 export default async function handler(req, res) {
-  res.setHeader('access-control-allow-origin', '*');
-  /* Ten seconds at the edge: the LP Book and the widget ask every fifteen, so price and fees
-     are never more than a few seconds behind the chain, while a page and a widget open at the
-     same moment share one read instead of doubling the load on Robinhood's rate limit. */
-  res.setHeader('cache-control', 's-maxage=10, stale-while-revalidate=5');
-  res.setHeader('content-type', 'application/json; charset=utf-8');
-
+  responseHeaders(res);
   try {
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const proto = req.headers['x-forwarded-proto'] || 'https';
-    const r = await fetch(proto + '://' + host + '/lpbook.json?t=' + Date.now());
-    if (!r.ok) {
-      res.status(503).end(JSON.stringify({ error: 'The LP book has not started yet.' }));
-      return;
-    }
-    const book = await r.json();
-    const merkl = await merklLp();
-    /* Four windows a chain covers the gap the Action leaves, with room to spare. If the
-       Action has stopped and the gap is wider, the page is told how far behind it is
-       rather than being kept waiting on a request that would time out. */
-    /* 'new': time in range is read here only for a position opened since the job last ran */
-    const { book: now, errors, behind } = await advanceBook(book, { merkl, maxWindows: 4, ranges: 'new' });
-    const [live, prices] = await Promise.all([bookLiveRows(now), livePrices(now, merkl.token_price)]);
-    const view = bookView(now, {
-      rows: live.rows, prices, merkl,
-      errors: { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])),
-        ...(merkl.error ? { merkl: 'rewards could not be read' } : {}) },
-      behind,
-    });
-    view.generated = new Date().toISOString();
+    const origin = requestOrigin(req);
+    const view = await readLive(origin, () => readBook(origin));
+    responseHeaders(res, lpViewComplete(view));
     res.status(200).end(JSON.stringify(view));
   } catch (e) {
     res.status(502).end(JSON.stringify({ error: String((e && e.message) || e) }));

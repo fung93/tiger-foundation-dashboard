@@ -182,6 +182,19 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   its running clock must not hide a failed or stalled refresh. Retain vKAT and wallet
   values on read failure too. Staked Katana trading fees remain excluded from his wealth.
 - The LP Book, widget and vault refresh every 15 s.
+- Robinhood reads share `rpc-reader.js`: one paced queue per RPC endpoint, in-flight
+  request sharing, bounded network/body timeouts and rate-limit backoff that respects
+  `Retry-After`. Foreground state reads take priority over queued log scans. Do not
+  replace failed balances or LP subcalls with zeros. Portfolio keeps its last complete
+  Robinhood wallet/LP and Fables readings with their original source times.
+- Serverless LP reads resume a warm ledger checkpoint instead of scanning the saved
+  six-hour backlog on every request. An exact change to the committed snapshot resets
+  that checkpoint. Concurrent endpoint requests share one pass; only complete answers
+  are cached briefly, preserving their source timestamp. Failed/incomplete answers use
+  `no-store`. These caches are per warm function instance, not a database.
+- LP Book/widget LIVE status uses the API's `generated` time and expires after 90 seconds.
+  A service-worker/edge-cache hit must never acquire the browser's current time. Errors,
+  positive scan backlog, unread positions and nonzero unpriced fees are incomplete reads.
 - If a chain cannot be read on a refresh (usually a Robinhood rate limit), the LP Book
   and widget keep the currently displayed reading only if it is full and less than
   5 minutes old. Both show a quiet warning naming the failed chain and a STALE stamp.
@@ -428,6 +441,10 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **LP refresh regression check:** `node scripts/test-lp-refresh.mjs` forces incomplete
   reads, the five-minute boundary and recovery for both LP Book and widget. It uses a
   controlled clock and no network or dependencies.
+- **Robinhood reliability:** `scripts/test-rpc-reader.mjs`, `scripts/test-core-reads.mjs`,
+  `scripts/test-api-refresh.mjs` and `scripts/test-portfolio-robinhood.mjs` exercise paced
+  retries, request/body deadlines, required contract reads, warm scan checkpoints and
+  whole-reading retention/recovery without live network access. Run them with Node.
 - **Lending check:** `node scripts/test-morpho.mjs` checks loan rounding, liquidity,
   personal targets and history preservation without network access. At this local build,
   96 assertions pass; browser checks cover incomplete reads, full failure, five-minute

@@ -12,6 +12,8 @@
    Zero dependencies, like the rest of this repo.
    ========================================================================== */
 
+import '../rpc-reader.js';
+
 export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
   arcRpc: 'https://rpc.mainnet.arc.io',
@@ -82,8 +84,11 @@ export const toAddr = (word) => '0x' + word.slice(24);
 export const enc24 = (t) => pad(BigInt.asUintN(256, BigInt(t)).toString(16));
 export const lc = (s) => String(s).toLowerCase();
 export const hx = (n) => '0x' + Number(n).toString(16);
+const robinhoodRpc = globalThis.TigerRpc.create();
 
 export async function rpc(url, method, params) {
+  if (url === CFG.rhRpc) return robinhoodRpc(url, method, params, CFG.patient
+    ? { maxAttempts: 7, totalTimeoutMs: 120000, retryMaxMs: 20000 } : undefined);
   /* The public nodes drop a connection now and then; a figure that fails because of one
      reset socket is a figure nobody trusts, so every call gets a few attempts. */
   /* A node that says "too many requests" is waited out rather than retried at once: patiently
@@ -97,16 +102,18 @@ export async function rpc(url, method, params) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(8000),
       });
-      if (r.status === 429) throw new Error('Too Many Requests');
+      if (!r.ok) throw new Error('RPC HTTP ' + r.status);
       const j = await r.json();
       if (j.error) throw new Error(j.error.message);
+      if (!Object.prototype.hasOwnProperty.call(j, 'result')) throw new Error('JSON-RPC result is missing');
       return j.result;
     } catch (e) {
       last = e;
       const limited = /too many|rate.?limit|429/i.test(String((e && e.message) || e));
       const wait = limited && CFG.patient ? Math.min(20000, 1000 * 2 ** i) : 250 * (i + 1);
-      await new Promise((s) => setTimeout(s, wait));
+      if (i + 1 < tries) await new Promise((s) => setTimeout(s, wait));
     }
   }
   throw last;
@@ -124,22 +131,40 @@ function encodeAgg3(calls) {
   }
   return head + offsets + tails;
 }
-function decodeAgg3(hex) {
+function decodeAgg3(hex, expected) {
+  if (typeof hex !== 'string' || !/^0x(?:[0-9a-f]{2})+$/i.test(hex) || hex.length < 130)
+    throw new Error('Malformed multicall response');
   const h = hex.replace(/^0x/, '');
   const W = (i) => h.substr(i * 64, 64);
   const n = parseInt(W(1), 16);
+  if (parseInt(W(0), 16) !== 32 || !Number.isSafeInteger(n) || n !== expected || h.length < (2 + n) * 64)
+    throw new Error('Incomplete multicall response');
   const out = [];
   for (let i = 0; i < n; i++) {
-    const el = parseInt(W(2 + i), 16) / 32 + 2;
-    const ok = parseInt(W(el), 16) === 1;
-    const dOff = parseInt(W(el + 1), 16) / 32 + el;
+    const offset = parseInt(W(2 + i), 16);
+    if (!Number.isSafeInteger(offset) || offset % 32 || offset < n * 32) throw new Error('Malformed multicall offset');
+    const el = offset / 32 + 2;
+    const flag = parseInt(W(el), 16), dataOffset = parseInt(W(el + 1), 16);
+    if ((flag !== 0 && flag !== 1) || !Number.isSafeInteger(dataOffset) || dataOffset < 64 || dataOffset % 32)
+      throw new Error('Malformed multicall tuple');
+    const ok = flag === 1;
+    const dOff = dataOffset / 32 + el;
     const dLen = parseInt(W(dOff), 16);
+    if (!Number.isSafeInteger(dLen) || dLen < 0 || (dOff + 1) * 64 + dLen * 2 > h.length)
+      throw new Error('Truncated multicall data');
     out.push({ ok, data: '0x' + h.substr((dOff + 1) * 64, dLen * 2) });
   }
   return out;
 }
 export const multi = async (url, calls, tag = 'latest') =>
-  calls.length ? decodeAgg3(await rpc(url, 'eth_call', [{ to: CFG.multicall, data: encodeAgg3(calls) }, tag])) : [];
+  calls.length ? decodeAgg3(await rpc(url, 'eth_call', [{ to: CFG.multicall, data: encodeAgg3(calls) }, tag]), calls.length) : [];
+
+function requiredRead(result, words, label) {
+  if (!result || !result.ok || typeof result.data !== 'string' || !/^0x[0-9a-f]*$/i.test(result.data)
+    || result.data.length < 2 + words * 64 || (result.data.length - 2) % 2)
+    throw new Error('Could not read ' + label);
+  return result.data;
+}
 
 /* ---------- uniswap v3 maths ---------- */
 export function v3Amounts(L, lo, hi, sqrtPX96) {
@@ -208,8 +233,9 @@ export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
 
   const wallets = opts.wallets || CFG.wallets.map((x) => x.address);
   const held = wallets.map(async (address) => {
-    const bal = Number(toBig(w(await rpc(ch.rpc, 'eth_call',
-      [{ to: ch.npm, data: '0x70a08231' + pad(address) }, 'latest']), 0)));
+    const balance = await rpc(ch.rpc, 'eth_call', [{ to: ch.npm, data: '0x70a08231' + pad(address) }, 'latest']);
+    const bal = Number(toBig(w(requiredRead({ ok: true, data: balance }, 1, ch.key + ' NFT count'), 0)));
+    if (!Number.isSafeInteger(bal) || bal > 10000) throw new Error('Invalid NFT count');
     if (!bal) return [];
     /* Only the tail of the list can hold something new. ERC721Enumerable appends a token it
        receives at the owner's last index, and closing a V3 position burns its liquidity
@@ -222,7 +248,7 @@ export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
       for (let j = k; j < Math.min(bal, k + 60); j++)
         batch.push({ to: ch.npm, data: '0x2f745c59' + pad(address) + pad(j.toString(16)) });
       const r = await multi(ch.rpc, batch);
-      r.forEach((x) => { if (x.ok) out.push([String(toBig(w(x.data, 0))), address]); });
+      r.forEach((x) => { out.push([String(toBig(w(requiredRead(x, 1, ch.key + ' NFT enumeration'), 0))), address]); });
     }
     return out;
   });
@@ -276,7 +302,8 @@ export async function tokenMeta(ch, addrs) {
       const len = Number(toBig(w(h, off)));
       sym = Buffer.from(h.slice(2 + (off + 1) * 64, 2 + (off + 1) * 64 + len * 2), 'hex').toString() || sym;
     } catch { /* a token with no readable symbol still gets decimals and a short name */ }
-    const d = r[i * 2 + 1] && r[i * 2 + 1].ok ? Number(toBig(w(r[i * 2 + 1].data, 0))) : 18;
+    const d = Number(toBig(w(requiredRead(r[i * 2 + 1], 1, ch.key + ' token decimals'), 0)));
+    if (!Number.isInteger(d) || d < 0 || d > 255) throw new Error('Invalid token decimals');
     out[a] = { s: sym, d: d, stable: STABLE.test(sym), a: a };
   });
   return out;
@@ -368,12 +395,16 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
   const live = [];
   ids.forEach((id, k) => {
     const res = posRes[k * 2];
-    if (!res || !res.ok) return;
-    const d = res.data;
+    const own = posRes[k * 2 + 1];
+    const ownerData = own && own.ok ? requiredRead(own, 1, ch.key + ' #' + id + ' owner') : null;
+    const ownerNow = ownerData ? lc(toAddr(w(ownerData, 0))) : '';
+    if (ownerNow === '0x' + '0'.repeat(40)) throw new Error('Position ownership is unavailable');
+    const expectedOwner = (walletOf && walletOf.get(String(id))) || (open[id] && open[id].wallet);
+    if (expectedOwner && ownerNow && ownerNow !== lc(expectedOwner) && ownerNow !== lc(ch.staker || '')) return;
+    const d = requiredRead(res, 12, ch.key + ' #' + id + ' position');
     const liq = toBig(w(d, 7)), owed0 = toBig(w(d, 10)), owed1 = toBig(w(d, 11));
     if (liq === 0n && owed0 === 0n && owed1 === 0n) return;   /* closed */
-    const own = posRes[k * 2 + 1];
-    const ownerNow = own && own.ok ? lc(toAddr(w(own.data, 0))) : '';
+    requiredRead(own, 1, ch.key + ' #' + id + ' owner');
     live.push({
       id: String(id), ledger: open[id],
       staked: !!(ch.staker && ownerNow === lc(ch.staker)),
@@ -391,7 +422,10 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
     }))),
     tokenMeta(ch, live.flatMap((p) => [p.token0, p.token1])),
   ]);
-  live.forEach((p, i) => { p.pool = poolRes[i].ok ? lc(toAddr(w(poolRes[i].data, 0))) : null; });
+  live.forEach((p, i) => {
+    p.pool = lc(toAddr(w(requiredRead(poolRes[i], 1, ch.key + ' #' + p.id + ' pool'), 0)));
+    if (p.pool === '0x' + '0'.repeat(40)) throw new Error('Position pool is unavailable');
+  });
 
   const slotRes = await multi(ch.rpc, live.flatMap((p) => p.pool ? [
     { to: p.pool, data: '0x3850c7bd' },                      /* slot0 */
@@ -417,18 +451,19 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
   const out = [];
   live.forEach((p, j) => {
     const i = j * 5;
-    if (!slotRes[i] || !slotRes[i].ok) return;
+    requiredRead(slotRes[i], 2, ch.key + ' #' + p.id + ' pool price');
     const T0 = meta[p.token0], T1 = meta[p.token1];
-    if (!T0 || !T1) return;
+    if (!T0 || !T1) throw new Error('Position token metadata is unavailable');
 
     const sqrtP = toBig(w(slotRes[i].data, 0));
+    if (sqrtP <= 0n) throw new Error('Pool price is unavailable');
     const tick = Number(toSigned(w(slotRes[i].data, 1)));
     const [a0, a1] = v3Amounts(p.liq, p.lo, p.hi, sqrtP);
 
     /* fees already owed, plus everything earned since the position was last touched */
     let f0 = p.owed0, f1 = p.owed1;
-    const got = (k) => slotRes[i + k] && slotRes[i + k].ok;
-    if (got(1) && got(2) && got(3) && got(4)) {
+    for (const offset of [1, 2, 3, 4]) requiredRead(slotRes[i + offset], offset < 3 ? 1 : 4, ch.key + ' #' + p.id + ' fee growth');
+    {
       f0 += accrued(p.liq, v3Inside(tick, p.lo, p.hi, toBig(w(slotRes[i + 1].data, 0)),
         toBig(w(slotRes[i + 3].data, 2)), toBig(w(slotRes[i + 4].data, 2))), p.last0);
       f1 += accrued(p.liq, v3Inside(tick, p.lo, p.hi, toBig(w(slotRes[i + 2].data, 0)),
@@ -606,7 +641,11 @@ export async function merklLp() {
   for (const { address } of CFG.wallets) {
     for (const ch of V3.filter((c) => c.merklChain)) {
       try {
-        const arr = await (await fetch(CFG.merklApi + '/users/' + address + '/rewards?chainId=' + ch.merklChain)).json();
+        const response = await fetch(CFG.merklApi + '/users/' + address + '/rewards?chainId=' + ch.merklChain,
+          { signal: AbortSignal.timeout(6000) });
+        if (!response.ok) throw new Error('Rewards HTTP ' + response.status);
+        const arr = await response.json();
+        if (!Array.isArray(arr)) throw new Error('Invalid rewards response');
         for (const chain of arr || []) {
           for (const rw of chain.rewards || []) {
             const dec = (rw.token && rw.token.decimals) !== undefined ? rw.token.decimals : 18;
@@ -1697,7 +1736,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const usdOf = (tokens) => {
     let v = 0; const missing = [];
     for (const [k, a] of Object.entries(tokens || {})) {
-      if (prices[k] === undefined) missing.push(k); else v += a * prices[k];
+      if (a === 0) continue;
+      if (!Number.isFinite(a) || !Number.isFinite(prices[k])) missing.push(k); else v += a * prices[k];
     }
     return { usd: r2(v), missing };
   };
@@ -2011,8 +2051,7 @@ async function fablesRanges(ch, ids) {
   if (!ids.length) return out;
   const r = await multi(ch.rpc, ids.map((id) => ({ to: FABLES.ramp, data: FB.rangeKey + pad(id) })));
   ids.forEach((id, i) => {
-    if (!r[i] || !r[i].ok) return;
-    const x = r[i].data;
+    const x = requiredRead(r[i], 7, 'Fables range definition');
     const c0 = lc(toAddr(w(x, 0))), c1 = lc(toAddr(w(x, 1)));
     const fee = toBig(w(x, 2)), ts = toSigned(w(x, 3)), hooks = lc(toAddr(w(x, 4)));
     const poolId = keccakHex(pad(c0) + pad(c1) + pad(fee.toString(16)) + pad(BigInt.asUintN(256, ts).toString(16)) + pad(hooks));
@@ -2104,11 +2143,15 @@ export async function fablesRead(state) {
   const r = await multi(ch.rpc, calls);
   let i = 0;
   const pool = {};
-  for (const s of slots) { const x = r[i++]; if (x && x.ok) pool[s] = slot0Of(x.data); }
+  for (const s of slots) {
+    const x = r[i++]; pool[s] = slot0Of(requiredRead(x, 1, 'Fables pool price'));
+    if (pool[s].sqrt <= 0n) throw new Error('Fables pool price is unavailable');
+  }
   const rs = {};
   for (const id of ids) {
     const x = r[i++];
-    if (x && x.ok) rs[id] = { total: toBig(w(x.data, 0)), acc0: toBig(w(x.data, 2)), acc1: toBig(w(x.data, 3)), accS0: toBig(w(x.data, 4)), accS1: toBig(w(x.data, 5)) };
+    const data = requiredRead(x, 6, 'Fables range fee state');
+    rs[id] = { total: toBig(w(data, 0)), acc0: toBig(w(data, 2)), acc1: toBig(w(data, 3)), accS0: toBig(w(data, 4)), accS1: toBig(w(data, 5)) };
   }
   /* What each range has earned since the hook last collected: the V4 position's liquidity times
      the growth of fees inside its band since its checkpoint. When collected, the staked share
@@ -2119,16 +2162,18 @@ export async function fablesRead(state) {
   for (const id of ids) {
     const slotsHere = info[id] ? info[id].feeSlots.length : 0;
     const v = [];
-    for (let k = 0; k < slotsHere; k++) { const x = r[i++]; v.push(x && x.ok ? toBig(w(x.data, 0)) : null); }
+    for (let k = 0; k < slotsHere; k++) { const x = r[i++]; v.push(toBig(w(requiredRead(x, 1, 'Fables fee growth'), 0))); }
     const cf = info[id] ? r[i++] : null;
-    if (!info[id] || v.some((x) => x === null) || !pool[info[id].slot]) continue;
+    if (!info[id] || !pool[info[id].slot]) throw new Error('Fables range metadata is unavailable');
+    const bps = toBig(w(requiredRead(cf, 1, 'Fables claim fee'), 0));
+    if (bps > 10000n) throw new Error('Invalid Fables claim fee');
     const [g0, g1, L, last0, last1, lo0, lo1, hi0, hi1] = v;
     const t = pool[info[id].slot].tick, { lo, hi } = info[id];
     const inside = (g, a, b2) => (t < lo ? (a - b2 + M) % M : t >= hi ? (b2 - a + M) % M : ((g - a - b2) % M + 2n * M) % M);
     uncollected[id] = {
       f0: L * ((inside(g0, lo0, hi0) - last0 + M) % M) / Q,
       f1: L * ((inside(g1, lo1, hi1) - last1 + M) % M) / Q,
-      bps: cf && cf.ok ? BigInt(Number(toBig(w(cf.data, 0)))) : 0n,
+      bps,
     };
   }
   const meta = await tokenMeta(ch, Object.values(info).flatMap((x) => [x.c0, x.c1]));
@@ -2145,7 +2190,8 @@ export async function fablesRead(state) {
   for (const x of ranges) {
     const b = r[i++], u = r[i++];
     const inf = info[x.id], P = inf && pool[inf.slot], S = rs[x.id];
-    if (!inf || !P || !b || !b.ok || !u || !u.ok) continue;
+    if (!inf || !P || !S) throw new Error('Fables range reading is incomplete');
+    requiredRead(b, 1, 'Fables range balance'); requiredRead(u, 7, 'Fables user position');
     const bal = toBig(w(b.data, 0)), staked = toBig(w(u.data, 0));
     const L = bal + staked;
     if (L === 0n) continue;
@@ -2170,10 +2216,11 @@ export async function fablesRead(state) {
   const lockRows = [];
   for (const l of locks) {
     const a = r[i++], o = r[i++];
-    if (!a || !a.ok) continue;
+    requiredRead(a, 2, 'Fables locked amount');
     const amount = Number(toBig(w(a.data, 0))) / 1e18, unlock = Number(toBig(w(a.data, 1)));
-    const owner = o && o.ok ? lc(toAddr(w(o.data, 0))) : null;
-    if (!(amount > 0) || (owner && owner !== lc(l.wallet))) continue;
+    if (!(amount > 0)) continue;
+    const owner = lc(toAddr(w(requiredRead(o, 1, 'Fables lock owner'), 0)));
+    if (owner !== lc(l.wallet)) continue;
     lockRows.push({ id: String(l.id), wallet: lc(l.wallet), amount, unlock,
       value_usd: fablesUsd ? r2(amount * fablesUsd) : null });
   }
@@ -2363,7 +2410,7 @@ export async function vaultValue(address = VAULT.address, { book, fables } = {})
         multi(c.rpc, c.tokens.map((t) => ({ to: t.a, data: '0x70a08231' + pad(address) }))),
       ]);
       const got = [[c.native, BigInt(nat)]];
-      c.tokens.forEach((t, i) => { if (r[i] && r[i].ok) got.push([t, toBig(w(r[i].data, 0))]); });
+      c.tokens.forEach((t, i) => { got.push([t, toBig(w(requiredRead(r[i], 1, chain + ' ' + t.s + ' balance'), 0))]); });
       return got.map(([t, raw]) => ({ chain, t, amount: Number(raw) / 10 ** t.d }));
     } catch (e) { errors[chain + ' wallet'] = String((e && e.message) || e).slice(0, 120); return []; }
   })).then((lists) => lists.flat());
@@ -2376,7 +2423,11 @@ export async function vaultValue(address = VAULT.address, { book, fables } = {})
     positions.push({ chain: r.chain, id: r.id, pair: r.pair, protocol: 'Fables', value_usd: r.value_usd,
       liquidity_usd: r.liquidity_usd, fees_usd: r.fees_usd || 0, in_range: r.in_range });
   }
-  const locks = fab.locks.filter((l) => lc(l.wallet) === who && l.value_usd !== null);
+  const locks = fab.locks.filter((l) => {
+    if (lc(l.wallet) !== who) return false;
+    if (!Number.isFinite(l.value_usd)) { errors['Fables lock ' + l.id] = 'unpriced'; return false; }
+    return true;
+  });
   const balances = [];
   for (const b of raw) {
     if (!(b.amount > 0)) continue;
