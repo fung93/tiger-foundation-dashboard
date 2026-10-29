@@ -40,7 +40,7 @@ function shell(m) {
   const article = document.createElement('article');
   article.className = 'card market-card'; article.id = m.key;
   article.innerHTML = `<div class="market-head"><div><h3 class="market-name">${esc(m.label)}</h3><div class="market-context">${esc(m.collateral_token)} collateral · ${esc(m.loan_token)} borrowed · <span class="market-lltv">Market LLTV ${pct(m.lltv)}</span></div><div class="market-state"><span class="status-pill">Loading</span><span class="reading-time"></span></div></div>
-    <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="0" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="0" step="any" inputmode="decimal" value="${ltvInputValue(m.lltv,targets[m.id])}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
+    <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="1" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="0" max="${m.lltv*100}" step="any" inputmode="decimal" value="${ltvInputValue(m.lltv,targets[m.id])}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
     <div class="market-figures"><div><div class="metric-label">Collateral · oracle</div><div class="metric-value col-value">—</div><div class="metric-sub col-sub">Reading collateral…</div></div><div><div class="metric-label">My debt limit</div><div class="metric-value limit-value">—</div><div class="metric-sub limit-sub">At my chosen health</div></div><div><div class="metric-label debt-label"><span>Borrowed</span><span class="current-ltv">LTV —</span></div><div class="metric-value debt-value">—</div><div class="metric-sub debt-sub">Reading debt…</div></div><div><div class="metric-label action-label">Borrow or repay</div><div class="metric-value room-value">—</div><div class="metric-sub action-sub">Waiting for a complete reading</div></div></div>
     <div class="liquidation-box"><div><div class="metric-label liquidation-label">KAT liquidation price</div><div class="liquidation-value">—</div><div class="liquidation-current"></div></div><div class="liquidation-explanation">Reading Morpho’s liquidation boundary…</div></div>
     <div class="market-chart-bar"><div class="metric-label">Market history</div><div class="ranges" role="group" aria-label="${esc(m.label)} chart period"><button type="button" data-days="7" aria-pressed="false">7D</button><button type="button" data-days="14" aria-pressed="false">14D</button><button type="button" data-days="0" class="on" aria-pressed="true">All</button></div></div>
@@ -82,11 +82,13 @@ function draftTarget(input) {
   const target = isLtv ? m.lltv*100/v : v;
   let effective;
   try {
-    if (!Number.isFinite(target) || target<=0 || !Number.isFinite(v) || v<=0) throw new RangeError();
+    if (!Number.isFinite(target) || target<1 || !Number.isFinite(v) || v<=0
+      || (isLtv && v>m.lltv*100)) throw new RangeError();
     effective=targetMetrics({lltv:m.lltv,error:'draft'},target).target_health;
   } catch {
-    input.setAttribute('aria-invalid','true'); input.setCustomValidity('Enter a positive health or LTV with a finite linked value.');
-    drafts.set(id,null); targetMessage(m,'Use a positive health or LTV with a finite linked value. The graph keeps your saved target.',true); return null;
+    const message='Use health of at least 1 or a positive LTV no higher than '+pct(m.lltv)+'.';
+    input.setAttribute('aria-invalid','true'); input.setCustomValidity(message);
+    drafts.set(id,null); targetMessage(m,message+' The graph keeps your saved target.',true); return null;
   }
   input.removeAttribute('aria-invalid'); input.setCustomValidity('');
   drafts.set(id,effective);
@@ -113,7 +115,7 @@ function editTarget(m) {
 }
 function saveTarget(m) {
   const target=drafts.get(m.id);
-  if(!Number.isFinite(target)||target<=0){targetMessage(m,'Enter a positive minimum health or max LTV before saving.',true);return;}
+  if(!Number.isFinite(target)||target<1){targetMessage(m,'Use health of at least 1 or a positive LTV no higher than '+pct(m.lltv)+'.',true);return;}
   targets={...targets,[m.id]:target};finishEditing(m,'Saved for this visit · graph updated');
   render();
 }

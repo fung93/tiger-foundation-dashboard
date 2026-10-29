@@ -208,6 +208,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   Only Save applies the new target for this visit and adjusts the graph. Cancel discards the
   draft. Live polling must not overwrite unsaved inputs. Personal maximum LTV = market
   LLTV ÷ chosen minimum health. Invalid inputs keep the last saved setting.
+  Minimum health must be at least **1**, and max LTV must be positive and no higher than
+  that market's LLTV: **77% for avKAT/KAT, 62.5% for both USDC markets** (Alex, 29 Oct
+  2026). Exact boundary values are allowed. Reject values outside these bounds before
+  rounding the linked field; keep the 70% / 35% opening defaults.
 - Edit, Save and Cancel sit beside the My max LTV % label, with no extra button row
   below the inputs. The figures run: collateral, My debt limit, Borrowed with current
   LTV beside its label, then borrow/repay amount. Keep interest in the debt calculation,
