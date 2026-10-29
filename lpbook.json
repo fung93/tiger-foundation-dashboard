@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46532301,
-  "robinhood": 100885379
+  "katana": 46554150,
+  "robinhood": 101096136
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -313,11 +313,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1793275112,
-    "block": 100885379,
+    "ts": 1793296962,
+    "block": 101096136,
     "in": true,
-    "in_s": 1127773,
-    "all_s": 1127773
+    "in_s": 1149623,
+    "all_s": 1149623
    },
    "claims": [
     {
@@ -1087,8 +1087,8 @@
    "stable0": false,
    "stable1": true,
    "pair": "vbWBTC / vbUSDC",
-   "liq": "1990524391",
-   "status": "open",
+   "liq": "0",
+   "status": "closed",
    "at_start": false,
    "opened_ts": 1793153160,
    "opened_block": 46410349,
@@ -1102,8 +1102,16 @@
      "usd": 843.66
     }
    ],
-   "out_usd": 0,
-   "withdrawals": [],
+   "out_usd": 844.5,
+   "withdrawals": [
+    {
+     "block": 46547349,
+     "ts": 1793290160,
+     "a0": 0,
+     "a1": 844.49649,
+     "usd": 844.5
+    }
+   ],
    "owed": {
     "r0": "0",
     "r1": "0"
@@ -1112,18 +1120,18 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 1338.1368961866224
+    "KAT@katana": 3989.593885078531
    },
    "unpriced": false,
    "range": {
-    "ts": 1793275112,
-    "block": 46532301,
-    "in": true,
-    "in_s": 119659,
-    "all_s": 121952
+    "ts": 1793290160,
+    "block": 46547349,
+    "in": false,
+    "in_s": 132541,
+    "all_s": 137000
    },
    "claimed_seen": {
-    "KAT@katana": 1123.0287304105123
+    "KAT@katana": 1338.1368961866224
    },
    "claims": [
     {
@@ -1147,9 +1155,95 @@
       "KAT@katana": 0.004550976162292702
      },
      "usd": 2.35
+    },
+    {
+     "ts": 1793290571,
+     "block": 46547760,
+     "tokens": {
+      "KAT@katana": 215.10816577611013
+     },
+     "prices": {
+      "KAT@katana": 0.004496996262125303
+     },
+     "usd": 0.97
     }
    ],
-   "last_claim_ts": 1793251700
+   "last_claim_ts": 1793290571,
+   "closed_ts": 1793290160,
+   "closed_block": 46547349,
+   "frozen": {
+    "at_ts": 1793290160,
+    "at_block": 46547349,
+    "cost_usd": 843.66,
+    "principal_usd": 844.5,
+    "pnl_usd": 0.84,
+    "fee_tokens": {
+     "KAT@katana": 3989.593885078531
+    },
+    "fee_usd": 18.01,
+    "net_usd": 18.85,
+    "net_pct": 2.23,
+    "prices": {
+     "vbWBTC@katana": 81500.79810438902,
+     "vbUSDC@katana": 1,
+     "KAT@katana": 0.004513559676373935
+    }
+   }
+  },
+  "katana:492626": {
+   "key": "katana:492626",
+   "chain": "katana",
+   "id": "492626",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+   "lo": 66790,
+   "hi": 67160,
+   "fee": 500,
+   "t0": "vbWBTC@katana",
+   "t1": "vbUSDC@katana",
+   "s0": "vbWBTC",
+   "s1": "vbUSDC",
+   "d0": 8,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "vbWBTC / vbUSDC",
+   "liq": "1621174238",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1793290481,
+   "opened_block": 46547670,
+   "cost_usd": 851.78,
+   "deposits": [
+    {
+     "block": 46547670,
+     "ts": 1793290481,
+     "a0": 0.00355262,
+     "a1": 562.265331,
+     "usd": 851.78
+    }
+   ],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {
+    "KAT@katana": 178.07374831693838
+   },
+   "unpriced": false,
+   "range": {
+    "ts": 1793296961,
+    "block": 46554150,
+    "in": true,
+    "in_s": 6480,
+    "all_s": 6480
+   },
+   "claimed_seen": {}
   }
  },
  "events": [
@@ -1264,6 +1358,22 @@
    "id": "491843",
    "block": 46408809,
    "ts": 1793151620
+  },
+  {
+   "t": "open",
+   "chain": "katana",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "492626",
+   "block": 46547670,
+   "ts": 1793290481
+  },
+  {
+   "t": "close",
+   "chain": "katana",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "492291",
+   "block": 46547349,
+   "ts": 1793290160
   }
  ],
  "fee_series": [
@@ -2286,16 +2396,33 @@
     "robinhood:1458357": -62.74,
     "katana:492291": -2.44
    }
+  },
+  {
+   "ts": 1793296961,
+   "tokens": {
+    "WETH@robinhood": 0.00485937,
+    "USDG@robinhood": 11.76328,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 16580.5462377,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -102.24,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00485937,
+     "USDG@robinhood": 11.378136
+    },
+    "katana:492626": {
+     "KAT@katana": 178.07374832
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -55.43,
+    "katana:492626": -4.69
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1792636219,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1792666307,
    "behind": {
@@ -2498,13 +2625,21 @@
     "katana": 0,
     "robinhood": 0
    }
+  },
+  {
+   "ts": 1793296961,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
   }
  ],
  "carried": {
   "by_id": {}
  },
  "merkl_claimed": {
-  "KAT@katana": 16365.438071922192
+  "KAT@katana": 16580.5462376983,
+  "vbUSDC@katana": 5.208745
  },
  "claims": [
   {
@@ -2659,6 +2794,23 @@
    "amount": 515.4176195169066,
    "price": 0.004550976162292702,
    "assigned": 515.4176195169066
+  },
+  {
+   "block": 46547760,
+   "ts": 1793290571,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "vbUSDC@katana",
+   "amount": 5.208745,
+   "price": 1
+  },
+  {
+   "block": 46547760,
+   "ts": 1793290571,
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "amount": 215.10816577611033,
+   "price": 0.004496996262125303,
+   "assigned": 215.10816577611013
   }
  ]
 }
