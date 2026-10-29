@@ -59,7 +59,8 @@
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="a4">&ndash;</div><div class="note" id="a4n">&nbsp;</div></div>
 </div>
 <div class="stats s3">
-  <div class="card"><div class="label">Fee APR &middot; closed lifetimes</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div><div class="note" id="a5n">&nbsp;</div></div>
+  <div class="card with-rec"><div class="label">Fee APR &middot; closed lifetimes</div><div class="big" id="a5" style="color:var(--gold)">&ndash;</div>
+    <button class="rec apr-info-btn" id="aprInfoBtn" type="button" title="APR information" aria-label="Fee APR information" aria-haspopup="dialog" aria-controls="aprInfoDialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg></button></div>
   <div class="card"><div class="label">Average days open</div><div class="big" id="a9">&ndash;</div><div class="note" id="a9n">&nbsp;</div></div>
   <div class="card"><div class="label">Average time in range</div><div class="big" id="a10">&ndash;</div><div class="note" id="a10n">&nbsp;</div></div>
 </div>
@@ -82,6 +83,11 @@
 
 </main>
 
+<dialog class="modal apr-info-modal" id="aprInfoDialog" aria-labelledby="aprInfoTitle" aria-describedby="a5n">
+  <div class="modal-head"><span class="label" id="aprInfoTitle">Fee APR &middot; closed lifetimes</span><button class="modal-x" id="aprInfoClose" type="button" aria-label="Close APR information">&times;</button></div>
+  <div class="modal-body"><p class="note" id="a5n">Period details are loading.</p></div>
+</dialog>
+
 <div class="modal-back" id="chainsModal" role="dialog" aria-modal="true" aria-label="Realised PnL by chain">
   <div class="modal">
     <div class="modal-head"><span class="label">Realised PnL by chain &middot; closed positions</span><button class="modal-x" type="button" aria-label="Close">&times;</button></div>
@@ -96,6 +102,14 @@
   var B = LPBook, $ = B.$, esc = B.esc, money = B.money, signed = B.signed, cls = B.cls, amt = B.amt, day = B.day, held = B.held;
   var byChain = B.modal('chainsModal'), CHAINS = '';
   $('chainsBtn').addEventListener('click', function () { byChain.body.innerHTML = CHAINS; byChain.open(); });
+  var aprInfo = $('aprInfoDialog');
+  $('aprInfoBtn').addEventListener('click', function () { if (!aprInfo.open) aprInfo.showModal(); });
+  $('aprInfoClose').addEventListener('click', function () { aprInfo.close(); });
+  aprInfo.addEventListener('click', function (event) {
+    if (event.target !== aprInfo) return;
+    var box = aprInfo.getBoundingClientRect();
+    if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) aprInfo.close();
+  });
 
   function render(v) {
     var A = v.alltime, C = A.cards;
