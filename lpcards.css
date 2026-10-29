@@ -22,7 +22,7 @@
 .lpw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(310px,100%),1fr));align-items:start;gap:14px;margin-top:16px}
 .lpw{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008));border:1px solid var(--line);
   border-radius:14px;padding:16px 18px;color:var(--text);display:grid;grid-template-columns:minmax(0,1fr);min-width:0;align-content:start;gap:14px}
-/* Common sections line up within each visual row; disclosure height stays per card. */
+/* Common sections line up within each visual row. */
 .lpw .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-height:var(--lp-header-height,0px)}
 .lpw .top>div:first-child{min-width:0;flex:1 1 0}
 .lpw .pair{font:400 19px/1.1 var(--serif);letter-spacing:.01em}
@@ -44,12 +44,18 @@
 .lpw .ends{display:flex;justify-content:space-between;gap:6px;margin-top:9px;font-size:10.5px;color:var(--faint);white-space:nowrap}
 .lpw .mid{color:var(--dim);overflow:hidden;text-overflow:ellipsis}
 .lpw .mid.near{color:var(--warn)}
-.lpw .figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:12px;border-top:1px solid var(--line2);min-height:var(--lp-figures-height,0px)}
+.lpw .figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:12px;border-top:1px solid var(--line2)}
+.lpw>.figs{min-height:var(--lp-figures-height,0px)}
 .lpw .k{font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.14em;text-transform:uppercase}
 .lpw .v{font-size:16px;font-weight:300;margin-top:4px;white-space:nowrap;letter-spacing:-.01em}
 .lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
 .lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em;min-height:var(--lp-footer-height,0px)}
-.lpw>.lp-comparison[open]{min-height:var(--lp-comparison-height,0px)}
+.lpw .position-comparison{min-height:var(--lp-comparison-height,0px)}
+.lpw .holding-figs{container-type:inline-size}
+.lpw .holding-figs>div{min-width:0}
+.lpw .holding-figs .k{min-height:3em}
+.lpw .figs.holding-figs .v.holding-value{font-size:clamp(10px,5cqw,16px);white-space:normal;overflow-wrap:anywhere}
+.position-comparison>.comparison-unavailable{margin-top:7px}
 
 /* The same comparison renderer appears in position cards, page summaries and history. */
 .lp-comparison{min-width:0;color:var(--text);padding-top:12px;border-top:1px solid var(--line2);overflow-wrap:anywhere}

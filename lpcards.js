@@ -7,7 +7,7 @@
 
      LPCards.card(W)            one position's card, as HTML
      LPCards.list(views)        every card, or a line saying nothing is open
-     LPCards.align(el)          align a rendered row without stretching closed cards
+     LPCards.align(el)          align sections across a rendered row of cards
      LPCards.comparison(c, options)
                                 LP outcome against keeping the deposited tokens
      LPCards.stamp(el, last, failed)
@@ -58,11 +58,18 @@
   function comparison(c, options) {
     options = options || {};
     var title = options.title || 'LP vs holding';
-    var prefix = '<details class="lp-comparison' + (options.summary ? ' lp-comparison-summary' : '') + '"'
-      + detailAttributes(options.key || 'comparison') + '><summary class="comparison-title">' + esc(title) + '</summary>';
     var fields = ['hold_usd', 'market_usd', 'il_usd', 'earned_usd', 'lp_outcome_usd', 'difference_usd'];
     var available = c && c.available === true && c.complete === true
       && fields.every(function (key) { return finite(c[key]); });
+    if (options.row) {
+      return '<section class="position-comparison" aria-label="LP versus holding"><div class="figs holding-figs">'
+        + '<div><div class="k">LP + earnings</div><div class="v holding-value">' + esc(money(available ? c.lp_outcome_usd : null)) + '</div></div>'
+        + '<div><div class="k">Holding</div><div class="v holding-value">' + esc(money(available ? c.hold_usd : null)) + '</div></div>'
+        + '<div><div class="k">LP advantage</div><div class="v holding-value' + (available ? direction(c.difference_usd) : '') + '">' + esc(money(available ? c.difference_usd : null, true)) + '</div></div>'
+        + '</div>' + (!available ? '<p class="comparison-unavailable">' + esc(c && c.reason || 'Comparison unavailable for this reading.') + '</p>' : '') + '</section>';
+    }
+    var prefix = '<details class="lp-comparison' + (options.summary ? ' lp-comparison-summary' : '') + '"'
+      + detailAttributes(options.key || 'comparison') + '><summary class="comparison-title">' + esc(title) + '</summary>';
     if (!available) {
       var reason = c && c.reason || (c ? 'Complete comparison figures are unavailable.' : 'Comparison unavailable for this saved reading.');
       return prefix + '<p class="comparison-unavailable">' + esc(reason) + '</p></details>';
@@ -106,7 +113,6 @@
 
   function card(W) {
     var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
-    var detailKey = String(W.chain == null ? '' : W.chain) + ':' + String(W.id == null ? '' : W.id);
     return '<div class="lpw"><div class="top"><div><div class="pair">' + esc(W.pair) + '</div>'
       + apr(W) + '</div>'
       + '<div class="badge ' + (oor ? 'out' : 'in') + '">' + esc(W.status) + '</div></div>'
@@ -117,7 +123,7 @@
       + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
       + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
-      + comparison(W.comparison, { key: detailKey + ':comparison' })
+      + comparison(W.comparison, { row: true })
       + '<div class="foot"><span>' + esc(W.since)
       + (W.in_range_pct != null ? ' · ' + W.in_range_pct + '% in range' : '') + '</span><span>cost ' + esc(W.cost)
       + (W.value_now ? ' · value ' + esc(W.value_now) : '') + '</span></div></div>';
@@ -128,8 +134,7 @@
   }
 
   var layouts = new WeakMap();
-  /* Measure natural content after rendering, then align only cards on the same row.
-     Closed disclosures never inherit an expanded neighbour's height. */
+  /* Measure natural content after rendering, then align only cards on the same row. */
   function align(grid) {
     if (!grid || typeof grid.querySelectorAll !== 'function') return;
     var state = layouts.get(grid);
@@ -142,7 +147,6 @@
         frame(function () { state.queued = false; align(grid); });
       };
       layouts.set(grid, state);
-      grid.addEventListener('toggle', state.schedule, true);
       if (typeof ResizeObserver === 'function') {
         state.observer = new ResizeObserver(state.schedule); state.observer.observe(grid);
       } else window.addEventListener('resize', state.schedule);
@@ -151,11 +155,11 @@
         document.fonts.addEventListener('loadingdone', state.schedule);
       }
     }
-    var selectors = ['.top', '.band', '.figs', '.foot'];
-    var variables = ['--lp-header-height', '--lp-band-height', '--lp-figures-height', '--lp-footer-height'];
+    var selectors = ['.top', '.band', '.figs', '.position-comparison', '.foot'];
+    var variables = ['--lp-header-height', '--lp-band-height', '--lp-figures-height', '--lp-comparison-height', '--lp-footer-height'];
     var cards = Array.prototype.slice.call(grid.querySelectorAll('.lpw'));
     cards.forEach(function (el) {
-      variables.concat('--lp-comparison-height').forEach(function (key) { el.style.removeProperty(key); });
+      variables.forEach(function (key) { el.style.removeProperty(key); });
     });
     var rows = [];
     cards.forEach(function (el) {
@@ -164,20 +168,15 @@
       if (!row) { row = { top: top, cards: [] }; rows.push(row); }
       row.cards.push({ el: el, heights: selectors.map(function (selector) {
         var section = el.querySelector(selector); return section ? section.getBoundingClientRect().height : 0;
-      }), detail: el.querySelector('details.lp-comparison[open]') });
+      }) });
     });
     rows.forEach(function (row) {
       if (row.cards.length < 2) return;
       var heights = selectors.map(function (_, index) {
         return Math.ceil(Math.max.apply(null, row.cards.map(function (item) { return item.heights[index]; })));
       });
-      var expanded = row.cards.filter(function (item) { return item.detail; });
-      var detailHeight = expanded.length > 1 ? Math.ceil(Math.max.apply(null, expanded.map(function (item) {
-        return item.detail.getBoundingClientRect().height;
-      }))) : 0;
       row.cards.forEach(function (item) {
         variables.forEach(function (key, index) { item.el.style.setProperty(key, heights[index] + 'px'); });
-        if (item.detail && detailHeight) item.el.style.setProperty('--lp-comparison-height', detailHeight + 'px');
       });
     });
   }
