@@ -13,6 +13,8 @@
    ========================================================================== */
 
 import '../rpc-reader.js';
+import { attributeMerklRewards, attributedAprBaseline, rewardAttributionLedgerIssue } from './_reward-attribution.mjs';
+export { attributeMerklRewards, REWARD_ATTRIBUTION_VERSION } from './_reward-attribution.mjs';
 
 export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
@@ -676,9 +678,13 @@ export async function merklLp() {
       } catch { failed = true; }
     }
   }
-  return { total_usd: r2(total), lp_usd: r2(lp), earned_by_id: byId, earned_tokens_by_id: tokensById,
+  const result = { total_usd: r2(total), lp_usd: r2(lp), earned_by_id: byId, earned_tokens_by_id: tokensById,
     claimed_tokens_by_id: claimedById, wallet_by_id: walletById,
     token_price: tokenPrice, error: failed || undefined };
+  try { return attributeMerklRewards(result); }
+  catch {
+    return { ...result, earned_by_id: {}, earned_tokens_by_id: {}, claimed_tokens_by_id: {}, error: true };
+  }
 }
 
 /* ---------- the widget's own view ---------- */
@@ -1289,7 +1295,7 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
 }
 
 async function freeze(book, ch, P, merkl) {
-  if (merkl && merkl.earned_tokens_by_id && merkl.earned_tokens_by_id[P.id]) P.merkl = { ...merkl.earned_tokens_by_id[P.id] };
+  if (merkl && !merkl.error && merkl.earned_tokens_by_id && merkl.earned_tokens_by_id[P.id]) P.merkl = { ...merkl.earned_tokens_by_id[P.id] };
   const tokens = feeTokensOf(P, null);
   let sp = P.close_sp || null;
   if (!sp && P.pool) sp = await sqrtAt(ch, P.pool, P.closed_block);
@@ -1328,6 +1334,8 @@ async function freeze(book, ch, P, merkl) {
 export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false } = {}) {
   const book = JSON.parse(JSON.stringify(input));
   const errors = {}, behind = {};
+  const attributionIssue = rewardAttributionLedgerIssue(book, merkl);
+  if (attributionIssue) { errors.merkl = attributionIssue; merkl = { ...merkl, error: true }; }
 
   /* a wallet added to the config since the book began: photograph what it holds now, and
      from then on it is followed like the others */
@@ -1366,7 +1374,7 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ra
   }
   /* Merkl keeps settling a position's rewards for a while after it closes, so every
      position's earned total is refreshed; only the frozen history row stays put. */
-  if (merkl && merkl.earned_tokens_by_id) {
+  if (merkl && !merkl.error && merkl.earned_tokens_by_id) {
     for (const P of Object.values(book.positions)) {
       const t = merkl.earned_tokens_by_id[P.id];
       if (t && chainOf(P.chain).yield === 'merkl') P.merkl = { ...t };
@@ -1595,7 +1603,7 @@ function positionApr(book, P, cashflows, tokensNow, prices, now) {
   if (!base && cashflows.latest > P.opened_ts) return unavailableApr('A top-up needs a saved earning reading after the latest deposit.');
   const start = base ? base.ts : P.opened_ts, hours = (now - start) / 3600;
   if (!(hours > .48)) return unavailableApr('There is not yet enough elapsed time to measure an annualised rate.');
-  const current = tokensNow.tokens, previous = base ? base.pos[P.key] : {};
+  const current = tokensNow.tokens, previous = base ? attributedAprBaseline(P, base) : {};
   const earnedNow = performanceValue(current, prices), earnedBefore = performanceValue(previous, prices);
   if (earnedNow.reason || earnedBefore.reason) return unavailableApr(earnedNow.reason || earnedBefore.reason);
   const delta = {};

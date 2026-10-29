@@ -53,7 +53,8 @@ export async function updateLpBook(root) {
       const row = live.rows[P.key];
       if (P.status === 'open' && row && typeof row.liquidity_usd === 'number') pp[P.key] = Math.round((row.liquidity_usd + P.out_usd - P.cost_usd) * 100) / 100;
     }
-    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp });
+    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp,
+      ...(merkl.reward_attribution_version ? { reward_attribution_version: merkl.reward_attribution_version } : {}) });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 

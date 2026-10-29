@@ -149,6 +149,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   and no token list.
 - **Live position cards:** each position's own fees since it opened, claimed or not.
   - On Katana, that is the position's own Merkl KAT.
+  - Alex's explicit exception (29 Oct 2026): attribute the unclaimed KAT from closed Katana
+    LP #492291 to LP #492626. The 1,338.1368961866224 KAT already claimed stays with #492291;
+    the remaining rewards and their later claims belong to #492626. The scoped rule lives in
+    `api/_reward-attribution.mjs`, shared by the API and scheduled job. Do not generalise it
+    to other positions. Old APR observations are compared on the same attribution basis
+    without rewriting their stored token balances.
   - On Robinhood, that is its trading fees, plus Fables fees not yet collected by the hook,
     split by the hook's own rules.
 - **Live page:**
@@ -441,6 +447,9 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **LP refresh regression check:** `node scripts/test-lp-refresh.mjs` forces incomplete
   reads, the five-minute boundary and recovery for both LP Book and widget. It uses a
   controlled clock and no network or dependencies.
+- **KAT reward attribution:** `node scripts/test-reward-attribution.mjs` checks the scoped
+  reassignment, unchanged totals/history, APR sample transitions, failed reads, partial/full
+  claims and claiming after the destination closes, without live network access.
 - **Robinhood reliability:** `scripts/test-rpc-reader.mjs`, `scripts/test-core-reads.mjs`,
   `scripts/test-api-refresh.mjs` and `scripts/test-portfolio-robinhood.mjs` exercise paced
   retries, request/body deadlines, required contract reads, warm scan checkpoints and
