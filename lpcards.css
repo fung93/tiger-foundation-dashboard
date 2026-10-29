@@ -49,14 +49,6 @@
 .lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
 .lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em}
 
-/* Price movement and IL stay beneath P&L, in smaller type than its main value. */
-.pnl-breakdown{display:grid;gap:5px;margin-top:7px;font-size:10px;line-height:1.4;color:var(--dim);letter-spacing:0;overflow-wrap:anywhere}
-.pnl-breakdown>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 6px}
-.pnl-amount{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
-.pnl-amount.up{color:var(--up)}.pnl-amount.down{color:var(--down)}
-.lpw .pnl-breakdown>div{display:block}
-.lpw .pnl-amount{display:block}
-
 /* The same comparison renderer appears in position cards, page summaries and history. */
 .lp-comparison{min-width:0;color:var(--text);padding-top:12px;border-top:1px solid var(--line2);overflow-wrap:anywhere}
 .comparison-title{cursor:pointer;font:500 12px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.02em;color:var(--text)}

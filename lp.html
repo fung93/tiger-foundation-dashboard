@@ -61,13 +61,13 @@
 </div>
 
 <div class="main">
-  <div class="card" id="liveComparison"></div>
   <div class="card">
     <div class="label">Fees claimed &amp; net &middot; open positions</div>
     <div class="legend"><span><i style="background:var(--gold)"></i>Fees claimed</span><span><i style="background:var(--text)"></i>Net &middot; fees + PnL</span></div>
     <div class="chart" id="c7"></div>
     <div class="axis" id="c7x"></div>
   </div>
+  <div class="card" id="liveComparison"></div>
   <div class="card">
     <div class="label">Live positions</div>
     <div class="lpw-grid" id="c6"></div>
@@ -118,7 +118,7 @@
 
     $('c2').textContent = signed(C.pnl_usd);
     $('c2').className = 'big ' + cls(C.pnl_usd);
-    $('c2n').innerHTML = LPCards.pnlBreakdown(C.comparison);
+    $('c2n').textContent = 'open positions · excluding fees';
 
     $('c4').textContent = money(C.fees_usd);
     $('c4n').textContent = money(C.unclaimed_usd) + ' still to claim · '

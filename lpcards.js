@@ -54,16 +54,6 @@
   }
 
   /* Comparisons use the deposit-aware backend reading, never the legacy row.il figure. */
-  function pnlBreakdown(c) {
-    var available = c && c.available === true && c.complete === true
-      && finite(c.market_usd) && finite(c.il_usd);
-    return '<div class="pnl-breakdown">'
-      + '<div><span>Token price move</span><span class="pnl-amount' + (available ? direction(c.market_usd) : '') + '">'
-      + esc(money(available ? c.market_usd : null, true)) + '</span></div>'
-      + '<div><span>Impermanent loss</span><span class="pnl-amount' + (available ? direction(c.il_usd) : '') + '">'
-      + esc(money(available ? c.il_usd : null, true)) + '</span></div></div>';
-  }
-
   function comparison(c, options) {
     options = options || {};
     var title = options.title || 'LP vs holding';
@@ -124,7 +114,7 @@
       + '<div class="ends"><span>' + esc(W.lower) + '</span><span class="mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '') + '">'
       + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
       + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
-      + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div>' + pnlBreakdown(W.comparison) + '</div>'
+      + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
       + comparison(W.comparison, { key: detailKey + ':comparison' })
       + '<div class="foot"><span>' + esc(W.since)
@@ -155,5 +145,5 @@
     if (ck) ck.textContent = new Date().toTimeString().slice(0, 8);
   }
 
-  window.LPCards = { card: card, list: list, comparison: comparison, pnlBreakdown: pnlBreakdown, detailsOpen: detailsOpen, stamp: stamp, esc: esc };
+  window.LPCards = { card: card, list: list, comparison: comparison, detailsOpen: detailsOpen, stamp: stamp, esc: esc };
 })();
