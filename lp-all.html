@@ -103,7 +103,7 @@
     $('a1n').textContent = C.closed + ' closed · over ' + (C.days || 0).toFixed(1) + ' days';
     $('a2').textContent = signed(C.realised_usd);
     $('a2').className = 'big ' + cls(C.realised_usd);
-    $('a2n').textContent = 'fixed at each close';
+    $('a2n').innerHTML = LPCards.pnlBreakdown(C.comparison);
     $('a3').textContent = money(C.fees_usd);
     $('a3n').textContent = 'each claim at its own day’s price';
     $('a4').textContent = signed(C.net_usd);
@@ -149,11 +149,10 @@
         + '<div class="l2"><span><span class="tag">' + esc(h.chain) + '</span> #' + esc(h.id) + '</span>'
         + '<span>' + esc(day(h.opened)) + ' → ' + esc(day(h.closed)) + ' · ' + esc(held(h.held_hours)) + '</span></div>'
         + '<div class="l3"><span>cost ' + esc(money(h.cost_usd)) + ' → out ' + esc(money(h.principal_usd))
-        + (out ? ' <span style="color:var(--faint)">' + esc(out) + '</span>' : '') + '</span><span>IL + price ' + esc(signed(h.pnl_usd)) + '</span></div>'
+        + (out ? ' <span style="color:var(--faint)">' + esc(out) + '</span>' : '') + '</span><div class="history-pnl"><div class="history-pnl-value">P&amp;L <span class="' + cls(h.pnl_usd) + '">' + esc(signed(h.pnl_usd)) + '</span></div>'
+        + LPCards.pnlBreakdown(h.comparison) + '</div></div>'
         + '<div class="l3"><span>fees ' + esc(money(h.fee_usd)) + (fees ? ' <span style="color:var(--faint)">' + esc(fees) + '</span>' : '') + '</span></div>'
-        + '<details class="history-comparison" data-lp-detail="' + esc(detailKey + ':history') + '"' + (LPCards.detailsOpen(detailKey + ':history') ? ' open' : '') + '><summary>LP vs holding'
-        + (h.comparison && h.comparison.available && h.comparison.complete && Number.isFinite(h.comparison.difference_usd) ? '<span class="' + cls(h.comparison.difference_usd) + '">' + esc(signed(h.comparison.difference_usd)) + '</span>' : '')
-        + '</summary>' + LPCards.comparison(h.comparison, { closed: true, key: detailKey + ':comparison' }) + '</details>'
+        + LPCards.comparison(h.comparison, { closed: true, key: detailKey + ':comparison' })
         + (h.incomplete ? '<div class="l3" style="color:var(--warn)">a price could not be read; this row is partial</div>' : '')
         + '</div>';
     }).join('') : '<div class="empty">A position appears here, fixed, when it closes.</div>';

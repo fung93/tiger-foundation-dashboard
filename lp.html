@@ -118,7 +118,7 @@
 
     $('c2').textContent = signed(C.pnl_usd);
     $('c2').className = 'big ' + cls(C.pnl_usd);
-    $('c2n').textContent = 'what IL and price have done to the open positions';
+    $('c2n').innerHTML = LPCards.pnlBreakdown(C.comparison);
 
     $('c4').textContent = money(C.fees_usd);
     $('c4n').textContent = money(C.unclaimed_usd) + ' still to claim · '

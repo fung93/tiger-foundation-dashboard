@@ -54,28 +54,33 @@
   }
 
   /* Comparisons use the deposit-aware backend reading, never the legacy row.il figure. */
+  function pnlBreakdown(c) {
+    var available = c && c.available === true && c.complete === true
+      && finite(c.market_usd) && finite(c.il_usd);
+    return '<div class="pnl-breakdown">'
+      + '<div><span>Token price move</span><span class="pnl-amount' + (available ? direction(c.market_usd) : '') + '">'
+      + esc(money(available ? c.market_usd : null, true)) + '</span></div>'
+      + '<div><span>Impermanent loss</span><span class="pnl-amount' + (available ? direction(c.il_usd) : '') + '">'
+      + esc(money(available ? c.il_usd : null, true)) + '</span></div></div>';
+  }
+
   function comparison(c, options) {
     options = options || {};
     var title = options.title || 'LP vs holding';
-    var prefix = '<section class="lp-comparison' + (options.summary ? ' lp-comparison-summary' : '') + '">'
-      + '<h3 class="comparison-title">' + esc(title) + '</h3>';
+    var prefix = '<details class="lp-comparison' + (options.summary ? ' lp-comparison-summary' : '') + '"'
+      + detailAttributes(options.key || 'comparison') + '><summary class="comparison-title">' + esc(title) + '</summary>';
     var fields = ['hold_usd', 'market_usd', 'il_usd', 'earned_usd', 'lp_outcome_usd', 'difference_usd'];
     var available = c && c.available === true && c.complete === true
       && fields.every(function (key) { return finite(c[key]); });
     if (!available) {
       var reason = c && c.reason || (c ? 'Complete comparison figures are unavailable.' : 'Comparison unavailable for this saved reading.');
-      return prefix + '<p class="comparison-unavailable">' + esc(reason) + '</p></section>';
+      return prefix + '<p class="comparison-unavailable">' + esc(reason) + '</p></details>';
     }
     var differenceLabel = c.difference_usd < -0.004 ? 'LP behind holding' : 'LP advantage';
     var values = '<div class="comparison-values">'
       + '<div><div class="comparison-label">LP + earnings</div><div class="comparison-value">' + esc(money(c.lp_outcome_usd)) + '</div></div>'
       + '<div><div class="comparison-label">Just holding</div><div class="comparison-value">' + esc(money(c.hold_usd)) + '</div></div>'
       + '<div class="comparison-advantage"><div class="comparison-label">' + differenceLabel + '</div><div class="comparison-value' + direction(c.difference_usd) + '">' + esc(money(c.difference_usd, true)) + '</div></div>'
-      + '</div>';
-    var breakdown = '<div class="comparison-breakdown">'
-      + '<div><span>Token price move</span><span class="comparison-amount' + direction(c.market_usd) + '">' + esc(money(c.market_usd, true)) + '</span></div>'
-      + '<div><span>Impermanent loss</span><span class="comparison-amount' + direction(c.il_usd) + '">' + esc(money(c.il_usd, true)) + '</span></div>'
-      + '<div><span>' + (options.closed ? 'Booked claim proceeds' : 'Fees + rewards earned') + '</span><span class="comparison-amount">' + esc(money(c.earned_usd)) + '</span></div>'
       + '</div>';
     var note = options.closed
       ? 'LP principal is valued at close. Booked claim proceeds keep their recorded prices.'
@@ -85,15 +90,13 @@
       + (window ? '<p class="comparison-note">' + esc(window) + '</p>' : '')
       + (!options.summary && finite(c.deposit_count) && c.deposit_count > 1
         ? '<p class="comparison-note">Includes all ' + esc(c.deposit_count) + ' recorded deposits.</p>' : '')
-      + '<p class="comparison-note">Just holding values the deposited tokens at the same prices. Token price move shows their change in value; impermanent loss compares LP principal with keeping those tokens.</p>';
+      + '<p class="comparison-note">Just holding values the deposited tokens at the same prices.</p>';
     return prefix + values
       + '<p class="comparison-note comparison-basis">' + esc(note) + '</p>'
-      + (options.summary ? breakdown : '')
-      + '<details class="comparison-details"' + detailAttributes(options.key || 'comparison') + '><summary>' + (options.summary ? 'How this is compared' : 'Price move, IL &amp; earnings') + '</summary>'
-      + (options.summary ? '' : breakdown) + method + '</details></section>';
+      + method + '</details>';
   }
 
-  function apr(W, key) {
+  function apr(W) {
     var detail = W.apr_detail;
     var cachedRate = W.apr && W.apr !== '–' && W.apr !== '—' ? W.apr : '—';
     if (!detail) return '<div class="apr">' + esc(cachedRate) + ' APR</div>'
@@ -106,24 +109,22 @@
       + esc(detail.reason || 'A complete earning period is unavailable.') + '</div>';
     var rate = cachedRate !== '—' ? cachedRate
       : (detail.pct >= 100 ? Math.round(detail.pct).toLocaleString('en-US') : detail.pct.toFixed(1)) + '%';
-    return '<details class="apr-detail"' + detailAttributes(key) + '><summary class="apr">' + esc(rate) + ' APR'
-      + (detail.period_label ? '<span class="apr-period"> · ' + esc(detail.period_label) + '</span>' : '') + '</summary>'
-      + '<p>' + esc(window) + '</p><p>Valued at current prices, against ' + esc(money(detail.capital_usd)) + ' of LP capital.</p>'
-      + '<p>Annualised from this period; future earnings can differ.</p></details>';
+    return '<div class="apr">' + esc(rate) + ' APR'
+      + (detail.period_label ? '<span class="apr-period"> · ' + esc(detail.period_label) + '</span>' : '') + '</div>';
   }
 
   function card(W) {
     var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
     var detailKey = String(W.chain == null ? '' : W.chain) + ':' + String(W.id == null ? '' : W.id);
     return '<div class="lpw"><div class="top"><div><div class="pair">' + esc(W.pair) + '</div>'
-      + apr(W, detailKey + ':apr') + '</div>'
+      + apr(W) + '</div>'
       + '<div class="badge ' + (oor ? 'out' : 'in') + '">' + esc(W.status) + '</div></div>'
       + '<div class="band"><div class="price" style="left:' + p + '%">' + esc(W.price) + '</div>'
       + '<div class="track"><div class="fill' + (oor ? ' oor' : '') + '"></div><div class="mark' + (oor ? ' oor' : '') + '" style="left:' + p + '%"></div></div>'
       + '<div class="ends"><span>' + esc(W.lower) + '</span><span class="mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '') + '">'
       + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
       + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
-      + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
+      + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div>' + pnlBreakdown(W.comparison) + '</div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
       + comparison(W.comparison, { key: detailKey + ':comparison' })
       + '<div class="foot"><span>' + esc(W.since)
@@ -154,5 +155,5 @@
     if (ck) ck.textContent = new Date().toTimeString().slice(0, 8);
   }
 
-  window.LPCards = { card: card, list: list, comparison: comparison, detailsOpen: detailsOpen, stamp: stamp, esc: esc };
+  window.LPCards = { card: card, list: list, comparison: comparison, pnlBreakdown: pnlBreakdown, detailsOpen: detailsOpen, stamp: stamp, esc: esc };
 })();

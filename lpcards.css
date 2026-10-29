@@ -28,10 +28,7 @@
 /* the live rate sits under the pair it belongs to */
 .lpw .apr{margin-top:5px;font-size:12px;font-weight:500;color:var(--gold);letter-spacing:.04em}
 .lpw .apr-period{font-weight:400;color:var(--dim);letter-spacing:0}
-.lpw .apr-note,.lpw .apr-detail{font-size:10.5px;color:var(--dim);line-height:1.5;margin-top:4px;overflow-wrap:anywhere}
-.lpw .apr-detail summary{cursor:pointer;color:var(--gold)}
-.lpw .apr-detail p{margin:6px 0 0}
-.lpw .apr-detail summary:focus-visible,.comparison-details summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+.lpw .apr-note{font-size:10.5px;color:var(--dim);line-height:1.5;margin-top:4px;overflow-wrap:anywhere}
 .lpw .badge{font-size:9.5px;font-weight:500;padding:3px 9px;border-radius:99px;letter-spacing:.1em;text-transform:uppercase;
   border:1px solid currentColor;flex:0 0 auto;white-space:nowrap}
 .lpw .in{color:var(--up)}.lpw .out{color:var(--down)}
@@ -52,29 +49,33 @@
 .lpw .v.up{color:var(--up)}.lpw .v.down{color:var(--down)}
 .lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em}
 
+/* Price movement and IL stay beneath P&L, in smaller type than its main value. */
+.pnl-breakdown{display:grid;gap:5px;margin-top:7px;font-size:10px;line-height:1.4;color:var(--dim);letter-spacing:0;overflow-wrap:anywhere}
+.pnl-breakdown>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 6px}
+.pnl-amount{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pnl-amount.up{color:var(--up)}.pnl-amount.down{color:var(--down)}
+.lpw .pnl-breakdown>div{display:block}
+.lpw .pnl-amount{display:block}
+
 /* The same comparison renderer appears in position cards, page summaries and history. */
 .lp-comparison{min-width:0;color:var(--text);padding-top:12px;border-top:1px solid var(--line2);overflow-wrap:anywhere}
-.comparison-title{margin:0 0 10px;font:500 12px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.02em;color:var(--text)}
+.comparison-title{cursor:pointer;font:500 12px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.02em;color:var(--text)}
+.comparison-title::marker{color:var(--gold)}
+.comparison-title:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+.lp-comparison[open]>.comparison-title{margin-bottom:12px}
 .comparison-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
 .comparison-values>div{min-width:0}
 .comparison-label{font-size:10px;line-height:1.4;color:var(--dim)}
 .comparison-value{font-size:16px;font-weight:400;line-height:1.35;letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .comparison-advantage{grid-column:1/-1;padding-top:9px;border-top:1px solid var(--line2)}
-.comparison-value.up,.comparison-amount.up{color:var(--up)}
-.comparison-value.down,.comparison-amount.down{color:var(--down)}
-.comparison-breakdown{display:grid;gap:6px;margin-top:10px;font-size:11px;line-height:1.5}
-.comparison-breakdown>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;color:var(--dim)}
-.comparison-breakdown>div>span:first-child{min-width:0}
-.comparison-amount{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--text)}
-.comparison-details{margin-top:10px;font-size:10.5px;line-height:1.5;color:var(--dim)}
-.comparison-details summary{cursor:pointer;color:var(--dim)}
+.comparison-value.up{color:var(--up)}
+.comparison-value.down{color:var(--down)}
 .comparison-note{margin:7px 0 0;font-size:10.5px;line-height:1.5;color:var(--dim)}
 .comparison-unavailable{margin:0;font-size:11px;line-height:1.5;color:var(--dim)}
 .lp-comparison-summary{border-top:0;padding-top:0}
 .lp-comparison-summary .comparison-values{grid-template-columns:repeat(3,minmax(0,1fr))}
 .lp-comparison-summary .comparison-advantage{grid-column:auto;padding-top:0;border-top:0}
 .lp-comparison-summary .comparison-value{font-size:clamp(18px,2.6vw,26px);font-weight:300}
-.lp-comparison-summary .comparison-breakdown{padding-top:10px;border-top:1px solid var(--line2)}
 @media(max-width:600px){
   .lp-comparison-summary .comparison-values{grid-template-columns:repeat(2,minmax(0,1fr))}
   .lp-comparison-summary .comparison-advantage{grid-column:1/-1;padding-top:9px;border-top:1px solid var(--line2)}
