@@ -61,7 +61,47 @@ check(m.borrow_amount, null, 'Unknown capacity does not show a false zero');
 m = targetMetrics({ no_position: true, lltv: .625 }, 2);
 check(m.status, 'no-position', 'Before-position history is distinct from an error');
 check(m.target_debt_usd, 0, 'No position has zero debt capacity');
-assert.throws(() => targetMetrics(row(), .9), /between/); checks++;
+for (const invalid of [0, -1, NaN, Infinity, -Infinity, '', 'invalid', null]) {
+  assert.throws(() => targetMetrics(row(), invalid), /finite positive/); checks++;
+}
+m = targetMetrics(row(), 1);
+check(m.target_health, 1, 'Exact liquidation-boundary health is a valid personal target');
+check(m.target_ltv, .625, 'Health 1 matches the market LLTV');
+check(m.target_debt_amount, 62, 'Health 1 uses the protocol-rounded liquidation debt');
+check(m.protocol_limited, false, 'A target at the boundary needs no additional protocol cap');
+
+m = targetMetrics(row(), .5);
+check(m.target_health, .5, 'Health below 1 is accepted without raising it to the boundary');
+check(m.target_ltv, 1.25, 'A personal max LTV above 100% remains visible');
+check(m.target_debt_amount, 124, 'The selected debt scenario can exceed the protocol limit');
+check(m.headroom_amount, 104, 'Personal scenario headroom remains separate from actual borrowing capacity');
+check(m.protocol_limited, true, 'The protocol borrowing cap is explicit for a below-boundary target');
+check(m.liquidity_limited, false, 'Liquidity above real protocol headroom is not falsely called limiting');
+check(m.borrow_amount, 42, 'Actual borrowing stops at health 1 even when the chosen target is lower');
+check(newDebt(BigInt(m.max_borrow_raw)) <= BigInt(rr.raw.liquidation_debt), true,
+  'Share-rounded borrowing stays within the on-chain liquidation limit');
+check(newDebt(BigInt(m.max_borrow_raw) + 1n) > BigInt(rr.raw.liquidation_debt), true,
+  'One more raw unit would breach the on-chain limit');
+m = targetMetrics(row({ liquidity: 3n }), .5);
+check(m.borrow_amount, 3, 'The protocol-limited scenario still respects lower market liquidity');
+check(m.liquidity_limited, true, 'Liquidity limiting the protocol-constrained capacity is explicit');
+check(m.protocol_limited, true, 'Protocol and liquidity caps may both constrain a scenario');
+m = targetMetrics(row({ debt: 80n }), .5);
+check(m.borrow_amount, 0, 'An already-liquidatable position has no further executable borrowing');
+check(m.target_debt_amount, 124, 'The chosen scenario is retained even if current debt already exceeds the protocol limit');
+check(m.repay_amount, 0, 'The personal scenario alone does not invent a repayment to its higher target');
+m = targetMetrics(row({ debt: 150n }), .5);
+check(m.status, 'repay', 'A below-boundary target still calculates repayment when exceeded');
+check(m.repay_amount >= 26, true, 'Repayment to a below-boundary personal target remains conservatively rounded');
+
+check(targetMetrics(row(), 200).target_health, 200, 'Health above the old 100 ceiling is accepted');
+check(targetMetrics(row(), 1e21).target_health, 1e21, 'Large scientific-notation targets parse correctly');
+check(targetMetrics(row(), Number.MAX_VALUE).target_health, Number.MAX_VALUE,
+  'The largest finite health avoids overflowing the intermediate WAD conversion');
+check(targetMetrics(row(), 1e-7).target_health, .000001, 'Tiny positive targets round up to the supported health precision');
+check(targetMetrics(row(), Number.MIN_VALUE).target_health, .000001,
+  'The smallest positive input stays positive after decimal rounding');
+check(targetMetrics(row(), .1234567).target_health, .123457, 'Below-boundary targets retain conservative six-decimal rounding');
 m = targetMetrics(row(), 1.0000004);
 check(m.target_health, 1.000001, 'A sub-micro health minimum rounds up conservatively');
 check(m.target_ltv, .625 / 1.000001, 'Personal LTV uses the effective minimum health');

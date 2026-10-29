@@ -167,12 +167,14 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
 
 function targetWad(target) {
   const value = Number(target);
-  if (!Number.isFinite(value) || value < 1 || value > 100) throw new RangeError('Target health must be between 1 and 100');
+  if (!Number.isFinite(value) || value <= 0) throw new RangeError('Target health must be a finite positive number');
   // Round the chosen minimum health UP at six decimals. Rounding it down could
-  // permit more debt than requested. Decimal parsing avoids float * 1e6 noise.
-  const [whole, fraction = ''] = String(value).split('.');
-  let micro = BigInt(whole) * 1000000n + BigInt(fraction.slice(0, 6).padEnd(6, '0'));
-  if (/[1-9]/.test(fraction.slice(6))) micro++;
+  // permit more debt than requested. Parse scientific notation too, keeping very
+  // small or large finite inputs out of floating-point multiplication/overflow.
+  const [mantissa, exponent = '0'] = String(value).toLowerCase().split('e');
+  const [whole, fraction = ''] = mantissa.split('.');
+  const digits = BigInt(whole + fraction), shift = Number(exponent) - fraction.length + 6;
+  const micro = shift >= 0 ? digits * 10n ** BigInt(shift) : ceilDiv(digits, 10n ** BigInt(-shift));
   return micro * 1000000000000n;
 }
 function maximum(lo, hi, predicate) {
@@ -181,15 +183,18 @@ function maximum(lo, hi, predicate) {
 }
 
 export function targetMetrics(row, target = 2) {
-  const tw = targetWad(target), effectiveTarget = Number(tw) / 1e18;
+  const tw = targetWad(target), effectiveTarget = Number(String(tw / 1000000000000n) + 'e-6');
   const common = { target_health: effectiveTarget, target_ltv: row.lltv / effectiveTarget };
   if (row.error || row.no_position || !row.raw) return { ...common, status: row.no_position ? 'no-position' : 'unavailable', borrow_amount: null, repay_amount: null,
     target_debt_amount: row.no_position ? 0 : null, target_debt_usd: row.no_position ? 0 : null };
   const r = row.raw, debt = BigInt(r.debt), liq = BigInt(r.liquidation_debt), limit = liq * WAD / tw;
   const b = BigInt(r.borrow_shares), A = BigInt(r.total_borrow_assets), S = BigInt(r.total_borrow_shares), liquidity = BigInt(r.liquidity);
   const headroom = max(0n, limit - debt);
+  // A personal scenario may exceed the liquidation limit; Morpho still rejects
+  // borrowing beyond it. Keep the chosen debt target separate from real capacity.
+  const borrowLimit = min(limit, liq), borrowHeadroom = max(0n, borrowLimit - debt);
   const afterBorrow = amount => { const shares = ceilDiv(amount * (S + VIRTUAL_SHARES), A + 1n); return debtAssets(b + shares, A + amount, S + shares); };
-  const borrow = debt <= limit ? maximum(0n, min(headroom, liquidity), amount => afterBorrow(amount) <= limit) : 0n;
+  const borrow = debt <= borrowLimit ? maximum(0n, min(borrowHeadroom, liquidity), amount => afterBorrow(amount) <= borrowLimit) : 0n;
   let repay = 0n;
   if (debt > limit) {
     // Pick shares first, then quote their assets rounded up. Burning these shares
@@ -203,7 +208,8 @@ export function targetMetrics(row, target = 2) {
     headroom_amount: scale(headroom), borrow_amount: scale(borrow), repay_amount: scale(repay),
     borrow_usd: row.loan_usd == null ? null : scale(borrow) * row.loan_usd,
     repay_usd: row.loan_usd == null ? null : scale(repay) * row.loan_usd,
-    liquidity_amount: scale(liquidity), liquidity_limited: liquidity < headroom,
+    liquidity_amount: scale(liquidity), liquidity_limited: liquidity < borrowHeadroom,
+    protocol_limited: limit > liq,
     target_debt_raw: String(limit), max_borrow_raw: String(borrow), repay_raw: String(repay),
   };
 }

@@ -3,8 +3,17 @@ import { MARKETS, readMorpho, targetMetrics, liquidationMetrics } from './morpho
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = value => Number.isFinite(value) ? '$' + value.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '—';
-const number = (value, digits=2) => Number.isFinite(value) ? value.toLocaleString('en-US', { maximumFractionDigits:digits }) : '—';
+const number = (value, digits=2) => {
+  if(!Number.isFinite(value))return '—';
+  const magnitude=Math.abs(value);
+  return magnitude>=1e12 || (magnitude>0 && magnitude<10**-digits)
+    ? value.toExponential(Math.min(digits,4)) : value.toLocaleString('en-US', { maximumFractionDigits:digits });
+};
 const pct = value => number(value * 100, 2) + '%';
+const ltvInputValue = (lltv, health) => {
+  const value=lltv/health*100, rounded=Math.round(value*10000)/10000;
+  return String(rounded>0 ? rounded : value);
+};
 const date = (ts, full=false) => new Date(ts*1000).toLocaleString('en-GB', { timeZone:'Asia/Kuala_Lumpur', day:'numeric', month:'short', ...(full ? { year:'numeric' } : {}), hour:'2-digit', minute:'2-digit', hour12:false });
 const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asia/Kuala_Lumpur', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
 const CACHE = 'tf_morpho_full_v1';
@@ -31,7 +40,7 @@ function shell(m) {
   const article = document.createElement('article');
   article.className = 'card market-card'; article.id = m.key;
   article.innerHTML = `<div class="market-head"><div><h3 class="market-name">${esc(m.label)}</h3><div class="market-context">${esc(m.collateral_token)} collateral · ${esc(m.loan_token)} borrowed · <span class="market-lltv">Market LLTV ${pct(m.lltv)}</span></div><div class="market-state"><span class="status-pill">Loading</span><span class="reading-time"></span></div></div>
-    <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="1.000001" max="100" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="${m.lltv}" max="${m.lltv*100-.000001}" step="any" inputmode="decimal" value="${number(m.lltv/targets[m.id]*100,4).replaceAll(',','')}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
+    <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="0" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="0" step="any" inputmode="decimal" value="${ltvInputValue(m.lltv,targets[m.id])}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
     <div class="market-figures"><div><div class="metric-label">Collateral · oracle</div><div class="metric-value col-value">—</div><div class="metric-sub col-sub">Reading collateral…</div></div><div><div class="metric-label">My debt limit</div><div class="metric-value limit-value">—</div><div class="metric-sub limit-sub">At my chosen health</div></div><div><div class="metric-label debt-label"><span>Borrowed</span><span class="current-ltv">LTV —</span></div><div class="metric-value debt-value">—</div><div class="metric-sub debt-sub">Reading debt…</div></div><div><div class="metric-label action-label">Borrow or repay</div><div class="metric-value room-value">—</div><div class="metric-sub action-sub">Waiting for a complete reading</div></div></div>
     <div class="liquidation-box"><div><div class="metric-label liquidation-label">KAT liquidation price</div><div class="liquidation-value">—</div><div class="liquidation-current"></div></div><div class="liquidation-explanation">Reading Morpho’s liquidation boundary…</div></div>
     <div class="market-chart-bar"><div class="metric-label">Market history</div><div class="ranges" role="group" aria-label="${esc(m.label)} chart period"><button type="button" data-days="7" aria-pressed="false">7D</button><button type="button" data-days="14" aria-pressed="false">14D</button><button type="button" data-days="0" class="on" aria-pressed="true">All</button></div></div>
@@ -70,15 +79,19 @@ function draftTarget(input) {
   const id = input.dataset.target || input.dataset.ltv, m = MARKETS.find(m => m.id === id);
   if (!editing.has(id)) return null;
   const v = input.value.trim() === '' ? NaN : Number(input.value), isLtv = !!input.dataset.ltv;
-  const target = isLtv ? m.lltv/(v/100) : v;
-  if (!Number.isFinite(target) || target <= 1 || target > 100 || !Number.isFinite(v) || v <= 0) {
-    input.setAttribute('aria-invalid','true'); input.setCustomValidity('Choose a health above 1 and no higher than 100.');
-    drafts.set(id,null); targetMessage(m,'Use health above 1, up to 100. The graph keeps your saved target.',true); return null;
+  const target = isLtv ? m.lltv*100/v : v;
+  let effective;
+  try {
+    if (!Number.isFinite(target) || target<=0 || !Number.isFinite(v) || v<=0) throw new RangeError();
+    effective=targetMetrics({lltv:m.lltv,error:'draft'},target).target_health;
+  } catch {
+    input.setAttribute('aria-invalid','true'); input.setCustomValidity('Enter a positive health or LTV with a finite linked value.');
+    drafts.set(id,null); targetMessage(m,'Use a positive health or LTV with a finite linked value. The graph keeps your saved target.',true); return null;
   }
-  input.removeAttribute('aria-invalid'); input.setCustomValidity(''); const effective=targetMetrics({lltv:m.lltv,error:'draft'},target).target_health;
+  input.removeAttribute('aria-invalid'); input.setCustomValidity('');
   drafts.set(id,effective);
   const other = $(m.key + (isLtv ? '-target' : '-ltv'));
-  other.value = String(isLtv ? effective : Math.round(m.lltv/effective*1000000)/10000);
+  other.value = isLtv ? String(effective) : ltvInputValue(m.lltv,effective);
   other.removeAttribute('aria-invalid'); other.setCustomValidity('');
   targetMessage(m,'Unsaved changes · Save updates the graph');
   return effective;
@@ -86,7 +99,7 @@ function draftTarget(input) {
 function finishEditing(m,message) {
   editing.delete(m.id);drafts.delete(m.id);const el=$(m.key);el.classList.remove('editing');
   const health=$(m.key+'-target'),ltv=$(m.key+'-ltv');
-  health.value=String(targets[m.id]);ltv.value=String(Math.round(m.lltv/targets[m.id]*1000000)/10000);
+  health.value=String(targets[m.id]);ltv.value=ltvInputValue(m.lltv,targets[m.id]);
   for(const input of [health,ltv]){input.readOnly=true;input.removeAttribute('aria-invalid');input.setCustomValidity('');}
   el.querySelector('.target-edit').hidden=false;el.querySelector('.target-save').hidden=true;el.querySelector('.target-cancel').hidden=true;
   targetMessage(m,message);
@@ -100,7 +113,7 @@ function editTarget(m) {
 }
 function saveTarget(m) {
   const target=drafts.get(m.id);
-  if(!Number.isFinite(target)||target<=1||target>100){targetMessage(m,'Enter a valid minimum health or max LTV before saving.',true);return;}
+  if(!Number.isFinite(target)||target<=0){targetMessage(m,'Enter a positive minimum health or max LTV before saving.',true);return;}
   targets={...targets,[m.id]:target};finishEditing(m,'Saved for this visit · graph updated');
   render();
 }
@@ -185,7 +198,7 @@ function render() {
     find('.market-lltv').textContent='Market LLTV '+pct(row.lltv);
     find('.debt-sub').textContent=tokenAmount(row.debt_amount,m.loan_token);
     find('.limit-value').textContent=money(metric.target_debt_usd);
-    find('.limit-sub').innerHTML=esc(tokenAmount(metric.target_debt_amount,m.loan_token))+`<br><small>Health ${esc(number(target,4))} · LTV ${esc(pct(row.lltv/target))}</small>`;
+    find('.limit-sub').innerHTML=esc(tokenAmount(metric.target_debt_amount,m.loan_token))+`<br><small>Health ${esc(number(target,6))} · LTV ${esc(pct(row.lltv/target))}</small>`;
     const currentHealth = row.debt_amount===0 ? 'No debt' : Number.isFinite(row.health) ? number(row.health,4) : 'Unavailable';
     find('.health-now').textContent=(stale?'At reading ':'Now ')+currentHealth;
     find('.reading-time').textContent=(stale?'Reading ':'')+date(row.ts)+' MYT';
@@ -198,10 +211,10 @@ function render() {
       find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent='Reading over 5 minutes old. Waiting for refresh.';
     } else if (metric.status==='repay') {
       find('.action-label').textContent='Repay to reach my target'; action.textContent=tokenAmount(metric.repay_amount,m.loan_token,'repay');
-      find('.action-sub').textContent=money(metric.repay_usd)+` · bring health to ${number(target,4)}`+(stale?' · at last reading':'');
+      find('.action-sub').textContent=money(metric.repay_usd)+` · bring health to ${number(target,6)}`+(stale?' · at last reading':'');
     } else if (metric.status==='borrow' || metric.status==='at-target') {
       find('.action-label').textContent='Still able to borrow'; action.textContent=tokenAmount(metric.borrow_amount,m.loan_token,'borrow');
-      find('.action-sub').textContent=money(metric.borrow_usd)+` · keep health at least ${number(target,4)}`+(stale?' · at last reading':'')+(metric.liquidity_limited?' · capped by market liquidity':'');
+      find('.action-sub').textContent=money(metric.borrow_usd)+(Number.isFinite(row.health)&&row.health<1?' · no further borrowing below health 1':` · keep health at least ${number(Math.max(target,1),6)}`)+(stale?' · at last reading':'')+(metric.protocol_limited?' · capped by Morpho’s liquidation limit':'')+(metric.liquidity_limited?' · capped by market liquidity':'');
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
   }
   const overview=lendingOverview(MARKETS.map(m=>records.get(m.id)));
@@ -223,10 +236,10 @@ function draw(box, points, target, isHealth) {
   const W=Math.max(200,box.clientWidth),H=Math.max(100,box.clientHeight),P={l:44,r:10,t:10,b:26}, end=points.at(-1).ts, start=points[0].ts, span=Math.max(1,end-start);
   const defs=isHealth ? [{name:'Actual health',color:'var(--text)',get:r=>r.health},{name:'My saved target',color:'var(--gold)',dash:'5 4',get:()=>target},{name:'Liquidation boundary',color:'var(--chart-boundary)',dash:'2 4',get:()=>1}]
     : [{name:'Collateral · oracle',color:'var(--text)',get:r=>r.oracle_collateral_usd},{name:'Borrowed',color:'var(--chart-debt)',get:r=>r.debt_usd},{name:'My saved limit',color:'var(--gold)',get:r=>r.liquidation_usd/target},{name:'Liquidation boundary · 1',color:'var(--chart-boundary)',dash:'3 4',get:r=>r.liquidation_usd}];
-  const values=valid.flatMap(p=>defs.map(d=>d.get(p.row))).filter(Number.isFinite), hi=Math.max(...values,1)*1.13;
+  const values=valid.flatMap(p=>defs.map(d=>d.get(p.row))).filter(Number.isFinite), peak=Math.max(...values,1), hi=peak<=Number.MAX_VALUE/1.13?peak*1.13:peak;
   const x=t=>P.l+(t-start)/span*(W-P.l-P.r), y=v=>H-P.b-v/hi*(H-P.t-P.b);
   let svg='';
-  for(let i=0;i<=3;i++){const v=hi*i/3,yy=y(v);svg+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yy}" y2="${yy}" stroke="var(--chart-grid)"/><text x="${P.l-7}" y="${yy+3}" fill="var(--faint)" font-family="var(--chart-font, Inter, system-ui, sans-serif)" font-size="10" text-anchor="end">${isHealth?number(v,1):'$'+number(v,0)}</text>`;}
+  for(let i=0;i<=3;i++){const v=hi*(i/3),yy=y(v);svg+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yy}" y2="${yy}" stroke="var(--chart-grid)"/><text x="${P.l-7}" y="${yy+3}" fill="var(--faint)" font-family="var(--chart-font, Inter, system-ui, sans-serif)" font-size="10" text-anchor="end">${isHealth?number(v,1):'$'+number(v,0)}</text>`;}
   for (const d of defs) {
     let path='',pen=false,lastTs=0,lastInterval=21600;
     for(const p of points){const val=p.row?d.get(p.row):null;if(!Number.isFinite(val)){pen=false;continue;}const gap=lastTs&&p.ts-lastTs>Math.max(lastInterval,p.interval_seconds||21600)*1.75;path+=(pen&&!gap?'L':'M')+x(p.ts).toFixed(2)+','+y(val).toFixed(2)+' ';pen=true;lastTs=p.ts;lastInterval=p.interval_seconds||21600;}
