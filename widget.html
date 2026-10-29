@@ -95,6 +95,7 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
     var views = (v && v.live) || [];
     if (pin) views = views.filter(function (W) { return String(W.id).replace(/^#/, '') === pin; });
     $('cards').innerHTML = LPCards.list(views);
+    LPCards.align($('cards'));
   }
   function stamp(bad) { if (bad !== undefined) failed = bad; LPCards.stamp($('stamp'), lastRead, failed); }
   function health(hl, held, message) {

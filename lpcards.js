@@ -7,6 +7,7 @@
 
      LPCards.card(W)            one position's card, as HTML
      LPCards.list(views)        every card, or a line saying nothing is open
+     LPCards.align(el)          align a rendered row without stretching closed cards
      LPCards.comparison(c, options)
                                 LP outcome against keeping the deposited tokens
      LPCards.stamp(el, last, failed)
@@ -126,6 +127,61 @@
     return views && views.length ? views.map(card).join('') : '<div class="empty">Nothing open on any chain.</div>';
   }
 
+  var layouts = new WeakMap();
+  /* Measure natural content after rendering, then align only cards on the same row.
+     Closed disclosures never inherit an expanded neighbour's height. */
+  function align(grid) {
+    if (!grid || typeof grid.querySelectorAll !== 'function') return;
+    var state = layouts.get(grid);
+    if (!state) {
+      state = { queued: false };
+      state.schedule = function () {
+        if (state.queued) return;
+        state.queued = true;
+        var frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (fn) { setTimeout(fn, 0); };
+        frame(function () { state.queued = false; align(grid); });
+      };
+      layouts.set(grid, state);
+      grid.addEventListener('toggle', state.schedule, true);
+      if (typeof ResizeObserver === 'function') {
+        state.observer = new ResizeObserver(state.schedule); state.observer.observe(grid);
+      } else window.addEventListener('resize', state.schedule);
+      if (document.fonts) {
+        document.fonts.ready.then(state.schedule);
+        document.fonts.addEventListener('loadingdone', state.schedule);
+      }
+    }
+    var selectors = ['.top', '.band', '.figs', '.foot'];
+    var variables = ['--lp-header-height', '--lp-band-height', '--lp-figures-height', '--lp-footer-height'];
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.lpw'));
+    cards.forEach(function (el) {
+      variables.concat('--lp-comparison-height').forEach(function (key) { el.style.removeProperty(key); });
+    });
+    var rows = [];
+    cards.forEach(function (el) {
+      var top = el.getBoundingClientRect().top;
+      var row = rows.find(function (entry) { return Math.abs(entry.top - top) < 1; });
+      if (!row) { row = { top: top, cards: [] }; rows.push(row); }
+      row.cards.push({ el: el, heights: selectors.map(function (selector) {
+        var section = el.querySelector(selector); return section ? section.getBoundingClientRect().height : 0;
+      }), detail: el.querySelector('details.lp-comparison[open]') });
+    });
+    rows.forEach(function (row) {
+      if (row.cards.length < 2) return;
+      var heights = selectors.map(function (_, index) {
+        return Math.ceil(Math.max.apply(null, row.cards.map(function (item) { return item.heights[index]; })));
+      });
+      var expanded = row.cards.filter(function (item) { return item.detail; });
+      var detailHeight = expanded.length > 1 ? Math.ceil(Math.max.apply(null, expanded.map(function (item) {
+        return item.detail.getBoundingClientRect().height;
+      }))) : 0;
+      row.cards.forEach(function (item) {
+        variables.forEach(function (key, index) { item.el.style.setProperty(key, heights[index] + 'px'); });
+        if (item.detail && detailHeight) item.el.style.setProperty('--lp-comparison-height', detailHeight + 'px');
+      });
+    });
+  }
+
   /* The response may come from an edge cache or the service worker. Its own reading
      time, rather than the time it reached this tab, determines freshness. */
   function readingState(v, savedAt) {
@@ -181,6 +237,6 @@
     if (ck) ck.textContent = new Date().toTimeString().slice(0, 8);
   }
 
-  window.LPCards = { card: card, list: list, comparison: comparison, detailsOpen: detailsOpen,
+  window.LPCards = { card: card, list: list, align: align, comparison: comparison, detailsOpen: detailsOpen,
     readingState: readingState, fetchBook: fetchBook, stamp: stamp, esc: esc };
 })();
