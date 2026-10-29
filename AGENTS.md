@@ -249,9 +249,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 - Historical observations use the prices, oracle and balances at their own pinned blocks.
   Never reprice saved history at today's prices or substitute zeros for failed reads.
   Each market's two charts start at its first actual Borrow event, never at the global
-  file's first date or a collateral-only deposit. All is the default range; 7D/14D zoom
-  into recent history. Trim only the prefix before borrowing, preserving later repayments
-  and unreadable gaps. `borrow_starts` records the receipt-verified opening block/time.
+  file's first date or a collateral-only deposit. **7D is the default range** for each
+  market (Alex, 29 Oct 2026); 14D and All remain available. Trim only the prefix before
+  borrowing, preserving later repayments and unreadable gaps. `borrow_starts` records
+  the receipt-verified opening block/time.
   Initial history includes daily archive readings from 18 May 2026, with exact opening
   observations for avKAT/KAT (18 May), avKAT/USDC (17 Oct) and KAT/USDC (20 Oct), all MYT.
   Sample `interval_seconds` distinguishes daily archive points from recent six-hour points.
