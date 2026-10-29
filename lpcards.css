@@ -59,10 +59,11 @@
 
 /* The same comparison renderer appears in position cards, page summaries and history. */
 .lp-comparison{min-width:0;color:var(--text);padding-top:12px;border-top:1px solid var(--line2);overflow-wrap:anywhere}
-.comparison-title{cursor:pointer;font:500 12px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.02em;color:var(--text)}
+.comparison-title{font:500 12px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.02em;color:var(--text)}
+summary.comparison-title{cursor:pointer}
 .comparison-title::marker{color:var(--gold)}
 .comparison-title:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
-.lp-comparison[open]>.comparison-title{margin-bottom:12px}
+.lp-comparison[open]>.comparison-title,.lp-comparison-summary>.comparison-title{margin-bottom:12px}
 .comparison-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
 .comparison-values>div{min-width:0}
 .comparison-label{font-size:10px;line-height:1.4;color:var(--dim)}

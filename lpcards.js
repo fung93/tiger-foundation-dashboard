@@ -68,11 +68,14 @@
         + '<div><div class="k">LP advantage</div><div class="v holding-value' + (available ? direction(c.difference_usd) : '') + '">' + esc(money(available ? c.difference_usd : null, true)) + '</div></div>'
         + '</div>' + (!available ? '<p class="comparison-unavailable">' + esc(c && c.reason || 'Comparison unavailable for this reading.') + '</p>' : '') + '</section>';
     }
-    var prefix = '<details class="lp-comparison' + (options.summary ? ' lp-comparison-summary' : '') + '"'
-      + detailAttributes(options.key || 'comparison') + '><summary class="comparison-title">' + esc(title) + '</summary>';
+    var suffix = options.summary ? '</section>' : '</details>';
+    var prefix = options.summary
+      ? '<section class="lp-comparison lp-comparison-summary" aria-label="' + esc(title) + '"><h2 class="comparison-title">' + esc(title) + '</h2>'
+      : '<details class="lp-comparison"' + detailAttributes(options.key || 'comparison')
+        + '><summary class="comparison-title">' + esc(title) + '</summary>';
     if (!available) {
       var reason = c && c.reason || (c ? 'Complete comparison figures are unavailable.' : 'Comparison unavailable for this saved reading.');
-      return prefix + '<p class="comparison-unavailable">' + esc(reason) + '</p></details>';
+      return prefix + '<p class="comparison-unavailable">' + esc(reason) + '</p>' + suffix;
     }
     var differenceLabel = c.difference_usd < -0.004 ? 'LP behind holding' : 'LP advantage';
     var values = '<div class="comparison-values">'
@@ -91,7 +94,7 @@
       + '<p class="comparison-note">Just holding values the deposited tokens at the same prices.</p>';
     return prefix + values
       + '<p class="comparison-note comparison-basis">' + esc(note) + '</p>'
-      + method + '</details>';
+      + method + suffix;
   }
 
   function apr(W) {

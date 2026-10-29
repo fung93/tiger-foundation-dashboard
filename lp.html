@@ -137,7 +137,7 @@
     }).join('') || '<div class="empty">Nothing open on any chain.</div>';
 
     B.chart($('c7'), $('c7x'), v.series, { net: true, empty: 'Nothing open yet.' });
-    $('liveComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, key: 'summary:open', title: 'LP vs holding · open positions' });
+    $('liveComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, title: 'LP vs holding · open positions' });
     $('c6').innerHTML = LPCards.list(v.live);
     LPCards.align($('c6'));
   }

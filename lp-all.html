@@ -66,7 +66,6 @@
 </div>
 
 <div class="main">
-  <div class="card" id="closedComparison"></div>
   <div class="card">
     <div class="label">Fees earned &amp; net PnL &middot; all-time</div>
     <div class="note">Fees at each claim's price &middot; PnL fixed at each close</div>
@@ -79,6 +78,7 @@
     <div class="note" id="a8r" style="margin-top:8px">&nbsp;</div>
     <div class="hist" id="a8"></div>
   </div>
+  <div class="card" id="closedComparison"></div>
 </div>
 
 </main>
@@ -146,7 +146,7 @@
     }).join('') || '<div class="empty">No position has closed since tracking began.</div>';
 
     B.chart($('a7'), $('a7x'), A.series, { net: true, empty: 'No closed positions yet.' });
-    $('closedComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, closed: true, key: 'summary:closed', title: 'LP vs holding · closed positions' });
+    $('closedComparison').innerHTML = LPCards.comparison(C.comparison, { summary: true, closed: true, title: 'LP vs holding · closed positions' });
 
     $('a8l').textContent = 'History · ' + C.closed + ' closed · ' + C.rebalances + ' rebalance' + (C.rebalances === 1 ? '' : 's');
     var r = A.rebalances[0];
