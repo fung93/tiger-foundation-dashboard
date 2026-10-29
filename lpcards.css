@@ -52,8 +52,7 @@
 .lpw .foot{font-size:10.5px;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;letter-spacing:.02em;min-height:var(--lp-footer-height,0px)}
 .lpw .position-comparison{min-height:var(--lp-comparison-height,0px)}
 .lpw .holding-figs{container-type:inline-size}
-.lpw .holding-figs>div{min-width:0}
-.lpw .holding-figs .k{min-height:3em}
+.lpw .holding-figs>div{min-width:0;display:flex;flex-direction:column;justify-content:flex-end}
 .lpw .figs.holding-figs .v.holding-value{font-size:clamp(10px,5cqw,16px);white-space:normal;overflow-wrap:anywhere}
 .position-comparison>.comparison-unavailable{margin-top:7px}
 
