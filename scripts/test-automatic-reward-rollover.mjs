@@ -39,7 +39,7 @@ function close(P, ts) {
   P.status = 'closed'; P.closed_ts = ts; P.closed_block = 2; P.out_usd = 901;
   P.withdrawals = [{ ts, block: 2, a0: 0, a1: 901, usd: 901 }];
   P.frozen = { at_ts: ts, at_block: 2, cost_usd: 900, principal_usd: 901,
-    pnl_usd: 1, prices: { 'vbWBTC@katana': 80000, 'vbUSDC@katana': 1, [KAT]: .005 } };
+    pnl_usd: 1, prices: { [P.t0]: 80000, [P.t1]: 1, [KAT]: .005 } };
   return P;
 }
 function ledger(positions) {
@@ -74,7 +74,7 @@ function rows(book) {
     fees_usd: 0, fees_mine: false, pnl_usd: null, il_usd: null, in_range: true, held_days: 1,
     range: { now: 80000, lower: 79000, upper: 82000, position_pct: 33, to_lower_pct: 1.25, to_upper_pct: 2.5, width_pct: 3.8 },
     raw: { sqrt: String(BigInt(Math.floor(Math.sqrt(800) * 2 ** 96))),
-      t0: { s: 'vbWBTC', d: 8, stable: false }, t1: { s: 'vbUSDC', d: 6, stable: true }, fee0: 0, fee1: 0 },
+      t0: { s: P.s0, d: P.d0, stable: false }, t1: { s: P.s1, d: P.d1, stable: true }, fee0: 0, fee1: 0 },
   }]));
 }
 function view(result) {
@@ -310,11 +310,71 @@ try {
   const differentPool = ledger([close(position(A), NOW - 5 * HOUR), opened(B, NOW - 4 * HOUR, { pool: OTHER_POOL })]);
   check(Boolean(edge((await advance(differentPool, reading({ [A]: [100, 0], [B]: [0, 0] }))).book, A, B)), true,
     'A new Katana replacement with the same token pair can receive rewards when the pool changes');
-  const differentPair = ledger([close(position(A), NOW - 5 * HOUR), opened(B, NOW - 4 * HOUR,
-    { pool: OTHER_POOL, t0: KAT, s0: 'KAT' })]);
-  const differentPairResult = await advance(differentPair, reading({ [A]: [100, 0], [B]: [0, 0] }));
-  check(differentPairResult.book.reward_rollovers.length, 0, 'Another token pair never receives the closed LP reward balance');
-  near(pending(differentPairResult.merkl, A), 100, 'A different-pair replacement leaves source outstanding rewards intact');
+  const differentPair = clone(original);
+  Object.assign(differentPair.positions[key(B)], { pair: 'vbWBTC / vbUSDT', pool: OTHER_POOL,
+    t1: 'vbUSDT@katana', s1: 'vbUSDT' });
+  differentPair.tokens['vbUSDT@katana'] = { s: 'vbUSDT' };
+  differentPair.fee_series = [{ ts: NOW - 6 * HOUR, pos: { [key(B)]: { [KAT]: 30 } }, pp: { [key(B)]: 0 } }];
+  const differentPairResult = await advance(differentPair, native);
+  check(Boolean(edge(differentPairResult.book, A, B)), true, 'A new Katana token pair in the same wallet inherits the outstanding KAT');
+  near(pending(differentPairResult.merkl, A), 0, 'The old token pair no longer owns the transferred outstanding balance');
+  near(amount(differentPairResult.merkl, B), 120, 'The different-pair LP owns its native earnings plus the inherited balance');
+  near(pending(differentPairResult.merkl, B), 110, 'The different-pair LP pending balance counts native and inherited KAT once');
+  check(differentPairResult.book.positions[key(A)].claims, savedAClaims, 'Changing token pair preserves the old LP dated claims');
+  check(differentPairResult.book.positions[key(A)].frozen, savedAFrozen, 'Changing token pair preserves historical principal and prices');
+  conserve(native, differentPairResult.merkl, [A, B]);
+  const differentPairView = view(differentPairResult), pairCard = differentPairView.live.find(p => p.id === '#' + B);
+  check(pairCard.yield_value, '$1.20', 'The actual different-pair card displays all attributed earnings');
+  check(pairCard.comparison.earned_usd, 1.2, 'The different-pair holding comparison agrees with the card');
+  check(pairCard.apr_detail.available, true, 'A different-pair LP retains its verified native earning interval');
+  check(pairCard.apr_detail.earned_usd, .1, 'Changing pair does not turn inherited KAT into new APR income');
+  near(pairCard.apr_detail.pct, apr.pct, 'Same-pair and different-pair LPs with the same native accrual have the same APR');
+  const persistedDifferentPair = await advance(JSON.parse(JSON.stringify(differentPairResult.book)), native);
+  check(persistedDifferentPair.book.reward_rollovers, differentPairResult.book.reward_rollovers,
+    'A serialized cross-pair relationship remains valid on a cold API read');
+  check(persistedDifferentPair.merkl.earned_tokens_by_id, differentPairResult.merkl.earned_tokens_by_id,
+    'A cold read retains the same cross-pair earned ownership');
+
+  const crossClaimInput = clone(differentPairResult.book);
+  record(crossClaimInput, B, 30, NOW - 3 * HOUR, .02, false);
+  const crossPartial = await advance(crossClaimInput, partialNative);
+  near(claimed(crossPartial.book.positions[key(A)]), 20, 'A partial inherited claim keeps the old-pair claims unchanged');
+  near(claimed(crossPartial.book.positions[key(B)]), 40, 'The different-pair LP owns later inherited claims together with native claims');
+  near(pending(crossPartial.merkl, B), 80, 'A cross-pair partial claim reduces pending exactly once');
+  const crossNextInput = clone(crossPartial.book);
+  delete crossNextInput.reward_rollover_anchor; // The preceding claims are now committed.
+  close(crossNextInput.positions[key(B)], NOW - 2 * HOUR);
+  crossNextInput.positions[key(C)] = opened(C, NOW - 2 * HOUR + 100,
+    { pair: 'vbWBTC / USDT', pool: '0x2222222222222222222222222222222222222222', t1: 'USDT@katana', s1: 'USDT' });
+  crossNextInput.tokens['USDT@katana'] = { s: 'USDT' };
+  const crossNext = await advance(crossNextInput, partialNative);
+  check(crossNext.book.reward_rollovers.map(r => [r.source, r.target]), [[A, B], [B, C]],
+    'Successive new token pairs keep the complete inherited reward chain');
+  near(pending(crossNext.merkl, C), 80, 'A third token pair inherits both older sources outstanding KAT');
+  const crossNextApr = view(crossNext).live.find(p => p.id === '#' + C).apr_detail;
+  check(crossNextApr.available, true, 'The latest different-pair LP can report its own native lifetime APR');
+  check(crossNextApr.earned_usd, 0, 'A new pair with only inherited rewards does not report fresh APR income');
+  const crossFullInput = clone(crossNext.book);
+  record(crossFullInput, C, 80, NOW - 30, .03, false);
+  const crossFull = await advance(crossFullInput, fullyClaimedNative);
+  near(claimed(crossFull.book.positions[key(A)]), 20, 'A full cross-pair claim preserves the first LP historical claim amount');
+  near(claimed(crossFull.book.positions[key(B)]), 40, 'A full cross-pair claim preserves the intermediate LP historical claim amount');
+  near(claimed(crossFull.book.positions[key(C)]), 80, 'The final different-pair LP receives the eventual full inherited claim');
+  near(pending(crossFull.merkl, C), 0, 'Fully claiming a cross-pair rollover clears its pending balance');
+  check(crossFull.book.positions[key(C)].claims[0].usd, 2.4, 'A cross-pair inherited claim keeps its actual claim-time price');
+  conserve(fullyClaimedNative, crossFull.merkl, [A, B, C]);
+
+  const pairLaterWarmInput = clone(differentPairResult.book);
+  pairLaterWarmInput.positions[key(C)] = opened(C, NOW - 9 * HOUR);
+  const pairLaterColdInput = clone(differentPair);
+  pairLaterColdInput.positions[key(C)] = clone(pairLaterWarmInput.positions[key(C)]);
+  const pairLaterNative = reading({ [A]: [100, 20], [B]: [40, 10], [C]: [0, 0] });
+  const pairLaterWarm = await advance(pairLaterWarmInput, pairLaterNative);
+  const pairLaterCold = await advance(pairLaterColdInput, pairLaterNative);
+  check(Boolean(edge(pairLaterCold.book, A, B)), true, 'An earlier different-pair successor wins over a later LP matching the old pair');
+  check(pairLaterCold.book.reward_rollovers, pairLaterWarm.book.reward_rollovers,
+    'A later original-pair mint cannot change cross-pair ownership after a cold restart');
+  near(amount(pairLaterCold.merkl, C), 0, 'A later original-pair LP does not duplicate already attributed KAT');
   const reversedPair = ledger([close(position(A), NOW - 5 * HOUR), opened(B, NOW - 4 * HOUR,
     { t0: 'vbUSDC@katana', t1: 'vbWBTC@katana', s0: 'vbUSDC', s1: 'vbWBTC' })]);
   check(Boolean(edge((await advance(reversedPair, reading({ [A]: [100, 0], [B]: [0, 0] }))).book, A, B)), true,
@@ -444,7 +504,7 @@ try {
   // Its chain dependencies are controlled; no repository ledger is written.
   const workspace = mkdtempSync(join(tmpdir(), 'tiger-rollover-job-'));
   try {
-    writeFileSync(join(workspace, 'lpbook.json'), JSON.stringify(original));
+    writeFileSync(join(workspace, 'lpbook.json'), JSON.stringify(differentPair));
     writeFileSync(join(workspace, 'positions.json'), '{}');
     writeFileSync(join(workspace, 'data.json'), '{}');
     let cronReading = native;
@@ -462,11 +522,12 @@ try {
     await update(workspace);
     const saved = JSON.parse(readFileSync(join(workspace, 'lpbook.json')));
     check(saved.reward_rollover_anchor, undefined, 'The scheduled writer never commits a stale runtime-only claim anchor');
-    check(Boolean(edge(saved, A, B)), true, 'The actual scheduled job persists the automatic rollover edge');
+    check(Boolean(edge(saved, A, B)), true, 'The actual scheduled job persists a cross-pair rollover edge');
+    check(saved.positions[key(B)].t1, 'vbUSDT@katana', 'The scheduled target retains its new token-pair identity');
     check(saved.fee_series.at(-1).reward_attribution_version, 2, 'The actual job marks the effective observation basis');
     check(saved.fee_series.at(-1).reward_rollover_basis[key(B)], 80, 'The job persists the initial carry basis with the sample');
     near(saved.fee_series.at(-1).pos[key(B)][KAT], 120, 'The job sample contains attributed earnings rather than raw native income');
-    check(saved.fee_series.slice(0, original.fee_series.length), original.fee_series, 'The scheduled job preserves prior earning observations');
+    check(saved.fee_series.slice(0, differentPair.fee_series.length), differentPair.fee_series, 'The scheduled job preserves prior earning observations');
     const reloaded = await advance(saved, native);
     near(amount(reloaded.merkl, B), 120, 'A cold API read of a cron snapshot retains the same attributed earnings');
     check(reloaded.book.reward_rollovers, saved.reward_rollovers, 'A cron snapshot and API read use the same persisted rollover ledger');

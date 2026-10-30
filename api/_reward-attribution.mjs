@@ -1,4 +1,4 @@
-/* Katana KAT follows a verified replacement LP in the same wallet and pair.
+/* Katana KAT follows a verified replacement LP in the same wallet, for any pair.
    A committed claim boundary keeps ownership stable across server restarts;
    ambiguous earlier claims wait for a durable complete allocation. No tokens move. */
 export const REWARD_ATTRIBUTION_VERSION = 2;
@@ -17,9 +17,6 @@ const cents = n => Math.round(n * 100) / 100;
 const key = id => 'katana:' + id;
 const owner = p => typeof p?.wallet === 'string' ? p.wallet.toLowerCase() : '';
 const katana = p => p?.chain === 'katana' && p.kind !== 'fables';
-const samePair = (a, b) => a.t0 && a.t1 && b.t0 && b.t1
-  ? [a.t0, a.t1].sort().join('|') === [b.t0, b.t1].sort().join('|')
-  : !!a.pool && a.pool === b.pool;
 const copyMaps = map => Object.fromEntries(Object.entries(map || {}).map(([id, tokens]) => [id, { ...tokens }]));
 const claimId = c => [c.wallet?.toLowerCase(), c.token, c.block, c.ts, c.amount].join('|');
 
@@ -63,8 +60,8 @@ export function attributeMerklRewards(merkl, book) {
     const sourcePosition = book?.positions?.[key(r.source)], targetPosition = book?.positions?.[key(r.target)];
     if (book && (!katana(sourcePosition) || sourcePosition.status !== 'closed' || !katana(targetPosition)
       || owner(sourcePosition) !== r.wallet.toLowerCase() || owner(targetPosition) !== r.wallet.toLowerCase()
-      || !samePair(sourcePosition, targetPosition) || targetPosition.opened_ts <= sourcePosition.opened_ts))
-      throw new Error('The reward rollover positions do not have the same wallet and token pair.');
+      || targetPosition.opened_ts <= sourcePosition.opened_ts))
+      throw new Error('The reward rollover positions must belong to the same Katana wallet.');
     used.add(r.source);
     for (const id of [r.source, r.target]) {
       const e = result.earned_tokens_by_id[id]?.[TOKEN], c = result.claimed_tokens_by_id[id]?.[TOKEN];
@@ -147,7 +144,7 @@ export function registerKatanaRollovers(book, effective, { persistRollovers = fa
   const closed = positions.filter(p => p.status === 'closed' && p.closed_ts >= START && !sources.has(p.id))
     .sort((a, b) => a.closed_ts - b.closed_ts);
   for (const source of closed) {
-    let candidates = positions.filter(p => p.id !== source.id && owner(p) === owner(source) && samePair(p, source)
+    let candidates = positions.filter(p => p.id !== source.id && owner(p) === owner(source)
       && p.opened_ts >= START && p.opened_ts > source.opened_ts
       && p.opened_ts >= source.closed_ts - 86400 && (!p.closed_ts || p.closed_ts >= source.closed_ts));
     if (!candidates.length) continue;

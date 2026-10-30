@@ -149,8 +149,8 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   and no token list.
 - **Live position cards:** each position's own fees since it opened, claimed or not.
   - On Katana, that is the position's own Merkl KAT.
-  - Alex's Katana rollover rule (29–30 Oct 2026): when a Katana LP closes, its unclaimed
-    KAT follows a verified replacement in the **same wallet and token pair only**,
+  - Alex's Katana rollover rule (updated 30 Oct 2026): when a Katana LP closes, its unclaimed
+    KAT follows a verified replacement in the **same wallet, with any token pair**,
     including KAT inherited from earlier LPs. Match the latest eligible mint within the
     24 hours before closing, otherwise the first mint after closing (without an expiry).
     Prefer the same pool only for simultaneous matching mints. Preserve intermediate
@@ -464,7 +464,7 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **KAT reward attribution:** `node scripts/test-reward-attribution.mjs` checks the scoped
   reassignment, unchanged totals/history, APR sample transitions, failed reads, partial/full
   claims and claiming after the destination closes, without live network access.
-  `node scripts/test-automatic-reward-rollover.mjs` covers future same-pair rollovers,
+  `node scripts/test-automatic-reward-rollover.mjs` covers future rollovers across token pairs,
   successive replacements, native and inherited claims, cold restarts, missing readings,
   ambiguous claims/replacements and scheduled persistence.
 - **Robinhood reliability:** `scripts/test-rpc-reader.mjs`, `scripts/test-core-reads.mjs`,
