@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { validateMorphoHistory } from './morpho.mjs';
+import { MARKETS } from '../morpho-core.mjs';
 
 const source=readFileSync(new URL('../lending.js',import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const match=source.match(/function lendingSeries\([\s\S]*?\n}\nfunction seriesFor/);
@@ -38,7 +39,33 @@ check(series(samples,market(1,{ts:8*D,block:8}),id,0).length,6,'An older live re
 check(series([sample(1,market(5),{interval_seconds:86400}),sample(2,market(6))],null,id,0).map(p=>p.interval_seconds),[86400,21600],
   'Daily archive and six-hour observations retain their different sampling intervals');
 
+const restart=Date.parse('2026-10-30T00:00:00+08:00')/1000;
+const resetSamples=[restart-D,restart-1,restart,restart+3600,restart+2*3600]
+  .map((ts,i)=>({ts,block:i+1,markets:[market(i===3?0:5)]}));
+const resetBefore=JSON.stringify(resetSamples);
+for(const days of [7,14,0]) {
+  const points=series(resetSamples,null,id,days,restart);
+  check(points.map(p=>p.ts),[restart,restart+3600,restart+2*3600],'The fixed MYT restart applies to viewing period '+days);
+  check(points[1].row.debt_amount,0,'A repayment after the restart remains visible for period '+days);
+}
+check(new Date(restart*1000).toISOString(),'2026-10-29T16:00:00.000Z','The restart uses MYT midnight rather than UTC midnight');
+check(series([],market(3,{ts:restart-1,block:1}),id,0,restart),[],'A cached live reading before the restart stays excluded');
+check(series([],market(3,{ts:restart,block:2}),id,0,restart)[0].ts,restart,'A live reading exactly at the restart is included');
+check(series(resetSamples,market(3,{ts:restart+10*D,block:10}),id,0,restart)[0].ts,restart,'The fixed start does not move forward on later days');
+check(series(resetSamples,market(3,{ts:restart+10*D,block:10}),id,7,restart).map(p=>p.ts),[restart+10*D],'A shorter viewing window still crops the restarted history');
+check(JSON.stringify(resetSamples),resetBefore,'Restarting the displayed series leaves saved observations unchanged');
+
 const book=JSON.parse(readFileSync(new URL('../morpho-history.json',import.meta.url),'utf8'));
+const starts=vm.runInNewContext(source.match(/^const CHART_STARTS = .+;/m)[0]+'\nCHART_STARTS;');
+const selector=source.match(/function seriesFor\(id\) \{[\s\S]*?\n}/)[0];
+for(const days of [7,14,0]) {
+  const select=vm.runInNewContext('('+selector+')',{MARKETS,history:book.samples,records:new Map(),
+    periods:new Map(MARKETS.map(m=>[m.id,days])),CHART_STARTS:starts,lendingSeries:fn});
+  const kat=MARKETS.find(m=>m.key==='kat-usdc');
+  check(select(kat.id).every(p=>p.ts>=restart),true,'The actual KAT/USDC chart selector enforces the restart for period '+days);
+  const other=MARKETS.find(m=>m.key==='avkat-kat');
+  check(JSON.stringify(select(other.id)),JSON.stringify(series(book.samples,null,other.id,days)),'Other markets keep their original series for period '+days);
+}
 if(book.borrow_starts){
   check(validateMorphoHistory(book).samples.length,book.samples.length,'The expanded history and borrow-start records validate');
   for(const start of book.borrow_starts){

@@ -298,7 +298,11 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 - Historical observations use the prices, oracle and balances at their own pinned blocks.
   Never reprice saved history at today's prices or substitute zeros for failed reads.
   Each market's two charts start at its first actual Borrow event, never at the global
-  file's first date or a collateral-only deposit. **7D is the default range** for each
+  file's first date or a collateral-only deposit. Exception requested 30 Oct 2026: both
+  KAT / USDC charts have a fixed display cutoff at **30 Oct 2026, 00:00 MYT**, applying to
+  7D, 14D and All. Preserve saved observations; the display grows forward from this date
+  rather than resetting each day. Other markets retain their original first-borrow start.
+  **7D is the default range** for each
   market (Alex, 29 Oct 2026); 14D and All remain available. Trim only the prefix before
   borrowing, preserving later repayments and unreadable gaps. `borrow_starts` records
   the receipt-verified opening block/time.
@@ -496,8 +500,9 @@ It has four views: Planner, simulated positions, My real LPs and History.
   96 assertions pass; browser checks cover incomplete reads, full failure, five-minute
   expiry, recovery and saved settings. Phone widths 360/375 px have no sideways scroll.
 - **Lending chart starts:** `node scripts/test-lending-series.mjs` tests the actual browser
-  series function: 35 assertions cover each verified opening block, shorter date windows,
-  repayments, gaps and mixed archive intervals. The one-time, resumable archive recovery
+  series function: 53 assertions cover each verified opening block, the KAT / USDC fixed
+  MYT restart, shorter date windows, repayments, gaps and mixed archive intervals.
+  The one-time, resumable archive recovery
   is `scripts/backfill-morpho-starts.mjs`; keep its checkpoint outside the repository.
 - **Lending market view:** `node scripts/test-lending-view.mjs` checks weighted average
   LTV, unknown and zero values, inactive markets, reactivation and source preservation

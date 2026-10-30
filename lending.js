@@ -19,6 +19,8 @@ const date = (ts, full=false) => new Date(ts*1000).toLocaleString('en-GB', { tim
 const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asia/Kuala_Lumpur', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
 const CACHE = 'tf_morpho_full_v1';
 const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
+// Fixed restart requested by Alex; the chart grows forward rather than resetting each day.
+const CHART_STARTS = { 'kat-usdc': Date.parse('2026-10-30T00:00:00+08:00')/1000 };
 const HOLD = 5*60, POLL = 15000;
 let targets = {}, records = new Map(), history = [], live = null, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
 let katQuote = null;
@@ -160,15 +162,18 @@ function adopt(sample, isLive) {
 
 // Start at this market's first borrowing, before applying a shorter viewing period.
 // Keep later empty/error readings: they are genuine gaps, not a reason to join lines.
-function lendingSeries(samples,latest,id,periodDays) {
+function lendingSeries(samples,latest,id,periodDays,startTs=0) {
   const rows=samples.map(s=>({ts:s.ts,block:s.block,interval_seconds:s.interval_seconds||21600,row:s.markets?.find(r=>r.id===id)}));
   if(latest&&(!rows.length||latest.ts>rows.at(-1).ts))rows.push({ts:latest.ts,block:latest.block,interval_seconds:21600,row:latest});
   const firstBorrow=rows.findIndex(p=>p.row&&!p.row.error&&!p.row.no_position&&Number.isFinite(p.row.debt_amount)&&p.row.debt_amount>0);
   if(firstBorrow<0)return [];
-  const end=rows.at(-1).ts,from=periodDays?end-periodDays*86400:0;
+  const end=rows.at(-1).ts,from=Math.max(startTs,periodDays?end-periodDays*86400:0);
   return rows.slice(firstBorrow).filter(p=>p.ts>=from).map(p=>({...p,row:p.row&&!p.row.error&&!p.row.no_position?p.row:null}));
 }
-function seriesFor(id) {return lendingSeries(history,records.get(id),id,periods.get(id)??7);}
+function seriesFor(id) {
+  const market=MARKETS.find(m=>m.id===id);
+  return lendingSeries(history,records.get(id),id,periods.get(id)??7,CHART_STARTS[market?.key]??0);
+}
 
 function marketIsInactive(row) {
   return !!row && !row.error && row.no_position===true;
@@ -279,7 +284,7 @@ async function loadHistory() {
     history=[...byBlock.values()].sort((a,b)=>a.ts-b.ts);historyReadAt=Date.now();
     if(history.length&&!live)adopt(history.at(-1),false);
     const first=history[0],last=history.at(-1);
-    $('history-note').textContent=first?`${history.length} recorded samples · ${date(first.ts,true)} to ${date(last.ts,true)} MYT. Each chart begins with that market’s first borrowing. Older history is sampled daily, recent history every 6 hours; live values refresh every 15 seconds.`:'History begins with the first complete market reading.';
+    $('history-note').textContent=first?`${history.length} recorded samples · ${date(first.ts,true)} to ${date(last.ts,true)} MYT. KAT / USDC charts start 30 Oct 2026 MYT; other markets begin with their first borrowing. Older history is sampled daily, recent history every 6 hours; live values refresh every 15 seconds.`:'History begins with the first complete market reading.';
     render();
   } catch(e) { $('history-note').textContent='Recorded history could not be refreshed. Existing chart points and live readings remain available.'; }
   finally {historyBusy=false;}
