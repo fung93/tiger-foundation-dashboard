@@ -277,8 +277,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   A pool-price fallback must be explicitly labelled. The oracle remains the actual trigger.
   avKAT/KAT has no single KAT dollar liquidation price: collateral and debt both move
   with KAT. Show its avKAT-to-KAT oracle boundary and current ratio instead.
-- Show market/redemption collateral value separately from oracle collateral value.
-  Clearly label the chart's value basis so its debt-limit lines and health agree.
+- Show collateral at the market's oracle value and label the chart's value basis so its
+  debt-limit lines and health agree. Beneath the collateral and personal debt-limit
+  values, show the token amounts only: omit the secondary "Market value" and
+  "Health … · LTV …" lines (Alex, 30 Oct 2026).
 - Debt includes interest accrued to the observation's block, using a read-only
   `eth_call` simulation of Morpho's `accrueInterest` followed by its position/market reads.
   Round debt up, borrow headroom down and required repayment up; cap available borrowing

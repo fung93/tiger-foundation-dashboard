@@ -200,13 +200,13 @@ function render() {
     el.dataset.health=String(row.health); el.dataset.target=String(target); el.dataset.debt=String(row.debt_amount);
     el.dataset.borrow=String(metric.borrow_amount); el.dataset.repay=String(metric.repay_amount); el.dataset.block=String(row.block);
     find('.col-value').textContent=money(row.oracle_collateral_usd);
-    find('.col-sub').innerHTML=esc(tokenAmount(row.collateral_amount,m.collateral_token))+`<br><small>Market value ${esc(money(row.collateral_usd))}</small>`;
+    find('.col-sub').textContent=tokenAmount(row.collateral_amount,m.collateral_token);
     find('.debt-value').textContent=money(row.debt_usd);
     find('.current-ltv').textContent='LTV '+(Number.isFinite(row.ltv)?pct(row.ltv):'—');
     find('.market-lltv').textContent='Market LLTV '+pct(row.lltv);
     find('.debt-sub').textContent=tokenAmount(row.debt_amount,m.loan_token);
     find('.limit-value').textContent=money(metric.target_debt_usd);
-    find('.limit-sub').innerHTML=esc(tokenAmount(metric.target_debt_amount,m.loan_token))+`<br><small>Health ${esc(number(target,6))} · LTV ${esc(pct(row.lltv/target))}</small>`;
+    find('.limit-sub').textContent=tokenAmount(metric.target_debt_amount,m.loan_token);
     const currentHealth = row.debt_amount===0 ? 'No debt' : Number.isFinite(row.health) ? number(row.health,4) : 'Unavailable';
     find('.health-now').textContent=(stale?'At reading ':'Now ')+currentHealth;
     find('.reading-time').textContent=(stale?'Reading ':'')+date(row.ts)+' MYT';
