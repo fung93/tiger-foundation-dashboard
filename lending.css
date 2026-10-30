@@ -4,9 +4,12 @@
 .ranges{display:flex;gap:3px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px;flex-shrink:0}
 .ranges button{background:none;border:0;border-radius:99px;padding:7px 13px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.08em;cursor:pointer}
 .ranges button.on{color:var(--gold);background:rgba(214,185,123,.09)}
-.lending-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.lending-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
 .overview-card{min-width:0;padding:20px 24px}
 .overview-value{margin-top:10px;color:var(--text);font-size:30px;font-weight:300;line-height:1.2;letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kat-price-status{font-size:9px;line-height:1.4}
+.kat-price-card[data-status=stale] .kat-price-status{color:var(--warn)}
+@media(max-width:900px){.lending-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .markets{display:grid;gap:24px}
 .market-card[hidden]{display:none}
 .market-card{padding:25px 26px 20px;min-width:0}
@@ -80,7 +83,7 @@
 .lending-method>span{display:block;margin-top:14px}
 .market-error{margin-top:20px;color:var(--warn);font-size:12px}
 @media(max-width:900px){.market-figures{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.market-graphs{grid-template-columns:1fr;gap:24px}.plot{height:195px}}
-@media(max-width:600px){.lending-intro{align-items:center;margin-top:20px;gap:14px}.lending-overview{grid-template-columns:1fr;gap:10px}.overview-card{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px}.overview-card .metric-label{font-size:9px}.overview-value{margin-top:0;font-size:25px;flex-shrink:0}.market-card{padding:20px 16px 16px}.market-head{flex-direction:column;gap:18px}.market-name{font-size:27px}.target-fields{grid-template-columns:106px minmax(0,1fr);gap:12px}.target-field label{font-size:8px;letter-spacing:.04em}.target-field input{width:100%;font-size:15px}.market-figures{gap:18px 12px;margin:20px 0;padding:18px 0}.metric-value{font-size:clamp(18px,5.4vw,24px)}.metric-sub{font-size:10px}.metric-label{font-size:8px;letter-spacing:.08em}.plot{height:180px}.plot-tooltip{font-size:9px;min-width:150px;padding:8px}.market-foot{font-size:9px}.plot-heading{font-size:9px}.plot-legend{font-size:8.5px;gap:6px 11px}}
+@media(max-width:600px){.lending-intro{align-items:center;margin-top:20px;gap:14px}.lending-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.overview-card{padding:14px}.overview-card .metric-label{font-size:9px}.overview-value{margin-top:10px;font-size:clamp(18px,5vw,24px)}.market-card{padding:20px 16px 16px}.market-head{flex-direction:column;gap:18px}.market-name{font-size:27px}.target-fields{grid-template-columns:106px minmax(0,1fr);gap:12px}.target-field label{font-size:8px;letter-spacing:.04em}.target-field input{width:100%;font-size:15px}.market-figures{gap:18px 12px;margin:20px 0;padding:18px 0}.metric-value{font-size:clamp(18px,5.4vw,24px)}.metric-sub{font-size:10px}.metric-label{font-size:8px;letter-spacing:.08em}.plot{height:180px}.plot-tooltip{font-size:9px;min-width:150px;padding:8px}.market-foot{font-size:9px}.plot-heading{font-size:9px}.plot-legend{font-size:8.5px;gap:6px 11px}}
 @media(hover:hover){.ranges button:hover{color:var(--text)}}
 @media(max-width:600px){.market-chart-bar{gap:10px;margin-bottom:14px}.market-chart-bar .ranges button{padding:6px 10px}.debt-label{gap:4px 6px}}
 @media(max-width:600px){.liquidation-box{grid-template-columns:1fr;gap:9px}.liquidation-value{font-size:25px}.liquidation-value.ratio-message{font-size:23px}.liquidation-current,.liquidation-explanation{font-size:10px}}

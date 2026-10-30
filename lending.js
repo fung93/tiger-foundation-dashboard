@@ -3,6 +3,7 @@ import { MARKETS, readMorpho, targetMetrics, liquidationMetrics } from './morpho
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = value => Number.isFinite(value) ? '$' + value.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '—';
+const katPrice = value => Number.isFinite(value) && value>0 ? '$'+(value<1e-6 ? value.toExponential(4) : value.toFixed(6)) : '—';
 const number = (value, digits=2) => {
   if(!Number.isFinite(value))return '—';
   const magnitude=Math.abs(value);
@@ -20,6 +21,7 @@ const CACHE = 'tf_morpho_full_v1';
 const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
 const HOLD = 5*60, POLL = 15000;
 let targets = {}, records = new Map(), history = [], live = null, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
+let katQuote = null;
 const editing = new Set(), drafts = new Map();
 const periods = new Map(MARKETS.map(m=>[m.id,7]));
 // Each page opening starts from Alex's defaults; edits apply only to this visit.
@@ -139,6 +141,10 @@ function adopt(sample, isLive) {
   if (!isLive && live) return;
   if (isLive && sample.ts < lastRead) { lastFull=false; warnings=['Katana returned an older reading. Keeping the previous figures and their original reading time.']; render(); return; }
   const errors = [];
+  const quote = sample.markets.map(row=>row.kat_price_usd).find(value=>Number.isFinite(value)&&value>0);
+  if(Number.isFinite(quote)) {
+    if(!katQuote || sample.ts>=katQuote.ts)katQuote={usd:quote,ts:sample.ts};
+  } else if(isLive) errors.push('KAT market price could not be read.'+(katQuote?' Keeping its previous price and reading time.':''));
   for (const m of MARKETS) {
     const row = sample.markets.find(r => r.id === m.id), prev = records.get(m.id);
     if (!row || row.error) { errors.push(m.label+' could not be read.'); if (prev) prev.stale = true; continue; }
@@ -220,7 +226,9 @@ function render() {
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
   }
   const overview=lendingOverview(MARKETS.map(m=>records.get(m.id)));
-  $('overview').innerHTML=`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
+  const quoteAge=katQuote ? Date.now()/1000-katQuote.ts : Infinity, quoteFresh=lastFull&&quoteAge>=-30&&quoteAge<=90;
+  const quoteStatus=katQuote ? quoteFresh?'Live · market price':'Stale · '+date(katQuote.ts)+' MYT' : 'Waiting for price';
+  $('overview').innerHTML=`<div class="card overview-card kat-price-card" data-status="${quoteFresh?'live':katQuote?'stale':'loading'}" data-price-ts="${katQuote?.ts||''}"><div class="metric-label">KAT price</div><div class="overview-value">${katPrice(katQuote?.usd)}</div><div class="metric-sub kat-price-status">${quoteStatus}</div></div><div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
   const age=Date.now()/1000-lastRead, fresh=lastFull&&age<=90;
   $('stamp').className='stamp'+(fresh?'':' stale');
   $('stamp').innerHTML=`<span class="dot"></span><span class="st">${fresh?'LIVE':lastRead?'STALE':'LOADING'}</span><br>${lastRead?time(lastRead):'—'}`;
