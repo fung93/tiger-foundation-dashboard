@@ -33,7 +33,7 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46588462,
+  "katana": 46618345,
   "robinhood": 101096136
  },
  "tokens": {
@@ -1241,7 +1241,7 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 3256.206667550454
+    "KAT@katana": 3236.4994677360905
    },
    "unpriced": false,
    "range": {
@@ -1340,15 +1340,15 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 307.7426458411067
+    "KAT@katana": 1245.7596104994525
    },
    "unpriced": false,
    "range": {
-    "ts": 1793331273,
-    "block": 46588462,
+    "ts": 1793361156,
+    "block": 46618345,
     "in": true,
-    "in_s": 11993,
-    "all_s": 11993
+    "in_s": 41876,
+    "all_s": 41876
    },
    "claimed_seen": {}
   }
@@ -2547,13 +2547,6 @@
  ],
  "runs": [
   {
-   "ts": 1792685888,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
    "ts": 1792702736,
    "behind": {
     "katana": 0,
@@ -2757,6 +2750,15 @@
    "behind": {
     "katana": 0
    }
+  },
+  {
+   "ts": 1793361156,
+   "errors": {
+    "robinhood": "logs matched by query exceeds limit of 10000"
+   },
+   "behind": {
+    "katana": 0
+   }
   }
  ],
  "carried": {
@@ -2946,5 +2948,43 @@
    "price": 0.004208868140957167,
    "assigned": 3236.4994677360905
   }
- ]
+ ],
+ "reward_native": {
+  "katana:492291": {
+   "earned": 3989.593885078531,
+   "claimed": 3989.593885078531
+  },
+  "katana:492626": {
+   "earned": 604.749678658545,
+   "claimed": 585.0424788441819
+  },
+  "katana:492808": {
+   "earned": 1226.0524106850892,
+   "claimed": 0
+  }
+ },
+ "reward_rollovers": [
+  {
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "source": "492291",
+   "target": "492626",
+   "token": "KAT@katana",
+   "claimedBefore": 1338.1368961866224,
+   "initialCarry": 2651.4569888919086,
+   "ts": 1793290481
+  },
+  {
+   "source": "492626",
+   "target": "492808",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "claimedBefore": 3236.4994677360905,
+   "initialCarry": 19.70719981436332,
+   "ts": 1793319280
+  }
+ ],
+ "reward_rollover_basis": {
+  "katana:492626": 2631.7497890775458,
+  "katana:492808": 19.70719981436332
+ }
 }
