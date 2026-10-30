@@ -18,6 +18,7 @@ const near = (actual, expected, note) => {
   assert.ok(Math.abs(actual - expected) < 1e-8, note + ': ' + actual + ' versus ' + expected); checks++;
 };
 const attributed = input => core.attributeMerklRewards(input);
+let effectiveMerkl;
 
 function reading(sourceEarned = CUTOFF + CARRY, sourceClaimed = CUTOFF,
   targetEarned = OWN, targetClaimed = 0) {
@@ -83,7 +84,8 @@ function view(book, merkl) {
 }
 async function advance(book, merkl) {
   const result = await advanceBook(book, { merkl, maxWindows: 0 });
-  check(result.errors, {}, 'Local cursor reads finish without chain errors');
+  if (!merkl.error) check(result.errors, {}, 'Local cursor reads finish without chain errors');
+  effectiveMerkl = result.merkl;
   return result.book;
 }
 
@@ -116,9 +118,9 @@ V3.forEach((ch, i) => { ch.rpc = 'https://local-reward-fixture.invalid/' + i; })
 
 try {
   check(typeof core.attributeMerklRewards, 'function', 'Reward attribution has one shared pure implementation');
-  check(core.REWARD_ATTRIBUTION_VERSION, 1, 'Attribution uses an explicit observation basis version');
+  check(core.REWARD_ATTRIBUTION_VERSION, 2, 'Attribution uses an explicit observation basis version');
   const input = reading(), savedInput = clone(input), moved = attributed(input);
-  check(moved.reward_attribution_version, 1, 'The adjusted reward reading identifies its basis');
+  check(moved.reward_attribution_version, 2, 'The adjusted reward reading identifies its basis');
   check(input, savedInput, 'Attribution never mutates raw source readings');
   near(moved.earned_tokens_by_id[SOURCE][KAT], CUTOFF, 'Closed LP retains only its earlier claimed reward');
   near(moved.earned_tokens_by_id[TARGET][KAT], OWN + CARRY, 'Current LP receives all outstanding source KAT');
@@ -156,7 +158,7 @@ try {
     ['source below historical claim cutoff', m => { m.earned_tokens_by_id[SOURCE][KAT] = CUTOFF - 1; m.claimed_tokens_by_id[SOURCE][KAT] = 0; }],
     ['claims exceed earnings', m => { m.claimed_tokens_by_id[TARGET][KAT] = OWN + 1; }],
     ['unsupported attribution basis', m => { m.reward_attribution_version = 999; }],
-    ['failed already attributed source', m => { m.reward_attribution_version = 1; m.error = true; }],
+    ['failed already attributed source', m => { m.reward_attribution_version = core.REWARD_ATTRIBUTION_VERSION; m.error = true; }],
   ];
   for (const [name, change] of invalid) {
     const bad = reading(); change(bad);
@@ -168,8 +170,9 @@ try {
   merklMode = true; requests = [];
   const fromReader = await merklLp();
   check(Boolean(fromReader.error), false, 'The actual reader accepts complete local Merkl rewards');
-  near(fromReader.earned_tokens_by_id[SOURCE][KAT], CUTOFF, 'Reader aggregates duplicate source breakdowns before attribution');
-  near(fromReader.earned_tokens_by_id[TARGET][KAT], OWN + CARRY, 'Reader includes target amount and pending tokens exactly once');
+  near(fromReader.earned_tokens_by_id[SOURCE][KAT], CUTOFF + CARRY, 'Reader preserves raw duplicate source breakdowns before ledger attribution');
+  near(fromReader.earned_tokens_by_id[TARGET][KAT], OWN, 'Reader preserves native target amount and pending tokens exactly once');
+  check(fromReader.reward_attribution_version, undefined, 'Network reader never applies a ledger-specific rollover');
   check(requests.length, CFG.wallets.length * V3.filter(ch => ch.merklChain).length, 'Attribution adds no remote reads');
   merklFailure = true;
   const failedReader = await merklLp();
@@ -189,7 +192,7 @@ try {
     plainReading.earned_by_id[id] = r2(plainReading.earned_tokens_by_id[id][KAT] * PRICE);
   }
   const before = view(original, plainReading), adjusted = attributed(plainReading);
-  const updated = await advance(original, adjusted), after = view(updated, adjusted);
+  const updated = await advance(original, plainReading), after = view(updated, effectiveMerkl);
   check(JSON.stringify(original), originalBytes, 'Advancing rewards does not mutate the source ledger');
   check(updated.positions[SOURCE_KEY].claims, original.positions[SOURCE_KEY].claims, 'All earlier claim dates, token amounts and prices stay intact');
   check(updated.positions[SOURCE_KEY].frozen, original.positions[SOURCE_KEY].frozen, 'The frozen close is never repriced');
@@ -205,11 +208,21 @@ try {
   const markedBook = clone(updated);
   markedBook.fee_series[0].reward_attribution_version = core.REWARD_ATTRIBUTION_VERSION;
   markedBook.fee_series[0].pos[TARGET_KEY][KAT] += CARRY;
+  markedBook.fee_series[0].reward_rollover_basis = { [TARGET_KEY]: CARRY };
   const markedView = view(markedBook, adjusted);
   check(markedView.live[0].apr_detail, after.live[0].apr_detail,
     'Already adjusted samples and legacy samples produce the same rate without double adjustment');
+  const v1Book = clone(markedBook);
+  v1Book.fee_series[0].reward_attribution_version = 1;
+  delete v1Book.fee_series[0].reward_rollover_basis;
+  check(view(v1Book, adjusted).live[0].apr_detail, after.live[0].apr_detail,
+    'Previously published version-one seed samples remain compatible with automatic rollovers');
+  const missingBasis = clone(markedBook);
+  delete missingBasis.fee_series[0].reward_rollover_basis;
+  check(view(missingBasis, adjusted).live[0].apr_detail.available, false,
+    'A version-two sample without its recorded carry basis cannot create a misleading APR');
   const unsupportedBook = clone(markedBook);
-  unsupportedBook.fee_series[0].reward_attribution_version = 2;
+  unsupportedBook.fee_series[0].reward_attribution_version = 999;
   const unsupportedBytes = JSON.stringify(unsupportedBook), unsupportedView = view(unsupportedBook, adjusted);
   const unsupportedApr = unsupportedView.live[0].apr_detail;
   check(unsupportedApr.available, false, 'An unsupported historical attribution basis cannot produce APR');
@@ -225,7 +238,7 @@ try {
   check(JSON.stringify(unsupportedBook), unsupportedBytes, 'Unknown-version samples are never rewritten');
   check(feeTotals(updated, rows(updated)), feeTotals(original, rows(original)), 'Whole-book fee totals do not grow when rewards are reassigned');
   near(positionFees(updated, rows(updated))[TARGET_KEY][KAT], OWN + CARRY, 'Scheduled samples receive the same attributed position rewards');
-  check(await advance(updated, adjusted), updated, 'Repeated API advancement cannot apply the transfer twice');
+  check(await advance(updated, plainReading), updated, 'Repeated API advancement cannot apply the transfer twice');
 
   const failedRefresh = await advance(updated, { error: true,
     earned_tokens_by_id: { [SOURCE]: { [KAT]: 0 }, [TARGET]: { [KAT]: 0 } },
@@ -249,7 +262,7 @@ try {
     overlappingRaw.claimed_tokens_by_id[SOURCE][KAT] += extra;
     const overlappingMerkl = attributed(overlappingRaw), merklBytes = JSON.stringify(overlappingMerkl);
     const overlappingBytes = JSON.stringify(overlappingBook), requestsBefore = requests.length;
-    const guarded = await advanceBook(overlappingBook, { merkl: overlappingMerkl, maxWindows: 0 });
+    const guarded = await advanceBook(overlappingBook, { merkl: overlappingRaw, maxWindows: 0 });
     check(typeof guarded.errors.merkl, 'string', conflict + ': overlapping historical claims make rewards incomplete');
     check(guarded.errors.merkl.includes('Saved claims overlap'), true,
       conflict + ': the failure identifies the attribution overlap');
@@ -265,7 +278,7 @@ try {
     check(JSON.stringify(overlappingBook), overlappingBytes, conflict + ': the input ledger is never mutated');
     check(JSON.stringify(overlappingMerkl), merklBytes, conflict + ': local failure does not mutate the valid source reading');
     const guardedView = bookView(guarded.book, { rows: rows(guarded.book),
-      merkl: overlappingMerkl, prices: { [KAT]: PRICE, 'vbWBTC@katana': 80000, 'vbUSDC@katana': 1 },
+      merkl: guarded.merkl, prices: { [KAT]: PRICE, 'vbWBTC@katana': 80000, 'vbUSDC@katana': 1 },
       errors: guarded.errors, behind: guarded.behind });
     check(guardedView.health.errors.merkl, guarded.errors.merkl,
       conflict + ': the actual view exposes incomplete rewards to the refresh controller');
@@ -281,7 +294,7 @@ try {
   const partialRaw = clone(plainReading);
   partialRaw.claimed_tokens_by_id[SOURCE][KAT] += 40;
   partialRaw.claimed_tokens_by_id[TARGET][KAT] += 10;
-  const partialMerkl = attributed(partialRaw), partialBook = await advance(partialInput, partialMerkl);
+  const partialBook = await advance(partialInput, partialRaw), partialMerkl = effectiveMerkl;
   const partialView = view(partialBook, partialMerkl);
   near(partialBook.positions[TARGET_KEY].claims.reduce((n, c) => n + c.tokens[KAT], 0), partialAmount,
     'A partial source plus destination claim is credited once to the destination');
@@ -292,7 +305,7 @@ try {
   check(partialView.live[0].comparison.earned_usd, after.live[0].comparison.earned_usd,
     'Partial claims do not change the holding comparison income');
   check(partialView.alltime, after.alltime, 'A partial reassigned claim never enters closed-source history');
-  check(await advance(partialBook, partialMerkl), partialBook, 'Repeated partial claims cannot double credit rewards');
+  check(await advance(partialBook, partialRaw), partialBook, 'Repeated partial claims cannot double credit rewards');
 
   const claimAmount = OWN + CARRY, claimTs = NOW - 30;
   const claimInput = clone(partialBook);
@@ -302,7 +315,7 @@ try {
   const allClaimedRaw = clone(plainReading);
   allClaimedRaw.claimed_tokens_by_id[SOURCE][KAT] = CUTOFF + CARRY;
   allClaimedRaw.claimed_tokens_by_id[TARGET][KAT] = OWN;
-  const allClaimed = attributed(allClaimedRaw), claimedBook = await advance(claimInput, allClaimed);
+  const claimedBook = await advance(claimInput, allClaimedRaw), allClaimed = effectiveMerkl;
   const claimedView = view(claimedBook, allClaimed);
   check(claimedBook.positions[SOURCE_KEY].claims, original.positions[SOURCE_KEY].claims,
     'Claiming the reassigned balance later does not change the old LP claim records');
@@ -314,7 +327,7 @@ try {
   check(claimedView.cards.fees_usd, r2(claimAmount * PRICE), 'Claimed fees move into the live claim total once');
   check(claimedView.live[0].yield_value, after.live[0].yield_value, 'Claiming does not reduce lifetime rewards');
   check(claimedView.alltime, after.alltime, 'Claiming the reassigned balance cannot add it to closed source history');
-  check(await advance(claimedBook, allClaimed), claimedBook, 'Repeated claimed reading cannot duplicate a claim');
+  check(await advance(claimedBook, allClaimedRaw), claimedBook, 'Repeated claimed reading cannot duplicate a claim');
 
   const closedInput = clone(updated), closedTarget = closedInput.positions[TARGET_KEY], closeTs = NOW - HOUR;
   closedTarget.status = 'closed'; closedTarget.closed_ts = closeTs; closedTarget.closed_block = 3;
@@ -325,7 +338,7 @@ try {
   closedInput.claims.push({ wallet: WALLET, token: KAT, ts: claimTs, block: 4,
     amount: claimAmount, price: claimPrice, assigned: 0 });
   const targetFrozen = clone(closedTarget.frozen);
-  const afterClosedClaim = await advance(closedInput, allClaimed), closedView = view(afterClosedClaim, allClaimed);
+  const afterClosedClaim = await advance(closedInput, allClaimedRaw), closedView = view(afterClosedClaim, effectiveMerkl);
   const sourceHistory = closedView.alltime.history.find(p => p.id === SOURCE);
   const targetHistory = closedView.alltime.history.find(p => p.id === TARGET);
   check(closedView.cards.open, 0, 'Closing the destination does not move its rewards to a different open LP');
@@ -333,7 +346,7 @@ try {
   check(sourceHistory, after.alltime.history.find(p => p.id === SOURCE), 'Source history remains unchanged after destination closes and claims');
   near(targetHistory.fee_tokens.KAT, claimAmount, 'Reassigned KAT stays with the same destination after its close');
   check(targetHistory.fee_usd, r2(claimAmount * claimPrice), 'Closed destination fees use the actual claim price, not current or closing KAT price');
-  check(await advance(afterClosedClaim, allClaimed), afterClosedClaim, 'Closed destination claims stay idempotent');
+  check(await advance(afterClosedClaim, allClaimedRaw), afterClosedClaim, 'Closed destination claims stay idempotent');
 
   console.log('PASS reward attribution: ' + checks + ' assertions');
 } finally {

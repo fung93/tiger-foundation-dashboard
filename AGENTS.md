@@ -149,12 +149,26 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   and no token list.
 - **Live position cards:** each position's own fees since it opened, claimed or not.
   - On Katana, that is the position's own Merkl KAT.
-  - Alex's explicit exception (29 Oct 2026): attribute the unclaimed KAT from closed Katana
-    LP #492291 to LP #492626. The 1,338.1368961866224 KAT already claimed stays with #492291;
-    the remaining rewards and their later claims belong to #492626. The scoped rule lives in
-    `api/_reward-attribution.mjs`, shared by the API and scheduled job. Do not generalise it
-    to other positions. Old APR observations are compared on the same attribution basis
-    without rewriting their stored token balances.
+  - Alex's Katana rollover rule (29–30 Oct 2026): when a Katana LP closes, its unclaimed
+    KAT follows a verified replacement in the **same wallet and token pair only**,
+    including KAT inherited from earlier LPs. Match the latest eligible mint within the
+    24 hours before closing, otherwise the first mint after closing (without an expiry).
+    Prefer the same pool only for simultaneous matching mints. Preserve intermediate
+    replacements even if they have already closed by the next read, so a cold restart
+    reconstructs the same chain. Equally matching replacements retain the closed LP's
+    allocation with a warning until the match is clear. New rules apply prospectively.
+  - The original #492291 → #492626 transfer remains seeded: the 1,338.1368961866224 KAT
+    already claimed stays with #492291. Saved rollover relationships and raw native reward
+    observations live in `lpbook.json`; `api/_reward-attribution.mjs` supplies the API and
+    scheduled writer with the same allocation. Prior claims keep their dates and prices.
+  - The API anchors new relationships to the committed claim ledger so server restarts
+    cannot change ownership. If an earlier wallet claim makes that boundary ambiguous,
+    the API waits for the scheduled writer to commit a complete allocation. Never persist
+    a warm API claim anchor. Failed/incomplete lifecycle or reward reads keep the previous
+    allocation. Rolled-over balances count in Rewards, Net and LP versus holding; they
+    are excluded from the replacement's APR so reassignment cannot masquerade as accrual.
+    Saved APR observations are normalized by their recorded carry basis without rewriting
+    their token balances or historical prices.
   - On Robinhood, that is its trading fees, plus Fables fees not yet collected by the hook,
     split by the hook's own rules.
 - **Live page:**
@@ -450,6 +464,9 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **KAT reward attribution:** `node scripts/test-reward-attribution.mjs` checks the scoped
   reassignment, unchanged totals/history, APR sample transitions, failed reads, partial/full
   claims and claiming after the destination closes, without live network access.
+  `node scripts/test-automatic-reward-rollover.mjs` covers future same-pair rollovers,
+  successive replacements, native and inherited claims, cold restarts, missing readings,
+  ambiguous claims/replacements and scheduled persistence.
 - **Robinhood reliability:** `scripts/test-rpc-reader.mjs`, `scripts/test-core-reads.mjs`,
   `scripts/test-api-refresh.mjs` and `scripts/test-portfolio-robinhood.mjs` exercise paced
   retries, request/body deadlines, required contract reads, warm scan checkpoints and

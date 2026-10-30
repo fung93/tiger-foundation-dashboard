@@ -13,8 +13,8 @@
    ========================================================================== */
 
 import '../rpc-reader.js';
-import { attributeMerklRewards, attributedAprBaseline, rewardAttributionLedgerIssue } from './_reward-attribution.mjs';
-export { attributeMerklRewards, REWARD_ATTRIBUTION_VERSION } from './_reward-attribution.mjs';
+import { attributedAprBaseline, prepareBookRewards, registerKatanaRollovers, anchorRewardRollovers } from './_reward-attribution.mjs';
+export { attributeMerklRewards, prepareBookRewards, REWARD_ATTRIBUTION_VERSION } from './_reward-attribution.mjs';
 
 export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
@@ -681,10 +681,7 @@ export async function merklLp() {
   const result = { total_usd: r2(total), lp_usd: r2(lp), earned_by_id: byId, earned_tokens_by_id: tokensById,
     claimed_tokens_by_id: claimedById, wallet_by_id: walletById,
     token_price: tokenPrice, error: failed || undefined };
-  try { return attributeMerklRewards(result); }
-  catch {
-    return { ...result, earned_by_id: {}, earned_tokens_by_id: {}, claimed_tokens_by_id: {}, error: true };
-  }
+  return result;
 }
 
 /* ---------- the widget's own view ---------- */
@@ -1331,11 +1328,11 @@ async function freeze(book, ch, P, merkl) {
    the others still move. A run takes at most `maxWindows` windows a chain, so it always
    finishes, and a book that has fallen behind catches up over several runs rather than
    timing out on one and never moving at all. */
-export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false } = {}) {
+export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false, persistRollovers = false } = {}) {
   const book = JSON.parse(JSON.stringify(input));
   const errors = {}, behind = {};
-  const attributionIssue = rewardAttributionLedgerIssue(book, merkl);
-  if (attributionIssue) { errors.merkl = attributionIssue; merkl = { ...merkl, error: true }; }
+  const rawMerkl = merkl;
+  anchorRewardRollovers(book);
 
   /* a wallet added to the config since the book began: photograph what it holds now, and
      from then on it is followed like the others */
@@ -1372,16 +1369,48 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ra
       errors[ch.key] = String((e && e.message) || e).slice(0, 160);
     }
   }
-  /* Merkl keeps settling a position's rewards for a while after it closes, so every
-     position's earned total is refreshed; only the frozen history row stays put. */
-  if (merkl && !merkl.error && merkl.earned_tokens_by_id) {
+  const refreshRewards = function () {
     for (const P of Object.values(book.positions)) {
-      const t = merkl.earned_tokens_by_id[P.id];
+      const t = merkl?.earned_tokens_by_id?.[P.id];
       if (t && chainOf(P.chain).yield === 'merkl') P.merkl = { ...t };
     }
+  };
+  // A committed claim anchor makes API reconstruction deterministic across cold
+  // starts. Ambiguous earlier claims wait for the scheduled writer to save a
+  // complete first allocation instead of exposing a floating temporary rule.
+  if (rawMerkl) {
+    const beforeRewards = JSON.parse(JSON.stringify(book));
+    try {
+      if (errors.katana || behind.katana > 0) throw new Error('Waiting for a complete Katana position history before allocating rewards.');
+      merkl = prepareBookRewards(book, rawMerkl);
+      const issues = new Set();
+      for (let n = 0; n < Object.keys(book.positions).length; n++) {
+        const count = book.reward_rollovers.length;
+        registerKatanaRollovers(book, merkl, { persistRollovers }).forEach(issue => issues.add(issue));
+        if (book.reward_rollovers.length === count) break;
+        merkl = prepareBookRewards(book, rawMerkl);
+      }
+      refreshRewards();
+      attributeClaims(book, merkl);
+      for (const P of Object.values(book.positions).filter(P => P.chain === 'katana')) {
+        const claimed = merkl.claimed_tokens_by_id?.[P.id]?.['KAT@katana'] || 0;
+        if (claimed > (P.claimed_seen?.['KAT@katana'] || 0) + 1e-8)
+          throw new Error('Some claimed KAT is waiting for its dated wallet claim record.');
+      }
+      if ((book.claims || []).some(c => (c.assigned || 0) > c.amount + 1e-8))
+        throw new Error('The recorded reward allocation exceeds a wallet claim.');
+      if (issues.size) errors['Katana reward rollover'] = [...issues].join(' ');
+    } catch (e) {
+      Object.keys(book).forEach(k => { delete book[k]; });
+      Object.assign(book, beforeRewards);
+      for (const P of Object.values(book.positions).filter(P => P.chain === 'katana')) {
+        if (input.positions[P.key]) P.merkl = JSON.parse(JSON.stringify(input.positions[P.key].merkl || {}));
+      }
+      errors.merkl = String(e?.message || e);
+      merkl = { ...rawMerkl, earned_by_id: {}, earned_tokens_by_id: {}, claimed_tokens_by_id: {}, error: true };
+    }
   }
-  attributeClaims(book, merkl);
-  return { book, errors, behind };
+  return { book, errors, behind, merkl };
 }
 
 /* ---------- rebalances: a position closed and a fresh one minted, same wallet ----------
@@ -1603,7 +1632,8 @@ function positionApr(book, P, cashflows, tokensNow, prices, now) {
   if (!base && cashflows.latest > P.opened_ts) return unavailableApr('A top-up needs a saved earning reading after the latest deposit.');
   const start = base ? base.ts : P.opened_ts, hours = (now - start) / 3600;
   if (!(hours > .48)) return unavailableApr('There is not yet enough elapsed time to measure an annualised rate.');
-  const current = tokensNow.tokens, previous = base ? attributedAprBaseline(P, base) : {};
+  const current = tokensNow.tokens, previous = attributedAprBaseline(P,
+    base || { pos: { [P.key]: {} } }, book);
   const earnedNow = performanceValue(current, prices), earnedBefore = performanceValue(previous, prices);
   if (earnedNow.reason || earnedBefore.reason) return unavailableApr(earnedNow.reason || earnedBefore.reason);
   const delta = {};

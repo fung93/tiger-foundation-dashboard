@@ -24,7 +24,7 @@ const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Ma
 
 export async function updateLpBook(root) {
   const path = join(root, 'lpbook.json');
-  const merkl = await merklLp();
+  let merkl = await merklLp();
   let book = readJson(path);
   const ts = Math.floor(Date.now() / 1000);
   let errors = {}, behind = {}, started = false;
@@ -38,7 +38,10 @@ export async function updateLpBook(root) {
   }
   /* a fresh book replays from those mints in the same run, so it is never written half-built */
   /* the job also reads every swap, to keep each position's time in range */
-  ({ book, errors, behind } = await advanceBook(book, { merkl, maxWindows: 80, pos, data, ranges: true }));
+  delete book.reward_rollover_anchor;
+  const advanced = await advanceBook(book, { merkl, maxWindows: 80, pos, data, ranges: true, persistRollovers: true });
+  ({ book, errors, behind } = advanced);
+  merkl = advanced.merkl || merkl;
   /* One point on the fee curve per run, unless a chain could not be read — a point
      missing a chain's uncollected fees would draw as a drop that never happened. */
   const live = await bookLiveRows(book);
@@ -54,12 +57,15 @@ export async function updateLpBook(root) {
       if (P.status === 'open' && row && typeof row.liquidity_usd === 'number') pp[P.key] = Math.round((row.liquidity_usd + P.out_usd - P.cost_usd) * 100) / 100;
     }
     book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp,
-      ...(merkl.reward_attribution_version ? { reward_attribution_version: merkl.reward_attribution_version } : {}) });
+      ...(merkl.reward_attribution_version ? { reward_attribution_version: merkl.reward_attribution_version } : {}),
+      ...(merkl.reward_rollover_basis ? { reward_rollover_basis: merkl.reward_rollover_basis } : {}) });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
 
   book.runs = (book.runs || []).concat({ ts, started: started || undefined,
     errors: Object.keys(errors).length ? errors : undefined, behind }).slice(-30);
+  // This provenance belongs only to an API warm checkpoint, never the saved ledger.
+  delete book.reward_rollover_anchor;
   writeFileSync(path, JSON.stringify(book, null, 1) + '\n');
 
   const open = Object.values(book.positions).filter((P) => P.status === 'open').length;

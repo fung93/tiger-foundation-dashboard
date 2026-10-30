@@ -11,7 +11,7 @@
        on every request, because the point of a range widget is where the price
        sits right now.
    ========================================================================== */
-import { V3, merklLp, v3Candidates, v3Rows, arcRows, widgetView, rowPrices, feeTokensOf } from './_core.mjs';
+import { V3, merklLp, prepareBookRewards, v3Candidates, v3Rows, arcRows, widgetView, rowPrices, feeTokensOf } from './_core.mjs';
 
 export default async function handler(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -43,8 +43,14 @@ export default async function handler(req, res) {
       .then((rows) => ({ key: 'arc', rows }))
       .catch((e) => ({ key: 'arc', error: 'arc: ' + e.message })));
 
-    const [results, merkl] = await Promise.all([Promise.all(jobs), merklLp()]);
+    const [results, rawMerkl] = await Promise.all([Promise.all(jobs), merklLp()]);
+    let merkl;
+    try { merkl = prepareBookRewards(book, rawMerkl); }
+    catch {
+      merkl = { ...rawMerkl, earned_by_id: {}, earned_tokens_by_id: {}, claimed_tokens_by_id: {}, error: true };
+    }
     const errors = [], rows = [], checked = {};
+    if (merkl.error) errors.push('Katana rewards could not be read.');
     for (const r of results) {
       if (r.error) { errors.push(r.error); checked[r.key] = 'failed'; }
       else { rows.push(...r.rows); checked[r.key] = r.rows.length; }

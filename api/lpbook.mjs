@@ -20,21 +20,25 @@ async function readBook(origin) {
   const identity = JSON.stringify(source);
   let checkpoint = checkpoints.get(origin);
   if (!checkpoint || checkpoint.identity !== identity) {
-    checkpoint = { identity, book: source };
+    const book = { ...source };
+    // A committed snapshot starts a new warm-instance provenance boundary.
+    delete book.reward_rollover_anchor;
+    checkpoint = { identity, book };
     checkpoints.set(origin, checkpoint);
     if (checkpoints.size > 8) checkpoints.delete(checkpoints.keys().next().value);
   }
-  const merkl = await merklLp();
+  const rawMerkl = await merklLp();
   /* Resume a warm function's validated ledger instead of replaying the same six-hour
      backlog on every page poll. A new committed snapshot replaces the checkpoint whole;
      advanceBook itself rolls back a failed chain while retaining successful chains. */
-  const { book: now, errors, behind } = await advanceBook(checkpoint.book, { merkl, maxWindows: 4, ranges: 'new' });
+  const { book: now, errors, behind, merkl = rawMerkl } = await advanceBook(checkpoint.book,
+    { merkl: rawMerkl, maxWindows: 4, ranges: 'new' });
   checkpoint.book = now;
   const [live, prices] = await Promise.all([bookLiveRows(now), livePrices(now, merkl.token_price)]);
   const view = bookView(now, {
     rows: live.rows, prices, merkl,
     errors: { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])),
-      ...(merkl.error ? { merkl: 'rewards could not be read' } : {}) },
+      ...(merkl.error && !errors.merkl ? { merkl: 'rewards could not be read' } : {}) },
     behind,
   });
   view.generated = new Date().toISOString();

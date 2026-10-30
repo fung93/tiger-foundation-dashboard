@@ -55,32 +55,51 @@ try {
 
   const state = { source: clone(seed), head: seed.last_block.robinhood + 250000,
     katHead: seed.last_block.katana + 1, failRH: false, snapshotError: false,
-    unread: [], unpriced: [], advanceInputs: [], snapshots: 0, advances: 0, rowReads: 0, scanWindows: 0 };
+    unread: [], unpriced: [], advanceInputs: [], snapshots: 0, advances: 0, rowReads: 0, scanWindows: 0,
+    failReward: false, pricedReward: null };
+  state.source.reward_rollover_anchor = { claimed: { 'katana:closed': 999 }, claims: ['obsolete runtime reading'] };
   const lp = handler('lpbook.mjs', {
     fetchJSON: async (url) => { check(new URL(url).pathname, '/lpbook.json', 'LP reads the canonical saved-book path');
       state.snapshots++; await Promise.resolve(); if (state.snapshotError) throw new Error('snapshot unavailable'); return clone(state.source); },
-    merklLp: async () => ({ token_price: {} }),
+    merklLp: async () => ({ token_price: { 'KAT@katana': .001 },
+      earned_tokens_by_id: { replacement: { 'KAT@katana': 0 } }, raw: true }),
     advanceBook: async (input, options) => {
       state.advances++; state.advanceInputs.push(clone(input));
       check(options.maxWindows, 4, 'A page refresh retains its bounded catch-up window');
+      check(options.merkl.raw, true, 'The ledger receives the raw reward reading before applying rollovers');
       const book = clone(input), previous = book.last_block.robinhood;
+      book.reward_rollovers = [{ source: 'closed', target: 'replacement', token: 'KAT@katana', claimedBefore: 20, initialCarry: 80 }];
+      book.reward_native = { 'katana:closed': { earned: 100, claimed: 20 } };
+      book.reward_rollover_anchor = { claimed: { 'katana:closed': 20 }, claims: [] };
       book.last_block.katana = state.katHead;
       if (!state.failRH) {
         state.scanWindows += Math.ceil(Math.max(0, state.head - previous) / 100000);
         book.last_block.robinhood = state.head;
       }
-      return { book, errors: state.failRH ? { robinhood: 'rate limited' } : {}, behind: { katana: 0, robinhood: 0 } };
+      return { book, errors: { ...(state.failRH ? { robinhood: 'rate limited' } : {}),
+        ...(state.failReward ? { merkl: 'the rollover reward reading is incomplete' } : {}) },
+      behind: { katana: 0, robinhood: 0 },
+      merkl: { token_price: { 'KAT@katana': .004 }, earned_tokens_by_id: { replacement: { 'KAT@katana': 80 } },
+        reward_attribution_version: 2, reward_rollover_basis: { 'katana:replacement': 80 },
+        error: state.failReward || undefined } };
     },
     bookLiveRows: async () => { state.rowReads++; return { rows: {}, errors: {} }; },
-    livePrices: async () => ({}),
+    livePrices: async (book, extra) => { state.pricedReward = extra['KAT@katana']; return {}; },
     bookView: (book, input) => ({ cards: { frozen: book.positions[Object.keys(book.positions)[0]].frozen },
       alltime: { marker: book.test_revision || 'initial' },
+      effective_reward: input.merkl.earned_tokens_by_id.replacement['KAT@katana'],
+      reward_basis: input.merkl.reward_rollover_basis,
       health: { ...healthy(), errors: input.errors, behind: input.behind, unread: state.unread, unpriced: state.unpriced } }),
   });
   const first = await Promise.all(Array.from({ length: 6 }, () => call(lp)));
   check(state.snapshots, 1, 'Simultaneous LP requests fetch the saved book once');
   check(state.advances, 1, 'Simultaneous LP requests run one ledger scan');
   check(state.rowReads, 1, 'Simultaneous LP requests share live position reads');
+  check(state.advanceInputs[0].reward_rollover_anchor, undefined,
+    'A new saved source discards an obsolete runtime claim anchor before rebuilding effective rewards');
+  check(first[0].body.effective_reward, 80, 'The actual endpoint renders ledger-attributed rewards rather than raw native rewards');
+  check(first[0].body.reward_basis, { 'katana:replacement': 80 }, 'The view receives the same rollover basis used by the ledger');
+  check(state.pricedReward, .004, 'Live pricing uses the effective reward reading returned by advancement');
   check(state.scanWindows, 3, 'The controlled six-hour backlog takes three RH windows');
   check(first.every((answer) => answer.code === 200 && answer.headers['cache-control'].startsWith('s-maxage=10')), true,
     'Complete concurrent answers use the short edge cache');
@@ -93,6 +112,12 @@ try {
   await call(lp);
   check(state.advances, 2, 'The complete cache expires and reads again');
   check(state.advanceInputs.at(-1).last_block.robinhood, state.head, 'The next pass resumes the advanced checkpoint');
+  check(state.advanceInputs.at(-1).reward_rollovers, [{ source: 'closed', target: 'replacement', token: 'KAT@katana', claimedBefore: 20, initialCarry: 80 }],
+    'The next warm request retains the complete advanced rollover ledger');
+  check(state.advanceInputs.at(-1).reward_native, { 'katana:closed': { earned: 100, claimed: 20 } },
+    'The next warm request retains native reward observations separately from effective balances');
+  check(state.advanceInputs.at(-1).reward_rollover_anchor, { claimed: { 'katana:closed': 20 }, claims: [] },
+    'Routine warm requests retain their immutable source anchor');
   check(state.scanWindows, 3, 'The unchanged backlog is not scanned a second time');
 
   clock += 15000;
@@ -101,6 +126,8 @@ try {
   const changed = await call(lp);
   check(state.advanceInputs.at(-1).last_block.robinhood, state.source.last_block.robinhood,
     'A new committed snapshot replaces the in-memory ledger instead of merging histories');
+  check(state.advanceInputs.at(-1).reward_rollover_anchor, undefined,
+    'A changed committed snapshot starts a fresh runtime anchor instead of reusing the old checkpoint boundary');
   check(changed.body.alltime.marker, 'new committed snapshot', 'Updated saved content is visible after cache expiry');
   check(changed.body.cards.frozen, state.source.positions[Object.keys(seed.positions)[0]].frozen,
     'Frozen position information comes intact from the canonical new snapshot');
@@ -122,6 +149,18 @@ try {
   const recovered = await call(lp);
   check(Object.keys(recovered.body.health.errors).length, 0, 'An immediate full recovery clears the error');
   check(recovered.headers['cache-control'].startsWith('s-maxage=10'), true, 'A recovered complete view is cacheable again');
+
+  clock += 15000; state.failReward = true;
+  const incompleteReward = await call(lp), beforeRewardRetry = state.advances;
+  check(incompleteReward.headers['cache-control'], 'no-store', 'An incomplete effective rollover reading cannot be edge cached');
+  check(incompleteReward.body.health.errors.merkl, 'the rollover reward reading is incomplete',
+    'The endpoint preserves the ledger attribution failure instead of replacing its reason');
+  await call(lp);
+  check(state.advances, beforeRewardRetry + 1, 'Incomplete effective rewards are retried without entering the complete warm cache');
+  state.failReward = false;
+  const rewardRecovery = await call(lp);
+  check(rewardRecovery.body.health.errors, {}, 'A fresh complete rollover reading clears the reward failure');
+  check(rewardRecovery.body.effective_reward, 80, 'Recovery still renders attributed earnings rather than raw native zero');
 
   for (const kind of ['unread', 'unpriced']) {
     clock += 15000; state[kind] = ['robinhood:unavailable'];
