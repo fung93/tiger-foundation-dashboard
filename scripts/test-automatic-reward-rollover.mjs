@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import vm from 'node:vm';
 import { CFG, V3, BOOK_VERSION, advanceBook, bookView, feeTotals, positionFees, r2 } from '../api/_core.mjs';
+import { positionAprObservation } from '../api/_fee-observations.mjs';
 
 const NOW = 1900000000, HOUR = 3600, DAY = 86400, KAT = 'KAT@katana';
 const A = '810001', B = '810002', C = '810003', D = '810004';
@@ -516,7 +517,7 @@ try {
       CFG: {}, readFileSync, writeFileSync, join, Date,
       console: { log() {} }, merklLp: async () => clone(cronReading), advanceBook,
       bookLiveRows: async book => ({ rows: rows(book), errors: {} }),
-      feeTotals, bookPnl: () => 0, positionFees, BOOK_VERSION,
+      feeTotals, bookPnl: () => 0, positionFees, positionAprObservation, BOOK_VERSION,
       startBook: async () => { throw new Error('A valid temporary ledger must not be rebuilt'); },
     }, { filename: 'scheduled-rollover-check.mjs' });
     await update(workspace);

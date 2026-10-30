@@ -209,4 +209,225 @@ for (const phase of ['network', 'body']) {
   check(calls, 2, 'Expired queue entries are skipped rather than sent later');
 }
 
+// Busy Robinhood pools must narrow overflowing log ranges instead of replaying
+// the same rejected 100,000-block query. Disjoint leaves reconstruct one reading.
+{
+  const requests = [], matches = [];
+  const filter = { address: ['0xpool-a', '0xpool-b'], topics: ['0xswap', null, ['0xwallet-a', '0xwallet-b']],
+    fromBlock: '0x1', toBlock: '0x8' };
+  const original = structuredClone(filter);
+  const { read, clock } = virtual(async (url, init) => {
+    const { method, params } = JSON.parse(init.body), query = params[0];
+    check(method, 'eth_getLogs', 'Adaptive work remains an eth_getLogs query');
+    check(query.address, filter.address, 'Every narrowed query preserves address alternatives');
+    check(query.topics, filter.topics, 'Every narrowed query preserves topic positions and alternatives');
+    const from = Number(BigInt(query.fromBlock)), to = Number(BigInt(query.toBlock));
+    requests.push([from, to]);
+    if (to - from > 1) return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+    const logs = Array.from({ length: to - from + 1 }, (_, i) => ({ blockNumber: '0x' + (from + i).toString(16),
+      logIndex: '0x0', transactionHash: '0xtx-' + (from + i) }));
+    matches.push(...logs.map(log => Number(BigInt(log.blockNumber))));
+    return success(logs);
+  });
+  const logs = await read(URL_A, 'eth_getLogs', [filter]);
+  check(logs.map(log => Number(BigInt(log.blockNumber))), [1, 2, 3, 4, 5, 6, 7, 8], 'Recursive range splits reconstruct the full ordered log result');
+  check(matches, [1, 2, 3, 4, 5, 6, 7, 8], 'Inclusive child ranges cover every original block exactly once');
+  check(requests, [[1, 8], [1, 4], [1, 2], [3, 4], [5, 8], [5, 6], [7, 8]], 'An overflow narrows immediately without retrying the same rejected range');
+  check(filter, original, 'Adaptive queries do not mutate a caller’s original filter');
+  check(clock.waits, [], 'A log-cap response does not trigger rate-limit backoff');
+}
+
+// A successful reply at the known cap could be truncated. Ask smaller ranges to
+// establish completeness, and discard the possibly truncated parent response.
+{
+  const source = Array.from({ length: 10000 }, (_, i) => ({ blockNumber: '0x' + (1 + Math.floor(i / 2500)).toString(16),
+    logIndex: '0x' + (i % 2500).toString(16), transactionHash: '0xtx-' + i }));
+  const ranges = [];
+  const { read } = virtual(async (url, init) => {
+    const query = JSON.parse(init.body).params[0], from = Number(BigInt(query.fromBlock)), to = Number(BigInt(query.toBlock));
+    ranges.push([from, to]);
+    return success(source.filter(log => Number(BigInt(log.blockNumber)) >= from && Number(BigInt(log.blockNumber)) <= to));
+  });
+  check(await read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x4' }]), source, 'A cap-sized successful response is verified through smaller complete queries');
+  check(ranges, [[1, 4], [1, 2], [3, 4]], 'The parent cap response is replaced by two disjoint child readings');
+}
+
+// Split requests still share the original pending work, and callers receive
+// isolated copies rather than sharing the merged array or its log objects.
+{
+  const gate = deferred(), ranges = [];
+  const { read } = virtual(async (url, init) => {
+    const query = JSON.parse(init.body).params[0], from = Number(BigInt(query.fromBlock)), to = Number(BigInt(query.toBlock));
+    ranges.push([from, to]);
+    if (from !== to) { await gate.promise; return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } }); }
+    return success([{ blockNumber: query.fromBlock, logIndex: '0x0', data: { amount: '123' } }]);
+  });
+  const params = [{ fromBlock: '0x5', toBlock: '0x6' }];
+  const first = read(URL_A, 'eth_getLogs', params), second = read(URL_A, 'eth_getLogs', params);
+  check(ranges, [[5, 6]], 'Concurrent overflow callers initially share one request');
+  gate.resolve();
+  const [one, two] = await Promise.all([first, second]);
+  check(ranges, [[5, 6], [5, 5], [6, 6]], 'Concurrent overflow callers share the full split reconstruction');
+  one[0].data.amount = 'changed';
+  check(two[0].data.amount, '123', 'Merged adaptive results remain isolated between callers');
+}
+
+// A failed leaf invalidates the whole reading. Repeating the query later must
+// retry its full range and must never reuse a successful partial branch.
+{
+  let broken = true;
+  const ranges = [];
+  const { read } = virtual(async (url, init) => {
+    const query = JSON.parse(init.body).params[0], from = Number(BigInt(query.fromBlock)), to = Number(BigInt(query.toBlock));
+    ranges.push([from, to]);
+    if (from !== to) return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+    if (from === 2 && broken) return response({ error: { code: -32000, message: 'execution reverted' } });
+    return success([{ blockNumber: query.fromBlock, logIndex: '0x0' }]);
+  });
+  const params = [{ fromBlock: '0x1', toBlock: '0x2' }];
+  await reject(read(URL_A, 'eth_getLogs', params), /execution reverted/, 'A failed split branch cannot publish the other branch as complete logs');
+  broken = false;
+  check((await read(URL_A, 'eth_getLogs', params)).map(log => log.blockNumber), ['0x1', '0x2'], 'A later identical query recovers after a split-branch failure');
+  check(ranges, [[1, 2], [1, 1], [2, 2], [1, 2], [1, 1], [2, 2]], 'Recovery reads both branches afresh after a partial failure');
+}
+
+// A single-block overflow cannot safely be split further. An explicit rejection
+// and a cap-sized response both fail closed, without unbounded recursive work.
+for (const cappedSuccess of [false, true]) {
+  let calls = 0;
+  const { read, clock } = virtual(async () => {
+    calls++;
+    return cappedSuccess ? success(Array.from({ length: 10000 }, () => ({ blockNumber: '0x8', logIndex: '0x0' })))
+      : response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+  });
+  await reject(read(URL_A, 'eth_getLogs', [{ fromBlock: '0x8', toBlock: '0x8' }]), /log|limit|complete|split|range/i,
+    'A single-block ' + (cappedSuccess ? 'saturated response' : 'overflow') + ' remains visibly unavailable');
+  check(calls, 1, 'A single-block cap stops after one request');
+  check(clock.waits, [], 'A single-block log cap does not back off as a rate limit');
+}
+
+// A numeric provider code alone cannot mean log overflow: quota failures still
+// need ordinary bounded retry/backoff, while permanent errors do not split.
+{
+  let calls = 0;
+  const ranges = [];
+  const { read, clock } = virtual(async (url, init) => {
+    calls++; ranges.push(JSON.parse(init.body).params[0]);
+    return calls < 3 ? response({ error: { code: -32005, message: 'Request quota exceeded' } }) : success([]);
+  });
+  const params = [{ fromBlock: '0x1', toBlock: '0x8' }];
+  check(await read(URL_A, 'eth_getLogs', params), [], 'An actual quota failure recovers through rate-limit retries');
+  check(ranges, [params[0], params[0], params[0]], 'A quota error does not change the caller’s block range');
+  check(clock.waits, [1000, 2000], 'Actual quota failures retain exponential backoff');
+}
+for (const bad of [response({}, 403), response({ error: { code: -32000, message: 'execution reverted' } })]) {
+  let calls = 0;
+  const { read } = virtual(async () => { calls++; return bad; });
+  await reject(read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x8' }]), /403|execution reverted/, 'A permanent log-query error remains an honest failure');
+  check(calls, 1, 'Permanent log-query errors do not spawn smaller ranges');
+}
+
+// Numeric range subdivision must not invent block boundaries for tags or a
+// block-hash filter, and provider limits cannot create unlimited requests.
+for (const query of [{ fromBlock: 'earliest', toBlock: 'latest' }, { blockHash: '0xblock' }]) {
+  let calls = 0;
+  const { read } = virtual(async () => {
+    calls++;
+    return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+  });
+  await reject(read(URL_A, 'eth_getLogs', [query]), /log|limit|range/i, 'An overflowing nonnumeric log query fails without inventing a block range');
+  check(calls, 1, 'An unsplittable tag or block-hash query stops after its actual failure');
+}
+{
+  let calls = 0;
+  const { read } = virtual(async () => {
+    calls++;
+    return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+  });
+  await reject(read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x100000' }], { logMaxRequests: 2 }),
+    /budget|request|limit|range/i, 'An oversized recursive split fails within its configured request budget');
+  check(calls, 2, 'Split work never exceeds logMaxRequests');
+}
+
+// Narrowed queries use the paced endpoint queue, allowing a live state read to
+// overtake background history work rather than waiting for an entire scan.
+{
+  const gate = deferred(), order = [];
+  const { read } = virtual(async (url, init) => {
+    const { method, params } = JSON.parse(init.body);
+    order.push(method === 'eth_getLogs' ? method + ':' + params[0].fromBlock + '-' + params[0].toBlock : method);
+    if (order.length === 1) {
+      await gate.promise;
+      return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+    }
+    return success(method === 'eth_getLogs' ? [{ blockNumber: params[0].fromBlock, logIndex: '0x0' }] : '0xlive');
+  });
+  const history = read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x2' }]);
+  const live = read(URL_A, 'eth_call', ['live']);
+  gate.resolve();
+  const [logs, state] = await Promise.all([history, live]);
+  check(state, '0xlive', 'Foreground state reads still succeed while a log range subdivides');
+  check(logs.map(log => log.blockNumber), ['0x1', '0x2'], 'Background work reconstructs complete logs after the foreground read');
+  check(order, ['eth_getLogs:0x1-0x2', 'eth_call', 'eth_getLogs:0x1-0x1', 'eth_getLogs:0x2-0x2'],
+    'A queued foreground read runs before newly created split children');
+}
+
+// Each child inherits the original logical reading’s deadline. Splitting may
+// not reset the budget and turn a bounded browser read into a long scan.
+{
+  let calls = 0;
+  const { read } = virtual(async (url, init, clock) => {
+    calls++; clock.at += 6;
+    const query = JSON.parse(init.body).params[0];
+    if (query.fromBlock !== query.toBlock)
+      return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+    return success([{ blockNumber: query.fromBlock, logIndex: '0x0' }]);
+  }, { totalTimeoutMs: 10 });
+  await reject(read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x4' }]), /deadline|timed out/,
+    'Recursive work preserves the original total deadline');
+  check(calls, 2, 'Once the original deadline passes, later split branches are never fetched');
+}
+
+// Independent scans can overlap on a raw child query. The shorter logical
+// scan must time out without cancelling work still needed by the longer one.
+{
+  const parentGate = deferred(), childGate = deferred(), childStarted = deferred(), ranges = [];
+  let childSignal;
+  const read = create({ paceMs: 0, timeoutMs: 1000, totalTimeoutMs: 500, maxAttempts: 1,
+    fetch: async (url, init) => {
+      const query = JSON.parse(init.body).params[0];
+      ranges.push([query.fromBlock, query.toBlock]);
+      if (query.fromBlock !== query.toBlock) {
+        await parentGate.promise;
+        return response({ error: { code: -32005, message: 'logs matched by query exceeds limit of 10000' } });
+      }
+      childSignal = init.signal; childStarted.resolve();
+      await childGate.promise;
+      return success([{ blockNumber: query.fromBlock, logIndex: '0x0' }]);
+    },
+  });
+  const shorter = read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x2' }], { totalTimeoutMs: 20 });
+  const longer = read(URL_A, 'eth_getLogs', [{ fromBlock: '0x1', toBlock: '0x1' }])
+    .then(value => ({ value }), error => ({ error }));
+  parentGate.resolve();
+  await childStarted.promise;
+  await reject(shorter, /timed out/, 'An overlapping shared child cannot extend the shorter logical deadline');
+  check(childSignal.aborted, false, 'Timing out one logical scan does not abort another caller’s shared raw request');
+  check(ranges, [['0x1', '0x2'], ['0x1', '0x1']], 'The overlapping child is fetched only once and the expired scan starts no later branch');
+  childGate.resolve();
+  check(await longer, { value: [{ blockNumber: '0x1', logIndex: '0x0' }] }, 'The longer independent caller still completes its valid reading');
+}
+
+{
+  const ranges = [];
+  const { read, clock } = virtual(async (url, init) => {
+    ranges.push(JSON.parse(init.body).params[0]);
+    return ranges.length === 1 ? response({ error: { code: -32005, message: 'log request rate limit exceeded' } }) : success([]);
+  });
+  const query = { fromBlock: '0x1', toBlock: '0x8' };
+  check(await read(URL_A, 'eth_getLogs', [query]), [], 'Log-specific rate-limit wording still recovers through retry');
+  check(ranges, [query, query], 'A log rate limit does not subdivide an otherwise valid block range');
+  check(clock.waits, [1000], 'A log rate limit retains provider backoff');
+}
+
 console.log('RPC transport: ' + checks + ' assertions passed.');

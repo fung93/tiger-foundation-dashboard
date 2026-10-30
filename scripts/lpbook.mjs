@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CFG, startBook, advanceBook, merklLp, bookLiveRows, feeTotals, bookPnl, positionFees, BOOK_VERSION } from '../api/_core.mjs';
+import { positionAprObservation } from '../api/_fee-observations.mjs';
 
 /* the job has time: a node that asks it to slow down is waited out, not given up on */
 CFG.patient = true;
@@ -45,10 +46,13 @@ export async function updateLpBook(root) {
   /* One point on the fee curve per run, unless a chain could not be read — a point
      missing a chain's uncollected fees would draw as a drop that never happened. */
   const live = await bookLiveRows(book);
-  if (!Object.keys(live.errors).length && !Object.keys(errors).length && !merkl.error) {
+  const sampleTs = Math.floor(Date.now() / 1000);
+  const fees = positionFees(book, live.rows);
+  if (!Object.keys(live.errors).length && !Object.keys(errors).length && !merkl.error
+    && !Object.values(behind).some(n => n > 0)) {
     const pnl = bookPnl(book, live.rows);
     /* each open position's own fees too, so its live APR can be measured over the last day */
-    const pos = Object.fromEntries(Object.entries(positionFees(book, live.rows)).map(([k, t]) => [k, round(t)]));
+    const pos = Object.fromEntries(Object.entries(fees).map(([k, t]) => [k, round(t)]));
     /* each open position's own PnL too, so the live page's Net line can follow exactly the
        positions open at the time it is drawn */
     const pp = {};
@@ -56,11 +60,15 @@ export async function updateLpBook(root) {
       const row = live.rows[P.key];
       if (P.status === 'open' && row && typeof row.liquidity_usd === 'number') pp[P.key] = Math.round((row.liquidity_usd + P.out_usd - P.cost_usd) * 100) / 100;
     }
-    book.fee_series.push({ ts, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp,
+    book.fee_series.push({ ts: sampleTs, tokens: round(feeTotals(book, live.rows)), ...(pnl === null ? {} : { pnl_usd: pnl }), pos, pp,
       ...(merkl.reward_attribution_version ? { reward_attribution_version: merkl.reward_attribution_version } : {}),
       ...(merkl.reward_rollover_basis ? { reward_rollover_basis: merkl.reward_rollover_basis } : {}) });
   }
   errors = { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])) };
+  if (Object.keys(errors).length || merkl.error || Object.values(behind).some(n => n > 0)) {
+    const observation = positionAprObservation(book, { rows: live.rows, fees, merkl, errors, behind, ts: sampleTs });
+    if (observation) (book.apr_series ||= []).push(observation);
+  }
 
   book.runs = (book.runs || []).concat({ ts, started: started || undefined,
     errors: Object.keys(errors).length ? errors : undefined, behind }).slice(-30);

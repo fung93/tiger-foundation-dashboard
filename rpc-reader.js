@@ -10,7 +10,7 @@
     var cancel = options.clearTimeout || root.clearTimeout.bind(root);
     var sleep = options.sleep || function (ms) { return new Promise(function (resolve) { later(resolve, ms); }); };
     var fetcher = options.fetch || function (url, init) { return root.fetch(url, init); };
-    var endpoints = new Map(), pending = new Map();
+    var endpoints = new Map(), pending = new Map(), logReads = new Map();
     function fault(message, retryable) {
       var error = new Error(message); error.retryable = retryable; return error;
     }
@@ -46,6 +46,10 @@
           if (!payload || typeof payload !== 'object') throw fault('Invalid JSON-RPC response', true);
           if (payload.error) {
             var detail = payload.error, message = String(detail.message || 'JSON-RPC error');
+            // A full log window must be narrowed, not retried unchanged as a rate limit.
+            var logLimit = task.method === 'eth_getLogs' && !/rate.?limit|too many requests|429|quota/i.test(message)
+              && /logs?.*(?:exceed|limit|too (?:many|large))|(?:query|response|result).*(?:exceed|more than|too (?:many|large)).*(?:logs?|results?|size)|block range.*(?:exceed|limit|too (?:wide|large))|limit.*(?:query|block range).*blocks/i.test(message);
+            if (logLimit) { var overflow = fault(message, false); overflow.logLimit = true; throw overflow; }
             var limited = /too many|rate.?limit|429|quota/i.test(message) || detail.code === -32005;
             var error = fault(message, limited || detail.code === -32603 || /temporar|busy|timeout|timed out|unavailable/i.test(message));
             error.limited = limited; throw error;
@@ -94,7 +98,7 @@
       } finally { state.active = false; }
     }
     var order = 0;
-    return function read(url, method, params, overrides) {
+    function request(url, method, params, overrides) {
       var config = Object.assign({}, options, overrides || {});
       var key = JSON.stringify([url, method, params]);
       if (pending.has(key)) return pending.get(key).then(copy);
@@ -114,6 +118,50 @@
       task.expiry = later(function () { task.finish(fault('RPC request timed out in the queue or network', false)); }, task.deadline - now());
       if (!endpoints.has(url)) endpoints.set(url, { queue: [], active: false, next: 0, cooldown: 0 });
       var state = endpoints.get(url); state.queue.push(task); drain(state);
+      return promise.then(copy);
+    }
+    return function read(url, method, params, overrides) {
+      if (method !== 'eth_getLogs') return request(url, method, params, overrides);
+      var key = JSON.stringify([url, method, params]);
+      if (logReads.has(key)) return logReads.get(key).then(copy);
+      var config = Object.assign({}, options, overrides || {}), filter = copy(params && params[0]);
+      var deadline = now() + (config.totalTimeoutMs || 16000), calls = 0;
+      var maxCalls = Number.isSafeInteger(config.logMaxRequests) && config.logMaxRequests > 0 ? config.logMaxRequests : 128;
+      var numeric = function (value) { return typeof value === 'string' && /^0x[0-9a-f]+$/i.test(value)
+        && Number.isSafeInteger(Number(value)); };
+      var canSplit = filter && !filter.blockHash && numeric(filter.fromBlock) && numeric(filter.toBlock)
+        && Number(filter.fromBlock) <= Number(filter.toBlock);
+      async function logs(query) {
+        var left = deadline - now();
+        if (left <= 0) throw fault('RPC log read timed out', false);
+        if (++calls > maxCalls) throw fault('RPC log read exceeded its query limit', false);
+        var result, overflow;
+        try {
+          result = await request(url, method, [query], Object.assign({}, config, { totalTimeoutMs: left }));
+          // Providers may return a capped array without an error. Never book that as complete.
+          if (!Array.isArray(result) || result.length < 10000) return result;
+          overflow = fault('RPC log response reached the 10000-result limit', false);
+        } catch (error) {
+          if (!error.logLimit) throw error;
+          overflow = error;
+        }
+        if (!canSplit) throw overflow;
+        var from = Number(query.fromBlock), to = Number(query.toBlock);
+        if (from >= to) throw overflow;
+        var middle = from + Math.floor((to - from) / 2);
+        // Each child rejoins the paced queue, allowing pending live reads to go first.
+        var first = await logs(Object.assign({}, query, { toBlock: '0x' + middle.toString(16) }));
+        var second = await logs(Object.assign({}, query, { fromBlock: '0x' + (middle + 1).toString(16) }));
+        return first.concat(second);
+      }
+      // A child can share an already queued raw read with a longer deadline.
+      // Keep this whole scan bounded without cancelling another caller's read.
+      var expiry;
+      var timeout = new Promise(function (_, reject) {
+        expiry = later(function () { reject(fault('RPC log read timed out', false)); }, Math.max(0, deadline - now()));
+      });
+      var promise = Promise.race([logs(filter), timeout]).finally(function () { cancel(expiry); logReads.delete(key); });
+      logReads.set(key, promise);
       return promise.then(copy);
     };
   }

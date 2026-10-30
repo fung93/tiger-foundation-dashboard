@@ -207,6 +207,16 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   `Retry-After`. Foreground state reads take priority over queued log scans. Do not
   replace failed balances or LP subcalls with zeros. Portfolio keeps its last complete
   Robinhood wallet/LP and Fables readings with their original source times.
+  Oversized log queries split into disjoint inclusive block ranges, including a successful
+  response at the 10,000-result cap. Children rejoin the same paced queue and share the
+  original scan deadline and query budget. A failed child or saturated single block fails
+  the whole query; never advance a ledger cursor with a partial result (30 Oct 2026).
+- The scheduled LP writer saves verified per-position APR readings to `lpbook.json`
+  `apr_series` when an unrelated chain prevents a full `fee_series` point. Exclude the
+  failed chain, scan backlog, stale/missing principal or fees and unverified Merkl rewards.
+  Retain reward carry metadata so inherited KAT remains excluded from APR. Aggregate fee
+  and PnL history still requires every chain to be complete. Date new observations after
+  the read finishes; APR needs a post-deposit baseline between 3 and 26 hours old.
 - Serverless LP reads resume a warm ledger checkpoint instead of scanning the saved
   six-hour backlog on every request. An exact change to the committed snapshot resets
   that checkpoint. Concurrent endpoint requests share one pass; only complete answers
@@ -477,6 +487,10 @@ It has four views: Planner, simulated positions, My real LPs and History.
   `scripts/test-api-refresh.mjs` and `scripts/test-portfolio-robinhood.mjs` exercise paced
   retries, request/body deadlines, required contract reads, warm scan checkpoints and
   whole-reading retention/recovery without live network access. Run them with Node.
+- **Independent APR readings:** `node scripts/test-fee-observations.mjs` checks the actual
+  scheduled writer's healthy-chain persistence during unrelated errors, source validation,
+  backlog rejection, saved timestamps, complete recovery and carry-adjusted APR. Run
+  `scripts/test-lp-performance.mjs` too for baseline age and post-deposit selection.
 - **Lending check:** `node scripts/test-morpho.mjs` checks loan rounding, liquidity,
   personal targets and history preservation without network access. At this local build,
   96 assertions pass; browser checks cover incomplete reads, full failure, five-minute

@@ -1622,7 +1622,10 @@ function aggregateComparisons(comparisons, expected, closed = false) {
 function positionApr(book, P, cashflows, tokensNow, prices, now) {
   if (cashflows.reason) return unavailableApr(cashflows.reason);
   if (tokensNow.reason) return unavailableApr(tokensNow.reason);
-  const candidates = (book.fee_series || []).filter((p) => Number.isFinite(p.ts)
+  // Healthy positions can retain their own verified observations while another
+  // chain is unavailable; aggregate fee/PnL history still requires every chain.
+  const independent = (book.apr_series || []).filter((p) => p.pos && Object.hasOwn(p.pos, P.key));
+  const candidates = [...(book.fee_series || []), ...independent].filter((p) => Number.isFinite(p.ts)
     && p.ts >= cashflows.latest && now - p.ts >= 3 * 3600 && now - p.ts <= 26 * 3600)
     .sort((x, y) => x.ts - y.ts);
   const base = candidates.find((p) => p.pos && Object.hasOwn(p.pos, P.key));

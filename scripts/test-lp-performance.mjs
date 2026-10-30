@@ -141,6 +141,23 @@ try {
   v = render(ledger([topup], [observation(topup, 20)]), { [topup.key]: row(topup) });
   unavailableRate(v.live[0].apr_detail, 'Top-up without a post-deposit earning baseline');
 
+  const independentBook = ledger([topup], [observation(topup, 20)]);
+  independentBook.apr_series = [observation(topup, 6)];
+  v = render(independentBook, { [topup.key]: row(topup) });
+  check(v.live[0].apr_detail.available, true, 'A verified independent sample restores post-top-up APR');
+  check(v.live[0].apr_detail.elapsed_hours, 6, 'Independent samples keep their real observation time');
+  check(independentBook.fee_series.length, 1, 'Independent APR samples do not add partial aggregate chart points');
+  independentBook.apr_series = [observation(topup, 2)];
+  v = render(independentBook, { [topup.key]: row(topup) });
+  unavailableRate(v.live[0].apr_detail, 'Independent samples still need three elapsed hours');
+  independentBook.apr_series = [observation(topup, 20)];
+  v = render(independentBook, { [topup.key]: row(topup) });
+  unavailableRate(v.live[0].apr_detail, 'Independent samples cannot bypass the latest top-up');
+  const unrelatedBook = ledger([P]);
+  unrelatedBook.apr_series = [observation(topup, 6)];
+  v = render(unrelatedBook, { [P.key]: R });
+  check(v.live[0].apr_detail.available, true, 'Another position\'s independent sample does not block a valid since-open APR');
+
   for (const [name, overrides] of [
     ['partial withdrawal', { out_usd: 10, withdrawals: [{ ts: NOW - HOUR, a0: 1, a1: 6, usd: 10 }] }],
     ['missing original amounts', { deposits: [{ ts: NOW - DAY, a1: 100, usd: 120 }] }],
