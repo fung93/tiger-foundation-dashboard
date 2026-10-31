@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 46654073,
-  "robinhood": 102053323
+  "katana": 46673933,
+  "robinhood": 102243649
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -313,11 +313,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1793396884,
-    "block": 102053323,
+    "ts": 1793416744,
+    "block": 102243649,
     "in": true,
-    "in_s": 1249545,
-    "all_s": 1249545
+    "in_s": 1269405,
+    "all_s": 1269405
    },
    "claims": [
     {
@@ -1379,15 +1379,15 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 2380.5735427689165
+    "KAT@katana": 2998.7529539369784
    },
    "unpriced": false,
    "range": {
-    "ts": 1793396884,
-    "block": 46654073,
+    "ts": 1793416744,
+    "block": 46673933,
     "in": true,
-    "in_s": 77602,
-    "all_s": 77604
+    "in_s": 97462,
+    "all_s": 97464
    },
    "claimed_seen": {}
   }
@@ -2669,16 +2669,38 @@
     "katana:492626": 2631.7497890775458,
     "katana:492808": 19.70719981436332
    }
+  },
+  {
+   "ts": 1793416747,
+   "tokens": {
+    "WETH@robinhood": 0.00643349,
+    "USDG@robinhood": 15.138379,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 19817.04570543,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -188.48,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00643349,
+     "USDG@robinhood": 14.753235
+    },
+    "katana:492808": {
+     "KAT@katana": 2998.75295394
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -114.18,
+    "katana:492808": -2.79
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 19.70719981436332
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1792771668,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1792788520,
    "behind": {
@@ -2885,6 +2907,13 @@
     "katana": 0,
     "robinhood": 0
    }
+  },
+  {
+   "ts": 1793416744,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
   }
  ],
  "carried": {
@@ -3085,7 +3114,7 @@
    "claimed": 585.0424788441819
   },
   "katana:492808": {
-   "earned": 2360.866342954553,
+   "earned": 2979.045754122615,
    "claimed": 0
   }
  },
