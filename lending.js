@@ -3,7 +3,7 @@ import { MARKETS, readMorpho, targetMetrics, liquidationMetrics } from './morpho
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = value => Number.isFinite(value) ? '$' + value.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '—';
-const katPrice = value => Number.isFinite(value) && value>0 ? '$'+(value<1e-6 ? value.toExponential(4) : value.toFixed(6)) : '—';
+const tokenPrice = value => Number.isFinite(value) && value>0 ? '$'+(value<1e-6 ? value.toExponential(4) : value.toFixed(6)) : '—';
 const number = (value, digits=2) => {
   if(!Number.isFinite(value))return '—';
   const magnitude=Math.abs(value);
@@ -23,7 +23,7 @@ const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 }
 const CHART_STARTS = { 'kat-usdc': Date.parse('2026-10-30T00:00:00+08:00')/1000 };
 const HOLD = 5*60, POLL = 15000;
 let targets = {}, records = new Map(), history = [], live = null, busy = false, historyBusy = false, historyReadAt = 0, warnings = [], lastFull = false, lastRead = 0;
-let katQuote = null;
+let katQuote = null, avkatQuote = null;
 const editing = new Set(), drafts = new Map();
 const periods = new Map(MARKETS.map(m=>[m.id,7]));
 // Each page opening starts from Alex's defaults; edits apply only to this visit.
@@ -147,6 +147,11 @@ function adopt(sample, isLive) {
   if(Number.isFinite(quote)) {
     if(!katQuote || sample.ts>=katQuote.ts)katQuote={usd:quote,ts:sample.ts};
   } else if(isLive) errors.push('KAT market price could not be read.'+(katQuote?' Keeping its previous price and reading time.':''));
+  const avkatPrice=sample.markets.find(row=>row.collateral_token==='avKAT'&&!row.error
+    && Number.isFinite(row.collateral_price_usd)&&row.collateral_price_usd>0)?.collateral_price_usd;
+  if(Number.isFinite(avkatPrice)) {
+    if(!avkatQuote || sample.ts>=avkatQuote.ts)avkatQuote={usd:avkatPrice,ts:sample.ts};
+  } else if(isLive) errors.push('avKAT price could not be read.'+(avkatQuote?' Keeping its previous price and reading time.':''));
   for (const m of MARKETS) {
     const row = sample.markets.find(r => r.id === m.id), prev = records.get(m.id);
     if (!row || row.error) { errors.push(m.label+' could not be read.'); if (prev) prev.stale = true; continue; }
@@ -193,6 +198,13 @@ function lendingOverview(rows) {
   return {oracle_collateral_usd:collateral,debt_usd:debt,average_ltv:collateral>0?debt/collateral:null};
 }
 
+function priceCard(label,quote,kind) {
+  const age=quote ? Date.now()/1000-quote.ts : Infinity, fresh=lastFull&&age>=-30&&age<=90;
+  const status=quote ? fresh?'':'Stale · '+date(quote.ts)+' MYT' : 'Waiting for price';
+  const note=status?'<div class="metric-sub price-status">'+status+'</div>':'';
+  return `<div class="card overview-card ${kind}-price-card" data-status="${fresh?'live':quote?'stale':'loading'}" data-price-ts="${quote?.ts||''}"><div class="metric-label">${label}</div><div class="overview-value">${tokenPrice(quote?.usd)}</div>${note}</div>`;
+}
+
 function render() {
   for (const m of MARKETS) {
     const el=$(m.key), row=records.get(m.id), target=targets[m.id];
@@ -231,10 +243,7 @@ function render() {
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
   }
   const overview=lendingOverview(MARKETS.map(m=>records.get(m.id)));
-  const quoteAge=katQuote ? Date.now()/1000-katQuote.ts : Infinity, quoteFresh=lastFull&&quoteAge>=-30&&quoteAge<=90;
-  const quoteStatus=katQuote ? quoteFresh?'':'Stale · '+date(katQuote.ts)+' MYT' : 'Waiting for price';
-  const quoteNote=quoteStatus?'<div class="metric-sub kat-price-status">'+quoteStatus+'</div>':'';
-  $('overview').innerHTML=`<div class="card overview-card kat-price-card" data-status="${quoteFresh?'live':katQuote?'stale':'loading'}" data-price-ts="${katQuote?.ts||''}"><div class="metric-label">KAT price</div><div class="overview-value">${katPrice(katQuote?.usd)}</div>${quoteNote}</div><div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
+  $('overview').innerHTML=priceCard('KAT price',katQuote,'kat')+priceCard('avKAT price',avkatQuote,'avkat')+`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
   const age=Date.now()/1000-lastRead, fresh=lastFull&&age<=90;
   $('stamp').className='stamp'+(fresh?'':' stale');
   $('stamp').innerHTML=`<span class="dot"></span><span class="st">${fresh?'LIVE':lastRead?'STALE':'LOADING'}</span><br>${lastRead?time(lastRead):'—'}`;

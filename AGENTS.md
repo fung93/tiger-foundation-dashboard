@@ -270,11 +270,15 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   debt at half the liquidation boundary, not automatically
   50% of collateral. Use each market's own oracle, never avKAT redemption value for this.
 - There is no **Tiger borrowing room** heading or **3 of 3 markets shown** count.
-  KAT market price, Oracle collateral, Borrowed and Average LTV are four separate summary
-  cards at the top. The KAT card uses the existing pinned pool quote and refreshes with the
-  lending reading every 15 seconds. Retain its original price/time on failure, mark it
-  stale, and show an unavailable value before the first valid price; never substitute zero
-  or silently replace the market quote with an oracle price.
+  KAT price, avKAT price, Oracle collateral, Borrowed and Average LTV are five separate
+  summary cards at the top, with avKAT beside KAT (Alex, 31 Oct 2026). KAT uses the pinned
+  market pool quote; avKAT uses its vault redemption rate multiplied by that same KAT quote,
+  already available as `collateral_price_usd` on avKAT market rows. Both refresh with the
+  lending reading every 15 seconds. Keep each quote's original price/time on failure,
+  mark it stale, and show an unavailable value before its first valid price. Never
+  substitute zero, assume avKAT is 1:1 with KAT or use an oracle price as the market quote.
+  Desktop shows five columns; at 1200 px and below show the prices together in the first
+  two-column row and Average LTV across the final row.
   Average LTV = total debt USD ÷ total oracle collateral USD, so empty markets do not
   dilute it. Missing readings or zero total collateral show an unavailable percentage.
   Each market has its own 7D / 14D / All controls at the top right of its chart section,
