@@ -473,6 +473,17 @@ the first buy after the 26 Oct sales) over 12 Oct, after seeing a month of his h
   the dataviz validator: the three lines pass the colour-blind and normal-vision separation
   checks in both themes and fail only the chroma/lightness bands, as the site's gold-on-greys
   does, so the third line is dashed.
+- **Trade simulator (Alex, 1 Nov 2026):** a card between the chart and the trade table. Up to
+  six planned steps, each Buy (spend USD) or Sell (KAT) at a price that follows today's until it
+  is typed or moved with the -10% -5% Now +5% +10% chips; switching side keeps the size (dollars
+  to KAT at the step's price). `simulate(trades, plan, priceNow)` in `kat-core.mjs` runs the steps
+  after every real trade on the same average-cost book and returns before/after summaries,
+  each step's fill (with what a sale realises and any part sold from outside the book) and the
+  break-even price, (cost - realised) / KAT held, where total P&L is zero. Six results: KAT held,
+  average buy price, realised, unrealised and total P&L (at today's price) and break-even, each
+  with today's figure beside it. The note gives the fee range his real trades paid (0.01-0.21%
+  on 1 Nov), since the typed price should be the one he would actually get. Steps are kept for
+  the visit only; nothing is saved or sent.
 - **Checked 1 Nov 2026:** the four trades since the start: 27 Oct buy 5,978.847409 KAT for 25
   vbUSDC; 29 Oct sell 5,600 for 25.864268; 30 Oct buy 7,299.830781 for 30; 1 Nov buy
   6,260.979832 for 25. Holding 13,939.66 KAT at $0.0040592, cost $56.58, realised +$2.45; fees
@@ -663,7 +674,8 @@ It has four views: Planner, simulated positions, My real LPs and History.
   the seven trades with exact amounts, the Morpho/avKAT/Merkl transactions that are not trades,
   each route's fees and gas, the same result when split between a deposit and its payout, an LP
   add that must not match, the book and chart against hand-worked figures, sales bigger than the
-  book, and the ledger's validation; 55 assertions. `node scripts/kat-trades.mjs` updates only
+  book, the simulator (buys, sales, a plan selling more than is held, break-even checked by
+  valuing the book at it, skipped steps), and the ledger's validation; 71 assertions. `node scripts/kat-trades.mjs` updates only
   `kat-trades.json`.
   In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
   (`node scripts/dev-server.mjs`, port 4200).
@@ -717,6 +729,10 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 1 Nov 2026 (Alex: "add a trade simulator card", then "push"):** the KAT page's
+  trade simulator (`kat.html/.css/.js`, `simulate` in `kat-core.mjs`, 16 more checks in
+  `scripts/test-kat-trades.mjs`); `sw.js` -> `tiger-v132`.
 
 - **Pushed 1 Nov 2026 (Alex reviewed, asked for 7D as the chart's default, then "push"):** the KAT
   Trades page (`kat.html/.css/.js`, `kat-core.mjs`, `api/kat-trades.mjs`,

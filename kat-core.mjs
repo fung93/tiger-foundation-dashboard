@@ -236,6 +236,25 @@ export function summary(trades, priceUsd) {
     bought: side('buy'), sold: side('sell'), fees: trades.reduce((s, t) => s + ((t.fees && t.fees.usd) || 0), 0) };
 }
 
+/* A plan of trades not made yet, run after the real ones at the prices given: each step is
+   { side: 'buy', usd, price } (spend dollars) or { side: 'sell', kat, price } (sell KAT).
+   Returns the book before and after (valued at priceNow), each step's fills, and the
+   break-even price: the KAT price at which the total P&L would be zero. */
+export function simulate(trades, plan, priceNow) {
+  const last = trades.reduce((m, t) => Math.max(m, t.block, t.ts), 0);
+  const steps = [];
+  for (const p of plan) {
+    if (!(p.price > 0)) continue;
+    if (p.side === 'buy' && p.usd > 0) steps.push({ side: 'buy', kat: p.usd / p.price, usd: p.usd });
+    else if (p.side === 'sell' && p.kat > 0) steps.push({ side: 'sell', kat: p.kat, usd: p.kat * p.price });
+  }
+  steps.forEach((s, i) => { s.block = last + 1 + i; s.ts = last + 1 + i; s.fees = { usd: 0, parts: [] }; s.planned = true; });
+  const before = summary(trades, priceNow), after = summary(trades.concat(steps), priceNow);
+  const rows = replay(trades.concat(steps)).rows.filter((r) => r.planned);
+  const breakEven = (b) => (b.qty > 0 ? Math.max(0, (b.cost - b.realized) / b.qty) : null);
+  return { before: { ...before, breakEven: breakEven(before) }, after: { ...after, breakEven: breakEven(after) }, rows };
+}
+
 /* P&L through time: one point at the end of every hour (valued at that hour's closing
    price, carried over hours without a swap), one at every trade (valued at its own price)
    and one now. Starts at the first trade. */

@@ -67,7 +67,42 @@
 .kat-method p{max-width:780px;margin:8px 0}
 .kat-method b{color:var(--dim);font-weight:500}
 
+/* the trade simulator: one row per planned trade, then the book after them */
+.sim-card{padding:22px 24px 18px;margin-bottom:16px;min-width:0}
+.sim-step{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) auto 26px;gap:10px 14px;align-items:end;padding:12px 0;border-top:1px solid var(--line2)}
+.sim-step:first-child{border-top:0;padding-top:4px}
+.sim-side,.sim-chips{display:flex;gap:3px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px;width:max-content}
+.sim-side button,.sim-chips button{background:none;border:0;border-radius:99px;padding:7px 12px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.07em;cursor:pointer;white-space:nowrap}
+.sim-chips button{padding:6px 9px}
+.sim-side button.on,.sim-chips button.on{color:var(--gold);background:rgba(214,185,123,.09)}
+.sim-side button:focus-visible,.sim-chips button:focus-visible,.sim-remove:focus-visible,.sim-add:focus-visible{outline:1px solid var(--gold)}
+@media(hover:hover){.sim-side button:not(.on):hover,.sim-chips button:not(.on):hover,.sim-remove:hover,.sim-add:hover{color:var(--text)}}
+.sim-field{display:grid;gap:6px;color:var(--dim);font-size:9px;letter-spacing:.09em;text-transform:uppercase;min-width:0}
+.sim-field input{width:100%;border:1px solid rgba(214,185,123,.23);border-radius:8px;background:rgba(214,185,123,.025);color:var(--gold);
+  padding:8px 10px;font:400 15px var(--sans);font-variant-numeric:tabular-nums;color-scheme:dark;min-width:0}
+.sim-field input:focus{outline:1px solid var(--gold);outline-offset:2px}
+.sim-field input[aria-invalid=true]{border-color:var(--down)}
+.sim-remove{width:26px;height:26px;margin-bottom:6px;border:1px solid var(--line);border-radius:50%;background:none;color:var(--dim);font:400 15px/1 var(--sans);cursor:pointer}
+.sim-remove[hidden]{display:block;visibility:hidden}
+.sim-fill{grid-column:1/-1;font-size:11.5px;color:var(--dim);line-height:1.6}
+.sim-fill b{color:var(--text);font-weight:500}
+.sim-fill .muted{color:var(--faint)}
+.sim-add{margin:4px 0 2px;background:none;border:1px dashed var(--line);border-radius:99px;padding:7px 14px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.07em;cursor:pointer}
+.sim-add[hidden]{display:none}
+.sim-out{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 20px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.sim-out>div{min-width:0}
+.sim-out .metric-value{font-size:24px;font-weight:300;line-height:1.25;letter-spacing:-.025em;margin-top:8px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sim-out .metric-value.gold{color:var(--gold)}
+.sim-note{font-size:10.5px;color:var(--faint);line-height:1.7;margin-top:14px;padding-top:12px;border-top:1px solid var(--line2)}
+html.tiger .themed-page .sim-field input{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.04)}
+html.tiger .themed-page .sim-side button.on,html.tiger .themed-page .sim-chips button.on{background:rgba(251,191,36,.08)}
+
 @media(max-width:1100px){.kat-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){
+  .sim-step{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 26px}
+  .sim-side{grid-column:1/3}.sim-remove{grid-column:3;grid-row:1;align-self:center;margin:0}
+  .sim-chips{grid-column:1/-1}
+}
 /* on a phone each trade becomes a small card of labelled figures */
 @media(max-width:720px){
   .trades thead{display:none}
@@ -84,5 +119,7 @@
 }
 @media(max-width:600px){.kat-intro{margin-top:20px}.kat-overview{gap:10px}.overview-card{padding:14px}
   .overview-value{font-size:clamp(18px,5.4vw,24px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
-  .chart-card,.trades-card{padding:16px}.chart-total{font-size:20px}.ranges button{padding:6px 10px}.plot{height:210px}
+  .chart-card,.trades-card,.sim-card{padding:16px}.chart-total{font-size:20px}.ranges button{padding:6px 10px}.plot{height:210px}
+  .sim-out{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}.sim-out .metric-value{font-size:clamp(17px,5.2vw,22px)}
+  .sim-chips button{padding:6px 7px}
   .plot-tooltip{font-size:9px;min-width:150px;padding:8px}.plot-legend{font-size:8.5px;gap:6px 11px}}

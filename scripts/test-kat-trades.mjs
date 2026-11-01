@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { START, KAT, WALLETS, walletTxs, scanTrades, prunePending, replay, summary, pnlSeries, mergeCloses,
-  usdAtTick, usdFromSqrt, emptyBook, validateBook, units, PENDING_SECONDS } from '../kat-core.mjs';
+  usdAtTick, usdFromSqrt, emptyBook, validateBook, units, simulate, PENDING_SECONDS } from '../kat-core.mjs';
 
 let checks = 0;
 const ok = (v, note) => { assert.ok(v, note); checks++; };
@@ -112,6 +112,28 @@ const sale = series.find((p) => p.trade === 'sell');
 near(sale.realized, 25.864268 - basis29, 1e-5, 'realised steps up at the sale');
 ok(series.every((p, i) => !i || p.ts >= series[i - 1].ts), 'in time order');
 ok(series.filter((p) => !p.trade).slice(0, -1).every((p) => p.ts % 3600 === 0), 'between trades, one point at each hour end');
+
+/* the trade simulator: a plan run after the real trades, valued at today's price */
+const nowPx = 0.004121734102003788;
+const buy = simulate(book, [{ side: 'buy', usd: 25, price: 0.004 }], nowPx);
+near(buy.after.qty - buy.before.qty, 6250, 1e-9, 'a $25 buy at $0.004 adds 6,250 KAT');
+near(buy.after.avg, (s.cost + 25) / (s.qty + 6250), 1e-12, 'and averages the cost down');
+ok(buy.after.avg < buy.before.avg, 'a buy below the average lowers it');
+eq(buy.after.realized, buy.before.realized, 'a buy realises nothing');
+near(buy.before.total, s.total, 1e-12, '"before" is the real book');
+near(buy.after.unrealized, (s.qty + 6250) * nowPx - (s.cost + 25), 1e-9, 'after is valued at today\'s price');
+const sell = simulate(book, [{ side: 'sell', kat: 5000, price: 0.0045 }], nowPx);
+near(sell.after.realized - sell.before.realized, 5000 * 0.0045 - 5000 * s.avg, 1e-9, 'a sale realises against the average cost');
+near(sell.after.avg, s.avg, 1e-12, 'and leaves the average where it was');
+near(sell.rows[0].basis, 5000 * s.avg, 1e-9, 'the sale\'s cost basis');
+const plan = simulate(book, [{ side: 'buy', usd: 30, price: 0.0039 }, { side: 'sell', kat: 30000, price: 0.0046 }], nowPx);
+eq(plan.rows.map((r) => r.side), ['buy', 'sell'], 'steps run in the order typed, after every real trade');
+near(plan.rows[1].outside, 30000 - (s.qty + 30 / 0.0039), 1e-6, 'selling more than the book holds leaves the extra out');
+eq([plan.after.qty, plan.after.avg, plan.after.breakEven], [0, null, null], 'nothing held after selling it all');
+near(sell.after.breakEven, (sell.after.cost - sell.after.realized) / sell.after.qty, 1e-15, 'break-even: total P&L is zero there');
+near(simulate(book, [{ side: 'sell', kat: 5000, price: 0.0045 }], sell.after.breakEven).after.total, 0, 1e-9, 'checked by valuing the book after the sale at it');
+eq(simulate(book, [{ side: 'buy', usd: 0, price: 0.004 }, { side: 'sell', kat: 10, price: 0 }], nowPx).rows.length, 0, 'empty or priceless steps are skipped');
+eq(simulate([{ side: 'buy', kat: 100, usd: 1, block: 1, ts: 1, fees: { usd: 0 } }], [{ side: 'sell', kat: 50, price: 0.05 }], 0.01).after.breakEven, 0, 'a book already paid for breaks even at any price');
 
 /* prices */
 near(usdAtTick(331244), 0.0041217, 0.000002, 'KAT at the 1 Nov 20:00 close, within a tick of slot0 then ($0.0041217)');

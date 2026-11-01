@@ -1,7 +1,7 @@
 /* kat.js: lays out /api/kat-trades. The book (average cost from 27 Oct 2026), the P&L
-   chart and the trade table are worked out here with kat-core.mjs, from the trades and
-   hourly prices the API returns. */
-import { replay, summary, pnlSeries, usdAtTick } from './kat-core.mjs';
+   chart, the trade simulator and the trade table are worked out here with kat-core.mjs,
+   from the trades and hourly prices the API returns. */
+import { replay, summary, pnlSeries, usdAtTick, simulate } from './kat-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -125,6 +125,111 @@ function renderChart(s) {
     : 'No KAT held in this book now.';
 }
 
+/* ---- the trade simulator: a short plan of buys and sells, run after the real trades.
+   The steps are built once and kept through every refresh; only the results redraw. A
+   step's price follows today's until it is typed or moved off "Now". ---- */
+const MOVES = [-0.1, -0.05, 0, 0.05, 0.1];
+const plan = [];
+const priceInput = (v) => (Number.isFinite(v) ? v.toFixed(7).replace(/0+$/, '').replace(/\.$/, '') : '');
+const newStep = () => ({ side: 'buy', amount: '25', price: priceInput(view && view.price_usd), follow: true });
+
+function buildSim() {
+  const box = $('simSteps');
+  box.innerHTML = plan.map((st, i) => `<div class="sim-step" data-i="${i}">
+      <div class="sim-side" role="group" aria-label="Buy or sell"><button type="button" data-side="buy" aria-pressed="${st.side === 'buy'}" class="${st.side === 'buy' ? 'on' : ''}">Buy</button><button type="button" data-side="sell" aria-pressed="${st.side === 'sell'}" class="${st.side === 'sell' ? 'on' : ''}">Sell</button></div>
+      <label class="sim-field"><span class="amt-label">${st.side === 'buy' ? 'Spend · USD' : 'Sell · KAT'}</span><input type="number" inputmode="decimal" step="any" min="0" data-f="amount" value="${esc(st.amount)}"></label>
+      <label class="sim-field"><span>Price · USD per KAT</span><input type="number" inputmode="decimal" step="any" min="0" data-f="price" value="${esc(st.price)}"></label>
+      <div class="sim-chips" role="group" aria-label="Price from today's">${MOVES.map((m) => `<button type="button" data-move="${m}">${m ? (m > 0 ? '+' : '−') + Math.abs(m * 100) + '%' : 'Now'}</button>`).join('')}</div>
+      <button type="button" class="sim-remove" aria-label="Remove this trade" title="Remove this trade"${plan.length < 2 ? ' hidden' : ''}>×</button>
+      <div class="sim-fill"></div>
+    </div>`).join('');
+  $('simAdd').hidden = plan.length >= 6;
+}
+
+function renderSim() {
+  if (!plan.length) { plan.push(newStep()); buildSim(); }
+  const now = view.price_usd;
+  /* untouched prices follow today's */
+  plan.forEach((st, i) => {
+    if (!st.follow || st.price === priceInput(now)) return;
+    st.price = priceInput(now);
+    const el = $('simSteps').querySelector(`[data-i="${i}"] [data-f=price]`);
+    if (el && document.activeElement !== el) el.value = st.price;
+  });
+  const steps = plan.map((st) => {
+    const a = Number(st.amount), p = Number(st.price);
+    return { side: st.side, price: p, usd: st.side === 'buy' ? a : undefined, kat: st.side === 'sell' ? a : undefined, valid: a > 0 && p > 0 };
+  });
+  const sim = simulate(view.trades, steps.filter((x) => x.valid), now);
+  let r = 0;
+  $('simSteps').querySelectorAll('.sim-step').forEach((el, i) => {
+    const st = steps[i];
+    el.querySelector('[data-f=amount]').setAttribute('aria-invalid', String(!(Number(plan[i].amount) > 0)));
+    el.querySelector('[data-f=price]').setAttribute('aria-invalid', String(!(Number(plan[i].price) > 0)));
+    el.querySelectorAll('.sim-chips button').forEach((b) => b.classList.toggle('on', Number(b.dataset.move) === 0 && plan[i].follow));
+    const fill = el.querySelector('.sim-fill');
+    if (!st.valid) { fill.innerHTML = '<span class="muted">Enter an amount and a price.</span>'; return; }
+    const row = sim.rows[r++], vsNow = st.price / now - 1;
+    const at = `${price(st.price)}${Math.abs(vsNow) >= 0.0005 ? ` (${vsNow > 0 ? '+' : ''}${fmt(vsNow * 100, 1)}% on today)` : ''}`;
+    if (row.side === 'buy') { fill.innerHTML = `Gets <b>${kat(row.kat)} KAT</b> for ${money(row.usd)} at ${at}`; return; }
+    const held = row.kat - row.outside, avg = held > 0 ? row.basis / held : null;
+    fill.innerHTML = `Gets <b>${money(row.usd)}</b> for ${kat(row.kat)} KAT at ${at}`
+      + (row.realized !== null ? ` · realises <span class="${tone(row.realized)}">${signed(row.realized)}</span> against the ${price(avg)} average` : '')
+      + (row.outside > 0 ? `<span class="outside">Only ${kat(held)} KAT is held in this book then; the other ${kat(row.outside)} is left out.</span>` : '');
+  });
+  const b = sim.before, a = sim.after;
+  const cell = (label, value, cls, subText) => `<div><div class="metric-label">${label}</div><div class="metric-value ${cls || ''}">${value}</div><div class="metric-sub">${subText}</div></div>`;
+  $('simOut').innerHTML = [
+    cell('KAT held', kat(a.qty), '', `now ${kat(b.qty)}`),
+    cell('Average buy price', a.avg !== null ? price(a.avg) : '—', 'gold', `now ${b.avg !== null ? price(b.avg) : '—'}`),
+    cell('Realised P&amp;L', signed(a.realized), tone(a.realized), `${signed(a.realized - b.realized)} from these trades`),
+    cell('Unrealised P&amp;L', signed(a.unrealized), tone(a.unrealized), `at today's ${price(now)} · now ${signed(b.unrealized)}`),
+    cell('Total P&amp;L', signed(a.total), tone(a.total), `at today's price · now ${signed(b.total)}`),
+    cell('Break-even price', a.breakEven !== null ? price(a.breakEven) : '—', '', a.breakEven !== null ? `total P&amp;L is zero here · now ${b.breakEven !== null ? price(b.breakEven) : '—'}` : 'nothing held after these trades'),
+  ].join('');
+  /* what the real routes took, so the price typed can allow for it */
+  const cuts = view.trades.filter((t) => t.usd > 0).map((t) => t.fees.usd / t.usd * 100);
+  $('simNote').textContent = (cuts.length ? `Your real trades lost ${fmt(Math.min(...cuts), 2)}–${fmt(Math.max(...cuts), 2)}% to fees, inside their prices; enter the price you would actually get. ` : '')
+    + "Everything after the trades is valued at today's price.";
+}
+
+$('simSteps').addEventListener('input', (e) => {
+  const f = e.target.dataset.f, step = e.target.closest('.sim-step');
+  if (!f || !step) return;
+  const i = Number(step.dataset.i);
+  plan[i][f] = e.target.value;
+  if (f === 'price') plan[i].follow = false;
+  if (view) renderSim();
+});
+$('simSteps').addEventListener('click', (e) => {
+  const step = e.target.closest('.sim-step'), b = e.target.closest('button');
+  if (!step || !b) return;
+  const i = Number(step.dataset.i), st = plan[i], now = view && view.price_usd;
+  if (b.dataset.side) {
+    if (b.dataset.side === st.side) return;
+    /* keep the trade's size: dollars to KAT and back at its price */
+    const a = Number(st.amount), p = Number(st.price) || now;
+    if (a > 0 && p > 0) st.amount = st.side === 'buy' ? String(Math.round(a / p)) : (a * p).toFixed(2);
+    st.side = b.dataset.side;
+    buildSim();
+  } else if (b.dataset.move !== undefined && now) {
+    const m = Number(b.dataset.move);
+    st.follow = m === 0; st.price = priceInput(now * (1 + m));
+    step.querySelector('[data-f=price]').value = st.price;
+  } else if (b.classList.contains('sim-remove')) {
+    plan.splice(i, 1); buildSim();
+  } else return;
+  if (view) renderSim();
+});
+$('simAdd').addEventListener('click', () => {
+  const prev = plan[plan.length - 1];
+  plan.push(prev ? { ...prev } : newStep());
+  buildSim();
+  if (view) renderSim();
+  const inputs = $('simSteps').querySelectorAll('[data-f=amount]');
+  inputs[inputs.length - 1].focus();
+});
+
 /* ---- the trades, newest first ---- */
 function renderTrades(s) {
   const rows = replay(view.trades).rows.reverse();
@@ -166,7 +271,7 @@ function renderStamp() {
 function render() {
   if (view) {
     const s = summary(view.trades, view.price_usd);
-    renderOverview(s); renderChart(s); renderTrades(s); renderWaiting();
+    renderOverview(s); renderChart(s); renderSim(); renderTrades(s); renderWaiting();
   }
   const msgs = [failure, ...((view && view.health && view.health.notes) || [])].filter(Boolean);
   $('health').textContent = msgs.join(' ');
