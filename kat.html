@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<script src="/theme.js"></script>
+<title>KAT Trades · Tiger Foundation</title>
+<link rel="icon" href="/icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lpcards.css">
+<link rel="stylesheet" href="/lpbook.css">
+<link rel="stylesheet" href="/kat.css">
+<link rel="stylesheet" href="/theme.css">
+<!--
+  KAT Trades: Alex's KAT bought and sold against stablecoins since 27 Oct 2026, on an
+  average-cost book. The trades and hourly prices come from /api/kat-trades; the book,
+  the chart and the table are worked out here with kat-core.mjs.
+-->
+</head>
+<body class="themed-page">
+<header>
+  <div class="hdr-inner">
+    <div class="theme-brand">
+      <img class="theme-mascot" src="/icons/cute-tiger.svg" alt="" aria-hidden="true">
+      <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    </div>
+    <div class="theme-actions">
+      <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
+    </div>
+  </div>
+</header>
+<div class="menu-wrap">
+<nav class="menu" aria-label="Main navigation">
+  <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+  <a href="/lending.html" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
+  <a href="/strategy.html" title="Strategy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg><span>Strategy</span></a>
+  <a href="/kat.html" class="on" aria-current="page" title="KAT Trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>KAT</span></a>
+</nav>
+</div>
+
+<main class="book-content kat-content">
+  <div class="health" id="health" role="status"></div>
+  <div class="kat-intro"><div class="label">Katana · KAT trades since 27 Oct 2026</div></div>
+  <div class="kat-overview" id="overview" aria-live="polite">
+    <div class="card overview-card"><div class="metric-label">KAT price</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Average buy price</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Unrealised P&amp;L</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Realised P&amp;L</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+  </div>
+  <div class="waiting-note" id="waiting" hidden></div>
+
+  <section class="card chart-card" aria-labelledby="chartTitle">
+    <div class="chart-bar">
+      <div><div class="metric-label" id="chartTitle">P&amp;L since 27 Oct</div><div class="chart-total" id="chartTotal">—</div></div>
+      <div class="ranges" role="group" aria-label="Chart period">
+        <button type="button" data-days="7" class="on" aria-pressed="true">7D</button><button type="button" data-days="30" aria-pressed="false">30D</button><button type="button" data-days="0" aria-pressed="false">All</button>
+      </div>
+    </div>
+    <div class="plot" id="plot" tabindex="0" role="img" aria-label="Realised, unrealised and total P&amp;L over time"></div>
+    <div class="plot-legend">
+      <span><i style="border-color:var(--gold)"></i>Total</span>
+      <span><i style="border-color:var(--text)"></i>Realised</span>
+      <span><i class="dash" style="border-color:var(--chart-debt)"></i>Unrealised</span>
+      <span><b class="mark"></b>A trade</span>
+    </div>
+    <div class="holding" id="holding"></div>
+  </section>
+
+  <section class="card trades-card" aria-labelledby="tradesTitle">
+    <div class="trades-head"><div class="label" id="tradesTitle">Trade history · newest first</div><span class="trades-hint">Times are Malaysia time</span></div>
+    <div class="table-wrap"><table class="trades" id="trades">
+      <thead><tr><th scope="col">Date</th><th scope="col">Side</th><th scope="col" class="num">KAT</th><th scope="col" class="num">Price</th><th scope="col" class="num">Paid / received</th><th scope="col" class="num">Cost basis</th><th scope="col" class="num">Realised</th><th scope="col" class="num">Fees</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="trades-foot" id="tradesFoot"></div>
+  </section>
+  <noscript><div class="card">Turn on JavaScript to read the trades.</div></noscript>
+
+  <div class="kat-method">
+    <details><summary>How these numbers are made</summary>
+      <p><b>What counts.</b> Every swap of KAT for a stablecoin (vbUSDC, vbUSDT) by either wallet on Katana since the buy on 27 Oct 2026 at 16:02. That covers a swap in one transaction (a router or a filled limit order) and the swap service that takes a deposit and pays back in a later transaction. Borrowing or repaying KAT on Morpho, avKAT deposits, LP rewards and LPs are not trades and stay off this page; the LP Book and Lending pages carry them.</p>
+      <p><b>The book.</b> Average cost. A buy adds its KAT and what it cost. A sale takes its KAT out at the average cost at that moment; the difference from what it fetched is realised. The average buy price is the cost of the KAT still held over that KAT. Unrealised is what that KAT is worth at today's price less its cost. If a sale were ever bigger than the KAT this book holds, the extra came from outside it (rewards or borrowing) and is left out of the P&amp;L and marked in the table.</p>
+      <p><b>Prices and fees.</b> Each trade is priced by what actually left and reached the wallet, so the route's fees are already inside it; the fees column shows them anyway: the service's and relayer's cut, and the gas the wallet paid at the ETH price when the trade was recorded. KAT today is the Sushi KAT/vbUSDC pool's price; the chart values the KAT held at each hour's closing price in that pool, and at each trade's own price.</p>
+      <p><b>Sources.</b> The wallets' token transfers and the pool's swaps, read from Katana. A six-hourly job keeps the ledger; anything newer is read when the page asks. This page reads only; it never connects a wallet.</p>
+    </details>
+  </div>
+</main>
+<script type="module" src="/kat.js"></script>
+</body>
+</html>

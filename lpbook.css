@@ -49,6 +49,9 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 /* four pages on a phone: compact pills below 540 px, and labels without icons below 420 px */
 @media (max-width:540px){.menu{gap:5px}.menu a{padding:0 8px;gap:5px;font-size:10px;letter-spacing:.06em}.menu a svg{width:14px;height:14px}}
 @media (max-width:420px){.menu a{gap:0}.menu a svg{display:none}}
+/* five items on the narrowest phones */
+@media (max-width:400px){.menu{gap:4px}.menu a{padding:0 6px;letter-spacing:.03em}}
+@media (max-width:359px){.menu{gap:3px}.menu a{padding:0 5px;font-size:9px;letter-spacing:.02em}}
 
 /* Match Portfolio's .wrap: the same outer width and inside padding on every screen. */
 .book-content{max-width:1200px;margin:0 auto;padding:0 28px}

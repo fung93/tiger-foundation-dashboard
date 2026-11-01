@@ -1,0 +1,88 @@
+/* KAT Trades: the masthead, navigation and content frame are shared with the LP Book. */
+.kat-content{padding-bottom:20px}
+.kat-intro{margin:30px 0 22px}
+.metric-label{color:var(--dim);font-size:9px;letter-spacing:.11em;text-transform:uppercase}
+.metric-sub{font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6}
+.up{color:var(--up)}.down{color:var(--down)}
+
+/* price, average buy price and the two P&Ls, in four cards */
+.kat-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.overview-card{min-width:0;padding:20px 24px}
+.overview-value{margin-top:10px;color:var(--text);font-size:30px;font-weight:300;line-height:1.2;letter-spacing:-.025em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.overview-value.up{color:var(--up)}.overview-value.down{color:var(--down)}
+.waiting-note{font-size:11px;color:var(--dim);margin:0 0 16px;line-height:1.7}
+.waiting-note b{color:var(--gold);font-weight:500}
+
+/* the P&L chart: total, realised and unrealised on one dollar axis */
+.chart-card{padding:22px 24px 18px;margin-bottom:16px;min-width:0}
+.chart-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.chart-total{margin-top:8px;font-size:24px;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ranges{display:flex;gap:3px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px;flex-shrink:0}
+.ranges button{background:none;border:0;border-radius:99px;padding:7px 13px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.08em;cursor:pointer}
+.ranges button.on{color:var(--gold);background:rgba(214,185,123,.09)}
+.ranges button:focus-visible{outline:1px solid var(--gold)}
+@media(hover:hover){.ranges button:hover{color:var(--text)}}
+.plot{height:240px;position:relative;touch-action:pan-y;outline-offset:4px}
+.plot svg{width:100%;height:100%;display:block;overflow:visible}
+.plot:focus-visible{outline:1px solid var(--gold);border-radius:4px}
+.plot-empty{display:flex;height:100%;align-items:center;justify-content:center;color:var(--faint);font-size:11px;text-align:center}
+.plot-tooltip{position:absolute;z-index:3;pointer-events:none;background:#111112;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:10px 12px;min-width:180px;box-shadow:0 8px 30px #0008;font-size:10px;line-height:1.8;white-space:nowrap}
+.plot-tooltip strong{display:block;color:var(--text);font-weight:500;margin-bottom:5px}
+.plot-tooltip .tip-row{display:flex;justify-content:space-between;gap:18px;color:var(--dim)}
+.plot-tooltip .tip-row span:last-child{color:var(--text);font-variant-numeric:tabular-nums}
+.plot-tooltip .tip-trade{color:var(--gold);margin-top:4px}
+.plot-legend{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:12px;color:var(--dim);font-size:9.5px;line-height:1.5}
+.plot-legend span{display:flex;align-items:center;gap:6px}
+.plot-legend i{height:0;width:14px;border-top:2px solid;display:inline-block}
+.plot-legend .dash{border-top-style:dashed}
+.plot-legend .mark{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--gold);background:var(--card)}
+.holding{font-size:11px;color:var(--dim);margin-top:14px;padding-top:12px;border-top:1px solid var(--line2);line-height:1.7}
+.holding b{color:var(--text);font-weight:500}
+
+/* the trades, newest first */
+.trades-card{padding:22px 24px 18px;min-width:0}
+.trades-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.trades-hint{font-size:10.5px;color:var(--faint)}
+.table-wrap{overflow-x:auto;margin:0 -4px}
+.trades{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.trades th{color:var(--dim);font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.trades td{padding:11px 6px;border-bottom:1px solid var(--line2);white-space:nowrap;color:var(--text)}
+.trades tr:last-child td{border-bottom:0}
+.trades .num{text-align:right}
+.trades .muted{color:var(--faint)}
+.trades a{color:inherit;text-decoration:none}
+.trades a:hover{color:var(--gold)}
+.trades a .ext{color:var(--faint);font-size:10px;margin-left:4px}
+.side{display:inline-block;font-size:9.5px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;padding:3px 9px;border-radius:99px;border:1px solid var(--line)}
+.side.buy{color:var(--up);border-color:rgba(111,207,151,.3)}
+.side.sell{color:var(--down);border-color:rgba(224,121,109,.3)}
+.outside{display:block;font-size:10px;color:var(--warn);white-space:normal;margin-top:3px}
+.fee-cell{cursor:help}
+.side-inline{display:none}
+.trades-foot{font-size:10.5px;color:var(--dim);line-height:1.8;margin-top:12px;padding-top:12px;border-top:1px solid var(--line2)}
+.trades-empty{color:var(--faint);font-size:11px;padding:18px 6px}
+
+.kat-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
+.kat-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
+.kat-method p{max-width:780px;margin:8px 0}
+.kat-method b{color:var(--dim);font-weight:500}
+
+@media(max-width:1100px){.kat-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* on a phone each trade becomes a small card of labelled figures */
+@media(max-width:720px){
+  .trades thead{display:none}
+  .trades,.trades tbody{display:block}
+  .trades tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:14px 4px;border-bottom:1px solid var(--line2)}
+  .trades tr:last-child{border-bottom:0}
+  .trades td{display:block;padding:0;border:0;text-align:left!important;white-space:normal;min-width:0}
+  .trades td::before{content:attr(data-label);display:block;color:var(--dim);font-size:8.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+  .trades td.when{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .trades td.when::before{display:none}
+  .trades td.side-cell{display:none}
+  .side-inline{display:inline-block}
+  .table-wrap{overflow:visible;margin:0}
+}
+@media(max-width:600px){.kat-intro{margin-top:20px}.kat-overview{gap:10px}.overview-card{padding:14px}
+  .overview-value{font-size:clamp(18px,5.4vw,24px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
+  .chart-card,.trades-card{padding:16px}.chart-total{font-size:20px}.ranges button{padding:6px 10px}.plot{height:210px}
+  .plot-tooltip{font-size:9px;min-width:150px;padding:8px}.plot-legend{font-size:8.5px;gap:6px 11px}}

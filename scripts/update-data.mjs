@@ -2458,3 +2458,12 @@ try {
 } catch (e) {
   console.warn('strategy ranges could not be updated, keeping the existing ones:', e.message);
 }
+
+/* The KAT page's trade ledger: Alex's KAT trades since 27 Oct 2026 and the KAT/vbUSDC
+   pool's hourly closing price, read from the blocks since the last run. Its own try. */
+try {
+  const { updateKatTrades } = await import('./kat-trades.mjs');
+  await updateKatTrades(ROOT);
+} catch (e) {
+  console.warn('kat trades could not be updated, keeping the existing ones:', e.message);
+}

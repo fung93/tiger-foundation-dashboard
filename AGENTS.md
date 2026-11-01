@@ -69,7 +69,10 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `lpbook.json`: the LP Book ledger
    - `morpho-history.json`: Katana lending observations at six-hour intervals
    - `strategy-ranges.json`: each KAT-paying pool's hourly low/high tick for 31 days
-     (`scripts/strategy-ranges.mjs`, its own error boundary; added 1 Nov 2026, unpushed)
+     (`scripts/strategy-ranges.mjs`, its own error boundary; added 1 Nov 2026)
+   - `kat-trades.json`: Alex's KAT trades since 27 Oct 2026, deposits waiting to be paid back,
+     and the KAT/vbUSDC pool's hourly closing tick (`scripts/kat-trades.mjs`, its own error
+     boundary; added 1 Nov 2026)
 2. **Browser live overlay, every 15 seconds.** The pages read the chain and the `/api/*`
    functions directly. The Portfolio starts from the saved snapshot. The LP Book and
    widget can show their shared last full browser reading immediately; refresh failures
@@ -99,6 +102,9 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: Katana's KAT emissions for staked Sushi LPs, every paying pool by APR, and a per-pool range estimate. See §4. |
 | `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
 | `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool, 31 days, from its Swap logs. The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
+| `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, the P&L chart and the trade table, from 27 Oct 2026. See §4. |
+| `kat-core.mjs` | The KAT page's trade finder (from wallet transfers and receipts), the average-cost book, the P&L series and the ledger's validation, with no network: used by the page, `api/kat-trades.mjs`, `scripts/kat-trades.mjs` and `scripts/test-kat-trades.mjs`. |
+| `api/kat-trades.mjs`, `scripts/kat-trades.mjs`, `kat-trades.json` | The ledger the job keeps (only blocks since `last_block`; ~2 s incremental), and the API that adds everything since it plus the KAT and ETH prices now (~1.8 s, ~5 KB on 1 Nov 2026). |
 | `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
@@ -112,16 +118,19 @@ Portfolio, both LP Book pages, Lending and Strategy have a menu bar under the he
 tapping its Tiger Foundation masthead opens the full LP Book.
 
 The menu buttons must keep the same position and size when switching between
-Portfolio, either LP Book page, Lending and Strategy. Match the 1200 px menu frame, side padding (28 px
+Portfolio, either LP Book page, Lending, Strategy and KAT. Match the 1200 px menu frame, side padding (28 px
 desktop, 16 px at 768 px and below), gap below the masthead (14 px desktop, 12 px phone)
 and subtitle line height. The menu stays outside the LP Book's content wrapper; the full
 pages reserve a stable scrollbar gutter to avoid a sideways jump on shorter pages.
 At 540 px and below, use a 5 px gap, 8 px pill side padding, 10 px labels with .06em
-letter spacing and 14 px icons; at 420 px and below also hide the icons, so all four labels
-fit on one line down to 360 px (measured 1 Nov 2026: one row, no sideways scroll, identical
-position on all five pages at 360, 375, 414, 421, 480, 540, 541, 768 and 1366 px).
+letter spacing and 14 px icons; at 420 px and below also hide the icons. With the fifth item
+(KAT, 1 Nov 2026) the pills tighten at 400 px and below (4 px gap, 6 px padding, .03em) and at
+359 px and below (3 px gap, 5 px padding, 9 px labels, .02em), so all five labels fit on one
+line down to 320 px (measured 1 Nov 2026 on all six pages at 320, 340, 359, 360, 375, 390, 401,
+420 and 540 px: one row, no sideways scroll; 11 px spare at 320). `lpbook.css` carries the
+rules for every page but the Portfolio, which has them inline in both copies.
 
-The cards' outside edges must also match between Portfolio, both LP Book pages, Lending and Strategy.
+The cards' outside edges must also match between Portfolio, both LP Book pages, Lending, Strategy and KAT.
 Portfolio's `.wrap` and the LP Book's `.book-content` use a 1200 px outer frame with
 28 px inside padding on each side at every screen width. Keep the view controls,
 warnings and every row of cards inside that same frame; fixed modals remain outside it.
@@ -422,6 +431,53 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
   (86,400 a day; measured 1 Nov 2026). **Validated:** 7D low/high matched a raw scan of every
   swap to the tick for vbWBTC/vbUSDC (5,837 swaps) and vbETH/vbUSDC (10,172).
 
+### KAT Trades (Alex, 1 Nov 2026)
+
+Alex's spec: a page for KAT trading P&L with the KAT price, average buy price, unrealised and
+realised P&L, a line chart of unrealised and realised, and a trade history table (cost basis,
+units bought or sold, fees). He chose to **start on 27 Oct 2026 at 16:02 MYT** (block 46,345,344,
+the first buy after the 26 Oct sales) over 12 Oct, after seeing a month of his history.
+
+- **What a trade is:** KAT swapped against vbUSDC or vbUSDT by either wallet. Found from the
+  wallets' ERC-20 transfers in two shapes, both in his history: (1) one transaction moving KAT
+  and a stablecoin opposite ways (a router swap; a keeper-filled limit order via
+  `0x000642a0...`, whose surplus KAT is a second transfer and is summed); (2) the swap service:
+  the wallet sends the token to a **one-time deposit address** (a 33-byte proxy), and a later
+  transaction, sent by a relayer through `0x0000000000006ac72e...` and settled by
+  `0x42ef97fa...`, moves that address's tokens into pools and pays the wallet. A deposit pairs
+  with a payout only if that address passes on 98-100% of what the wallet sent, in the payout
+  transaction: an LP add (the wallet "sends" vbUSDC to a pool) never matches. Deposits wait in
+  `pending` for three days, so a trade split across two job runs is still found; a KAT deposit
+  waiting more than 10 minutes is said on the page. A service filling one deposit in parts would
+  not match (none seen); the waiting note shows it.
+- **Never trades:** any transfer with Morpho Blue, Bundler3 or its adapter, the avKAT vault, the
+  Merkl distributor, the Sushi NPM or the LP staker (`NOT_TRADES` in `kat-core.mjs`). On 20 and
+  26 Oct KAT and vbUSDC crossed in Morpho collateral and borrowing transactions; these rules
+  keep them out (tested).
+- **The book:** average cost, long only. A sale takes KAT out at the average cost then; the
+  rest is realised. Average buy price = cost of KAT held / KAT held (the footer also gives all
+  buys' average). A sale bigger than the book would come partly from outside it (rewards or
+  borrowing): that part is left out of the P&L and marked in its row.
+- **Prices:** each trade is priced by what left and reached the wallet, so fees are inside it.
+  The fees column adds them up anyway: transfers to the known fee takers (`FEE_TAKERS`: service,
+  relayer, order and router cuts read off his trades), KAT ones at the trade's own price, plus
+  the wallet's own gas at the ETH price when the trade was recorded (booked, never re-valued).
+  KAT now is the KAT/vbUSDC pool's slot0; the chart values the KAT held at each hour's closing
+  tick (carried through hours without a swap), at each trade's own price, and now.
+- **Display:** four cards (KAT price with 24 h change, average buy price with KAT held and cost,
+  unrealised with value and %, realised with sales and total), the chart (Total gold, Realised
+  text, Unrealised grey dashed, one dollar axis, trades ringed on the total, crosshair tooltip,
+  Malaysian-midnight day marks, 7D/30D/All, opening on 7D), the holding line, then the trades newest first; on
+  a phone each trade is a small labelled card. The page polls every 30 s; LIVE lasts 75 s; the
+  last reading paints at once from `localStorage` `tf_kat`, marked STALE. Colours checked with
+  the dataviz validator: the three lines pass the colour-blind and normal-vision separation
+  checks in both themes and fail only the chroma/lightness bands, as the site's gold-on-greys
+  does, so the third line is dashed.
+- **Checked 1 Nov 2026:** the four trades since the start: 27 Oct buy 5,978.847409 KAT for 25
+  vbUSDC; 29 Oct sell 5,600 for 25.864268; 30 Oct buy 7,299.830781 for 30; 1 Nov buy
+  6,260.979832 for 25. Holding 13,939.66 KAT at $0.0040592, cost $56.58, realised +$2.45; fees
+  $0.12 in all.
+
 ---
 
 ## 5. Chain facts that bite
@@ -602,6 +658,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
   ranges: hourly folding, window edges and opening price, negative-tick logs, the job's first
   and incremental runs with a fake chain, file validation and formatting, and the edge P&L against the LP Book's; 100 assertions.
   `node scripts/strategy-ranges.mjs` updates only `strategy-ranges.json`.
+- **KAT trades check:** `node scripts/test-kat-trades.mjs` replays Alex's real transfers from
+  26 Oct 18:5x to 1 Nov 11:18 MYT (`scripts/fixtures/kat-trades-2026-10.json`, recorded 1 Nov):
+  the seven trades with exact amounts, the Morpho/avKAT/Merkl transactions that are not trades,
+  each route's fees and gas, the same result when split between a deposit and its payout, an LP
+  add that must not match, the book and chart against hand-worked figures, sales bigger than the
+  book, and the ledger's validation; 55 assertions. `node scripts/kat-trades.mjs` updates only
+  `kat-trades.json`.
   In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
   (`node scripts/dev-server.mjs`, port 4200).
 - **Testing chain code:** import `api/_core.mjs` from a scratch Node script (Node 20+) and
@@ -654,6 +717,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 1 Nov 2026 (Alex reviewed, asked for 7D as the chart's default, then "push"):** the KAT
+  Trades page (`kat.html/.css/.js`, `kat-core.mjs`, `api/kat-trades.mjs`,
+  `scripts/kat-trades.mjs` and its first `kat-trades.json`, `scripts/test-kat-trades.mjs` with
+  its fixture); a KAT link in every menu, with the five-item phone rules; a new error boundary
+  in `scripts/update-data.mjs` and `kat-trades.json` in the workflow's `git add`; the preview
+  server serves `/api/kat-trades`; `npm run check` covers the new files; `sw.js` -> `tiger-v131`.
 
 - **Built locally, not pushed (1 Nov 2026, Alex: "make it in local, don't push"):** the Strategy
   page (`strategy.html/.css/.js`, `strategy-core.mjs`, `api/strategy.mjs`,

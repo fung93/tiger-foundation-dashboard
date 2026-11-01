@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v130';  /* Strategy: staked TVL in front of each pool's APR */
+var CACHE_VERSION = 'tiger-v131';  /* KAT Trades page and its menu item */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -58,6 +58,11 @@ var SHELL_ASSETS = [
   '/strategy.css',
   '/strategy.js',
   '/strategy-core.mjs',
+  /* the KAT page: trades since 27 Oct 2026, the book and its chart */
+  '/kat.html',
+  '/kat.css',
+  '/kat.js',
+  '/kat-core.mjs',
   '/morpho-core.mjs',
   '/icons/lp-192.png',
   '/icons/lp-512.png',
