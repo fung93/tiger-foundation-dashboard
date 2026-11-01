@@ -794,6 +794,15 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 1 Nov 2026 (Alex: "the start day input in strategy page not fit with the card size
+  in phone version, fix and push"):** phone browsers (iPhone Safari above all) give a date box
+  its own minimum width and ignore the width set, and the estimate's `1fr 1fr` grid let it push
+  its column past the card. Now: the grid is `repeat(2, minmax(0,1fr))`, the date box is drawn
+  plain (`appearance:none`, `min-width:0`, date and icon left) and, at 600 px and below, Capital
+  and Start day each take a full row (`.wide-phone`), leaving the date box ~260 px. Measured at
+  320, 360, 375, 414, 601 and 1280 px, also with the date box forced to want 220 px: always
+  inside its card, no page scroll. `sw.js` -> `tiger-v136`.
+
 - **Pushed 1 Nov 2026 (Alex: "WHY ALL APR now show -", then "push"):** after `baf237a`
   his browser showed a dash for every vKAT APR. The live API and page were right (a browser
   with no service worker showed 34.4%); his service worker served the cached v133 `vkat.js`,

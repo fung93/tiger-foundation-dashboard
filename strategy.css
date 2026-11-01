@@ -36,12 +36,18 @@
 
 /* the estimate: inputs on the left, what they earn on the right */
 .calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:26px;margin-top:18px}
-.calc-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;align-content:start}
+.calc-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;align-content:start}
 .calc-inputs label{display:grid;gap:6px;color:var(--dim);font-size:9px;letter-spacing:.09em;text-transform:uppercase;min-width:0}
 .calc-inputs input{width:100%;border:1px solid rgba(214,185,123,.23);border-radius:8px;background:rgba(214,185,123,.025);color:var(--gold);
   padding:8px 10px;font:400 15px var(--sans);font-variant-numeric:tabular-nums;color-scheme:dark;min-width:0}
 .calc-inputs input:focus{outline:1px solid var(--gold);outline-offset:2px}
 .calc-inputs input[aria-invalid=true]{border-color:var(--down)}
+/* the start day: phone browsers (iPhone Safari above all) give a date box its own minimum
+   width and ignore the width set here, so it ran past the card. Drawn as a plain box it
+   shrinks with its column like the others; the date itself sits left like the numbers. */
+.calc-inputs input[type=date]{-webkit-appearance:none;appearance:none;display:block;max-width:100%;min-width:0;min-height:38px;line-height:20px;text-align:left}
+.calc-inputs input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+.calc-inputs input[type=date]::-webkit-calendar-picker-indicator{margin:0 0 0 2px;padding:0;opacity:.7}
 /* the simulated deposit's P&L at each edge of its range, above the range buttons */
 .edge-box{grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;background:rgba(255,255,255,.012)}
 .edge-box:empty{display:none}
@@ -81,5 +87,5 @@
 @media(max-width:600px){.strategy-intro{margin-top:20px}.strategy-overview{gap:10px}.overview-card{padding:14px}
   .overview-value{font-size:clamp(18px,5vw,24px)}.overview-value.dates{font-size:clamp(15px,4.4vw,20px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
   .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.pool-fig{font-size:clamp(17px,5.2vw,21px)}
-  .calc-inputs{gap:10px}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
+  .calc-inputs{gap:10px}.calc-inputs .wide-phone{grid-column:1/-1}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
 @media(prefers-reduced-motion:reduce){.chev{transition:none}}

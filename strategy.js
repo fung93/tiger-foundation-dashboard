@@ -61,8 +61,8 @@ function build(p) {
         <div class="calc-inputs">
           <label><span class="lo-label">Lower price</span><input type="number" inputmode="decimal" step="any" min="0" data-f="lower"></label>
           <label><span class="hi-label">Upper price</span><input type="number" inputmode="decimal" step="any" min="0" data-f="upper"></label>
-          <label>Capital · USD<input type="number" inputmode="decimal" step="any" min="0" data-f="capital"></label>
-          <label>Start day<input type="date" data-f="start"></label>
+          <label class="wide-phone">Capital · USD<input type="number" inputmode="decimal" step="any" min="0" data-f="capital"></label>
+          <label class="wide-phone">Start day<input type="date" data-f="start"></label>
           <div class="edge-box" aria-live="polite"></div>
           <div class="preset-row"><span class="presets-label">Around now</span><div class="presets around" role="group" aria-label="Range around the current price"></div></div>
           <div class="preset-row"><span class="presets-label">Recent</span><div class="presets recent" role="group" aria-label="The price's recent low and high"></div></div>
