@@ -182,4 +182,38 @@ eq(gone.pools[pool], undefined, 'a pool that stopped paying drops out once its r
 assert.throws(() => validateRanges({ ...first, version: 2 }), /not changed/); checks++;
 assert.throws(() => validateRanges({ ...first, pools: { [pool]: { ...e1, hours: [[H, 5, 4, 1, 4]] } } }), /bad hour row/); checks++;
 
+/* ---------- P&L at the range edges, as the LP Book's "!" ---------- */
+const { edgeOutcome } = await import('../strategy-core.mjs');
+const { edgePnl } = await import('../api/_core.mjs');
+const mine = edgeOutcome(btc, { tickLower: 66240, tickUpper: 66760 }, 1263859165, 909.61);
+const book = edgePnl({ cost_usd: 909.61, out_usd: 0 }, { raw: { liq: '1263859165', lo: 66240, hi: 66760,
+  t0: { s: 'vbWBTC', d: 8, stable: false }, t1: { s: 'vbUSDC', d: 6, stable: true } } });
+near(mine.lower.pnlUsd, book.lower.pnl_usd, 0.006, '#492808 lower edge: Strategy agrees with the LP Book');
+near(mine.upper.pnlUsd, book.upper.pnl_usd, 0.006, '#492808 upper edge: Strategy agrees with the LP Book');
+eq([mine.lower.token, mine.upper.token], ['vbWBTC', 'vbUSDC'], 'all base below, all quote above');
+
+/* a fresh deposit is worth its capital today, so its P&L today (0) lies between its edges */
+const fresh = estimateReward(btc, { capitalUsd: 1000, lowerPrice: 75270, upperPrice: 79288, startTs: now }, ctx);
+const fe = edgeOutcome(btc, fresh.range, fresh.liquidity, 1000);
+ok(fe.lower.pnlUsd < 0 && fe.upper.pnlUsd > 0, 'in range: a loss at the lower edge, a gain at the upper');
+near(fe.lower.valueUsd, fe.lower.amount * fe.lower.price, 1e-6, 'lower edge value is its base tokens at that price');
+near(fe.upper.valueUsd, fe.upper.amount, 1e-9, 'upper edge value is its stablecoins');
+const wider = estimateReward(btc, { capitalUsd: 1000, lowerPrice: 70000, upperPrice: 86000, startTs: now }, ctx);
+const we = edgeOutcome(btc, wider.range, wider.liquidity, 1000);
+ok(we.lower.pnlUsd < fe.lower.pnlUsd && we.upper.pnlUsd > fe.upper.pnlUsd, 'a wider range reaches a bigger gain and a bigger loss');
+
+/* the inverted pool: vbUSDC is token0, prices read vbUSDC per vbETH */
+const er = estimateReward(eth, { capitalUsd: 1000, lowerPrice: 2210, upperPrice: 2325, startTs: now }, ctx);
+const ee = edgeOutcome(eth, er.range, er.liquidity, 1000);
+ok(ee.lower.price < ee.upper.price, 'inverted pool: edges ordered by price');
+eq([ee.lower.token, ee.upper.token], ['vbETH', 'vbUSDC'], 'inverted pool: all ETH at the low price, all USDC at the high');
+ok(ee.lower.pnlUsd < 0 && ee.upper.pnlUsd > 0, 'inverted pool: loss below, gain above');
+
+/* above today's price the deposit is all base token: reaching the lower edge is a gain */
+const up = estimateReward(btc, { capitalUsd: 1000, lowerPrice: 80000, upperPrice: 82000, startTs: now }, ctx);
+const ue = edgeOutcome(btc, up.range, up.liquidity, 1000);
+ok(ue.lower.pnlUsd > 0 && ue.upper.pnlUsd > ue.lower.pnlUsd, 'a range above the price gains at either edge');
+eq(edgeOutcome(btc, { tickLower: 10, tickUpper: 10 }, 1, 1), null, 'an empty range has no edges');
+eq(edgeOutcome(btc, fresh.range, 0, 1000), null, 'no liquidity, nothing to show');
+
 console.log(`Strategy maths: ${checks} assertions passed.`);

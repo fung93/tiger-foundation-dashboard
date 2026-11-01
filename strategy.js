@@ -1,7 +1,7 @@
 /* strategy.js: lays out /api/strategy and runs each pool's estimate with strategy-core.mjs.
    Inputs and open pools survive every refresh: the cards are built once and updated in
    place, never rebuilt under the cursor. */
-import { estimateReward, byApr, RANGE_DAYS } from './strategy-core.mjs';
+import { estimateReward, edgeOutcome, byApr, RANGE_DAYS } from './strategy-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -59,6 +59,7 @@ function build(p) {
           <label><span class="hi-label">Upper price</span><input type="number" inputmode="decimal" step="any" min="0" data-f="upper"></label>
           <label>Capital · USD<input type="number" inputmode="decimal" step="any" min="0" data-f="capital"></label>
           <label>Start day<input type="date" data-f="start"></label>
+          <div class="edge-box" aria-live="polite"></div>
           <div class="preset-row"><span class="presets-label">Around now</span><div class="presets around" role="group" aria-label="Range around the current price"></div></div>
           <div class="preset-row"><span class="presets-label">Recent</span><div class="presets recent" role="group" aria-label="The price's recent low and high"></div></div>
         </div>
@@ -111,7 +112,18 @@ function estimate(pool) {
     { now: t, katUsd: view.kat_usd, rewardStart: view.reward.start, rewardEnd: view.reward.end });
   el.querySelector('[data-f=lower]').setAttribute('aria-invalid', String(!!e.error && !(Number(s.lower) > 0)));
   el.querySelector('[data-f=capital]').setAttribute('aria-invalid', String(!(Number(s.capital) > 0)));
-  if (e.error) { out.innerHTML = `<div class="calc-error">${esc(e.error)}</div>`; return; }
+  const edgeBox = el.querySelector('.edge-box');
+  if (e.error) { out.innerHTML = `<div class="calc-error">${esc(e.error)}</div>`; edgeBox.innerHTML = ''; return; }
+  /* the deposit's P&L if the price reaches either edge, rewards left out (as the LP Book's "!") */
+  const x = edgeOutcome(p, e.range, e.liquidity, Number(s.capital));
+  const quoteToken = p.baseIndex === 0 ? p.token1 : p.token0, stableQuote = quoteToken.usd > 0.95 && quoteToken.usd < 1.05;
+  const edgeRow = (label, r, note) => `<div class="edge-row"><span class="edge-at">${label} · ${price(r.price)}</span>`
+    + `<span class="edge-pnl ${r.pnlUsd >= 0 ? 'up' : 'down'}">${r.pnlUsd >= 0 ? '+' : '-'}${money(Math.abs(r.pnlUsd))}</span>`
+    + `<span class="edge-note">All ${tokens(r.amount)} ${esc(r.token)}. ${note}</span></div>`;
+  edgeBox.innerHTML = x ? `<div class="edge-title">P&amp;L at the range edges · excludes KAT</div>`
+    + edgeRow('Upper edge', x.upper, stableQuote ? 'The most it can be worth.' : `The most it can be worth in ${esc(quoteToken.symbol)}.`)
+    + edgeRow('Lower edge', x.lower, 'Below it, the loss keeps growing.')
+    + (stableQuote ? '' : `<div class="edge-foot">Valued with ${esc(quoteToken.symbol)} at today's dollar price.</div>`) : '';
   const [base, quote] = p.baseIndex === 0 ? [p.token0, p.token1] : [p.token1, p.token0];
   const [dBase, dQuote] = p.baseIndex === 0 ? [e.deposit.amount0, e.deposit.amount1] : [e.deposit.amount1, e.deposit.amount0];
   const notes = [`Range rounds to ${price(e.range.lowerPrice)} – ${price(e.range.upperPrice)} ${esc(quote.symbol)} per ${esc(base.symbol)}, Sushi's nearest price steps. Deposit about ${tokens(dBase)} ${esc(base.symbol)} + ${tokens(dQuote)} ${esc(quote.symbol)} at today's price, then stake it.`];

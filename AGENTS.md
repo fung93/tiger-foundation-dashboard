@@ -387,6 +387,13 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
   ±0.1%, presets in tenths of a percent); the start day defaults to today; inputs are kept for
   the visit only. The page polls every 60 s; LIVE lasts 150 s after a full reading, and the last
   reading paints at once from `localStorage` `tf_strategy`, marked STALE.
+- **P&L at the range edges (Alex, 1 Nov 2026):** in each pool's estimate, above "Around now",
+  a box with the simulated deposit's P&L (no KAT) if the price reaches the upper edge (all quote
+  token, the most it can be worth) and the lower edge (all base token; the loss grows below).
+  `edgeOutcome(pool, range, liquidity, capital)` in `strategy-core.mjs`; cost = the capital at
+  today's prices; the quote token keeps today's dollar price (exact for stablecoins, and said on
+  the page for a pair without one, e.g. vbWBTC/vbETH). It is the same maths as the LP Book's "!"
+  (`edgePnl`): fed #492808's own liquidity and cost it gives the same −$19.74 / +$3.70.
 - **Recent ranges (Alex, 1 Nov 2026):** under the "Around now ±%" buttons each pool has
   "Recent · 7D 14D 21D 30D": the lowest and highest price the pool actually traded at over that
   window, clicked to fill the range and recalculate. Source: every Swap log's tick (5th data
@@ -577,7 +584,7 @@ It has four views: Planner, simulated positions, My real LPs and History.
   range rounding, deposits, the epoch arithmetic, shares, dilution, start-day clamping, out of
   range, token weights and the APR order against figures read on 1 Nov 2026, plus the recent
   ranges: hourly folding, window edges and opening price, negative-tick logs, the job's first
-  and incremental runs with a fake chain, file validation and formatting; 87 assertions.
+  and incremental runs with a fake chain, file validation and formatting, and the edge P&L against the LP Book's; 100 assertions.
   `node scripts/strategy-ranges.mjs` updates only `strategy-ranges.json`.
   In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
   (`node scripts/dev-server.mjs`, port 4200).

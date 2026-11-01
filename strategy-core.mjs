@@ -119,6 +119,29 @@ export function estimateReward(pool, input, ctx) {
   };
 }
 
+/* A simulated deposit's P&L (no rewards) with the price at each edge of its range, as the LP
+   Book's "!" shows for a real one. At an edge the whole position is one token: at the upper
+   edge (base token dearest) it is all quote token, the most it can be worth; at the lower it
+   is all base token, and below that the loss grows with the price. The quote token keeps
+   today's dollar price, which is exact where it is a stablecoin. Cost = the capital, the
+   deposit's value at today's prices. */
+export function edgeOutcome(pool, range, liquidity, capitalUsd) {
+  if (!(liquidity > 0) || !range || !(range.tickUpper > range.tickLower)) return null;
+  const lo = range.tickLower, hi = range.tickUpper, d0 = pool.token0.decimals, d1 = pool.token1.decimals;
+  const sa = Math.pow(1.0001, lo / 2), sb = Math.pow(1.0001, hi / 2);
+  const all0 = liquidity * (1 / sa - 1 / sb) / Math.pow(10, d0);   /* whole token0 at the lower tick */
+  const all1 = liquidity * (sb - sa) / Math.pow(10, d1);           /* whole token1 at the upper tick */
+  const baseIs0 = orientation(pool).base === 0;
+  const quoteUsd = baseIs0 ? pool.token1.usd : pool.token0.usd;
+  if (!(quoteUsd > 0)) return null;
+  const edges = [
+    { price: priceAtTick(lo, pool), amount: all0, token: pool.token0.symbol, inQuote: baseIs0 ? all0 * priceAtTick(lo, pool) : all0 },
+    { price: priceAtTick(hi, pool), amount: all1, token: pool.token1.symbol, inQuote: baseIs0 ? all1 : all1 * priceAtTick(hi, pool) },
+  ].sort((a, b) => a.price - b.price);
+  const at = (e) => ({ price: e.price, amount: e.amount, token: e.token, valueUsd: e.inQuote * quoteUsd, pnlUsd: e.inQuote * quoteUsd - capitalUsd });
+  return { lower: at(edges[0]), upper: at(edges[1]) };
+}
+
 /* the pools ordered as the page lists them: highest reward APR first */
 export const byApr = (pools) => [...pools].sort((a, b) => (b.apr ?? -1) - (a.apr ?? -1) || b.katPerDay - a.katPerDay);
 
