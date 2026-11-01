@@ -13,6 +13,9 @@ const pct = (v) => (Number.isFinite(v) ? fmt(v * 100, Math.abs(v) >= 1 ? 0 : 2) 
 const priceDp = (p) => (p >= 1000 ? 2 : p >= 1 ? 4 : 6);
 const price = (p) => (Number.isFinite(p) ? fmt(p, priceDp(p)) : '—');
 const tokens = (v) => (Number.isFinite(v) ? fmt(v, v >= 100 ? 2 : v >= 1 ? 4 : 6) : '—');
+/* a token amount, with its dollar value in brackets unless it is a stablecoin (already dollars) */
+const held = (amount, token) => `${tokens(amount)} ${esc(token.symbol)}`
+  + (token.usd > 0 && !(token.usd > 0.95 && token.usd < 1.05) ? ` (${money(amount * token.usd)})` : '');
 const when = (ts) => new Date(ts * 1000).toLocaleString('en-GB', { timeZone: MYT, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 const day = (ts) => new Date(ts * 1000).toLocaleDateString('en-GB', { timeZone: MYT, day: 'numeric', month: 'short' });
 const hm = (ts) => new Date(ts * 1000).toLocaleTimeString('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hour12: false });
@@ -126,7 +129,7 @@ function estimate(pool) {
     + (stableQuote ? '' : `<div class="edge-foot">Valued with ${esc(quoteToken.symbol)} at today's dollar price.</div>`) : '';
   const [base, quote] = p.baseIndex === 0 ? [p.token0, p.token1] : [p.token1, p.token0];
   const [dBase, dQuote] = p.baseIndex === 0 ? [e.deposit.amount0, e.deposit.amount1] : [e.deposit.amount1, e.deposit.amount0];
-  const notes = [`Range rounds to ${price(e.range.lowerPrice)} – ${price(e.range.upperPrice)} ${esc(quote.symbol)} per ${esc(base.symbol)}, Sushi's nearest price steps. Deposit about ${tokens(dBase)} ${esc(base.symbol)} + ${tokens(dQuote)} ${esc(quote.symbol)} at today's price, then stake it.`];
+  const notes = [`Range rounds to ${price(e.range.lowerPrice)} – ${price(e.range.upperPrice)} ${esc(quote.symbol)} per ${esc(base.symbol)}, Sushi's nearest price steps. Deposit about ${held(dBase, base)} + ${held(dQuote, quote)} at today's price, then stake it.`];
   const pick = s.picked;
   if (pick && Number(s.lower) === pick.lower && Number(s.upper) === pick.upper)
     notes.unshift(`Range set from the last ${pick.days} days' lowest and highest traded price (${fmt(pick.swaps)} swaps${pick.complete ? '' : ', history incomplete'}).`);

@@ -383,7 +383,8 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
 - **KAT price:** the KAT/vbUSDC pool's `slot0`, exactly as the Lending page prices it.
 - **Display:** four epoch cards (Epoch · KAT this epoch · KAT per day · Reward period), then the
   pools. Each pool quotes its price in the cheaper token (vbUSDC per vbWBTC, vbUSDC per vbETH),
-  fixed by `baseIndex` so it never flips. Defaults per pool: $1,000 and ±2.5% (stable pairs
+  fixed by `baseIndex` so it never flips. The deposit line shows each non-stablecoin amount's
+  dollar value at today's price in brackets, e.g. "0.006341 vbWBTC ($494.90) + 505.10 vbUSDC". Defaults per pool: $1,000 and ±2.5% (stable pairs
   ±0.1%, presets in tenths of a percent); the start day defaults to today; inputs are kept for
   the visit only. The page polls every 60 s; LIVE lasts 150 s after a full reading, and the last
   reading paints at once from `localStorage` `tf_strategy`, marked STALE.
@@ -394,6 +395,11 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
   today's prices; the quote token keeps today's dollar price (exact for stablecoins, and said on
   the page for a pair without one, e.g. vbWBTC/vbETH). It is the same maths as the LP Book's "!"
   (`edgePnl`): fed #492808's own liquidity and cost it gives the same −$19.74 / +$3.70.
+- **Accuracy, measured 1 Nov 2026 (Alex asked):** reward estimate vs #492808's real Merkl KAT
+  over 43.5 h fully in range: predicted 2,535 KAT/day, earned 2,611 on average (page 3% low);
+  single 4–8 h windows ranged 2,161–2,865 (other stakers moving, Merkl's ~2 h batches). Epoch,
+  campaign KAT, edge P&L, deposit split and recent ranges are exact; the total to period end
+  assumes 100% time in range, so it is a best case.
 - **Recent ranges (Alex, 1 Nov 2026):** under the "Around now ±%" buttons each pool has
   "Recent · 7D 14D 21D 30D": the lowest and highest price the pool actually traded at over that
   window, clicked to fill the range and recalculate. Source: every Swap log's tick (5th data
