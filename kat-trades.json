@@ -1,4 +1,4 @@
-{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 46796045, "last_ts": 1793538856,
+{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 46825783, "last_ts": 1793568594,
   "trades": [
     {"hash":"0xd249bc72b1426c42b92fc55ba806e2776e0a88846acb92743d3cd55f65cddca1","deposit_hash":null,"block":46345344,"ts":1793088155,"side":"buy","kat":5978.847409331783,"usd":25,"token":"vbUSDC","route":"swap","fees":{"usd":0.0017026197162703924,"gas_eth":0,"gas_usd":0,"parts":[{"what":"Order fee","token":"KAT","amount":0.40718813918801805,"usd":0.0017026197162703924}]}},
     {"hash":"0xfd05e6d22de0da0d88e4c84f4ae53e82dd8e47abd7a6dd91b9c1a5fbef72e1c5","deposit_hash":"0xaf940cdb8fab5872bae0a614de4185c79957277f061bd467f255364ddb024dd2","block":46511459,"ts":1793254270,"side":"sell","kat":5600,"usd":25.864268,"token":"vbUSDC","route":"deposit","fees":{"usd":0.011865864336982562,"gas_eth":5.69624e-8,"gas_usd":0.00012882332294193252,"parts":[{"what":"Service fee","token":"vbUSDC","amount":0.010349,"usd":0.010349},{"what":"Relayer fee","token":"KAT","amount":0.3005315935725504,"usd":0.0013880410140406287}]}},
@@ -6,8 +6,6 @@
     {"hash":"0x5ee8a09b9511927bd42572e6a9b7f54b5030f637550d4dc7fcbfe9d1057cd42b","deposit_hash":"0x67daea23825813ef4f678140848d9b957183260f1244fde9aac039d10eb14397","block":46759876,"ts":1793502687,"side":"buy","kat":6260.97983244749,"usd":25,"token":"vbUSDC","route":"deposit","fees":{"usd":0.05225158731770452,"gas_eth":0.000003358575,"gas_usd":0.007595585717064256,"parts":[{"what":"Service fee","token":"KAT","amount":2.505394090615242,"usd":0.010004001600640256},{"what":"Relayer fee","token":"vbUSDC","amount":0.034652,"usd":0.034652}]}}
   ],
   "pending": [
-    {"to":"0x6f73cf927f3980d5f29ff2eabda0d1e84bddb037","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":290,"block":46547589,"ts":1793290400,"hash":"0x94ab908240047c75c48bda30cde6f319bf8b2fa874842caf5a41e74723fe9c05"},
-    {"to":"0x744676b3ced942d78f9b8e9cd22246db5c32395c","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":562.265331,"block":46547670,"ts":1793290481,"hash":"0x0078ee05b1dc495d4f91d7570930b6bcff90dd7dac17e315469a180d4f4ba473"},
     {"to":"0x4cd00e387622c35bddb9b4c962c136462338bc31","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":0.998,"block":46575997,"ts":1793318808,"hash":"0x64859539d6bd59856248fbbb26db87e99ae65f7e82b320edee3d4385a9123c44"},
     {"to":"0xc10ee9031f2a0b84766a86b55a8d90f357910fb4","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":1,"block":46576092,"ts":1793318903,"hash":"0xfaa4d1598f505c08b1def5be138517ed5049665ae12c4edd4dce46e5419b0acd"},
     {"to":"0x744676b3ced942d78f9b8e9cd22246db5c32395c","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":470.294146,"block":46576469,"ts":1793319280,"hash":"0x27c779f12f657c2c31922d635e4aa83070db400d7aa419302d693263ac4d866f"},
@@ -140,6 +138,14 @@
     [1793527200,331247],
     [1793530800,331284],
     [1793534400,331244],
-    [1793538000,331244]
+    [1793538000,331300],
+    [1793541600,331297],
+    [1793545200,331297],
+    [1793548800,331314],
+    [1793552400,331483],
+    [1793556000,331479],
+    [1793559600,331529],
+    [1793563200,331525],
+    [1793566800,331533]
   ]
 }
