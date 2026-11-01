@@ -29,11 +29,11 @@ let view = null, readAt = 0, lastOk = false, busy = false, failure = '';
 function renderOverview() {
   const b = view.book, cells = $('overview').children;
   const set = (i, value, sub) => { cells[i].querySelector('.overview-value').textContent = value; cells[i].querySelector('.metric-sub').textContent = sub; };
-  const kat = view.locks.reduce((s, l) => s + (l.kat || 0), 0), power = view.locks.reduce((s, l) => s + (l.power || 0), 0);
+  const kat = view.locks.reduce((s, l) => s + (l.kat || 0), 0);
   const ids = view.locks.map((l) => '#' + l.id).join(', ');
   set(0, fmt(kat, 2), view.locks.length ? `${view.locks.length === 1 ? 'lock' : 'locks'} ${ids} · worth ${money(kat * view.kat_usd)}` : 'No vKAT lock held');
   const standing = view.standing.map((s) => view.pools[s.gauge] || s.gauge.slice(0, 10)).join(', ');
-  set(1, `${b.voted} epoch${b.voted === 1 ? '' : 's'}`, `voting power ${fmt(power, 0)}` + (standing ? ` · now on ${standing}` : ''));
+  set(1, `${b.voted} epoch${b.voted === 1 ? '' : 's'}`, standing ? `now on ${standing}` : 'No vote standing');
   set(2, money(b.total_usd), `${b.voted} epoch${b.voted === 1 ? '' : 's'} · ${b.claimed ? 'all claimed' : 'some still to claim'}`);
   /* the breakdown behind the "!": each token, its amount and its dollars when paid */
   $('rewardInfo').querySelector('.info-tip').innerHTML = '<span class="info-title">Reward breakdown</span>'

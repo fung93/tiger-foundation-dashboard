@@ -794,6 +794,11 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 1 Nov 2026 (Alex: "remove 'voting power 257,872' on epoch card, then push"):** the
+  vKAT page's Votes cast card says only where the vote stands now ("now on vbWBTC/vbUSDC 0.05%",
+  or "No vote standing"); the voting power, equal to the vKAT card's figure, is gone.
+  `sw.js` -> `tiger-v137`.
+
 - **Pushed 1 Nov 2026 (Alex: "the start day input in strategy page not fit with the card size
   in phone version, fix and push"):** phone browsers (iPhone Safari above all) give a date box
   its own minimum width and ignore the width set, and the estimate's `1fr 1fr` grid let it push
