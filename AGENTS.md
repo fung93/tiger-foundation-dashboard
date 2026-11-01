@@ -463,18 +463,36 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 8. Running and checking locally
 
-- **Local server:** `powershell -ExecutionPolicy Bypass -File serve.ps1` serves the repo at
+- **Portable preview (Windows or cloud/Linux, Node 20+):** `npm run dev` serves the repo at
+  http://127.0.0.1:4200 and runs the existing read-only `/api/*` handlers. No dependencies
+  need installing. It never starts the scheduled collectors or writes data files.
+  - `HOST=0.0.0.0` and `PORT` can be supplied by a cloud environment; keep preview
+    forwarding private. API self-fetches use loopback even behind an HTTPS preview.
+  - Static files refresh immediately. Restart the server after editing API modules or
+    their shared imports, because Node caches them.
+  - Its development-only `/sw.js` clears old Tiger caches and unregisters itself;
+    production `sw.js` is unchanged.
+- **Legacy Windows static server:** `powershell -ExecutionPolicy Bypass -File serve.ps1` serves the repo at
   http://localhost:4200 (`.claude/launch.json` holds the same).
   - It also accepts `POST /_save?name=<file>`, which writes a browser-rendered file (used
     for icons).
   - Any static server works too.
 - **Local limits:**
-  - **The `/api/*` functions do not run locally.** To test a page with real API data, save
-    the production response, e.g. `curl …/api/lpbook -o api/lpbook`.
-    **Delete that file before committing.**
+  - Static servers such as `serve.ps1` do not run `/api/*`. Prefer `npm run dev` when
+    testing API data. Any saved production-response fixture at `api/lpbook` must still
+    be deleted before committing.
   - Merkl fails on localhost (CORS).
-- **Service worker:** it caches aggressively on localhost too. Unregister it, or clear
-  caches, before judging a change.
+- **Service worker:** when using a static server, unregister it or clear caches before
+  judging a change. The portable preview handles this through its development worker.
+- **Combined check:** `npm run check` verifies syntax, inline scripts and identical
+  Portfolio copies, then runs every `scripts/test-*.mjs` check. `npm test` runs those
+  regression checks alone. Both avoid chain collectors, history writers and backfills.
+- **Cloud workspace:** see `docs/CLOUD-SETUP.md`. Use the actual checkout path in the
+  environment; the recorded Windows path is only the local backup. Keep the same
+  explicit-push rule in every cloud chat. Publishing an environment does not authorise
+  committing, pushing, merging or publishing the website.
+- **Portable preview check:** `node scripts/test-dev-server.mjs` checks static files,
+  API self-fetches, private-file boundaries and development caching with 52 assertions.
 - **Testing chain code:** import `api/_core.mjs` from a scratch Node script (Node 20+) and
   call the same functions the API calls. For example, `advanceBook` → `bookLiveRows` →
   `livePrices` → `bookView`.
