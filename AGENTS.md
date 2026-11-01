@@ -196,6 +196,21 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   is the Merkl KAT.
 - **Rebalance:** a close and a mint by the same wallet within 24 hours, on any chain.
 
+### P&L at the range edges (Alex, 1 Nov 2026)
+
+- Each live LP card (LP Book and widget, `lpcards.js`) has a small "!" beside **P&L**. Hover,
+  keyboard focus or a tap opens a box with the P&L (IL + price, **no fees or rewards**) if the
+  price were at each edge of the range: upper edge = all stablecoin, the most it can be worth;
+  lower edge = all the volatile token, and below it the loss keeps growing. A tapped box stays
+  open across the 15-second rebuild until a tap elsewhere or Escape.
+- Server side: `edgePnl(P, row)` in `api/_core.mjs` values the whole liquidity in one token at
+  each edge tick (`row.raw` liq/lo/hi), stable leg at $1, and applies the card's own P&L: value
+  there + withdrawn − cost. A pair with no stable leg gets no box. The view carries it as
+  `edge_pnl {lower, upper: {price, pnl, up, holds}}`.
+- Checked 1 Nov 2026: #492808 −$19.74 / +$3.70 and #1458357 −$509.21 / +$50.30, each with the
+  current P&L between them; the same formula at today's price reproduced each card's value to
+  the cent. `node scripts/test-edge-pnl.mjs` (20 assertions).
+
 ### Refresh and resilience
 
 - Portfolio Katana reads must finish every required LP ownership, enumeration, position,

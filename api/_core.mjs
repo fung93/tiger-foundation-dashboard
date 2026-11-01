@@ -1773,6 +1773,31 @@ const claimedTokensOf = (P) => {
    ALL-TIME: closed positions only, every figure fixed: PnL in tokens and dollars at the
    close, each claim at its own day's price. Rows are built from those fixed values and the
    cards are their sums, so the rows add up to the cards exactly. */
+/* The position's P&L (IL + price, no fees or rewards) with the price at each edge of its
+   range. At an edge the whole position is one token: at the edge where the volatile token is
+   dearest it is all stablecoin, the most it can ever be worth; at the other it is all the
+   volatile token, and below that the loss grows with the price. Same P&L as the card:
+   value there + withdrawn - cost. A pair with no stable leg has no single dollar answer. */
+export function edgePnl(P, row) {
+  const R = row && row.raw;
+  if (!R || !R.t0 || !R.t1 || !(R.t0.stable || R.t1.stable)) return null;
+  const L = Number(R.liq), lo = Number(R.lo), hi = Number(R.hi);
+  if (!(L > 0) || !Number.isFinite(lo) || !Number.isFinite(hi) || !(hi > lo) || !Number.isFinite(P.cost_usd)) return null;
+  const d0 = R.t0.d, d1 = R.t1.d, sa = Math.pow(1.0001, lo / 2), sb = Math.pow(1.0001, hi / 2);
+  const p10 = (t) => Math.pow(1.0001, t) * Math.pow(10, d0 - d1);            /* token1 per token0 */
+  const usd0 = (t) => (R.t0.stable ? 1 : p10(t)), usd1 = (t) => (R.t1.stable ? 1 : 1 / p10(t));
+  /* the volatile token's dollar price there, as the card quotes the range */
+  const quoted = (t) => (R.t1.stable ? p10(t) : 1 / p10(t));
+  const amount0 = L * (1 / sa - 1 / sb) / 10 ** d0, amount1 = L * (sb - sa) / 10 ** d1;
+  const edges = [
+    { price: quoted(lo), value: amount0 * usd0(lo), amount: amount0, token: R.t0.s },
+    { price: quoted(hi), value: amount1 * usd1(hi), amount: amount1, token: R.t1.s },
+  ].sort((a, b) => a.price - b.price);
+  const out = (e) => ({ price: e.price, value_usd: r2(e.value), pnl_usd: r2(e.value + (P.out_usd || 0) - P.cost_usd), amount: e.amount, token: e.token });
+  return { lower: out(edges[0]), upper: out(edges[1]) };
+}
+const tokenAmount = (a) => a.toLocaleString('en-US', { maximumFractionDigits: a >= 1000 ? 0 : a >= 100 ? 2 : a >= 1 ? 4 : 6 });
+
 export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const usdOf = (tokens) => {
     let v = 0; const missing = [];
@@ -1818,6 +1843,10 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     const earned = usdOf(tokens).usd;
     view.yield_value = money(earned);
     view.pnl = signed(u); view.pnl_up = u >= 0;
+    const edges = edgePnl(P, row);
+    view.edge_pnl = edges && Object.fromEntries(['lower', 'upper'].map((k) => [k, {
+      price: price(edges[k].price), pnl: signed(edges[k].pnl_usd), up: edges[k].pnl_usd >= 0,
+      holds: tokenAmount(edges[k].amount) + ' ' + edges[k].token }]));
     view.net = signed(u + earned); view.net_up = u + earned >= 0;
     view.cost = money(P.cost_usd);
     view.since = 'opened ' + new Date(P.opened_ts * 1000).toISOString().slice(0, 10);

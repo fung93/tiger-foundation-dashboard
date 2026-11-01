@@ -13,6 +13,9 @@
      LPCards.stamp(el, last, failed)
                                 LIVE with a running clock while figures are fresh;
                                 STALE with their age after ninety seconds without one
+
+   The "!" beside P&L opens the P&L at each edge of the range (W.edge_pnl), on hover,
+   keyboard focus or a tap; a tapped box stays open across the poll's rebuild.
    ========================================================================== */
 (function () {
   var esc = function (s) {
@@ -114,6 +117,46 @@
       + (detail.period_label ? '<span class="apr-period"> · ' + esc(detail.period_label) + '</span>' : '') + '</div>';
   }
 
+  /* "!" beside P&L: the position's P&L with the price at each edge of its range, fees and
+     rewards left out. The key of a tapped-open box outlives the 15-second rebuild. */
+  var openEdge = '';
+  function edgeInfo(W) {
+    var e = W.edge_pnl;
+    if (!e || !e.lower || !e.upper) return '';
+    var key = String(W.chain || '') + ':' + String(W.id || ''), open = openEdge === key;
+    var row = function (label, x, note) {
+      return '<span class="edge-row"><span class="edge-at">' + esc(label) + ' · ' + esc(x.price) + '</span>'
+        + '<span class="edge-pnl ' + (x.up ? 'up' : 'down') + '">' + esc(x.pnl) + '</span>'
+        + '<span class="edge-note">' + esc(note) + '</span></span>';
+    };
+    return '<span class="edge-wrap' + (open ? ' open' : '') + '" data-edge="' + esc(key) + '">'
+      + '<button type="button" class="edge-info" aria-label="P&amp;L at the range edges" aria-expanded="' + open + '">!</button>'
+      + '<span class="edge-tip" role="tooltip"><span class="edge-title">P&amp;L at the range edges</span>'
+      + row('Upper edge', e.upper, 'All ' + e.upper.holds + '. The most it can be worth.')
+      + row('Lower edge', e.lower, 'All ' + e.lower.holds + '. Below it, the loss keeps growing.')
+      + '<span class="edge-foot">Excludes fees and rewards.</span></span></span>';
+  }
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    var closeEdges = function () {
+      openEdge = '';
+      Array.prototype.forEach.call(document.querySelectorAll('.edge-wrap.open'), function (w) {
+        w.classList.remove('open');
+        var b = w.querySelector('.edge-info'); if (b) b.setAttribute('aria-expanded', 'false');
+      });
+    };
+    document.addEventListener('click', function (ev) {
+      var t = ev.target, btn = t && t.closest ? t.closest('.edge-info') : null;
+      if (btn) {
+        var wrap = btn.parentNode, opening = !wrap.classList.contains('open');
+        closeEdges();
+        if (opening) { wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); openEdge = wrap.getAttribute('data-edge'); }
+        return;
+      }
+      if (!(t && t.closest && t.closest('.edge-tip'))) closeEdges();
+    });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeEdges(); });
+  }
+
   function card(W) {
     var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
     return '<div class="lpw"><div class="top"><div><div class="pair">' + esc(W.pair) + '</div>'
@@ -124,7 +167,7 @@
       + '<div class="ends"><span>' + esc(W.lower) + '</span><span class="mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '') + '">'
       + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
       + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
-      + '<div><div class="k">P&amp;L</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
+      + '<div><div class="k">P&amp;L' + edgeInfo(W) + '</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
       + comparison(W.comparison, { row: true })
       + '<div class="foot"><span>' + esc(W.since)
