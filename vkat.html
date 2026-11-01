@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/theme.css">
 <!--
   vKAT Votes: Alex's vKAT, the gauge votes it cast each epoch and the rewards those votes
-  earned, with each epoch's APY. The figures come finished from /api/vkat (vkat-core.mjs's
+  earned, with each epoch's APR. The figures come finished from /api/vkat (vkat-core.mjs's
   voteBook); this page lays them out. The KAT section's second tab, beside KAT trades.
 -->
 </head>
@@ -55,7 +55,7 @@
     <div class="card overview-card"><div class="metric-label">vKAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">Votes cast</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">Total reward <span class="info-wrap" id="rewardInfo"><button type="button" class="info-btn" aria-label="Reward breakdown" aria-expanded="false">!</button><span class="info-tip" role="tooltip"></span></span></div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Average APY</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Average APR</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
   </div>
   <div class="waiting-note" id="voteNote" hidden></div>
 
@@ -74,7 +74,7 @@
   <section class="card trades-card" aria-labelledby="historyTitle">
     <div class="trades-head"><div class="label" id="historyTitle">Vote history · newest first</div><span class="trades-hint">Times are Malaysia time</span></div>
     <div class="table-wrap"><table class="trades votes" id="votes">
-      <thead><tr><th scope="col">Epoch</th><th scope="col">Pool voted</th><th scope="col" class="num">vKAT used</th><th scope="col">Reward</th><th scope="col" class="num">Value</th><th scope="col" class="num">APY</th></tr></thead>
+      <thead><tr><th scope="col">Epoch</th><th scope="col">Pool voted</th><th scope="col" class="num">vKAT used</th><th scope="col">Reward</th><th scope="col" class="num">Value</th><th scope="col" class="num">APR</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <div class="trades-foot" id="votesFoot"></div>
@@ -86,7 +86,7 @@
       <p><b>vKAT.</b> The KAT locked in the vKAT the two wallets hold now, read from Katana's voting escrow; its voting power is the same. KAT in avKAT is not counted here: the avKAT vault votes it and compounds its rewards itself.</p>
       <p><b>Votes.</b> Every vote and reset the gauge voter recorded for either wallet. A vote stands from epoch to epoch until it is changed, so an epoch counts as voted when a vote stood during it. Its pool and vKAT are the vote that stood with the most vKAT behind it in that epoch (the latest, if equal): a lock moved into avKAT after the vote week does not hide the vote it cast.</p>
       <p><b>Rewards.</b> The vote incentives Merkl paid each vKAT lock, named by pool and lock (AragonBribes). Each belongs to the epoch its campaign ends in, which is that epoch's vote week, and is valued at its token's price when the campaign ended; vbUSDC is a dollar. Rewards are booked once and never re-valued.</p>
-      <p><b>APY.</b> An epoch's reward over the vKAT that voted, valued at KAT's price when that epoch's vote week closed, compounded over the 26 epochs of a year as if each reward were put back in; the simple rate (APR) is shown beside it. The average is all the rewards over all the vKAT voted, for the epochs whose vote week has closed. Leaving vKAT takes a 60-day cooldown and a fee of 2.5% to 25%, which these rates do not include.</p>
+      <p><b>APR.</b> An epoch's reward over the vKAT that voted, valued at KAT's price when that epoch's vote week closed, times the 26 epochs of a year. It is not compounded: the rewards are paid in dollars (vbUSDC, mostly) and stay in the wallet rather than going back into vKAT, so a compounded APY would describe a strategy that is not being run. The average is all the rewards over all the vKAT voted, for the epochs whose vote week has closed. Leaving vKAT takes a 60-day cooldown and a fee of 2.5% to 25%, which these rates do not include.</p>
       <p><b>Sources.</b> Katana's gauge voter and voting escrow, Merkl's reward records and campaigns, and the KAT, vbETH and vbWBTC pools for prices at each moment. A six-hourly job keeps the ledger; anything newer is read when the page asks. This page reads only; it never connects a wallet.</p>
     </details>
   </div>

@@ -39,7 +39,7 @@ function renderOverview() {
   $('rewardInfo').querySelector('.info-tip').innerHTML = '<span class="info-title">Reward breakdown</span>'
     + tokenList(b.tokens).map(([t, v]) => `<span class="info-row"><span>${amount(v, t)} ${esc(t)}</span><span>${cents((b.tokens_usd || {})[t])}</span></span>`).join('')
     + `<span class="info-foot">Each valued when it was paid${b.claimed ? ' · all claimed' : ''}</span>`;
-  set(3, pct(b.apy), `APR ${pct(b.apr)} · ${b.epochs.filter((e) => e.settled && e.value_usd).length} epochs, vKAT at each epoch's KAT price`);
+  set(3, pct(b.apr), `${b.epochs.filter((e) => e.settled && e.value_usd).length} epochs · vKAT at each epoch's KAT price`);
   const w = view.vote_week, note = $('voteNote');
   note.hidden = false;
   note.innerHTML = w.open
@@ -97,7 +97,7 @@ function drawChart() {
       + `<div class="tip-row"><span>Voted</span><span>${esc(e.pools.map((q) => view.pools[q.gauge] || q.gauge.slice(0, 10)).join(', ') || '—')}</span></div>`
       + `<div class="tip-row"><span>That epoch</span><span>+${money(e.usd)}</span></div>`
       + `<div class="tip-row"><span>Total so far</span><span>${money(e.cumulative)}</span></div>`
-      + `<div class="tip-row"><span>APY</span><span>${pct(e.apy)}</span></div>`;
+      + `<div class="tip-row"><span>APR</span><span>${pct(e.apr)}</span></div>`;
     line.style.display = ''; line.setAttribute('x1', x(cursor)); line.setAttribute('x2', x(cursor));
     const at = x(cursor) - pane.scrollLeft;
     if (scroll && (at < P.l || at > avail - 10)) { pane.scrollLeft = Math.max(0, x(cursor) - avail / 2); }
@@ -123,7 +123,7 @@ function renderVotes() {
     const pools = e.pools.length ? e.pools.map((p) => `<span>${esc(view.pools[p.gauge] || p.gauge.slice(0, 10))}${e.pools.length > 1 ? ` <span class="muted">· ${fmt(p.votes, 0)}</span>` : ''}</span>`).join('') : '<span class="muted">No vote standing</span>';
     const rewards = tokenList(e.rewards);
     const rewardCell = rewards.length ? rewards.map(([t, v]) => `<span>${amount(v, t)} ${esc(t)}</span>`).join('') : `<span class="muted">${e.settled ? 'None' : 'Not paid yet'}</span>`;
-    /* on a phone: epoch and value, pool and APY, then vKAT and what it was paid in */
+    /* on a phone: epoch and value, pool and APR, then vKAT and what it was paid in */
     const short = `<td class="ph-meta">${e.total > 0 ? fmt(e.total, 0) + ' vKAT' : 'No vote'}${rewards.length ? ' · paid in ' + rewards.map(([t]) => esc(t)).join(' + ') : ''}</td>`;
     return `<tr>
       <td class="epoch"><b>${e.epoch}${isNow ? '<span class="now-tag">now</span>' : ''}</b><span class="dates">${esc(day(s))} – ${esc(day(s + EPOCH))}</span></td>
@@ -131,12 +131,12 @@ function renderVotes() {
       <td class="num vkat" data-label="vKAT used">${e.total > 0 ? fmt(e.total, 2) : '—'}</td>
       <td class="lines reward" data-label="Reward">${rewardCell}</td>
       <td class="num value" data-label="Value">${money(e.usd)}</td>
-      <td class="num apy-cell" data-label="APY" title="${e.apr !== null ? `APR ${pct(e.apr)} · KAT $${fmt(e.kat_usd, 6)} when the vote week closed` : ''}"><span class="apy">${pct(e.apy)}</span><span class="ph-apy"> APY</span>${e.apr !== null ? `<span class="sub">APR ${pct(e.apr)}</span>` : ''}</td>
+      <td class="num apr-cell" data-label="APR" title="${e.apr !== null ? `KAT $${fmt(e.kat_usd, 6)} when the vote week closed` : ''}"><span class="apr">${pct(e.apr)}</span><span class="ph-apr"> APR</span></td>
       ${short}
     </tr>`;
   }).join('');
-  const b = view.book, best = [...b.epochs].filter((e) => e.apy !== null).sort((a, c) => c.apy - a.apy)[0];
-  $('votesFoot').textContent = `${b.voted} epochs voted · ${money(b.total_usd)} in all at the prices when each was paid` + (best ? ` · best: epoch ${best.epoch}, ${view.pools[best.pools[0] && best.pools[0].gauge] || ''}, ${pct(best.apy)} APY` : '');
+  const b = view.book, best = [...b.epochs].filter((e) => e.apr !== null).sort((a, c) => c.apr - a.apr)[0];
+  $('votesFoot').textContent = `${b.voted} epochs voted · ${money(b.total_usd)} in all at the prices when each was paid` + (best ? ` · best: epoch ${best.epoch}, ${view.pools[best.pools[0] && best.pools[0].gauge] || ''}, ${pct(best.apr)} APR` : '');
 }
 
 function renderStamp() {

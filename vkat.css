@@ -6,15 +6,15 @@
 .votes .epoch .now-tag{display:inline-block;margin:0 0 0 6px;font-size:9px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(214,185,123,.35);border-radius:99px;padding:1px 7px;vertical-align:1px}
 .votes .lines span{display:block;line-height:1.7}
 .votes .lines .muted{color:var(--faint)}
-.votes .apy{color:var(--gold)}
+.votes .apr{color:var(--gold)}
 .votes .sub{display:block;color:var(--dim);font-size:10px;margin-top:2px}
-.votes .ph-meta,.votes .ph-apy{display:none}
+.votes .ph-meta,.votes .ph-apr{display:none}
 /* on a phone each epoch is three short lines, no labels:
    epoch · dates ......... value
-   pool .................. APY
+   pool .................. APR
    vKAT · paid in tokens */
 @media(max-width:720px){
-  .votes tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"epoch value" "pool apy" "meta meta";gap:5px 14px;padding:13px 2px}
+  .votes tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"epoch value" "pool apr" "meta meta";gap:5px 14px;padding:13px 2px}
   .votes td::before{display:none}
   .votes td.epoch{grid-area:epoch;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
   .votes td.epoch b{display:inline}
@@ -23,9 +23,9 @@
   .votes td.pools>span{line-height:1.5}
   .votes td.ph-meta{grid-area:meta;display:block;color:var(--faint);font-size:10.5px;line-height:1.5;margin-top:-2px}
   .votes td.value{grid-area:value;text-align:right!important;font-weight:500}
-  .votes td.apy-cell{grid-area:apy;text-align:right!important;white-space:nowrap}
-  .votes .ph-apy{display:inline;color:var(--dim);font-size:10px}
-  .votes td.vkat,.votes td.reward,.votes .apy-cell .sub{display:none}
+  .votes td.apr-cell{grid-area:apr;text-align:right!important;white-space:nowrap}
+  .votes .ph-apr{display:inline;color:var(--dim);font-size:10px}
+  .votes td.vkat,.votes td.reward{display:none}
 }
 @media(max-width:600px){.vote-plot{height:290px}}
 /* "!" beside Total reward: the breakdown by token, on hover, focus or tap */

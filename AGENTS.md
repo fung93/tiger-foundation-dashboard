@@ -497,7 +497,7 @@ the first buy after the 26 Oct sales) over 12 Oct, after seeing a month of his h
 ### vKAT Votes (Alex, 1 Nov 2026)
 
 Alex's spec: a page about his vKAT vote: on top the total vKAT, the number of votes, the total
-reward and the average APY; a line chart of total reward against epoch with each epoch's
+reward and the average APY (shown as APR since 1 Nov, his choice); a line chart of total reward against epoch with each epoch's
 reward labelled on the line; then the vote history: pool voted, vKAT used, reward type and
 amount, APY. It is the **KAT section's second tab** (`vkat.html`, linked from a bar on
 `kat.html` and back), not a sixth menu item: five already fill a 320 px phone. The menu's KAT
@@ -522,9 +522,13 @@ item is lit on both.
   epoch, so the start would misfile it). Valued at its token's price when the campaign ended
   (vbUSDC $1; KAT, vbETH and vbWBTC from their vbUSDC pools at that block, archive reads), once,
   then never re-valued.
-- **APY:** an epoch's reward over its vKAT valued at KAT's price when its vote week closed,
-  compounded over 365/14 epochs a year; APR beside it. The average is all rewards over all
-  vKAT value, for the epochs whose vote week has closed. The 60-day exit and its 2.5-25% fee
+- **APR, not APY (Alex, 1 Nov 2026):** an epoch's reward over its vKAT valued at KAT's price
+  when its vote week closed, times 365/14 epochs a year, not compounded. 96% of the reward is
+  vbUSDC that stays in the wallet, the lock grew by a merge rather than by reinvested rewards,
+  and the epoch rate swings 12-115%, so a compounded APY (40.7% average, 208.9% for 1474)
+  described a strategy he does not run; it also matches Merkl, Strategy and the LP Book, which
+  quote APR. The average is all rewards over all vKAT value, for the epochs whose vote week has
+  closed. The 60-day exit and its 2.5-25% fee
   are not in the rates, and the page says so.
 - **Display:** four cards, the vote-week note (open until..., or the next one's dates and where
   his vote stands), the chart (cumulative reward, gold line, each point labelled "+$x" above
@@ -533,15 +537,15 @@ item is lit on both.
   beside its label (hover, focus or tap; a tap elsewhere or Escape closes it); the card itself
   says only the epochs and whether all is claimed (Alex, 1 Nov). On a phone each epoch is three
   unlabelled lines (Alex: the labelled cards were "too complicated and messy"): epoch, dates
-  and value; pool and APY; vKAT and the tokens it was paid in. The tab bar's heading drops its
+  and value; pool and APR; vKAT and the tokens it was paid in. The tab bar's heading drops its
   detail at 480 px and the tab link never wraps. Points keep at least 52 px apart; when the epochs outgrow the
   card the chart scrolls sideways, opening on the latest, with the dollar axis pinned and a fade
   at the left edge (measured 1 Nov 2026 at 360 px: no label overlaps, no page scroll). Polls
   every 60 s; `localStorage` `tf_vkat`.
 - **Checked 1 Nov 2026:** lock #22712, 257,871.86 KAT; ten epochs voted (1473-1482); $113.62
   in vote rewards at payout prices (108.78 vbUSDC + dust in vbETH, vbWBTC and KAT), all claimed;
-  average 40.7% APY (34.4% APR); best epoch 1474 (weETH/vbETH, 208.9% APY), latest 1482
-  (vbWBTC/vbUSDC, 12.8%).
+  average 34.4% APR; best epoch 1474 (weETH/vbETH, 115.3% APR), latest 1482 (vbWBTC/vbUSDC,
+  12.1%).
 
 ---
 
@@ -734,8 +738,8 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **vKAT check:** `node scripts/test-vkat.mjs` replays the 45 vote events and Merkl's vote
   rewards recorded 1 Nov (`scripts/fixtures/vkat-2026-11.json`): each epoch's pool and vKAT,
   votes carrying over, a lock moved after its vote, stacked and split votes, the 24 rewards (LP
-  ones ignored), the book's totals, APY and APR, the settled-only average, and the ledger's
-  validation, and that the breakdown by token adds up to the total; 36 assertions.
+  ones ignored), the book's totals, APR (no APY offered), the settled-only average, the
+  ledger's validation, and that the breakdown by token adds up to the total; 38 assertions.
   `node scripts/vkat-votes.mjs` updates only `vkat-votes.json`.
   In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
   (`node scripts/dev-server.mjs`, port 4200).
@@ -789,6 +793,10 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 1 Nov 2026 (Alex: "change to APR and push"):** the vKAT page shows APR only (cards,
+  chart tooltip, table, phone rows, method note); `voteBook` no longer computes APY;
+  `sw.js` -> `tiger-v134`.
 
 - **Pushed 1 Nov 2026 (Alex: "create a page about vKAT vote ... review
   first"):** the vKAT Votes tab (`vkat.html/.css/.js`, `vkat-core.mjs`, `api/vkat.mjs`,

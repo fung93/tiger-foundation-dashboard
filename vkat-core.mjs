@@ -10,8 +10,10 @@
      avKAT after the vote week does not hide the vote it cast.
    - Rewards: Merkl's breakdowns named AragonBribes_<pool>_<vKAT id>. Each belongs to the
      epoch its campaign ends in, and is valued at its token's price when it ended.
-   - APY: an epoch's reward over the vKAT that voted, valued at KAT's price when that
-     epoch's vote week closed, compounded over the 26 epochs of a year (365 / 14).
+   - APR: an epoch's reward over the vKAT that voted, valued at KAT's price when that
+     epoch's vote week closed, times the 26 epochs of a year (365 / 14). Not compounded:
+     the rewards are paid in dollars and are not put back into vKAT (Alex chose APR over
+     APY, 1 Nov 2026).
    ========================================================================== */
 
 export const CHAIN = 747474;
@@ -119,7 +121,6 @@ export function voteBook(events, rewards, katUsd, through, now = epochStart(thro
     e.value_usd = value;
     e.rate = value ? e.usd / value : null;
     e.apr = e.rate === null ? null : e.rate * PER_YEAR;
-    e.apy = e.rate === null ? null : Math.pow(1 + e.rate, PER_YEAR) - 1;
     e.settled = voteClose(e.epoch) <= now;
     if (value && e.settled) { usdSum += e.usd; valueSum += value; }
   }
@@ -128,7 +129,7 @@ export function voteBook(events, rewards, katUsd, through, now = epochStart(thro
   for (const r of rewards) { tokens[r.token] = (tokens[r.token] || 0) + r.amount; tokens_usd[r.token] = (tokens_usd[r.token] || 0) + (r.usd || 0); }
   return { epochs, total_usd: cumulative, tokens, tokens_usd, voted: epochs.filter((e) => e.total > 0).length,
     claimed: rewards.every((r) => !(r.claimed < r.amount - 1e-12)),
-    rate, apr: rate === null ? null : rate * PER_YEAR, apy: rate === null ? null : Math.pow(1 + rate, PER_YEAR) - 1 };
+    rate, apr: rate === null ? null : rate * PER_YEAR };
 }
 
 /* the ledger the job keeps, checked before anything is added to it */
