@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<script src="/theme.js"></script>
+<title>Strategy · Tiger Foundation</title>
+<link rel="icon" href="/icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lpcards.css">
+<link rel="stylesheet" href="/lpbook.css">
+<link rel="stylesheet" href="/strategy.css">
+<link rel="stylesheet" href="/theme.css">
+<!--
+  Strategy: Katana's KAT emissions for staked Sushi LPs. The current epoch, the KAT it pays,
+  every pool that pays it sorted by APR, and a per-pool estimate of what a range would earn.
+  The figures come finished from /api/strategy; the estimate runs here with strategy-core.mjs.
+-->
+</head>
+<body class="themed-page">
+<header>
+  <div class="hdr-inner">
+    <div class="theme-brand">
+      <img class="theme-mascot" src="/icons/cute-tiger.svg" alt="" aria-hidden="true">
+      <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    </div>
+    <div class="theme-actions">
+      <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
+    </div>
+  </div>
+</header>
+<div class="menu-wrap">
+<nav class="menu" aria-label="Main navigation">
+  <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+  <a href="/lending.html" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
+  <a href="/strategy.html" class="on" aria-current="page" title="Strategy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg><span>Strategy</span></a>
+</nav>
+</div>
+
+<main class="book-content strategy-content">
+  <div class="health" id="health" role="status"></div>
+  <div class="strategy-intro"><div class="label">Katana · KAT emissions for staked LPs</div></div>
+  <div class="strategy-overview" id="overview" aria-live="polite">
+    <div class="card overview-card"><div class="metric-label">Epoch</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">KAT this epoch</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">KAT per day</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Reward period</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+  </div>
+  <div class="vote-note" id="voteNote" hidden></div>
+  <div class="pools-head"><div class="label">Pools paying KAT · highest APR first</div><span class="pools-hint">Open a pool to estimate your own range</span></div>
+  <div class="pools" id="pools"></div>
+  <noscript><div class="card">Turn on JavaScript to read the epoch and the pools.</div></noscript>
+  <div class="strategy-method">
+    <details><summary>How these numbers are made</summary>
+      <p><b>Epoch.</b> Katana's epoch clock runs 14-day epochs. The first week is the gauge vote; when it closes, each voted pool's KAT is paid over the next 14 days. The epoch shown is the one whose votes fund the rewards being paid now. Times are Malaysia time.</p>
+      <p><b>KAT per pool.</b> Each pool's KAT is its live Merkl staking campaign for that epoch: the KAT is paid to positions staked through the Sushi staker (and to the few vaults Merkl whitelists for that pool). An unstaked position earns no KAT. APR is Merkl's: the pool's KAT value a year over the staked value it pays.</p>
+      <p><b>Your estimate.</b> These campaigns pay entirely by trading fees earned in range, so at any moment a position's share is its liquidity over all eligible liquidity in range. The estimate turns your capital and range into liquidity at today's price, adds it to what is already staked in range, and takes that share of the pool's KAT a day. A narrower range buys more liquidity per dollar, so a bigger share, but only while the price stays inside it. Out of range it earns nothing.</p>
+      <p><b>What it assumes.</b> The price stays in your range, the other stakers' liquidity stays as it is now, and the KAT price holds. The total runs from your start day to the end of this reward period; the next epoch's KAT depends on its vote and is not known until that vote closes. Checked on 1 Nov 2026 against a staked vbWBTC/vbUSDC position: predicted 2,535 KAT a day, earned about 2,588.</p>
+      <p><b>Sources.</b> Katana's epoch clock and gauge voter, the pools and the Sushi staker on chain; campaigns from Merkl; KAT's price from the KAT/vbUSDC pool, as on the Lending page. This page reads only; it never connects a wallet.</p>
+    </details>
+  </div>
+</main>
+<script type="module" src="/strategy.js"></script>
+</body>
+</html>

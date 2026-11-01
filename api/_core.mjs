@@ -2083,7 +2083,7 @@ function keccak256(bytes) {
 }
 const hexBytes = (hex) => { const h = String(hex).replace(/^0x/, ''); const a = []; for (let i = 0; i < h.length; i += 2) a.push(parseInt(h.slice(i, i + 2), 16)); return a; };
 /* a Uniswap V4 pool's id, and the storage slot of its price, are keccak hashes */
-const keccakHex = (hex) => keccak256(hexBytes(hex));
+export const keccakHex = (hex) => keccak256(hexBytes(hex));
 const fablesPid = (id, wallet) => 'F' + lc(id).slice(2, 10) + '-' + lc(wallet).slice(2, 6);
 
 /* each range's pool and band — fixed for a range — with the storage slot of its pool's price */

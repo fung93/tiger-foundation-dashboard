@@ -1,10 +1,23 @@
-﻿{
+{
   "version": "0.0.1",
   "configurations": [
     {
       "name": "Tiger Dashboard",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "serve.ps1"],
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "serve.ps1"
+      ],
+      "port": 4200
+    },
+    {
+      "name": "API Preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-server.mjs"
+      ],
       "port": 4200
     }
   ]

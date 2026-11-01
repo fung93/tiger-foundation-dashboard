@@ -68,6 +68,8 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `positions.json`: LP ledgers per chain
    - `lpbook.json`: the LP Book ledger
    - `morpho-history.json`: Katana lending observations at six-hour intervals
+   - `strategy-ranges.json`: each KAT-paying pool's hourly low/high tick for 31 days
+     (`scripts/strategy-ranges.mjs`, its own error boundary; added 1 Nov 2026, unpushed)
 2. **Browser live overlay, every 15 seconds.** The pages read the chain and the `/api/*`
    functions directly. The Portfolio starts from the saved snapshot. The LP Book and
    widget can show their shared last full browser reading immediately; refresh failures
@@ -82,6 +84,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `api/vault.mjs` | The second wallet's live value. |
 | `api/fables.mjs` | Fables LP ranges and veFABLES locks. |
 | `api/morpho.mjs` | Current Katana Morpho positions, including accrued debt and oracle values. |
+| `api/strategy.mjs` | The Strategy page's reading: the epoch, the live KAT staking campaigns and each pool's eligible in-range liquidity. `s-maxage=30, swr=30`. |
 | `api/lp.mjs` | Legacy widget endpoint; no longer used by the widget. |
 
 ### Pages and shared assets
@@ -93,6 +96,9 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lp-all.html` | LP Book, **All-time**: closed positions, every figure fixed at close. |
 | `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
+| `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: Katana's KAT emissions for staked Sushi LPs, every paying pool by APR, and a per-pool range estimate. See §4. |
+| `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
+| `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool, 31 days, from its Swap logs. The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
 | `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
 | `lpcards.css`, `lpcards.js` | The live position card and LIVE stamp, shared by `lp.html` and `widget.html`. Change the card here, never in one page. |
@@ -101,19 +107,21 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `sw.js` | Service worker. **Bump `CACHE_VERSION` on every page or asset change**, or returning visitors keep the old shell. |
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
-Portfolio, both LP Book pages and Lending have a menu bar under the header:
-**Portfolio · LP Book · Lending**, with the open page lit. The standalone widget has no menu;
+Portfolio, both LP Book pages, Lending and Strategy have a menu bar under the header:
+**Portfolio · LP Book · Lending · Strategy**, with the open page lit. The standalone widget has no menu;
 tapping its Tiger Foundation masthead opens the full LP Book.
 
 The menu buttons must keep the same position and size when switching between
-Portfolio, either LP Book page and Lending. Match the 1200 px menu frame, side padding (28 px
+Portfolio, either LP Book page, Lending and Strategy. Match the 1200 px menu frame, side padding (28 px
 desktop, 16 px at 768 px and below), gap below the masthead (14 px desktop, 12 px phone)
 and subtitle line height. The menu stays outside the LP Book's content wrapper; the full
 pages reserve a stable scrollbar gutter to avoid a sideways jump on shorter pages.
-At 400 px and below, use a 5 px gap, 8 px pill side padding, 10 px labels with .06em
-letter spacing, and 14 px icons so all three labels fit on one line.
+At 540 px and below, use a 5 px gap, 8 px pill side padding, 10 px labels with .06em
+letter spacing and 14 px icons; at 420 px and below also hide the icons, so all four labels
+fit on one line down to 360 px (measured 1 Nov 2026: one row, no sideways scroll, identical
+position on all five pages at 360, 375, 414, 421, 480, 540, 541, 768 and 1366 px).
 
-The cards' outside edges must also match between Portfolio, both LP Book pages and Lending.
+The cards' outside edges must also match between Portfolio, both LP Book pages, Lending and Strategy.
 Portfolio's `.wrap` and the LP Book's `.book-content` use a 1200 px outer frame with
 28 px inside padding on each side at every screen width. Keep the view controls,
 warnings and every row of cards inside that same frame; fixed modals remain outside it.
@@ -319,6 +327,63 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   recovery clears the warning. The browser reloads saved history every ten minutes.
   An invalid existing history file must fail before any network request or write.
 
+### Strategy (Alex, 1 Nov 2026)
+
+Alex's spec: a page that uses the Katana MCP as its primary source (other sources where
+appropriate) to show the current epoch number, the KAT allocated to it, KAT a day and its
+start and end dates; then every pool whose **staked** LPs earn KAT emissions, sorted by APR,
+each with APR, KAT a day and value a day; each pool expands to take his range and capital and
+show his expected KAT a day with its value, and the total KAT and value from a start day to
+the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
+
+- **The page cannot call the MCP** (it is a tool for the agent, not the website). The page
+  reads the sources the MCP itself points to; the MCP's figures were used to find and
+  cross-check them. Where they disagreed the chain wins: on 1 Nov the MCP's `get_kat_gauges`
+  reported 0 votes for vbWBTC/vbETH 0.3% and vbWBTC/vbUSDC 0.3%, but `gaugeVotes` on chain
+  read 35.6M and 22.7M, and both pools have live campaigns.
+- **Epoch:** clock `0x17049d374a2bcda70f8939c21ad92bcf6b2a95ab` (`currentEpoch` 0x76671808,
+  `epochDuration` 0x4ff0876a = 14 days, `elapsedInEpoch` 0xc8f3e13f, `voteDuration` 7 days,
+  `voteWindowBuffer` 1 h). Epochs are counted from Unix zero (`n × 1,209,600 s`). The first
+  week is the gauge vote (gauge voter `0x5e755a3c5dc81a79de7a7cef192ffa60964c9352`,
+  `gaugeVotes(address)` 0x9ef13a41, `votingActive` 0x408e2727); when it closes, each voted pool's
+  Merkl campaign pays for 14 days. The page's epoch is the one that funded the running
+  campaigns: `floor(campaignStart / 14 days)`. Epoch 1482 = 22 Oct → 5 Nov UTC, vote closed
+  28 Oct 23:00, rewards 28 Oct 23:00 → 11 Nov 23:00 UTC (shown in MYT).
+- **KAT per pool:** Merkl `GET /v4/opportunities?chainId=747474&action=POOL&status=LIVE`, rows
+  whose identifier ends `SUSHI_STAKER`, then `/v4/opportunities/{id}?campaigns=true` for the live
+  KAT campaign (amount, start, end, rules). On 1 Nov: five pools, 494,900 KAT, 35,350 KAT a day;
+  every campaign was exactly 0.001288 KAT per gauge vote. "KAT this epoch" is the sum of these
+  live staking campaigns. Vault incentives (Yearn, Morpho, Charm, Steer opportunities) are not
+  staked LPs and stay off the page. APR is Merkl's.
+- **The estimate:** every campaign scores 100% by fees earned in range (`weightFees` 10000,
+  out of range not paid), and only positions held by the campaign's whitelist count: the Sushi
+  staker (`CFG.lpStaker`, enumerated through the NPM: 78 NFTs on 1 Nov) and the Charm
+  (`baseLower/baseUpper/limitLower/limitUpper`) and Steer (`getPositions()`) vaults it names,
+  whose ranges are read from `pool.positions(keccak(owner, lower, upper))`. A new position's
+  share = its liquidity ÷ (eligible in-range liquidity + its liquidity); KAT a day = the pool's
+  rate × share; total = rate × days from max(start day, now) to the campaign end. Token-weighted
+  campaigns, an empty whitelist (all LPs) and out-of-range pay are handled though none run now.
+  **Validated:** #492808 (vbWBTC/vbUSDC) predicted 2,535 KAT/day from its share, earned ~2,588
+  over 38 h; $910.51 in its typed range rebuilt its exact ticks and its liquidity to 0.01%.
+- **KAT price:** the KAT/vbUSDC pool's `slot0`, exactly as the Lending page prices it.
+- **Display:** four epoch cards (Epoch · KAT this epoch · KAT per day · Reward period), then the
+  pools. Each pool quotes its price in the cheaper token (vbUSDC per vbWBTC, vbUSDC per vbETH),
+  fixed by `baseIndex` so it never flips. Defaults per pool: $1,000 and ±2.5% (stable pairs
+  ±0.1%, presets in tenths of a percent); the start day defaults to today; inputs are kept for
+  the visit only. The page polls every 60 s; LIVE lasts 150 s after a full reading, and the last
+  reading paints at once from `localStorage` `tf_strategy`, marked STALE.
+- **Recent ranges (Alex, 1 Nov 2026):** under the "Around now ±%" buttons each pool has
+  "Recent · 7D 14D 21D 30D": the lowest and highest price the pool actually traded at over that
+  window, clicked to fill the range and recalculate. Source: every Swap log's tick (5th data
+  word; Katana logs carry `blockTimestamp`). The job keeps hourly rows in
+  `strategy-ranges.json`; `/api/strategy` adds the swaps since `last_block` (at most 400,000
+  blocks, ~4.6 days; beyond that the windows are marked incomplete) and the price now. A window
+  also counts the price it opened at (the close of the hour before it). Prices follow each
+  pool's quoting; the low rounds down and the high rounds up. Hourly rows mean a window can
+  reach up to an hour further back than exactly N days. Katana runs at 1 block a second
+  (86,400 a day; measured 1 Nov 2026). **Validated:** 7D low/high matched a raw scan of every
+  swap to the tick for vbWBTC/vbUSDC (5,837 swaps) and vbETH/vbUSDC (10,172).
+
 ---
 
 ## 5. Chain facts that bite
@@ -493,6 +558,14 @@ It has four views: Planner, simulated positions, My real LPs and History.
   committing, pushing, merging or publishing the website.
 - **Portable preview check:** `node scripts/test-dev-server.mjs` checks static files,
   API self-fetches, private-file boundaries and development caching with 52 assertions.
+- **Strategy check:** `node scripts/test-strategy.mjs` checks quoting both ways round, Sushi's
+  range rounding, deposits, the epoch arithmetic, shares, dilution, start-day clamping, out of
+  range, token weights and the APR order against figures read on 1 Nov 2026, plus the recent
+  ranges: hourly folding, window edges and opening price, negative-tick logs, the job's first
+  and incremental runs with a fake chain, file validation and formatting; 87 assertions.
+  `node scripts/strategy-ranges.mjs` updates only `strategy-ranges.json`.
+  In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
+  (`node scripts/dev-server.mjs`, port 4200).
 - **Testing chain code:** import `api/_core.mjs` from a scratch Node script (Node 20+) and
   call the same functions the API calls. For example, `advanceBook` → `bookLiveRows` →
   `livePrices` → `bookView`.
@@ -543,6 +616,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Built locally, not pushed (1 Nov 2026, Alex: "make it in local, don't push"):** the Strategy
+  page (`strategy.html/.css/.js`, `strategy-core.mjs`, `api/strategy.mjs`,
+  `scripts/test-strategy.mjs`); a Strategy link in every menu, with the phone menu rules for
+  four items; `keccakHex` exported from `api/_core.mjs`; the preview server serves
+  `/api/strategy`; `npm run check` covers the new files; `sw.js` → `tiger-v126`; an
+  **API Preview** launch entry. Then (same day, also unpushed) the Recent 7D/14D/21D/30D range
+  buttons: `scripts/strategy-ranges.mjs` and its first `strategy-ranges.json` (built locally,
+  31 days), a new error boundary in `scripts/update-data.mjs`, and `strategy-ranges.json` in the
+  workflow's `git add`. `npm run check` passes.
 
 - **This release, fix and push requested (26 Oct 2026):** Replace Solana's blocked
   indexed USDC balance request with public raw account reads and permit transient RPC

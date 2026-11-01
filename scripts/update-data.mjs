@@ -2449,3 +2449,12 @@ try {
 } catch (e) {
   console.warn('morpho history could not be updated, keeping the existing one:', e.message);
 }
+
+/* The Strategy page's recent price ranges: each paying pool's hourly low and high, read from
+   its swaps since the last run. Its own try, like the two above, and its own file. */
+try {
+  const { updateStrategyRanges } = await import('./strategy-ranges.mjs');
+  await updateStrategyRanges(ROOT);
+} catch (e) {
+  console.warn('strategy ranges could not be updated, keeping the existing ones:', e.message);
+}

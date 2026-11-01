@@ -1,0 +1,235 @@
+/* ============================================================================
+   api/strategy: Katana's KAT emissions for staked Sushi LPs, finished for the
+   Strategy page.
+
+   Sources, the ones the Katana MCP points to:
+   - Katana's epoch clock and gauge voter, on chain: the epoch, its voting week, votes.
+   - Merkl's live staking campaigns (identifier "<pool>SUSHI_STAKER"): each pool's KAT,
+     its dates and its scoring rules.
+   - Each pool, the Sushi staker's positions and the campaign's whitelisted vaults, on
+     chain: the eligible liquidity in range now, which a new position's share is of.
+   - KAT's price from the KAT/vbUSDC pool, as the Lending page prices it.
+   - Each pool's recent low and high: the job's hourly rows (strategy-ranges.json) plus the
+     swaps since its last run and the price now.
+
+   Read-only: no keys, no wallet, nothing signed. The browser does the estimates with
+   strategy-core.mjs, from the numbers this returns.
+   ========================================================================== */
+import { CFG, multi, pad, keccakHex, rpc } from './_core.mjs';
+import { epochOf, amountsPerLiquidity, orientation, priceAtTick, mergeSwapHours, recentRanges, rangePrices,
+  swapFromLog, SWAP_TOPIC, RANGE_DAYS } from '../strategy-core.mjs';
+
+const KAT = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
+const CLOCK = '0x17049d374a2bcda70f8939c21ad92bcf6b2a95ab';
+const VOTER = '0x5e755a3c5dc81a79de7a7cef192ffa60964c9352';
+const KAT_POOL = '0x10045367e619caae6f60cc80046c43c6cd55f629';   /* KAT/vbUSDC 0.05%: vbUSDC is token0 */
+const STAKER = CFG.lpStaker, NPM = CFG.npm, RPC = CFG.katRpc;
+const SEL = {
+  currentEpoch: '0x76671808', epochDuration: '0x4ff0876a', elapsedInEpoch: '0xc8f3e13f',
+  voteDuration: '0x56364499', voteWindowBuffer: '0x358c3f46',
+  votingActive: '0x408e2727', totalVotingPowerCast: '0xf0363ae4', gaugeVotes: '0x9ef13a41',
+  slot0: '0x3850c7bd', liquidity: '0x1a686502', tickSpacing: '0xd0c93a7c', poolPosition: '0x514ea4bf',
+  balanceOf: '0x70a08231', tokenOfOwnerByIndex: '0x2f745c59', npmPosition: '0x99fbab88',
+  /* the two vault kinds Merkl whitelists here: Charm keeps a base and a limit range,
+     Steer reports its ranges as arrays */
+  baseLower: '0xfa082743', baseUpper: '0x888a9134', limitLower: '0x51e87af7', limitUpper: '0x0f35bcac',
+  getPositions: '0x80275860',
+};
+
+const lc = (s) => String(s || '').toLowerCase();
+const word = (hex, i = 0) => BigInt('0x' + (hex.slice(2 + i * 64, 66 + i * 64) || '0'));
+const int24 = (hex, i) => { const v = word(hex, i); return Number(v >= 2n ** 255n ? v - 2n ** 256n : v); };
+const whole = (raw, decimals) => Number(raw) / 10 ** decimals;
+const enc24 = (t) => BigInt.asUintN(24, BigInt(t)).toString(16).padStart(6, '0');
+const need = (r, label) => { if (!r || !r.ok || r.data.length < 66) throw new Error('Could not read ' + label); return r.data; };
+
+async function merkl(path) {
+  const r = await fetch(CFG.merklApi + path, { signal: AbortSignal.timeout(10000) });
+  if (!r.ok) throw new Error('Merkl HTTP ' + r.status);
+  return r.json();
+}
+/* Multicall in slices, so a long list never becomes one oversized request */
+async function multiAll(calls, size = 300) {
+  const out = [];
+  for (let i = 0; i < calls.length; i += size) out.push(...await multi(RPC, calls.slice(i, i + size)));
+  return out;
+}
+
+/* the live KAT staking campaigns, one row per pool */
+export async function readCampaigns(now) {
+  const list = await merkl('/opportunities?chainId=747474&action=POOL&status=LIVE&items=100');
+  const staking = list.filter((o) => /SUSHI_STAKER$/i.test(o.identifier || ''));
+  const detail = await Promise.all(staking.map((o) => merkl('/opportunities/' + o.id + '?campaigns=true')));
+  const rows = [];
+  for (const o of detail) {
+    const live = (o.campaigns || []).filter((c) => c.startTimestamp <= now && c.endTimestamp > now
+      && lc(c.rewardToken && c.rewardToken.address) === KAT);
+    if (!live.length) continue;
+    const p = live[0].params;
+    const kat = (c) => Number(BigInt(c.amount) / 10n ** 12n) / 1e6;
+    const token = (address, decimals) => {
+      const t = (o.tokens || []).find((x) => lc(x.address) === lc(address)) || {};
+      return { address: lc(address), symbol: t.displaySymbol || t.symbol || '?', decimals: Number(decimals), merklUsd: Number(t.price) || null };
+    };
+    rows.push({
+      opportunity: o.id, pool: lc(p.poolId), fee: Number(p.lpFee), fee_tier: Number(p.lpFee) / 1e6,
+      token0: token(p.currency0, p.decimalsCurrency0), token1: token(p.currency1, p.decimalsCurrency1),
+      apr: Number.isFinite(o.apr) ? o.apr / 100 : null, tvl: Number.isFinite(o.tvl) ? o.tvl : null,
+      kat: live.reduce((s, c) => s + kat(c), 0),
+      katPerDay: live.reduce((s, c) => s + kat(c) / ((c.endTimestamp - c.startTimestamp) / 86400), 0),
+      campaign: { start: Math.min(...live.map((c) => c.startTimestamp)), end: Math.max(...live.map((c) => c.endTimestamp)) },
+      rules: { weightFees: p.weightFees, weightToken0: p.weightToken0, weightToken1: p.weightToken1, outOfRange: !!p.isOutOfRangeIncentivized },
+      whitelist: (p.whitelist || []).map(lc), blacklist: (p.blacklist || []).map(lc),
+      link: o.depositUrl || null,
+    });
+  }
+  return rows;
+}
+
+/* Each pool's 7D/14D/21D/30D low and high, in the pool's own quoting. The job's rows run to
+   its last block; the swaps after it are read here, at most TAIL blocks (~4.6 days at one
+   block a second), so a stalled job leaves the windows marked incomplete, never wrong. */
+const TAIL = 400000;
+async function addRecentRanges(pools, ranges, now, notes) {
+  if (!ranges || !ranges.pools) { notes.push('Recent price ranges are not recorded yet; they appear after the next data update.'); return; }
+  const head = Number(BigInt(await rpc(RPC, 'eth_blockNumber', [])));
+  await Promise.all(pools.map(async (p) => {
+    const e = ranges.pools[p.pool];
+    if (!e) { p.recent = null; return; }
+    const gap = head - e.last_block > TAIL, from = gap ? head - TAIL : e.last_block + 1;
+    const logs = from <= head ? await rpc(RPC, 'eth_getLogs', [{ address: p.pool, topics: [SWAP_TOPIC], fromBlock: '0x' + from.toString(16), toBlock: '0x' + head.toString(16) }]) : [];
+    const hours = mergeSwapHours(e.hours, logs.map(swapFromLog));
+    const r = recentRanges(hours, now, p.tick, RANGE_DAYS, e.recorded_from);
+    p.recent = Object.fromEntries(Object.entries(r).map(([d, x]) => [d, x && { ...x, ...rangePrices(x, p), complete: x.complete && !gap }]));
+    if (gap) notes.push(`${p.base}/${p.quote}: the recorded price history is more than four days behind, so its recent ranges may miss some prices.`);
+  }));
+}
+
+export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges } = {}) {
+  const pools = await readCampaigns(now);
+  const notes = [];
+
+  /* 1 · the clock, the votes, KAT's price, each pool's state and the staker's count */
+  const fixed = [
+    { to: CLOCK, data: SEL.currentEpoch }, { to: CLOCK, data: SEL.epochDuration }, { to: CLOCK, data: SEL.elapsedInEpoch },
+    { to: CLOCK, data: SEL.voteDuration }, { to: CLOCK, data: SEL.voteWindowBuffer },
+    { to: VOTER, data: SEL.votingActive }, { to: VOTER, data: SEL.totalVotingPowerCast },
+    { to: KAT_POOL, data: SEL.slot0 }, { to: NPM, data: SEL.balanceOf + pad(STAKER) },
+  ];
+  const perPool = pools.flatMap((p) => [{ to: p.pool, data: SEL.slot0 }, { to: p.pool, data: SEL.liquidity },
+    { to: p.pool, data: SEL.tickSpacing }, { to: VOTER, data: SEL.gaugeVotes + pad(p.pool) }]);
+  const first = await multiAll([...fixed, ...perPool]);
+  const clock = {
+    current: Number(word(need(first[0], 'the epoch clock'))), duration: Number(word(need(first[1], 'the epoch length'))),
+    elapsed: Number(word(need(first[2], 'the epoch clock'))), voteDuration: Number(word(need(first[3], 'the voting week'))),
+    voteBuffer: Number(word(need(first[4], 'the voting window'))),
+  };
+  const votingOpen = word(need(first[5], 'the gauge voter')) === 1n;
+  const totalVotes = whole(word(need(first[6], 'the gauge votes')), 18);
+  const katSqrt = Number(word(need(first[7], 'the KAT price'))) / 2 ** 96;
+  const katUsd = katSqrt > 0 ? 1 / (katSqrt * katSqrt * 1e-12) : null;
+  const stakedCount = Number(word(need(first[8], 'the staker')));
+  pools.forEach((p, k) => {
+    const r = first.slice(fixed.length + k * 4, fixed.length + k * 4 + 4);
+    const slot0 = need(r[0], p.pool);
+    p.sqrtPrice = Number(word(slot0, 0)) / 2 ** 96;
+    p.tick = int24(slot0, 1);
+    p.activeLiquidity = Number(word(need(r[1], p.pool)));
+    p.tickSpacing = int24(need(r[2], p.pool), 0);
+    p.votes = r[3] && r[3].ok ? whole(word(r[3].data), 18) : null;
+    p.voteShare = p.votes !== null && totalVotes > 0 ? p.votes / totalVotes : null;
+    /* dollar prices that agree with the pool: the cheaper token at Merkl's price, the other
+       through the pool's own price, so a deposit is valued at the rate it would be made at */
+    const dearIs0 = (p.token0.merklUsd || 0) >= (p.token1.merklUsd || 0);
+    const [cheap, dear] = dearIs0 ? [p.token1, p.token0] : [p.token0, p.token1];
+    p.baseIndex = dearIs0 ? 0 : 1;   /* fixed here, so the quoting cannot flip with a price */
+    p.price = priceAtTick(p.tick, p);
+    cheap.usd = cheap.merklUsd || null;
+    dear.usd = cheap.usd ? p.price * cheap.usd : null;
+    const o = orientation(p);
+    p.base = o.base === 0 ? p.token0.symbol : p.token1.symbol;
+    p.quote = o.base === 0 ? p.token1.symbol : p.token0.symbol;
+    if (!p.token0.usd || !p.token1.usd) notes.push(`${p.base}/${p.quote}: no dollar price, so its estimate is unavailable`);
+  });
+
+  /* 2 · the staker's position ids, and the whitelisted vaults' ranges */
+  const ids = (await multiAll(Array.from({ length: stakedCount }, (_, i) => ({ to: NPM, data: SEL.tokenOfOwnerByIndex + pad(STAKER) + pad(i.toString(16)) }))))
+    .map((r, i) => word(need(r, 'staked position ' + i)));
+  const vaults = [];
+  for (const p of pools) for (const v of p.whitelist) if (v !== lc(STAKER)) vaults.push({ pool: p, address: v });
+  const probe = await multiAll(vaults.flatMap((v) => ['baseLower', 'baseUpper', 'limitLower', 'limitUpper', 'getPositions'].map((f) => ({ to: v.address, data: SEL[f] }))));
+  vaults.forEach((v, k) => {
+    const r = probe.slice(k * 5, k * 5 + 5);
+    if (r.slice(0, 4).every((x) => x.ok && x.data.length >= 66)) {
+      v.kind = 'Charm'; v.ranges = [[int24(r[0].data, 0), int24(r[1].data, 0)], [int24(r[2].data, 0), int24(r[3].data, 0)]];
+    } else if (r[4].ok && r[4].data.length > 66) {
+      const h = r[4].data, at = (i) => Number(word(h, i)) / 32, list = (o) => Array.from({ length: Number(word(h, o)) }, (_, j) => int24(h, o + 1 + j));
+      const lo = list(at(0)), hi = list(at(1));
+      v.kind = 'Steer'; v.ranges = lo.map((l, j) => [l, hi[j]]);
+    } else { v.kind = null; v.ranges = []; notes.push(`A whitelisted holder in ${v.pool.base}/${v.pool.quote} could not be read; its share may read a little high`); }
+  });
+
+  /* 3 · every staked position, and the vaults' liquidity in each range */
+  const staked = await multiAll(ids.map((id) => ({ to: NPM, data: SEL.npmPosition + pad(id.toString(16)) })), 200);
+  const keys = vaults.flatMap((v) => v.ranges.map(([lo, hi]) => ({ v, lo, hi, key: keccakHex(v.address.slice(2) + enc24(lo) + enc24(hi)) })));
+  const held = await multiAll(keys.map((k) => ({ to: k.v.pool.pool, data: SEL.poolPosition + k.key })));
+
+  for (const p of pools) {
+    p.eligible = { liquidity: 0, amount0: 0, amount1: 0, positions: 0, inRange: 0, vaults: 0 };
+    if (!p.whitelist.length) {
+      /* no whitelist: every in-range position counts, which is the pool's active liquidity */
+      p.eligible.liquidity = p.activeLiquidity; p.eligible.amount0 = null; p.eligible.amount1 = null;
+    }
+    if (p.blacklist.length) notes.push(`${p.base}/${p.quote} excludes some holders that cannot be told apart here; its share may read a little low`);
+  }
+  staked.forEach((r) => {
+    const h = need(r, 'a staked position');
+    const t0 = '0x' + h.slice(2 + 2 * 64 + 24, 2 + 3 * 64), t1 = '0x' + h.slice(2 + 3 * 64 + 24, 2 + 4 * 64), fee = Number(word(h, 4));
+    const p = pools.find((x) => x.whitelist.includes(lc(STAKER)) && x.token0.address === t0 && x.token1.address === t1 && x.fee === fee);
+    if (!p) return;
+    p.eligible.positions++;
+    addTo(p, Number(word(h, 7)), int24(h, 5), int24(h, 6));
+  });
+  keys.forEach((k, i) => { const L = held[i] && held[i].ok ? Number(word(held[i].data, 0)) : 0; if (L > 0) { k.v.pool.eligible.vaults++; addTo(k.v.pool, L, k.lo, k.hi); } });
+
+  try { await addRecentRanges(pools, ranges, now, notes); }
+  catch (e) { notes.push('Recent price ranges could not be read this time: ' + String((e && e.message) || e).slice(0, 80)); }
+
+  /* the epoch that funded the running campaigns: they start when its voting week closes */
+  const start = Math.min(...pools.map((p) => p.campaign.start)), end = Math.max(...pools.map((p) => p.campaign.end));
+  const funded = pools.length ? epochOf(start, clock) : null;
+  const clockEpoch = epochOf(now - clock.elapsed + 1, clock);
+  return {
+    at: now,
+    epoch: funded && { ...funded, clock_current: clock.current, clock_start: clockEpoch.start, clock_end: clockEpoch.end, voting_open: votingOpen,
+      next_vote_end: clockEpoch.voteEnd > now ? clockEpoch.voteEnd : null },
+    reward: { start, end },
+    total: { kat: pools.reduce((s, p) => s + p.kat, 0), katPerDay: pools.reduce((s, p) => s + p.katPerDay, 0) },
+    kat_usd: katUsd, total_votes: totalVotes, staked_positions: stakedCount,
+    pools: pools.map(({ whitelist, blacklist, ...p }) => ({ ...p, eligible: { ...p.eligible, holders: whitelist.length } })),
+    health: { notes },
+  };
+}
+
+/* the in-range test and the token amounts, shared by staked positions and vault ranges */
+function addTo(p, L, lo, hi) {
+  if (!(L > 0) || !(p.tick >= lo && p.tick < hi) || !p.whitelist.length) return;
+  const a = amountsPerLiquidity(lo, hi, p.sqrtPrice, p.token0.decimals, p.token1.decimals);
+  p.eligible.liquidity += L; p.eligible.amount0 += L * a.amount0; p.eligible.amount1 += L * a.amount1; p.eligible.inRange++;
+}
+
+export default async function handler(req, res) {
+  res.setHeader('access-control-allow-origin', '*');
+  /* half a minute at the edge: campaigns change once a fortnight, liquidity slowly */
+  res.setHeader('cache-control', 's-maxage=30, stale-while-revalidate=30');
+  res.setHeader('content-type', 'application/json; charset=utf-8');
+  /* the job's hourly ranges, fetched from this same site as /api/lpbook fetches its ledger */
+  let ranges = null;
+  try {
+    const host = req.headers['x-forwarded-host'] || req.headers.host, proto = req.headers['x-forwarded-proto'] || 'https';
+    const r = await fetch(proto + '://' + host + '/strategy-ranges.json?t=' + Date.now(), { signal: AbortSignal.timeout(8000) });
+    if (r.ok) ranges = await r.json();
+  } catch (e) { /* the page still works; the range buttons say they are waiting */ }
+  try { res.status(200).end(JSON.stringify(await readStrategy(undefined, { ranges }))); }
+  catch (e) { res.status(502).end(JSON.stringify({ error: String((e && e.message) || e) })); }
+}

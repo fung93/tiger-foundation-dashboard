@@ -1,0 +1,73 @@
+/* Strategy: the masthead, navigation and content frame are shared with the LP Book. */
+.strategy-content{padding-bottom:20px}
+.strategy-intro{margin:30px 0 22px}
+.metric-label{color:var(--dim);font-size:9px;letter-spacing:.11em;text-transform:uppercase}
+.metric-sub{font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6}
+
+/* the epoch, in four cards */
+.strategy-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.overview-card{min-width:0;padding:20px 24px}
+.overview-value{margin-top:10px;color:var(--text);font-size:30px;font-weight:300;line-height:1.2;letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.overview-value.dates{font-size:clamp(20px,2.1vw,26px);white-space:nowrap;overflow-wrap:normal}
+.vote-note{font-size:11px;color:var(--dim);margin:0 0 16px;line-height:1.7}
+.vote-note b{color:var(--gold);font-weight:500}
+
+/* the pools, highest APR first; each opens into its own estimate */
+.pools-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:30px 0 14px;flex-wrap:wrap}
+.pools-hint{font-size:10.5px;color:var(--faint)}
+.pools{display:grid;gap:14px}
+.pool-card{padding:0;min-width:0;overflow:hidden}
+.pool-head{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,3fr) 22px;align-items:center;gap:18px;width:100%;padding:20px 24px;
+  background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.pool-head:focus-visible{outline:1px solid var(--gold);outline-offset:-4px;border-radius:16px}
+.pool-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+.pool-name h3{font:400 24px/1.1 var(--serif);letter-spacing:.005em;white-space:nowrap}
+.pool-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pool-figs>div{min-width:0}
+.pool-fig{font-size:22px;font-weight:300;line-height:1.25;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pool-fig.apr{color:var(--gold)}
+.chev{width:22px;height:22px;color:var(--dim);transition:transform .2s}
+.pool-card.open .chev{transform:rotate(180deg);color:var(--gold)}
+.pool-body{border-top:1px solid var(--line);padding:20px 24px 22px}
+.pool-body[hidden]{display:none}
+.pool-context{font-size:10.5px;color:var(--dim);line-height:1.8}
+.pool-context a{color:var(--dim);text-decoration:none;white-space:nowrap}
+.pool-context a:hover{color:var(--gold)}
+
+/* the estimate: inputs on the left, what they earn on the right */
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:26px;margin-top:18px}
+.calc-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;align-content:start}
+.calc-inputs label{display:grid;gap:6px;color:var(--dim);font-size:9px;letter-spacing:.09em;text-transform:uppercase;min-width:0}
+.calc-inputs input{width:100%;border:1px solid rgba(214,185,123,.23);border-radius:8px;background:rgba(214,185,123,.025);color:var(--gold);
+  padding:8px 10px;font:400 15px var(--sans);font-variant-numeric:tabular-nums;color-scheme:dark;min-width:0}
+.calc-inputs input:focus{outline:1px solid var(--gold);outline-offset:2px}
+.calc-inputs input[aria-invalid=true]{border-color:var(--down)}
+/* each row: its label, then a pill of buttons; on a phone the label sits above */
+.preset-row{grid-column:1/-1;display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+.presets{display:flex;gap:3px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px;width:max-content;max-width:100%}
+.presets button{background:none;border:0;border-radius:99px;padding:6px 11px;color:var(--dim);font:500 10px var(--sans);letter-spacing:.06em;cursor:pointer}
+.presets button:focus-visible{outline:1px solid var(--gold)}
+.presets button:disabled{opacity:.35;cursor:default}
+.presets-label{color:var(--faint);font:500 9px var(--sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;min-width:74px}
+@media(hover:hover){.presets button:not(:disabled):hover{color:var(--text)}}
+.calc-out{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;align-content:start;padding-left:26px;border-left:1px solid var(--line)}
+.calc-out .metric-value{font-size:25px;font-weight:300;line-height:1.25;letter-spacing:-.025em;margin-top:8px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.calc-out .metric-value.big{color:var(--gold)}
+.calc-note{grid-column:1/-1;font-size:10.5px;color:var(--dim);line-height:1.7;border-top:1px solid var(--line2);padding-top:12px}
+.calc-note.warn{color:var(--warn)}
+.calc-error{grid-column:1/-1;color:var(--warn);font-size:12px}
+
+.strategy-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
+.strategy-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
+.strategy-method p{max-width:780px;margin:8px 0}
+.strategy-method b{color:var(--dim);font-weight:500}
+
+@media(max-width:1100px){.strategy-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1000px){
+  .pool-head{grid-template-columns:minmax(0,1fr) 22px;gap:14px 12px}.pool-figs{grid-column:1/2;grid-row:2}.chev{grid-row:1/3;grid-column:2;align-self:center}
+  .calc{grid-template-columns:1fr;gap:20px}.calc-out{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:18px}}
+@media(max-width:600px){.strategy-intro{margin-top:20px}.strategy-overview{gap:10px}.overview-card{padding:14px}
+  .overview-value{font-size:clamp(18px,5vw,24px)}.overview-value.dates{font-size:clamp(15px,4.4vw,20px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
+  .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{gap:10px}.pool-fig{font-size:clamp(15px,4.6vw,20px)}
+  .calc-inputs{gap:10px}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
+@media(prefers-reduced-motion:reduce){.chev{transition:none}}

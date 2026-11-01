@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v125';  /* Show avKAT price beside KAT price in Lending */
+var CACHE_VERSION = 'tiger-v126';  /* Show avKAT price beside KAT price in Lending */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -53,6 +53,11 @@ var SHELL_ASSETS = [
   '/lending.html',
   '/lending.css',
   '/lending.js',
+  /* the Strategy page: KAT emissions and the per-pool estimate */
+  '/strategy.html',
+  '/strategy.css',
+  '/strategy.js',
+  '/strategy-core.mjs',
   '/morpho-core.mjs',
   '/icons/lp-192.png',
   '/icons/lp-512.png',

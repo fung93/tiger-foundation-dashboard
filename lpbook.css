@@ -46,7 +46,9 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 .menu a.on{color:var(--gold);border-color:rgba(214,185,123,.45);background:rgba(214,185,123,.07)}
 .menu a{white-space:nowrap}
 /* each label stays on one line, with slightly tighter pills on a phone */
-@media (max-width:400px){.menu{gap:5px}.menu a{padding:0 8px;gap:5px;font-size:10px;letter-spacing:.06em}.menu a svg{width:14px;height:14px}}
+/* four pages on a phone: compact pills below 540 px, and labels without icons below 420 px */
+@media (max-width:540px){.menu{gap:5px}.menu a{padding:0 8px;gap:5px;font-size:10px;letter-spacing:.06em}.menu a svg{width:14px;height:14px}}
+@media (max-width:420px){.menu a{gap:0}.menu a svg{display:none}}
 
 /* Match Portfolio's .wrap: the same outer width and inside padding on every screen. */
 .book-content{max-width:1200px;margin:0 auto;padding:0 28px}
