@@ -9,6 +9,7 @@ const MYT = 'Asia/Kuala_Lumpur';
 const fmt = (v, dp = 0) => (Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp }) : '—');
 const money = (v) => (Number.isFinite(v) ? (v < 0 ? '-$' : '$') + fmt(Math.abs(v), 2) : '—');
 const kat = (v) => (Number.isFinite(v) ? fmt(v, v < 100 ? 2 : 0) + ' KAT' : '—');
+const dollars = (v) => (Number.isFinite(v) ? '$' + fmt(v, 0) : '—');
 const pct = (v) => (Number.isFinite(v) ? fmt(v * 100, Math.abs(v) >= 1 ? 0 : 2) + '%' : '—');
 const priceDp = (p) => (p >= 1000 ? 2 : p >= 1 ? 4 : 6);
 const price = (p) => (Number.isFinite(p) ? fmt(p, priceDp(p)) : '—');
@@ -51,7 +52,7 @@ function build(p) {
   el.className = 'card pool-card'; el.id = id;
   el.innerHTML = `<button class="pool-head" type="button" aria-expanded="false" aria-controls="${id}-body">
       <div class="pool-name"><h3></h3><span class="tag fee"></span></div>
-      <div class="pool-figs"><div><div class="metric-label">APR</div><div class="pool-fig apr"></div></div><div><div class="metric-label">KAT per day</div><div class="pool-fig kat"></div></div><div><div class="metric-label">Value per day</div><div class="pool-fig usd"></div></div></div>
+      <div class="pool-figs"><div><div class="metric-label">Staked TVL</div><div class="pool-fig tvl"></div></div><div><div class="metric-label">APR</div><div class="pool-fig apr"></div></div><div><div class="metric-label">KAT per day</div><div class="pool-fig kat"></div></div><div><div class="metric-label">Value per day</div><div class="pool-fig usd"></div></div></div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="pool-body" id="${id}-body" hidden>
@@ -156,6 +157,10 @@ function renderPools() {
     box.append(el);   /* re-appending keeps the APR order without rebuilding */
     el.querySelector('h3').textContent = `${p.base} / ${p.quote}`;
     el.querySelector('.fee').textContent = (p.fee_tier * 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+    /* staked LPs in range now: the ones sharing the KAT (Merkl's figure when the chain gives none) */
+    const tvl = p.staked_usd || {}, liveTvl = Number.isFinite(tvl.in_range);
+    el.querySelector('.tvl').textContent = dollars(liveTvl ? tvl.in_range : p.tvl);
+    el.querySelector('.tvl').title = liveTvl ? 'Staked LPs in range now, on chain' : 'Staked value from Merkl';
     el.querySelector('.apr').textContent = pct(p.apr);
     el.querySelector('.kat').textContent = fmt(p.katPerDay, 0);
     el.querySelector('.usd').textContent = money(p.katPerDay * view.kat_usd);
@@ -178,7 +183,8 @@ function renderPools() {
       `${kat(p.kat)} this epoch`,
       p.voteShare !== null ? `${pct(p.voteShare)} of gauge votes` : null,
       `${fmt(p.eligible.inRange)} staked positions and vault ranges in range` + (share !== null ? `, ${pct(share)} of the pool's active liquidity` : ''),
-      p.tvl !== null ? `${money(p.tvl)} staked (Merkl)` : null,
+      liveTvl && tvl.all > tvl.in_range * 1.01 ? `${dollars(tvl.all)} staked in all, ${dollars(tvl.all - tvl.in_range)} of it out of range and earning nothing` : null,
+      liveTvl && p.tvl !== null ? `Merkl's APR is on ${dollars(p.tvl)} staked` : null,
       p.link ? `<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Sushi pool ↗</a>` : null,
     ].filter(Boolean).join(' · ');
     estimate(p.pool);

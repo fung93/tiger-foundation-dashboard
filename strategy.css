@@ -17,12 +17,12 @@
 .pools-hint{font-size:10.5px;color:var(--faint)}
 .pools{display:grid;gap:14px}
 .pool-card{padding:0;min-width:0;overflow:hidden}
-.pool-head{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,3fr) 22px;align-items:center;gap:18px;width:100%;padding:20px 24px;
+.pool-head{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,4fr) 22px;align-items:center;gap:18px;width:100%;padding:20px 24px;
   background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .pool-head:focus-visible{outline:1px solid var(--gold);outline-offset:-4px;border-radius:16px}
 .pool-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
 .pool-name h3{font:400 24px/1.1 var(--serif);letter-spacing:.005em;white-space:nowrap}
-.pool-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pool-figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .pool-figs>div{min-width:0}
 .pool-fig{font-size:22px;font-weight:300;line-height:1.25;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pool-fig.apr{color:var(--gold)}
@@ -80,6 +80,6 @@
   .calc{grid-template-columns:1fr;gap:20px}.calc-out{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:18px}}
 @media(max-width:600px){.strategy-intro{margin-top:20px}.strategy-overview{gap:10px}.overview-card{padding:14px}
   .overview-value{font-size:clamp(18px,5vw,24px)}.overview-value.dates{font-size:clamp(15px,4.4vw,20px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
-  .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{gap:10px}.pool-fig{font-size:clamp(15px,4.6vw,20px)}
+  .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.pool-fig{font-size:clamp(17px,5.2vw,21px)}
   .calc-inputs{gap:10px}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
 @media(prefers-reduced-motion:reduce){.chev{transition:none}}

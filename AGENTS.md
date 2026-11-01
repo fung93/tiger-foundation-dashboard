@@ -370,6 +370,16 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
   every campaign was exactly 0.001288 KAT per gauge vote. "KAT this epoch" is the sum of these
   live staking campaigns. Vault incentives (Yearn, Morpho, Charm, Steer opportunities) are not
   staked LPs and stay off the page. APR is Merkl's.
+- **Staked TVL (Alex, 1 Nov 2026):** each pool row reads Staked TVL · APR · KAT per day ·
+  Value per day (two by two at 600 px and below). Staked TVL is `staked_usd.in_range` from
+  `api/strategy`: the Sushi staker's positions and the whitelisted vault ranges in range now,
+  valued on chain at today's token prices, the same liquidity a new position's share is of.
+  Merkl's `tvl` counts the same thing (vbUSDC/vbUSDT 1 Nov: $178,808 Merkl vs $178,812 on
+  chain, with $1,165,567 staked in all and $986,756 of it out of range) but lags: vbETH/vbUSDC
+  read $242,771 on Merkl against $222,877 on chain. Merkl's figure is the fallback when the
+  chain gives none (no whitelist, a missing price, an old cached reading) and is named in the
+  pool's context line as the base of its APR; `staked_usd.all` adds the out-of-range staked
+  value, shown there only when it is more than 1% above the in-range figure.
 - **The estimate:** every campaign scores 100% by fees earned in range (`weightFees` 10000,
   out of range not paid), and only positions held by the campaign's whitelist count: the Sushi
   staker (`CFG.lpStaker`, enumerated through the NPM: 78 NFTs on 1 Nov) and the Charm

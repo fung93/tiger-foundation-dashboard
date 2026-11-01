@@ -7,7 +7,8 @@
    - Merkl's live staking campaigns (identifier "<pool>SUSHI_STAKER"): each pool's KAT,
      its dates and its scoring rules.
    - Each pool, the Sushi staker's positions and the campaign's whitelisted vaults, on
-     chain: the eligible liquidity in range now, which a new position's share is of.
+     chain: the eligible liquidity in range now, which a new position's share is of, and
+     the staked value in dollars (in range now, and in all).
    - KAT's price from the KAT/vbUSDC pool, as the Lending page prices it.
    - Each pool's recent low and high: the job's hourly rows (strategy-ranges.json) plus the
      swaps since its last run and the price now.
@@ -176,6 +177,7 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
 
   for (const p of pools) {
     p.eligible = { liquidity: 0, amount0: 0, amount1: 0, positions: 0, inRange: 0, vaults: 0 };
+    p.staked = p.whitelist.length ? { amount0: 0, amount1: 0 } : null;
     if (!p.whitelist.length) {
       /* no whitelist: every in-range position counts, which is the pool's active liquidity */
       p.eligible.liquidity = p.activeLiquidity; p.eligible.amount0 = null; p.eligible.amount1 = null;
@@ -206,15 +208,22 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
     reward: { start, end },
     total: { kat: pools.reduce((s, p) => s + p.kat, 0), katPerDay: pools.reduce((s, p) => s + p.katPerDay, 0) },
     kat_usd: katUsd, total_votes: totalVotes, staked_positions: stakedCount,
-    pools: pools.map(({ whitelist, blacklist, ...p }) => ({ ...p, eligible: { ...p.eligible, holders: whitelist.length } })),
+    pools: pools.map(({ whitelist, blacklist, staked, ...p }) => ({ ...p, eligible: { ...p.eligible, holders: whitelist.length },
+      staked_usd: { in_range: usdOf(p, p.eligible), all: usdOf(p, staked) } })),
     health: { notes },
   };
 }
 
-/* the in-range test and the token amounts, shared by staked positions and vault ranges */
+/* the dollar value of some token amounts in a pool; null when an amount or a price is missing */
+const usdOf = (p, a) => (a && a.amount0 !== null && p.token0.usd > 0 && p.token1.usd > 0 ? a.amount0 * p.token0.usd + a.amount1 * p.token1.usd : null);
+
+/* every staked position and vault range adds to the pool's staked value; only the ones in
+   range now share the KAT, so only they add to the eligible liquidity and its amounts */
 function addTo(p, L, lo, hi) {
-  if (!(L > 0) || !(p.tick >= lo && p.tick < hi) || !p.whitelist.length) return;
+  if (!(L > 0) || !p.whitelist.length) return;
   const a = amountsPerLiquidity(lo, hi, p.sqrtPrice, p.token0.decimals, p.token1.decimals);
+  p.staked.amount0 += L * a.amount0; p.staked.amount1 += L * a.amount1;
+  if (!(p.tick >= lo && p.tick < hi)) return;
   p.eligible.liquidity += L; p.eligible.amount0 += L * a.amount0; p.eligible.amount1 += L * a.amount1; p.eligible.inRange++;
 }
 
