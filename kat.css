@@ -1,6 +1,9 @@
 /* KAT Trades: the masthead, navigation and content frame are shared with the LP Book. */
 .kat-content{padding-bottom:20px}
 .kat-intro{margin:30px 0 22px}
+/* the section's two tabs: the link never breaks; on a phone the heading drops its detail */
+.kat-intro a{white-space:nowrap;flex-shrink:0}
+@media(max-width:480px){.kat-intro .what-more{display:none}}
 .metric-label{color:var(--dim);font-size:9px;letter-spacing:.11em;text-transform:uppercase}
 .metric-sub{font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6}
 .up{color:var(--up)}.down{color:var(--down)}

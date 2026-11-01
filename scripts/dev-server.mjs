@@ -6,7 +6,7 @@ import {dirname, extname, isAbsolute, relative, resolve, sep} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const DEFAULT_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','kat-trades']);
+const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','kat-trades','vkat']);
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8',
   '.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8',
   '.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8',

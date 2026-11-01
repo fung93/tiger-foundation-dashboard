@@ -2467,3 +2467,12 @@ try {
 } catch (e) {
   console.warn('kat trades could not be updated, keeping the existing ones:', e.message);
 }
+
+/* The vKAT page's ledger: Alex's gauge votes, the vote rewards Merkl paid and their prices
+   when paid, and KAT's price when each vote week closed. Its own try. */
+try {
+  const { updateVkatVotes } = await import('./vkat-votes.mjs');
+  await updateVkatVotes(ROOT);
+} catch (e) {
+  console.warn('vkat votes could not be updated, keeping the existing ones:', e.message);
+}

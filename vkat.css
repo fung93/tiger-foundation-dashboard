@@ -1,0 +1,53 @@
+/* vKAT Votes: the cards, chart frame and table come from kat.css; these are the page's own. */
+.vote-plot{height:260px}
+.votes td{vertical-align:top}
+.votes .epoch b{display:block;font-weight:500}
+.votes .epoch .dates{display:block;color:var(--dim);font-size:10.5px;margin-top:2px}
+.votes .epoch .now-tag{display:inline-block;margin:0 0 0 6px;font-size:9px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(214,185,123,.35);border-radius:99px;padding:1px 7px;vertical-align:1px}
+.votes .lines span{display:block;line-height:1.7}
+.votes .lines .muted{color:var(--faint)}
+.votes .apy{color:var(--gold)}
+.votes .sub{display:block;color:var(--dim);font-size:10px;margin-top:2px}
+.votes .ph-meta,.votes .ph-apy{display:none}
+/* on a phone each epoch is three short lines, no labels:
+   epoch · dates ......... value
+   pool .................. APY
+   vKAT · paid in tokens */
+@media(max-width:720px){
+  .votes tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"epoch value" "pool apy" "meta meta";gap:5px 14px;padding:13px 2px}
+  .votes td::before{display:none}
+  .votes td.epoch{grid-area:epoch;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .votes td.epoch b{display:inline}
+  .votes td.epoch .dates{display:inline;margin:0}
+  .votes td.pools{grid-area:pool;color:var(--text)}
+  .votes td.pools>span{line-height:1.5}
+  .votes td.ph-meta{grid-area:meta;display:block;color:var(--faint);font-size:10.5px;line-height:1.5;margin-top:-2px}
+  .votes td.value{grid-area:value;text-align:right!important;font-weight:500}
+  .votes td.apy-cell{grid-area:apy;text-align:right!important;white-space:nowrap}
+  .votes .ph-apy{display:inline;color:var(--dim);font-size:10px}
+  .votes td.vkat,.votes td.reward,.votes .apy-cell .sub{display:none}
+}
+@media(max-width:600px){.vote-plot{height:290px}}
+/* "!" beside Total reward: the breakdown by token, on hover, focus or tap */
+.info-wrap{display:inline-block;margin-left:6px;vertical-align:1px}
+.info-btn{width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--gold);
+  font:600 9px/13px var(--sans,system-ui,sans-serif);padding:0;cursor:pointer;letter-spacing:0;text-align:center}
+.info-btn:hover,.info-wrap.open .info-btn{border-color:rgba(214,185,123,.55)}
+.info-btn:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+.info-tip{display:none;position:absolute;z-index:20;top:44px;left:14px;width:min(250px,calc(100vw - 48px));
+  padding:11px 12px 10px;border-radius:10px;background:#111112;border:1px solid rgba(255,255,255,.13);box-shadow:0 10px 30px #000a;
+  text-transform:none;letter-spacing:0;font-weight:400;font-size:11.5px;color:var(--text);white-space:normal;text-align:left;cursor:default}
+.info-tip::before{content:'';position:absolute;left:0;right:0;top:-14px;height:14px}
+.info-wrap:hover .info-tip,.info-wrap:focus-within .info-tip,.info-wrap.open .info-tip{display:block}
+.info-title{display:block;font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.info-row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-top:1px solid var(--line2);font-variant-numeric:tabular-nums}
+.info-row span:last-child{color:var(--dim)}
+.info-foot{display:block;padding-top:7px;border-top:1px solid var(--line2);font-size:10px;color:var(--faint)}
+html.tiger .themed-page .info-tip{background:var(--card)}
+/* the chart scrolls sideways once the epochs outgrow the card, the dollar axis pinned */
+.vote-plot .plot-scroll{height:100%;overflow:hidden}
+.vote-plot .plot-scroll.on{overflow-x:auto;overflow-y:hidden;touch-action:pan-x pan-y;scrollbar-width:thin;scrollbar-color:var(--line) transparent;margin-left:46px;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16px);mask-image:linear-gradient(90deg,transparent 0,#000 16px)}
+.vote-plot .plot-scroll.on svg{margin-left:-46px}
+.vote-plot .plot-scroll svg{display:block;width:auto;height:100%;overflow:visible}
+.vote-plot .plot-yaxis{position:absolute;left:0;top:0;height:100%;width:46px;pointer-events:none}

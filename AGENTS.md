@@ -73,6 +73,9 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `kat-trades.json`: Alex's KAT trades since 27 Oct 2026, deposits waiting to be paid back,
      and the KAT/vbUSDC pool's hourly closing tick (`scripts/kat-trades.mjs`, its own error
      boundary; added 1 Nov 2026)
+   - `vkat-votes.json`: Alex's gauge vote events, the vote rewards Merkl paid with their
+     campaign dates and payout prices, and KAT's price when each vote week closed
+     (`scripts/vkat-votes.mjs`, its own error boundary; added 1 Nov 2026)
 2. **Browser live overlay, every 15 seconds.** The pages read the chain and the `/api/*`
    functions directly. The Portfolio starts from the saved snapshot. The LP Book and
    widget can show their shared last full browser reading immediately; refresh failures
@@ -104,6 +107,8 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool, 31 days, from its Swap logs. The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
 | `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, the P&L chart and the trade table, from 27 Oct 2026. See §4. |
 | `kat-core.mjs` | The KAT page's trade finder (from wallet transfers and receipts), the average-cost book, the P&L series and the ledger's validation, with no network: used by the page, `api/kat-trades.mjs`, `scripts/kat-trades.mjs` and `scripts/test-kat-trades.mjs`. |
+| `vkat.html`, `vkat.css`, `vkat.js` | **vKAT Votes**, the KAT section's second tab: vKAT held, epochs voted, total vote reward, average APY, the reward chart and the vote history. See §4. |
+| `vkat-core.mjs`, `api/vkat.mjs`, `scripts/vkat-votes.mjs`, `vkat-votes.json` | Its maths (votes per epoch, rewards per epoch, APY, ledger validation), the API (ledger + anything newer + live locks, ~4 s) and the six-hourly job (first run ~37 s; then only new blocks and new campaigns). |
 | `api/kat-trades.mjs`, `scripts/kat-trades.mjs`, `kat-trades.json` | The ledger the job keeps (only blocks since `last_block`; ~2 s incremental), and the API that adds everything since it plus the KAT and ETH prices now (~1.8 s, ~5 KB on 1 Nov 2026). |
 | `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
 | `lpbook.css`, `lpbook.js` | Shared by the two LP Book pages: styles, chart, 15 s poll, modal. |
@@ -489,6 +494,55 @@ the first buy after the 26 Oct sales) over 12 Oct, after seeing a month of his h
   6,260.979832 for 25. Holding 13,939.66 KAT at $0.0040592, cost $56.58, realised +$2.45; fees
   $0.12 in all.
 
+### vKAT Votes (Alex, 1 Nov 2026)
+
+Alex's spec: a page about his vKAT vote: on top the total vKAT, the number of votes, the total
+reward and the average APY; a line chart of total reward against epoch with each epoch's
+reward labelled on the line; then the vote history: pool voted, vKAT used, reward type and
+amount, APY. It is the **KAT section's second tab** (`vkat.html`, linked from a bar on
+`kat.html` and back), not a sixth menu item: five already fill a 320 px phone. The menu's KAT
+item is lit on both.
+
+- **Sources:** gauge voter `0x5e755a3c…` events with the wallet as `topics[1]`: vote
+  `0x9597ca1d…` and reset `0xe87470fc…`, topics `[event, voter, gauge (= pool), epoch]`, data
+  `[votes, gauge total, all votes, time]` (no lock id). vKAT NFT `0x106f7d67…` and escrow
+  `0x4d6fc15c…` (`locked(id)` → amount and start; `votingPower(id)`, equal to the amount on
+  1 Nov). NFTs sent to or from `0x60233d1c…` (avKAT's compound strategy) are avKAT deposits
+  and withdrawals. Vote rewards are Merkl breakdowns named `AragonBribes_<pool>_<vKAT id>`;
+  campaign dates from `/v4/campaigns?campaignId=`. The Katana MCP's `get_kat_locks` reverted on
+  `isVoting(22712)` on 1 Nov; the chain is read directly.
+- **An epoch's vote:** votes add to a pool, resets take off (several locks can stack on one
+  pool); a vote stands into later epochs until changed (on 22 Oct his 1481 vote was still on
+  vbUSDC/vbETH until he moved it). Each epoch takes the standing allocation with the most vKAT
+  in it, the latest if equal: from May to August he voted in the vote week and then moved the
+  lock into avKAT, and in 1474 he switched pool four times; the max-then-latest rule gives the
+  pool each epoch's reward actually came from, for all ten epochs (tested).
+- **Rewards:** each belongs to the epoch its campaign ends in (the main campaign runs the
+  vote week, a one-hour tail follows; the 1474 weETH/vbETH campaign began 3 hours before the
+  epoch, so the start would misfile it). Valued at its token's price when the campaign ended
+  (vbUSDC $1; KAT, vbETH and vbWBTC from their vbUSDC pools at that block, archive reads), once,
+  then never re-valued.
+- **APY:** an epoch's reward over its vKAT valued at KAT's price when its vote week closed,
+  compounded over 365/14 epochs a year; APR beside it. The average is all rewards over all
+  vKAT value, for the epochs whose vote week has closed. The 60-day exit and its 2.5-25% fee
+  are not in the rates, and the page says so.
+- **Display:** four cards, the vote-week note (open until..., or the next one's dates and where
+  his vote stands), the chart (cumulative reward, gold line, each point labelled "+$x" above
+  it, crosshair tooltip with pool, that epoch, total and APY), then the history newest first.
+  The Total reward card's breakdown by token (amount and dollars when paid) sits behind a "!"
+  beside its label (hover, focus or tap; a tap elsewhere or Escape closes it); the card itself
+  says only the epochs and whether all is claimed (Alex, 1 Nov). On a phone each epoch is three
+  unlabelled lines (Alex: the labelled cards were "too complicated and messy"): epoch, dates
+  and value; pool and APY; vKAT and the tokens it was paid in. The tab bar's heading drops its
+  detail at 480 px and the tab link never wraps. Points keep at least 52 px apart; when the epochs outgrow the
+  card the chart scrolls sideways, opening on the latest, with the dollar axis pinned and a fade
+  at the left edge (measured 1 Nov 2026 at 360 px: no label overlaps, no page scroll). Polls
+  every 60 s; `localStorage` `tf_vkat`.
+- **Checked 1 Nov 2026:** lock #22712, 257,871.86 KAT; ten epochs voted (1473-1482); $113.62
+  in vote rewards at payout prices (108.78 vbUSDC + dust in vbETH, vbWBTC and KAT), all claimed;
+  average 40.7% APY (34.4% APR); best epoch 1474 (weETH/vbETH, 208.9% APY), latest 1482
+  (vbWBTC/vbUSDC, 12.8%).
+
 ---
 
 ## 5. Chain facts that bite
@@ -677,6 +731,12 @@ It has four views: Planner, simulated positions, My real LPs and History.
   book, the simulator (buys, sales, a plan selling more than is held, break-even checked by
   valuing the book at it, skipped steps), and the ledger's validation; 71 assertions. `node scripts/kat-trades.mjs` updates only
   `kat-trades.json`.
+- **vKAT check:** `node scripts/test-vkat.mjs` replays the 45 vote events and Merkl's vote
+  rewards recorded 1 Nov (`scripts/fixtures/vkat-2026-11.json`): each epoch's pool and vKAT,
+  votes carrying over, a lock moved after its vote, stacked and split votes, the 24 rewards (LP
+  ones ignored), the book's totals, APY and APR, the settled-only average, and the ledger's
+  validation, and that the breakdown by token adds up to the total; 36 assertions.
+  `node scripts/vkat-votes.mjs` updates only `vkat-votes.json`.
   In Claude Code's browser pane, the preview with APIs is the launch entry **API Preview**
   (`node scripts/dev-server.mjs`, port 4200).
 - **Testing chain code:** import `api/_core.mjs` from a scratch Node script (Node 20+) and
@@ -729,6 +789,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 1 Nov 2026 (Alex: "create a page about vKAT vote ... review
+  first"):** the vKAT Votes tab (`vkat.html/.css/.js`, `vkat-core.mjs`, `api/vkat.mjs`,
+  `scripts/vkat-votes.mjs` and its first `vkat-votes.json`, `scripts/test-vkat.mjs` with its
+  fixture); the tab bar on `kat.html`; a new error boundary in `scripts/update-data.mjs` and
+  `vkat-votes.json` in the workflow's `git add`; the preview server serves `/api/vkat`;
+  `npm run check` covers the new files; `sw.js` -> `tiger-v133`.
 
 - **Pushed 1 Nov 2026 (Alex: "add a trade simulator card", then "push"):** the KAT page's
   trade simulator (`kat.html/.css/.js`, `simulate` in `kat-core.mjs`, 16 more checks in
