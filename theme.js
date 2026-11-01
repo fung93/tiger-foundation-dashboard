@@ -45,4 +45,18 @@
   window.addEventListener('pageshow', function (event) {
     if (event.persisted) apply(savedTheme(), false);
   });
+
+  /* A release's service worker takes over while a page is open: reload once, so the page runs
+     the new release's scripts rather than the cached ones it opened with. Without this a
+     page could pair an old script with the new API (1 Nov 2026: the vKAT page's old script
+     looked for APY after the API had moved to APR, and every rate showed a dash). Only when
+     a worker already controlled the page, so a first visit does not reload. */
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    var reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
+  }
 })();

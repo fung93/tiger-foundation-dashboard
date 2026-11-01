@@ -794,6 +794,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 1 Nov 2026 (Alex: "WHY ALL APR now show -", then "push"):** after `baf237a`
+  his browser showed a dash for every vKAT APR. The live API and page were right (a browser
+  with no service worker showed 34.4%); his service worker served the cached v133 `vkat.js`,
+  which read `apy`, against the new API, which no longer sends it. Pages other than the
+  Portfolio never reloaded when a new worker took over. `theme.js` (loaded by every page) now
+  reloads the page once on `controllerchange` when a worker already controlled it, so a release
+  can never pair an old script with a new API again; `theme.js` joins `npm run check`'s syntax
+  list; `sw.js` -> `tiger-v135`. **Rule:** when an API drops or renames a field, the old page
+  script may still meet it once; prefer adding fields to renaming them.
+
 - **Pushed 1 Nov 2026 (Alex: "change to APR and push"):** the vKAT page shows APR only (cards,
   chart tooltip, table, phone rows, method note); `voteBook` no longer computes APY;
   `sw.js` -> `tiger-v134`.
