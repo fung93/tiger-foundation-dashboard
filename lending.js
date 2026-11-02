@@ -252,6 +252,12 @@ function render() {
   $('health').textContent=msgs.join(' '); $('health').classList.toggle('on',msgs.length>0);
 }
 
+/* Join a point to the one before unless the readings stopped for three intervals running:
+   the six-hourly job often starts hours late (1-11 h apart from 1 Oct to 2 Nov 2026), and at
+   1.75 intervals a late run broke the line, leaving the newest reading as a lone dot
+   (Alex, 2 Nov). Missing or unread rows still lift the pen on their own. */
+const BREAK_AFTER=3;
+function joinsLast(lastTs,lastInterval,ts,interval){return !lastTs||ts-lastTs<=Math.max(lastInterval,interval||21600)*BREAK_AFTER;}
 function draw(box, points, target, isHealth) {
   box.dataset.savedTarget=String(target);
   box.dataset.start=points.length?String(points[0].ts):'';
@@ -267,7 +273,7 @@ function draw(box, points, target, isHealth) {
   for(let i=0;i<=3;i++){const v=hi*(i/3),yy=y(v);svg+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yy}" y2="${yy}" stroke="var(--chart-grid)"/><text x="${P.l-7}" y="${yy+3}" fill="var(--faint)" font-family="var(--chart-font, Inter, system-ui, sans-serif)" font-size="10" text-anchor="end">${isHealth?number(v,1):'$'+number(v,0)}</text>`;}
   for (const d of defs) {
     let path='',pen=false,lastTs=0,lastInterval=21600;
-    for(const p of points){const val=p.row?d.get(p.row):null;if(!Number.isFinite(val)){pen=false;continue;}const gap=lastTs&&p.ts-lastTs>Math.max(lastInterval,p.interval_seconds||21600)*1.75;path+=(pen&&!gap?'L':'M')+x(p.ts).toFixed(2)+','+y(val).toFixed(2)+' ';pen=true;lastTs=p.ts;lastInterval=p.interval_seconds||21600;}
+    for(const p of points){const val=p.row?d.get(p.row):null;if(!Number.isFinite(val)){pen=false;continue;}const gap=!joinsLast(lastTs,lastInterval,p.ts,p.interval_seconds);path+=(pen&&!gap?'L':'M')+x(p.ts).toFixed(2)+','+y(val).toFixed(2)+' ';pen=true;lastTs=p.ts;lastInterval=p.interval_seconds||21600;}
     svg+=`<path d="${path}" data-series="${esc(d.name)}" fill="none" stroke="${d.color}" stroke-width="${d.name.includes('saved')?1.8:1.4}" ${d.dash?`stroke-dasharray="${d.dash}"`:''} stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
     const last=valid.at(-1),v=d.get(last.row);svg+=`<circle cx="${x(last.ts)}" cy="${y(v)}" r="2.5" fill="${d.color}"/>`;
   }

@@ -794,6 +794,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 2 Nov 2026 (Alex: "In lending page, why the market line chart is broken? Fix and
+  push"):** the chart lifted the pen when two readings were more than 1.75 intervals apart
+  (10.5 h for the six-hourly job). GitHub starts that job late: readings from 1 Oct to 2 Nov
+  landed 1-11 h apart, and 11:27 -> 22:14 on 2 Nov (10.8 h) cut every line, leaving the newest
+  reading as a lone dot. `joinsLast()` in `lending.js` now joins unless the readings stopped
+  for three intervals (`BREAK_AFTER = 3`: 18 h six-hourly, 3 days for the daily archive);
+  missing or unread rows still lift the pen on their own. Measured on the live history: every
+  line one piece at 7D, 14D and All (237 readings). 6 more checks in
+  `scripts/test-lending-series.mjs` (59). `sw.js` -> `tiger-v139`.
+
 - **Pushed 2 Nov 2026 (Alex: "check why the KAT page KAT amount is different from wallet
   holding?", then "add and push"):** the KAT page's "KAT held" is the trades' KAT (buys less
   sales), not the wallets'. Measured 2 Nov: wallets 0 KAT before the first buy and 18,682.57

@@ -38,6 +38,17 @@ check(series([],market(0,{ts:40*D,block:40}),id,0),[],'A live collateral-only po
 check(series(samples,market(1,{ts:8*D,block:8}),id,0).length,6,'An older live reading cannot overwrite newer history');
 check(series([sample(1,market(5),{interval_seconds:86400}),sample(2,market(6))],null,id,0).map(p=>p.interval_seconds),[86400,21600],
   'Daily archive and six-hour observations retain their different sampling intervals');
+/* the chart's join rule: late runs join, a stopped job breaks the line */
+const joinSrc=source.match(/const BREAK_AFTER=(\d+);\nfunction joinsLast(\([^\n]*)\n/);
+assert.ok(joinSrc,'The join rule must exist in the browser code');
+const joins=vm.runInNewContext(`(function(){const BREAK_AFTER=${joinSrc[1]};return function joinsLast${joinSrc[2]}})()`);
+const H=3600;
+check(joins(1000,21600,1000+10.8*H,21600),true,'A six-hourly run 10.8 hours after the last (2 Nov 2026) joins the line');
+check(joins(1000,21600,1000+18*H,21600),true,'Up to three missed intervals still join');
+check(joins(1000,21600,1000+18*H+1,21600),false,'A job stopped for more than three intervals breaks the line');
+check(joins(1000,86400,1000+24*H,21600),true,'The daily archive joins day to day, and into the first six-hourly reading');
+check(joins(1000,86400,1000+73*H,86400),false,'Three missed days break the daily line');
+check(joins(0,21600,5000,21600),true,'The first point has nothing to break from');
 
 const restart=Date.parse('2026-10-30T00:00:00+08:00')/1000;
 const resetSamples=[restart-D,restart-1,restart,restart+3600,restart+2*3600]
