@@ -794,6 +794,22 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 2 Nov 2026 (Alex: "check why the KAT page KAT amount is different from wallet
+  holding?", then "add and push"):** the KAT page's "KAT held" is the trades' KAT (buys less
+  sales), not the wallets'. Measured 2 Nov: wallets 0 KAT before the first buy and 18,682.57
+  now = 19,060.11 held on the page + 11,511.46 rewards claimed - 11,889.00 moved into avKAT
+  + 0 Morpho (KAT borrowed and put straight back as collateral), nothing left over. A "!"
+  beside the average buy price now shows that sum, live: `kat-trades.json` keeps `start_kat`
+  (the wallets' KAT just before the start, read from the archive: 0) and `flows` (KAT moved in
+  or out by contract: Merkl distributor -> rewards, avKAT vault, Morpho Blue/Bundler3/adapter,
+  vKAT escrow/NFT/exit queue; `FLOW_OF` in `kat-core.mjs`), backfilled from 27 Oct and carried
+  forward by the job and API like the trades; `/api/kat-trades` adds `wallet_kat` (both
+  wallets' `balanceOf` now); `reconcile()` adds it up and names anything left over "other" (a
+  sale waiting to be paid back, a transfer, an LP). The info-box styles moved from `vkat.css`
+  to `kat.css` (both KAT pages load it); a right-column card opens its box leftwards
+  (`.info-wrap.right`). 11 more checks in `scripts/test-kat-trades.mjs` (82). `sw.js` ->
+  `tiger-v138`.
+
 - **Pushed 1 Nov 2026 (Alex: "remove 'voting power 257,872' on epoch card, then push"):** the
   vKAT page's Votes cast card says only where the vote stands now ("now on vbWBTC/vbUSDC 0.05%",
   or "No vote standing"); the voting power, equal to the vKAT card's figure, is gone.

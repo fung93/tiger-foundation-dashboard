@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { START, KAT, WALLETS, walletTxs, scanTrades, prunePending, replay, summary, pnlSeries, mergeCloses,
-  usdAtTick, usdFromSqrt, emptyBook, validateBook, units, simulate, PENDING_SECONDS } from '../kat-core.mjs';
+  usdAtTick, usdFromSqrt, emptyBook, validateBook, units, simulate, flowsOf, addFlows, noFlows, reconcile, PENDING_SECONDS } from '../kat-core.mjs';
 
 let checks = 0;
 const ok = (v, note) => { assert.ok(v, note); checks++; };
@@ -134,6 +134,24 @@ near(sell.after.breakEven, (sell.after.cost - sell.after.realized) / sell.after.
 near(simulate(book, [{ side: 'sell', kat: 5000, price: 0.0045 }], sell.after.breakEven).after.total, 0, 1e-9, 'checked by valuing the book after the sale at it');
 eq(simulate(book, [{ side: 'buy', usd: 0, price: 0.004 }, { side: 'sell', kat: 10, price: 0 }], nowPx).rows.length, 0, 'empty or priceless steps are skipped');
 eq(simulate([{ side: 'buy', kat: 100, usd: 1, block: 1, ts: 1, fees: { usd: 0 } }], [{ side: 'sell', kat: 50, price: 0.05 }], 0.01).after.breakEven, 0, 'a book already paid for breaks even at any price');
+
+/* the wallets' other KAT, and the reconciliation with the book (Alex asked, 2 Nov) */
+const since = fx.transfers.filter((t) => t.block >= START.block);
+const flows = flowsOf(since);
+near(flows.rewards, 215.108188 + 3236.499419, 0.001, 'rewards claimed from Merkl on 30 Oct');
+near(flows.avkat, -350 - 3480, 1e-9, 'KAT moved into avKAT on 28 and 30 Oct');
+near(flows.morpho, 0, 1e-9, 'the 2,800 KAT borrowed went straight back in as collateral');
+eq(flows.vkat, 0, 'no vKAT lock in the window');
+eq(flowsOf([...since, ...since]), flows, 'a transfer read twice counts once');
+eq(addFlows(noFlows(), flows), flows, 'flows add');
+/* the wallets held 0 KAT before the first buy and 13,561.27 at block 46,760,300 (read 2 Nov) */
+const rec = reconcile(book, flows, 0, 13561.26565653549);
+near(rec.held, r.qty, 1e-9, 'held is the book');
+near(rec.held + rec.rewards + rec.avkat + rec.morpho + rec.vkat + rec.other, rec.wallet, 1e-9, 'the lines add up to the wallets');
+near(rec.other, 0, 0.01, 'and nothing is left unexplained');
+const over2 = reconcile([{ side: 'sell', kat: 10, usd: 1, block: 1, ts: 1 }], noFlows(), 10, 0);
+eq([over2.outside, over2.held, Math.abs(over2.other) < 1e-9], [10, 0, true], 'a sale from outside the book is shown as such, not as other');
+assert.throws(() => validateBook({ ...emptyBook(), flows: { rewards: 1 } }), /wallet flows/); checks++;
 
 /* prices */
 near(usdAtTick(331244), 0.0041217, 0.000002, 'KAT at the 1 Nov 20:00 close, within a tick of slot0 then ($0.0041217)');

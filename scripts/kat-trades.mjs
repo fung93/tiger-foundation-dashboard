@@ -19,6 +19,7 @@ export const KAT_FILE = 'kat-trades.json';
 export function formatBook(f) {
   const list = (rows) => (rows.length ? '\n' + rows.map((r) => '    ' + JSON.stringify(r)).join(',\n') + '\n  ' : '');
   return `{"version": ${f.version}, "chain": ${f.chain}, "start": ${JSON.stringify(f.start)}, "last_block": ${f.last_block}, "last_ts": ${f.last_ts},\n`
+    + `  "start_kat": ${f.start_kat}, "flows": ${JSON.stringify(f.flows)},\n`
     + `  "trades": [${list(f.trades)}],\n  "pending": [${list(f.pending)}],\n  "hours": [${list(f.hours)}]\n}\n`;
 }
 

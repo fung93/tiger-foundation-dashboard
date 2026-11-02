@@ -1,11 +1,15 @@
-{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 46847263, "last_ts": 1793590074,
+{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 46873829, "last_ts": 1793616640,
+  "start_kat": 0, "flows": {"rewards":11511.46054038598,"avkat":-11889,"morpho":0,"vkat":0},
   "trades": [
     {"hash":"0xd249bc72b1426c42b92fc55ba806e2776e0a88846acb92743d3cd55f65cddca1","deposit_hash":null,"block":46345344,"ts":1793088155,"side":"buy","kat":5978.847409331783,"usd":25,"token":"vbUSDC","route":"swap","fees":{"usd":0.0017026197162703924,"gas_eth":0,"gas_usd":0,"parts":[{"what":"Order fee","token":"KAT","amount":0.40718813918801805,"usd":0.0017026197162703924}]}},
     {"hash":"0xfd05e6d22de0da0d88e4c84f4ae53e82dd8e47abd7a6dd91b9c1a5fbef72e1c5","deposit_hash":"0xaf940cdb8fab5872bae0a614de4185c79957277f061bd467f255364ddb024dd2","block":46511459,"ts":1793254270,"side":"sell","kat":5600,"usd":25.864268,"token":"vbUSDC","route":"deposit","fees":{"usd":0.011865864336982562,"gas_eth":5.69624e-8,"gas_usd":0.00012882332294193252,"parts":[{"what":"Service fee","token":"vbUSDC","amount":0.010349,"usd":0.010349},{"what":"Relayer fee","token":"KAT","amount":0.3005315935725504,"usd":0.0013880410140406287}]}},
     {"hash":"0xf014a26489b11a79f83b0c2095c332ea8e609ca9905a347e2f7308989c4922e6","deposit_hash":"0x6c404e57f5e4ca136e6a44112f7bf19355cf2c84c66877a88b935a6c5e946c87","block":46583666,"ts":1793326477,"side":"buy","kat":7299.830781244015,"usd":30,"token":"vbUSDC","route":"deposit","fees":{"usd":0.053255387637832566,"gas_eth":0.000003358575,"gas_usd":0.007595585717064256,"parts":[{"what":"Service fee","token":"KAT","amount":2.9211007527987256,"usd":0.012004801920768308},{"what":"Relayer fee","token":"vbUSDC","amount":0.033655,"usd":0.033655}]}},
-    {"hash":"0x5ee8a09b9511927bd42572e6a9b7f54b5030f637550d4dc7fcbfe9d1057cd42b","deposit_hash":"0x67daea23825813ef4f678140848d9b957183260f1244fde9aac039d10eb14397","block":46759876,"ts":1793502687,"side":"buy","kat":6260.97983244749,"usd":25,"token":"vbUSDC","route":"deposit","fees":{"usd":0.05225158731770452,"gas_eth":0.000003358575,"gas_usd":0.007595585717064256,"parts":[{"what":"Service fee","token":"KAT","amount":2.505394090615242,"usd":0.010004001600640256},{"what":"Relayer fee","token":"vbUSDC","amount":0.034652,"usd":0.034652}]}}
+    {"hash":"0x5ee8a09b9511927bd42572e6a9b7f54b5030f637550d4dc7fcbfe9d1057cd42b","deposit_hash":"0x67daea23825813ef4f678140848d9b957183260f1244fde9aac039d10eb14397","block":46759876,"ts":1793502687,"side":"buy","kat":6260.97983244749,"usd":25,"token":"vbUSDC","route":"deposit","fees":{"usd":0.05225158731770452,"gas_eth":0.000003358575,"gas_usd":0.007595585717064256,"parts":[{"what":"Service fee","token":"KAT","amount":2.505394090615242,"usd":0.010004001600640256},{"what":"Relayer fee","token":"vbUSDC","amount":0.034652,"usd":0.034652}]}},
+    {"hash":"0x95e20f45ae78babd8f69ad9c4e6efb3d1e6599a2684ede202d50b668830227fd","deposit_hash":"0x8b4788058164c85e00eacc687422bfb14060ce48d2b7651727506291f668ebb7","block":46862814,"ts":1793605625,"side":"buy","kat":5120.452820364596,"usd":20,"token":"vbUSDC","route":"deposit","fees":{"usd":0.050536284604778305,"gas_eth":0.000003357915,"gas_usd":0.007674083324266099,"parts":[{"what":"Service fee","token":"KAT","amount":2.049000728437213,"usd":0.008003201280512205},{"what":"Relayer fee","token":"vbUSDC","amount":0.034859,"usd":0.034859}]}}
   ],
-  "pending": [],
+  "pending": [
+    {"to":"0xc10ee9031f2a0b84766a86b55a8d90f357910fb4","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":1,"block":46866188,"ts":1793608999,"hash":"0x4012c4f612b75623fef0b899d81837ad020bf865e4248bfe564a5e929bb88084"}
+  ],
   "hours": [
     [1793088000,331062],
     [1793091600,331084],
@@ -146,6 +150,13 @@
     [1793577600,331620],
     [1793581200,331609],
     [1793584800,331617],
-    [1793588400,331544]
+    [1793588400,331539],
+    [1793592000,331568],
+    [1793595600,331580],
+    [1793599200,331765],
+    [1793602800,331781],
+    [1793606400,331849],
+    [1793610000,331896],
+    [1793613600,331893]
   ]
 }

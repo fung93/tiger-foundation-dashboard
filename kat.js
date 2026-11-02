@@ -1,7 +1,7 @@
 /* kat.js: lays out /api/kat-trades. The book (average cost from 27 Oct 2026), the P&L
    chart, the trade simulator and the trade table are worked out here with kat-core.mjs,
    from the trades and hourly prices the API returns. */
-import { replay, summary, pnlSeries, usdAtTick, simulate } from './kat-core.mjs';
+import { replay, summary, pnlSeries, usdAtTick, simulate, reconcile } from './kat-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,8 +34,33 @@ function renderOverview(s) {
   const change = dayAgo ? view.price_usd / dayAgo - 1 : null;
   set(0, price(view.price_usd), (change !== null ? `${change >= 0 ? '+' : ''}${fmt(change * 100, 2)}% in 24 h · ` : '') + 'Sushi KAT/vbUSDC');
   set(1, s.avg !== null ? price(s.avg) : '—', s.qty > 0 ? `${kat(s.qty)} KAT held · cost ${money(s.cost)}` : 'No KAT held in this book');
+  renderHeldInfo();
   set(2, signed(s.unrealized), s.qty > 0 ? `worth ${money(s.value)} · ${s.unrealized >= 0 ? '+' : ''}${fmt(s.unrealized / s.cost * 100, 2)}%` : 'Nothing held', tone(s.unrealized));
   set(3, signed(s.realized), `${s.sold.n} sale${s.sold.n === 1 ? '' : 's'} · total ${signed(s.total)}`, tone(s.realized));
+}
+
+/* the "!" beside the average buy price: why the KAT held here differs from the wallets'.
+   Everything since 27 Oct that moved KAT and is not a trade, then the wallets now. */
+function renderHeldInfo() {
+  const tip = $('heldInfo').querySelector('.info-tip');
+  if (!Number.isFinite(view.wallet_kat) || !view.flows) {
+    tip.innerHTML = '<span class="info-title">KAT held here and in your wallets</span><span class="info-foot">The wallets could not be read this time.</span>';
+    return;
+  }
+  const r = reconcile(view.trades, view.flows, view.start_kat || 0, view.wallet_kat);
+  const sk = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + kat(Math.abs(v));
+  const row = (label, v, always) => (always || Math.abs(v) >= 0.005 ? `<span class="info-row"><span>${label}</span><span>${sk(v)}</span></span>` : '');
+  tip.innerHTML = '<span class="info-title">KAT held here and in your wallets</span>'
+    + `<span class="info-row"><span>Held on this page</span><span>${kat(r.held)}</span></span>`
+    + row('Sold from outside this book', -r.outside)
+    + row('In the wallets before 27 Oct', r.start)
+    + row('Rewards claimed', r.rewards, true)
+    + row('Moved into avKAT', r.avkat, true)
+    + row('Morpho, borrowed or collateral', r.morpho)
+    + row('Locked in vKAT', r.vkat)
+    + row('Other (a sale in progress, a transfer, an LP)', r.other)
+    + `<span class="info-row total"><span>In your wallets now</span><span>${kat(r.wallet)}</span></span>`
+    + '<span class="info-foot">Since 27 Oct 16:02 MYT. Rewards and avKAT are not trades, so this page leaves them out.</span>';
 }
 
 /* ---- the chart: one dollar axis, three lines, the trades marked on the total ---- */
@@ -301,6 +326,13 @@ document.querySelectorAll('.ranges button').forEach((b) => b.addEventListener('c
   document.querySelectorAll('.ranges button').forEach((o) => { o.classList.toggle('on', o === b); o.setAttribute('aria-pressed', String(o === b)); });
   if (view) renderChart(summary(view.trades, view.price_usd));
 }));
+/* the "!" opens on hover or focus, and on a tap for phones; a tap elsewhere or Escape closes it */
+const heldInfo = $('heldInfo'), heldBtn = heldInfo.querySelector('.info-btn');
+const setHeldInfo = (open) => { heldInfo.classList.toggle('open', open); heldBtn.setAttribute('aria-expanded', String(open)); };
+heldBtn.addEventListener('click', (e) => { e.stopPropagation(); setHeldInfo(!heldInfo.classList.contains('open')); });
+document.addEventListener('click', (e) => { if (!heldInfo.contains(e.target)) setHeldInfo(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setHeldInfo(false); });
+
 let resizeTimer = 0;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (view) renderChart(summary(view.trades, view.price_usd)); }, 120); });
 

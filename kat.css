@@ -65,6 +65,27 @@
 .trades-foot{font-size:10.5px;color:var(--dim);line-height:1.8;margin-top:12px;padding-top:12px;border-top:1px solid var(--line2)}
 .trades-empty{color:var(--faint);font-size:11px;padding:18px 6px}
 
+/* "!" beside a card's label: a small breakdown on hover, focus or tap (both KAT pages) */
+.info-wrap{display:inline-block;margin-left:6px;vertical-align:1px}
+.info-btn{width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--gold);
+  font:600 9px/13px var(--sans,system-ui,sans-serif);padding:0;cursor:pointer;letter-spacing:0;text-align:center}
+.info-btn:hover,.info-wrap.open .info-btn{border-color:rgba(214,185,123,.55)}
+.info-btn:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+.info-tip{display:none;position:absolute;z-index:20;top:44px;left:14px;width:min(250px,calc(100vw - 48px));
+  padding:11px 12px 10px;border-radius:10px;background:#111112;border:1px solid rgba(255,255,255,.13);box-shadow:0 10px 30px #000a;
+  text-transform:none;letter-spacing:0;font-weight:400;font-size:11.5px;color:var(--text);white-space:normal;text-align:left;cursor:default}
+.info-tip::before{content:'';position:absolute;left:0;right:0;top:-14px;height:14px}
+.info-wrap:hover .info-tip,.info-wrap:focus-within .info-tip,.info-wrap.open .info-tip{display:block}
+.info-title{display:block;font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.info-row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-top:1px solid var(--line2);font-variant-numeric:tabular-nums}
+.info-row span:last-child{color:var(--dim)}
+.info-foot{display:block;padding-top:7px;border-top:1px solid var(--line2);font-size:10px;color:var(--faint)}
+html.tiger .themed-page .info-tip{background:var(--card)}
+/* a card in the right-hand column opens its box leftwards, so it stays on a phone's screen */
+.info-wrap.right .info-tip{left:auto;right:14px}
+.info-row.total{border-top:1px solid var(--line);font-weight:500}
+.info-row.total span:last-child{color:var(--text)}
+
 .kat-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
 .kat-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
 .kat-method p{max-width:780px;margin:8px 0}

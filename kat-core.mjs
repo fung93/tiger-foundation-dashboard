@@ -202,6 +202,52 @@ export function mergeCloses(hours, swaps) {
 }
 
 /* ---------------------------------------------------------------------------
+   The wallets' other KAT: what moved in or out for reasons that are not trades, by the
+   contract on the other side. Kept from the start in the ledger, so the page can say why
+   the KAT it holds differs from the KAT in the wallets (Alex asked, 2 Nov 2026).
+   --------------------------------------------------------------------------- */
+export const FLOW_OF = {
+  '0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae': 'rewards',   /* Merkl distributor: LP and vote rewards claimed */
+  '0x7231dbacdfc968e07656d12389ab20de82fbfceb': 'avkat',     /* avKAT vault */
+  '0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc': 'morpho',    /* Morpho Blue */
+  '0xa8c5e23c9c0df2b6ff716486c6bbebb6661548c8': 'morpho',    /* Bundler3 */
+  '0x916aa175c36e845db45ff6ddb886ae437d403b61': 'morpho',    /* its general adapter */
+  '0x4d6fc15ca6258b168225d283262743c623c13ead': 'vkat',      /* vKAT escrow */
+  '0x106f7d67ea25cb9eff5064cf604ebf6259ff296d': 'vkat',      /* vKAT NFT */
+  '0x6de9caab658c744ad337ca5d92d084c97fff578d': 'vkat',      /* vKAT exit queue */
+};
+export const noFlows = () => ({ rewards: 0, avkat: 0, morpho: 0, vkat: 0 });
+
+/* the KAT each kind of contract moved in (+) or out (-) of the wallets */
+export function flowsOf(transfers) {
+  const out = noFlows(), seen = new Set();
+  for (const t of transfers) {
+    if (t.token !== KAT) continue;
+    const key = t.hash + ':' + t.index;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const fromW = isWallet(t.from), toW = isWallet(t.to);
+    if (fromW === toW) continue;
+    const kind = FLOW_OF[toW ? t.from : t.to];
+    if (kind) out[kind] += units(t.raw, KAT_DECIMALS) * (toW ? 1 : -1);
+  }
+  return out;
+}
+export const addFlows = (a, b) => ({ rewards: a.rewards + b.rewards, avkat: a.avkat + b.avkat, morpho: a.morpho + b.morpho, vkat: a.vkat + b.vkat });
+
+/* The book's KAT against the wallets': wallets = start + trades + rewards + avKAT + Morpho +
+   vKAT + other. The book also keeps any part of a sale that came from outside it, so that
+   part is taken off; "other" is whatever no contract above explains (a KAT sale still
+   waiting to be paid back, KAT sent to or from another wallet, an LP). */
+export function reconcile(trades, flows, startKat, walletKat) {
+  const r = replay(trades);
+  const net = trades.reduce((s, t) => s + (t.side === 'buy' ? t.kat : -t.kat), 0);
+  const outside = r.rows.reduce((s, x) => s + (x.outside || 0), 0);
+  const explained = startKat + net + flows.rewards + flows.avkat + flows.morpho + flows.vkat;
+  return { held: r.qty, outside, start: startKat, ...flows, other: walletKat - explained, wallet: walletKat };
+}
+
+/* ---------------------------------------------------------------------------
    The book: average cost, long only. A buy adds its KAT and its cost; a sell takes KAT
    out at the average cost so far and books the difference as realised. A sell of more
    KAT than the book holds came partly from outside it (rewards, borrowing): that part is
@@ -287,7 +333,7 @@ export function pnlSeries(trades, hours, { now, priceUsd }) {
 }
 
 /* the ledger file the job keeps, checked before anything is added to it */
-export const emptyBook = () => ({ version: 1, chain: CHAIN, start: { ...START }, last_block: START.block - 1, last_ts: START.ts, trades: [], pending: [], hours: [] });
+export const emptyBook = () => ({ version: 1, chain: CHAIN, start: { ...START }, last_block: START.block - 1, last_ts: START.ts, start_kat: 0, flows: noFlows(), trades: [], pending: [], hours: [] });
 
 export function validateBook(f) {
   const fail = (why) => { throw new Error('Invalid KAT trades file: ' + why + '. Existing file was not changed.'); };
@@ -297,6 +343,7 @@ export function validateBook(f) {
   if (!f.start || f.start.block !== START.block || f.start.ts !== START.ts) fail('the start moved');
   if (!Number.isSafeInteger(f.last_block) || f.last_block < START.block - 1 || !Number.isSafeInteger(f.last_ts)) fail('bad last block');
   if (!Array.isArray(f.trades) || !Array.isArray(f.pending) || !Array.isArray(f.hours)) fail('trades, pending and hours must be lists');
+  if (!num(f.start_kat) || f.start_kat < 0 || !f.flows || ['rewards', 'avkat', 'morpho', 'vkat'].some((k) => !num(f.flows[k]))) fail('bad wallet flows');
   const hashes = new Set();
   for (const t of f.trades) {
     if (!t || !/^0x[0-9a-f]{64}$/.test(t.hash) || hashes.has(t.hash) || !['buy', 'sell'].includes(t.side) || !(t.kat > 0) || !(t.usd > 0)

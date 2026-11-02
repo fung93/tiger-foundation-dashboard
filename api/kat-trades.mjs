@@ -10,13 +10,19 @@
    ========================================================================== */
 import { CFG, multi, rpc } from './_core.mjs';
 import { KAT, KAT_POOL, ETH_POOL, WALLETS, START, TRANSFER_TOPIC, emptyBook, validateBook, transferFromLog, walletTxs,
-  scanTrades, prunePending, mergeCloses, usdFromSqrt } from '../kat-core.mjs';
+  scanTrades, prunePending, mergeCloses, usdFromSqrt, flowsOf, addFlows } from '../kat-core.mjs';
 import { swapFromLog, SWAP_TOPIC } from '../strategy-core.mjs';
 
 const RPC = CFG.katRpc;
 const WALLET_SPAN = 250000, SWAP_SPAN = 100000;   /* about 3,000 pool swaps a day on 1 Nov 2026 */
 const hex = (n) => '0x' + n.toString(16);
 const pad = (a) => '0x' + a.slice(2).padStart(64, '0');
+
+/* the KAT both wallets hold now; null if either cannot be read */
+export async function walletKat() {
+  const r = await multi(RPC, WALLETS.map((w) => ({ to: KAT, data: '0x70a08231' + pad(w).slice(2) })));
+  return r.every((x) => x.ok) ? r.reduce((s, x) => s + Number(BigInt(x.data.slice(0, 66))) / 1e18, 0) : null;
+}
 
 /* the KAT and ETH prices now, from their vbUSDC pools */
 export async function pricesNow() {
@@ -45,7 +51,7 @@ export async function advanceKat(file, { head, headTs, ethUsd, getLogs, getRecei
   }
   const scanned = await scanTrades(file, walletTxs(transfers), { getReceipt, ethUsd });
   return { ...file, last_block: head, last_ts: headTs, trades: scanned.trades, pending: prunePending(scanned.pending, headTs),
-    hours: mergeCloses(file.hours, swaps) };
+    flows: addFlows(file.flows, flowsOf(transfers)), hours: mergeCloses(file.hours, swaps) };
 }
 
 /* the chain readers, for the job and this API alike */
@@ -70,7 +76,7 @@ export async function readKatTrades(saved, now = Math.floor(Date.now() / 1000)) 
     catch (e) { notes.push('The saved ledger could not be used (' + e.message.slice(0, 80) + '); reading from 27 Oct instead.'); }
   } else notes.push('The saved ledger could not be read; reading from 27 Oct instead.');
   const io = katReaders();
-  const [{ head, headTs }, px] = await Promise.all([io.tip(), pricesNow()]);
+  const [{ head, headTs }, px, held] = await Promise.all([io.tip(), pricesNow(), walletKat()]);
   if (!(px.kat > 0)) throw new Error('KAT price could not be read');
   const behind = headTs - file.last_ts;
   if (saved && behind > 12 * 3600) notes.push(`The six-hourly ledger is ${Math.round(behind / 3600)} hours behind; the trades since were read live.`);
@@ -78,6 +84,8 @@ export async function readKatTrades(saved, now = Math.floor(Date.now() / 1000)) 
   return {
     at: now, head, head_ts: headTs, start: START, price_usd: px.kat, eth_usd: px.eth,
     trades: live.trades, hours: live.hours,
+    /* the wallets' KAT now and what moved it besides trades, for the page's reconciliation */
+    wallet_kat: held, start_kat: live.start_kat, flows: live.flows,
     /* KAT sent to a deposit address and not paid back yet: a sale in progress, or one the page cannot see */
     waiting: live.pending.filter((p) => p.token === KAT).map((p) => ({ kat: p.amount, ts: p.ts, hash: p.hash })),
     ledger_to: file.last_ts, health: { notes },
