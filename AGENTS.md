@@ -556,7 +556,8 @@ item is lit on both.
 ### vKAT page: the Katana network row (Alex, 3 Nov 2026)
 
 Alex: "In vKAT vote page, add 3 information: total vKAT locked in Katana network, total avKAT
-minted in Katana network, ratio AVKAT/KAT". A row of three cards under his own four, read
+minted in Katana network, ratio AVKAT/KAT". A row of three cards at the top of the page,
+above the vKAT votes bar and his own four (moved there the same day: "revert the row"), read
 live by `readNetwork` in `api/vkat.mjs` at the head block (`network` in the reply; a failure
 is a note and "Not read this time"):
 
@@ -896,6 +897,11 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "revert the row "vKAT votes · Katana gauges" and "Katana network"
+  push"):** the two rows swapped: Katana network first (taking the page's opening margin,
+  30 px, 20 px on a phone), then the vKAT votes bar (26 px, 22 px on a phone) and his cards.
+  `sw.js` -> `tiger-v146`.
 
 - **Pushed 3 Nov 2026 (Alex: "In vKAT vote page, add 3 information ... ADD AND PUSH"):** §4 "vKAT
   page: the Katana network row": `readNetwork` in `api/vkat.mjs`, the row in `vkat.html`,

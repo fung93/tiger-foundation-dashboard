@@ -47,6 +47,13 @@
 
 <main class="book-content kat-content">
   <div class="health" id="health" role="status"></div>
+  <!-- all of Katana's vKAT and avKAT, read live (Alex, 3 Nov 2026); first, above his own votes -->
+  <div class="net-head"><div class="label">Katana network</div><span class="trades-hint">All vKAT and avKAT, read live</span></div>
+  <div class="kat-overview net-overview" id="network" aria-live="polite">
+    <div class="card overview-card"><div class="metric-label">vKAT locked</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">avKAT minted</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">avKAT / KAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+  </div>
   <div class="bar kat-intro">
     <span class="what">vKAT votes<span class="what-more"> &middot; Katana gauges</span></span>
     <a href="/kat.html" title="KAT trades since 27 Oct 2026"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>KAT trades</a>
@@ -58,13 +65,6 @@
     <div class="card overview-card"><div class="metric-label">Average APR</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
   </div>
   <div class="waiting-note" id="voteNote" hidden></div>
-  <!-- all of Katana's vKAT and avKAT, read live (Alex, 3 Nov 2026) -->
-  <div class="net-head"><div class="label">Katana network</div><span class="trades-hint">All vKAT and avKAT, read live</span></div>
-  <div class="kat-overview net-overview" id="network" aria-live="polite">
-    <div class="card overview-card"><div class="metric-label">vKAT locked</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">avKAT minted</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">avKAT / KAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-  </div>
 
   <section class="card chart-card" aria-labelledby="chartTitle">
     <div class="chart-bar">
