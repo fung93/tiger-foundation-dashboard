@@ -132,8 +132,7 @@
     $('c2n').textContent = 'open positions · excluding fees';
 
     $('c4').textContent = money(C.fees_usd);
-    $('c4n').textContent = money(C.unclaimed_usd) + ' still to claim · '
-      + (C.last_claim_ts ? 'last claim ' + B.when(new Date(C.last_claim_ts * 1000).toISOString()) : 'nothing claimed yet');
+    $('c4n').textContent = money(C.unclaimed_usd) + ' still to claim';
 
     $('c9').textContent = signed(C.net_usd);
     $('c9').className = 'big ' + cls(C.net_usd);

@@ -173,7 +173,7 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 ### LP Book fee rules (book version 9)
 
 - **Live page, Fees claimed card:** fees actually claimed by the open positions since each
-  opened. Under it: "$X still to claim · last claim <date>". There is a claim-record icon
+  opened. Under it: "$X still to claim" (the last-claim date was removed 3 Nov 2026, Alex). There is a claim-record icon
   and no token list.
 - **Live position cards:** each position's own fees since it opened, claimed or not.
   - On Katana, that is the position's own Merkl KAT.
@@ -897,6 +897,9 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "remove last claim 3 Nov, 12:12 in fees claimed card, push"):** LP
+  Book's Fees claimed card reads "$X still to claim" only; `lp.html`. `sw.js` -> `tiger-v147`.
 
 - **Pushed 3 Nov 2026 (Alex: "revert the row "vKAT votes · Katana gauges" and "Katana network"
   push"):** the two rows swapped: Katana network first (taking the page's opening margin,
