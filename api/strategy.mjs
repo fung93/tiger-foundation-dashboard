@@ -18,7 +18,7 @@
    ========================================================================== */
 import { CFG, multi, pad, keccakHex, rpc } from './_core.mjs';
 import { epochOf, amountsPerLiquidity, orientation, priceAtTick, mergeSwapHours, recentRanges, rangePrices,
-  swapFromLog, SWAP_TOPIC, RANGE_DAYS, PERP_OF } from '../strategy-core.mjs';
+  swapFromLog, SWAP_TOPIC, RANGE_DAYS, PERP_OF, feesFromGrowth } from '../strategy-core.mjs';
 
 const KAT = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
 const CLOCK = '0x17049d374a2bcda70f8939c21ad92bcf6b2a95ab';
@@ -35,7 +35,23 @@ const SEL = {
      Steer reports its ranges as arrays */
   baseLower: '0xfa082743', baseUpper: '0x888a9134', limitLower: '0x51e87af7', limitUpper: '0x0f35bcac',
   getPositions: '0x80275860',
+  feeGrowthGlobal0X128: '0xf3058399', feeGrowthGlobal1X128: '0x46141319',
 };
+
+/* Pools with no KAT emission, under the page's "Show pools without KAT emissions" (Alex,
+   3 Nov 2026). They earn trading fees only, read from the pool itself: no campaign, no
+   staking. For now the KAT/vbUSDC 0.05% pool, the KAT market (the 0.01% and 1% pools are
+   empty and the 0.3% holds about $11,000). Checked on chain 3 Nov 2026: token0 vbUSDC,
+   token1 KAT, fee 500, tick spacing 10, feeProtocol 34 (Sushi keeps half of each fee).
+   baseIndex 1 quotes it in vbUSDC per KAT; dollar is the token valued at $1, as KAT's price
+   is everywhere on this page. */
+const VBUSDC = '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36';
+export const FEE_POOLS = [{
+  pool: KAT_POOL, fee: 500, baseIndex: 1, dollar: 0,
+  token0: { address: VBUSDC, symbol: 'vbUSDC', decimals: 6 }, token1: { address: KAT, symbol: 'KAT', decimals: 18 },
+  link: 'https://www.sushi.com/katana/pool/v3/' + KAT_POOL,
+}];
+const FEE_WINDOW = 7 * 86400;
 
 const lc = (s) => String(s || '').toLowerCase();
 const word = (hex, i = 0) => BigInt('0x' + (hex.slice(2 + i * 64, 66 + i * 64) || '0'));
@@ -87,10 +103,59 @@ export async function readCampaigns(now) {
   return rows;
 }
 
+/* Each pool without KAT, at one block: its price, liquidity and balances, and its fee growth
+   now, a week ago and a day ago (archive reads; Katana makes a block a second, and the blocks'
+   own times are used). The rows have the KAT pools' shape, so the page's range, edges and
+   hedge run on them unchanged. */
+export async function readFeePools() {
+  const head = Number(BigInt(await rpc(RPC, 'eth_blockNumber', [])));
+  const at = [head, head - FEE_WINDOW, head - 86400], tag = (n) => '0x' + n.toString(16);
+  const ts = (await Promise.all(at.map((n) => rpc(RPC, 'eth_getBlockByNumber', [tag(n), false])))).map((b) => Number(BigInt(b.timestamp)));
+  const growth = FEE_POOLS.flatMap((f) => [{ to: f.pool, data: SEL.feeGrowthGlobal0X128 }, { to: f.pool, data: SEL.feeGrowthGlobal1X128 }]);
+  const calls = FEE_POOLS.flatMap((f) => [{ to: f.pool, data: SEL.slot0 }, { to: f.pool, data: SEL.liquidity }, { to: f.pool, data: SEL.tickSpacing },
+    { to: f.token0.address, data: SEL.balanceOf + pad(f.pool) }, { to: f.token1.address, data: SEL.balanceOf + pad(f.pool) }]);
+  const [now, week, day] = await Promise.all([multi(RPC, [...calls, ...growth], tag(at[0])), multi(RPC, growth, tag(at[1])), multi(RPC, growth, tag(at[2]))]);
+  const grown = (rows, k) => [0, 1].map((i) => word(need(rows[k * 2 + i], 'the fee growth')));
+  return FEE_POOLS.map((f, k) => {
+    const r = now.slice(k * 5, k * 5 + 5), slot0 = need(r[0], f.pool);
+    const p = {
+      kind: 'fees', pool: f.pool, fee: f.fee, fee_tier: f.fee / 1e6, baseIndex: f.baseIndex, link: f.link,
+      token0: { ...f.token0 }, token1: { ...f.token1 },
+      sqrtPrice: Number(word(slot0, 0)) / 2 ** 96, tick: int24(slot0, 1), fee_protocol: Number(word(slot0, 5)),
+      activeLiquidity: Number(word(need(r[1], f.pool))), tickSpacing: int24(need(r[2], f.pool), 0),
+      rules: { weightFees: 10000, weightToken0: 0, weightToken1: 0, outOfRange: false },
+    };
+    p.price = priceAtTick(p.tick, p);
+    const toks = [p.token0, p.token1], other = 1 - f.dollar;
+    toks[f.dollar].usd = 1;
+    toks[other].usd = f.baseIndex === other ? p.price : 1 / p.price;
+    const o = orientation(p);
+    p.base = toks[o.base].symbol; p.quote = toks[o.quote].symbol;
+    const after = grown(now.slice(calls.length), k), base = { after, fee: f.fee, feeProtocol: p.fee_protocol, pool: p };
+    p.fees = { ...feesFromGrowth({ ...base, before: grown(week, k), seconds: ts[0] - ts[1] }), window_days: (ts[0] - ts[1]) / 86400 };
+    const last = feesFromGrowth({ ...base, before: grown(day, k), seconds: ts[0] - ts[2] });
+    p.fees.usd_24h = last.usd_per_day; p.fees.volume_usd_24h = last.volume_usd_per_day;
+    p.balances = { amount0: whole(word(need(r[3], 'the pool balance')), f.token0.decimals), amount1: whole(word(need(r[4], 'the pool balance')), f.token1.decimals) };
+    p.tvl_usd = p.balances.amount0 * p.token0.usd + p.balances.amount1 * p.token1.usd;
+    p.apr = p.tvl_usd > 0 ? (p.fees.usd_per_day * 365) / p.tvl_usd : null;
+    return p;
+  });
+}
+
 /* Each pool's 7D/14D/21D/30D low and high, in the pool's own quoting. The job's rows run to
    its last block; the swaps after it are read here, at most TAIL blocks (~4.6 days at one
    block a second), so a stalled job leaves the windows marked incomplete, never wrong. */
 const TAIL = 400000;
+/* A pool's swap logs between two blocks. Katana's node answers at most 10,000 logs a query,
+   and the KAT/vbUSDC pool passes that on busy days, so a window over the cap is read in halves. */
+export async function swapLogs(pool, from, to) {
+  try { return await rpc(RPC, 'eth_getLogs', [{ address: pool, topics: [SWAP_TOPIC], fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16) }]); }
+  catch (e) {
+    if (!/limit exceeded|more than \d+ results/i.test(String((e && e.message) || e)) || to <= from) throw e;
+    const mid = Math.floor((from + to) / 2);
+    return [...await swapLogs(pool, from, mid), ...await swapLogs(pool, mid + 1, to)];
+  }
+}
 async function addRecentRanges(pools, ranges, now, notes) {
   if (!ranges || !ranges.pools) { notes.push('Recent price ranges are not recorded yet; they appear after the next data update.'); return; }
   const head = Number(BigInt(await rpc(RPC, 'eth_blockNumber', [])));
@@ -98,7 +163,7 @@ async function addRecentRanges(pools, ranges, now, notes) {
     const e = ranges.pools[p.pool];
     if (!e) { p.recent = null; return; }
     const gap = head - e.last_block > TAIL, from = gap ? head - TAIL : e.last_block + 1;
-    const logs = from <= head ? await rpc(RPC, 'eth_getLogs', [{ address: p.pool, topics: [SWAP_TOPIC], fromBlock: '0x' + from.toString(16), toBlock: '0x' + head.toString(16) }]) : [];
+    const logs = from <= head ? await swapLogs(p.pool, from, head) : [];
     const hours = mergeSwapHours(e.hours, logs.map(swapFromLog));
     const r = recentRanges(hours, now, p.tick, RANGE_DAYS, e.recorded_from);
     p.recent = Object.fromEntries(Object.entries(r).map(([d, x]) => [d, x && { ...x, ...rangePrices(x, p), complete: x.complete && !gap }]));
@@ -148,8 +213,11 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
   const pools = await readCampaigns(now);
   const notes = [];
   /* the perps read runs beside the chain reads; a failure costs only the hedge */
-  const perpsP = readPerps(pools.flatMap((p) => [p.token0.symbol, p.token1.symbol]).map((t) => PERP_OF[t]).filter(Boolean))
+  const perpsP = readPerps([...pools, ...FEE_POOLS].flatMap((p) => [p.token0.symbol, p.token1.symbol]).map((t) => PERP_OF[t]).filter(Boolean))
     .catch((e) => { notes.push('Katana Perps could not be read this time (' + String(e.message || e).slice(0, 60) + '); the hedge cannot be simulated.'); return null; });
+  /* the pools without KAT run beside the rest too; a failure costs only their section */
+  const feeP = readFeePools()
+    .catch((e) => { notes.push('The pools without KAT could not be read this time: ' + String((e && e.message) || e).slice(0, 80)); return []; });
 
   /* 1 · the clock, the votes, KAT's price, each pool's state and the staker's count */
   const fixed = [
@@ -235,7 +303,8 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
   });
   keys.forEach((k, i) => { const L = held[i] && held[i].ok ? Number(word(held[i].data, 0)) : 0; if (L > 0) { k.v.pool.eligible.vaults++; addTo(k.v.pool, L, k.lo, k.hi); } });
 
-  try { await addRecentRanges(pools, ranges, now, notes); }
+  const feePools = await feeP;
+  try { await addRecentRanges([...pools, ...feePools], ranges, now, notes); }
   catch (e) { notes.push('Recent price ranges could not be read this time: ' + String((e && e.message) || e).slice(0, 80)); }
 
   /* the epoch that funded the running campaigns: they start when its voting week closes */
@@ -252,6 +321,7 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
     perps: await perpsP,
     pools: pools.map(({ whitelist, blacklist, staked, ...p }) => ({ ...p, eligible: { ...p.eligible, holders: whitelist.length },
       staked_usd: { in_range: usdOf(p, p.eligible), all: usdOf(p, staked) } })),
+    fee_pools: feePools,
     health: { notes },
   };
 }

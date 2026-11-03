@@ -119,6 +119,57 @@ export function estimateReward(pool, input, ctx) {
   };
 }
 
+/* ---------- pools without KAT: trading fees only (Alex, 3 Nov 2026) ----------
+   A V3 pool's feeGrowthGlobal rises by each swap's LP fee over the liquidity in range at that
+   moment, so its rise over a window is what one unit of liquidity, in range throughout,
+   earned. Sushi on Katana keeps 1/feeProtocol of every swap fee (2 on each side: half), which
+   the swaps confirm: on 3 Nov 2026 the KAT/vbUSDC 0.05% pool's growth gave LPs $6.50 for the
+   day against $13.18 of 0.05% fees on its 937 swaps. So the volume is the LP fees over the
+   LP's part of the fee rate (fees are charged on the token swapped in).
+     before, after   the two feeGrowthGlobal0X128/1X128 readings (BigInt or hex)
+     seconds         the time between them; fee in millionths; feeProtocol from slot0 */
+const Q128 = 2 ** 128;
+export function feesFromGrowth({ before, after, seconds, fee, feeProtocol, pool }) {
+  if (!(seconds > 0)) return null;
+  const toks = [pool.token0, pool.token1], perDay = SECONDS_PER_DAY / seconds;
+  const side = (i) => {
+    const grew = Number(BigInt.asUintN(256, BigInt(after[i]) - BigInt(before[i]))) / Q128 / Math.pow(10, toks[i].decimals);
+    const keep = i === 0 ? feeProtocol % 16 : feeProtocol >> 4;
+    return { perL: grew * perDay, lpPart: keep > 0 ? 1 - 1 / keep : 1 };
+  };
+  const [a, b] = [side(0), side(1)], L = pool.activeLiquidity;
+  const day0 = a.perL * L, day1 = b.perL * L;   /* the pool's LP fees a day, at today's liquidity */
+  return {
+    per_l_day0: a.perL, per_l_day1: b.perL, pool_day0: day0, pool_day1: day1, lp_part0: a.lpPart, lp_part1: b.lpPart,
+    usd_per_day: day0 * toks[0].usd + day1 * toks[1].usd,
+    volume_usd_per_day: (day0 * toks[0].usd) / ((fee / 1e6) * a.lpPart) + (day1 * toks[1].usd) / ((fee / 1e6) * b.lpPart),
+  };
+}
+
+/* What a new position in such a pool would earn in fees, if the price stays in its range and
+   the pool trades as it did over the window. Its liquidity joins what is in range now, so it
+   takes its share of the fees, as a staked position takes its share of the KAT. The period
+   is the KAT pools' reward period, so the two read side by side. */
+export function estimateFees(pool, input, ctx) {
+  if (!(input.capitalUsd > 0)) return { error: 'Enter the capital in dollars.' };
+  if (!pool.fees) return { error: 'This pool\'s fees could not be read this time.' };
+  const range = snapRange(input.lowerPrice, input.upperPrice, pool);
+  if (range.error) return range;
+  const pos = liquidityForCapital(input.capitalUsd, range.tickLower, range.tickUpper, pool);
+  if (!pos) return { error: 'This range cannot be valued at the current price.', range };
+  const inRange = pool.tick >= range.tickLower && pool.tick < range.tickUpper;
+  const myShare = inRange ? share(pos.liquidity, pool.activeLiquidity) : 0;
+  const fees0PerDay = pool.fees.pool_day0 * myShare, fees1PerDay = pool.fees.pool_day1 * myShare;
+  const usdPerDay = fees0PerDay * pool.token0.usd + fees1PerDay * pool.token1.usd;
+  const from = Math.min(Math.max(Number(input.startTs) || ctx.now, ctx.now), ctx.rewardEnd);
+  const days = Math.max(0, ctx.rewardEnd - from) / SECONDS_PER_DAY;
+  return {
+    range, inRange, earns: inRange, deposit: { amount0: pos.amount0, amount1: pos.amount1 }, liquidity: pos.liquidity,
+    share: myShare, fees0PerDay, fees1PerDay, usdPerDay, from, days, totalUsd: usdPerDay * days,
+    apr: usdPerDay * 365 / input.capitalUsd, katPerDay: null, totalKat: null,
+  };
+}
+
 /* A simulated deposit's P&L (no rewards) with the price at each edge of its range, as the LP
    Book's "!" shows for a real one. At an edge the whole position is one token: at the upper
    edge (base token dearest) it is all quote token, the most it can be worth; at the lower it
@@ -143,7 +194,7 @@ export function edgeOutcome(pool, range, liquidity, capitalUsd) {
 }
 
 /* the pools ordered as the page lists them: highest reward APR first */
-export const byApr = (pools) => [...pools].sort((a, b) => (b.apr ?? -1) - (a.apr ?? -1) || b.katPerDay - a.katPerDay);
+export const byApr = (pools) => [...pools].sort((a, b) => (b.apr ?? -1) - (a.apr ?? -1) || (b.katPerDay || 0) - (a.katPerDay || 0));
 
 /* ---------- recent ranges: the lowest and highest price a pool traded at ----------
    Every swap logs the tick it left the pool at, so the lowest and highest swap tick over a

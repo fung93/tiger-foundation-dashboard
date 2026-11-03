@@ -68,7 +68,8 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `positions.json`: LP ledgers per chain
    - `lpbook.json`: the LP Book ledger
    - `morpho-history.json`: Katana lending observations at six-hour intervals
-   - `strategy-ranges.json`: each KAT-paying pool's hourly low/high tick for 31 days
+   - `strategy-ranges.json`: each KAT-paying pool's hourly low/high tick for 31 days, and
+     each pool without KAT the Strategy page shows (`FEE_POOLS`)
      (`scripts/strategy-ranges.mjs`, its own error boundary; added 1 Nov 2026)
    - `kat-trades.json`: Alex's KAT trades since 27 Oct 2026, deposits waiting to be paid back,
      and the KAT/vbUSDC pool's hourly closing tick (`scripts/kat-trades.mjs`, its own error
@@ -104,7 +105,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
 | `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: Katana's KAT emissions for staked Sushi LPs, every paying pool by APR, and a per-pool range estimate. See §4. |
 | `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
-| `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool, 31 days, from its Swap logs. The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
+| `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool and per `FEE_POOLS` pool, 31 days, from its Swap logs (read with `swapLogs`, which halves a window over Katana's 10,000-log cap: the KAT/vbUSDC pool had 59,758 swaps in the 31 days to 3 Nov 2026). The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
 | `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, the P&L chart and the trade table, from 27 Oct 2026. See §4. |
 | `kat-core.mjs` | The KAT page's trade finder (from wallet transfers and receipts), the average-cost book, the P&L series and the ledger's validation, with no network: used by the page, `api/kat-trades.mjs`, `scripts/kat-trades.mjs` and `scripts/test-kat-trades.mjs`. |
 | `vkat.html`, `vkat.css`, `vkat.js` | **vKAT Votes**, the KAT section's second tab: vKAT held, epochs voted, total vote reward, average APY, the reward chart and the vote history. See §4. |
@@ -588,6 +589,41 @@ every related fee simulated. Pushed 3 Nov 2026 after review.
   vbWBTC/vbETH shorts 0.0064 BTC + 0.222 ETH; vbUSDC/vbUSDT "nothing to hedge". 29 checks in
   `scripts/test-strategy.mjs` (129).
 
+### Strategy: pools without KAT emissions (Alex, 3 Nov 2026)
+
+Alex: "add a button, click to show non KAT emission pool, for now add USDC/KAT pool only,
+feature same as KAT emission pools". Under the KAT pools, **Show pools without KAT emissions**
+(`#feeToggle`, remembered per device in `tf_strategy_fees`) opens `#feeSection`: the same card,
+estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning trading fees.
+
+- **The pool:** `FEE_POOLS` in `api/strategy.mjs`: KAT/vbUSDC 0.05% (`0x10045367...f629`,
+  token0 vbUSDC, token1 KAT, fee 500, spacing 10), quoted in vbUSDC per KAT (`baseIndex: 1`),
+  vbUSDC at $1 as KAT's price is everywhere here. The 0.01% and 1% pools are empty and the
+  0.3% holds about $11,000 (3 Nov 2026), so only the 0.05% is shown.
+- **Fees, measured:** `readFeePools` reads at one block the pool's slot0, liquidity, balances
+  and `feeGrowthGlobal0X128/1X128`, and the fee growth at the blocks 7 days and 24 hours back
+  (archive eth_call; the blocks' own times). `feesFromGrowth` (`strategy-core.mjs`): the
+  growth's rise over 2^128 is what one unit of liquidity in range throughout earned; times
+  today's active liquidity, the pool's LP fees a day. **Sushi on Katana keeps 1/feeProtocol
+  of each swap fee:** feeProtocol is 34 (2 on each side), so LPs keep half, checked against
+  the day's 937 swaps: growth gave $6.50 to LPs against $13.18 of 0.05% fees (0.494; the 0.3%
+  pool 0.500). So volume = LP fees / (fee x LP part).
+- **Card:** Pool TVL (its balances), Fee APR (LP fees a year over that TVL), Volume per day
+  and Fees per day, both the 7-day rate. The "!" lists those with the last 24 h, Sushi's half,
+  the balances and the Sushi link.
+- **Estimate (`estimateFees`):** the new liquidity's share of the in-range liquidity, its own
+  included, times the pool's fees a day, while in range; nothing out of range. The period is
+  the KAT pools' reward period, so the two read side by side. Measured 3 Nov 2026: $1,000 at
+  +/-2.5% takes 48.7% of the in-range fees, about $4.16 a day (the pool's liquidity near the
+  price is thin; its $262,674 sits mostly in wide ranges).
+- **Hedge:** a short on KAT-USD (step 1 KAT, minimum 2,000, mmf 10%, so a 1x short is
+  liquidated about +82%), through the same `hedgePlan`; the income reads "Fees $x + hedge".
+- **The "!" beside the fee tier** (Alex, same day: "move the "!" to next to fees tier"): the
+  card head is now a `div role="button" tabindex="0"` (Enter and Space toggle it; a click in
+  `.pool-info` does not), since a button cannot hold the "!" button. The box opens under the
+  name row from the card's left padding (`.pool-name` is its containing block), so on a phone
+  it stays on screen and covers the cards below.
+
 ---
 
 ## 5. Chain facts that bite
@@ -834,6 +870,17 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "the ! is not aligned with "Hedge fees, net", in strategy page,
+  add a button, click to show non KAT emission pool, for now add USDC/KAT pool only, feature
+  same as KAT emission pools; at Pools paying KAT cards, move the "!" to next to fees tier
+  0.05% etc. ADD FIX AND PUSH"):** §4 "Strategy: pools without KAT emissions". `FEE_POOLS`,
+  `readFeePools`, `swapLogs` and `fee_pools` in `/api/strategy`; `feesFromGrowth` and
+  `estimateFees` in `strategy-core.mjs`; the button, section and fee cards in
+  `strategy.html`/`strategy.js`; the job records the KAT/vbUSDC pool (backfilled 31 days
+  locally, 745 hourly rows). Each pool's "!" sits beside its fee tier, level with it (0.1 px
+  at 375 and 1280 px); the hedge fees' "!" is centred on its label. 26 more checks (159).
+  `sw.js` -> `tiger-v144`.
 
 - **Pushed 3 Nov 2026 (Alex: "the hedge fees structure is too many words,
   make a single total value then add a "!" for fees breakdown"):** the hedge's costs box is now

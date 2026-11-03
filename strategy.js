@@ -1,7 +1,7 @@
 /* strategy.js: lays out /api/strategy and runs each pool's estimate with strategy-core.mjs.
    Inputs and open pools survive every refresh: the cards are built once and updated in
    place, never rebuilt under the cursor. */
-import { estimateReward, edgeOutcome, byApr, RANGE_DAYS, hedgePlan, rehedgeStep } from './strategy-core.mjs';
+import { estimateReward, estimateFees, edgeOutcome, byApr, RANGE_DAYS, hedgePlan, rehedgeStep } from './strategy-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,10 +27,14 @@ const dayStart = (iso) => Date.parse(iso + 'T00:00:00+08:00') / 1000;
 const nowS = () => Date.now() / 1000;
 const left = (s) => (s <= 0 ? 'ended' : s >= 86400 ? `${Math.floor(s / 86400)} d ${Math.floor((s % 86400) / 3600)} h left` : `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min left`);
 
-const KEY = 'tf_strategy', POLL = 60000, FRESH = 150;
+const KEY = 'tf_strategy', FEES_KEY = 'tf_strategy_fees', POLL = 60000, FRESH = 150;
 let view = null, readAt = 0, lastOk = false, busy = false, failure = '';
 const state = new Map();   /* pool → the inputs and whether it is open */
 const cards = new Map();   /* pool → its card */
+
+/* a pool without KAT (view.fee_pools) earns trading fees only; its card reads the same otherwise */
+const isFees = (p) => p.kind === 'fees';
+const FIGS = { kat: ['Staked TVL', 'APR', 'KAT per day', 'Value per day'], fees: ['Pool TVL', 'Fee APR', 'Volume per day', 'Fees per day'] };
 
 /* a pair of stablecoins wants a range in tenths of a percent, not whole percents */
 const stable = (p) => Math.abs(p.price - 1) < 0.02 && [p.token0.usd, p.token1.usd].every((u) => u > 0.95 && u < 1.05);
@@ -50,12 +54,14 @@ function build(p) {
   const id = 'pool-' + p.pool.slice(2, 12);
   const el = document.createElement('article');
   el.className = 'card pool-card'; el.id = id;
-  el.innerHTML = `<span class="info-wrap pool-info"><button type="button" class="info-btn" aria-label="About this pool" aria-expanded="false">!</button><span class="info-tip" role="tooltip"></span></span>
-    <button class="pool-head" type="button" aria-expanded="false" aria-controls="${id}-body">
-      <div class="pool-name"><h3></h3><span class="tag fee"></span></div>
-      <div class="pool-figs"><div><div class="metric-label">Staked TVL</div><div class="pool-fig tvl"></div></div><div><div class="metric-label">APR</div><div class="pool-fig apr"></div></div><div><div class="metric-label">KAT per day</div><div class="pool-fig kat"></div></div><div><div class="metric-label">Value per day</div><div class="pool-fig usd"></div></div></div>
+  const F = FIGS[isFees(p) ? 'fees' : 'kat'];
+  /* the head is a clickable row rather than a button, so the pool's "!" can sit in it beside
+     the fee tier (Alex, 3 Nov: it used to sit at the card's top corner) */
+  el.innerHTML = `<div class="pool-head" role="button" tabindex="0" aria-expanded="false" aria-controls="${id}-body">
+      <div class="pool-name"><h3></h3><span class="tag fee"></span><span class="pool-info"><button type="button" class="info-btn" aria-label="About this pool" aria-expanded="false">!</button><span class="info-tip" role="tooltip"></span></span></div>
+      <div class="pool-figs"><div><div class="metric-label">${F[0]}</div><div class="pool-fig tvl"></div></div><div><div class="metric-label">${F[1]}</div><div class="pool-fig apr"></div></div><div><div class="metric-label">${F[2]}</div><div class="pool-fig kat"></div></div><div><div class="metric-label">${F[3]}</div><div class="pool-fig usd"></div></div></div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
+    </div>
     <div class="pool-body" id="${id}-body" hidden>
       <div class="pool-context"></div>
       <div class="calc">
@@ -83,13 +89,16 @@ function build(p) {
   const hedgeOn = el.querySelector('.hedge-on');
   hedgeOn.checked = !!s.hedge;
   hedgeOn.addEventListener('change', () => { s.hedge = hedgeOn.checked; estimate(p.pool); });
-  el.querySelector('.pool-head').addEventListener('click', () => {
+  const head = el.querySelector('.pool-head');
+  const toggle = () => {
     s.open = !s.open;
     el.classList.toggle('open', s.open);
-    el.querySelector('.pool-head').setAttribute('aria-expanded', String(s.open));
+    head.setAttribute('aria-expanded', String(s.open));
     el.querySelector('.pool-body').hidden = !s.open;
     if (s.open) estimate(p.pool);
-  });
+  };
+  head.addEventListener('click', (ev) => { if (!ev.target.closest('.pool-info')) toggle(); });
+  head.addEventListener('keydown', (ev) => { if (ev.target === head && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(); } });
   const setRange = (lower, upper, picked) => {
     s.lower = lower; s.upper = upper; s.picked = picked;
     el.querySelector('[data-f=lower]').value = s.lower; el.querySelector('[data-f=upper]').value = s.upper;
@@ -113,14 +122,14 @@ function build(p) {
   return el;
 }
 
-const current = (pool) => view.pools.find((p) => p.pool === pool);
+const current = (pool) => view.pools.find((p) => p.pool === pool) || (view.fee_pools || []).find((p) => p.pool === pool);
 
 function estimate(pool) {
   const p = current(pool), el = cards.get(pool), s = state.get(pool);
   if (!p || !el || !s.open) return;
   const out = el.querySelector('.calc-out'), t = nowS();
-  const startTs = s.start && s.start !== isoDay(t) ? dayStart(s.start) : t;
-  const e = estimateReward(p, { capitalUsd: Number(s.capital), lowerPrice: Number(s.lower), upperPrice: Number(s.upper), startTs },
+  const startTs = s.start && s.start !== isoDay(t) ? dayStart(s.start) : t, fees = isFees(p);
+  const e = (fees ? estimateFees : estimateReward)(p, { capitalUsd: Number(s.capital), lowerPrice: Number(s.lower), upperPrice: Number(s.upper), startTs },
     { now: t, katUsd: view.kat_usd, rewardStart: view.reward.start, rewardEnd: view.reward.end });
   el.querySelector('[data-f=lower]').setAttribute('aria-invalid', String(!!e.error && !(Number(s.lower) > 0)));
   el.querySelector('[data-f=capital]').setAttribute('aria-invalid', String(!(Number(s.capital) > 0)));
@@ -132,20 +141,26 @@ function estimate(pool) {
   const edgeRow = (label, r, note) => `<div class="edge-row"><span class="edge-at">${label} · ${price(r.price)}</span>`
     + `<span class="edge-pnl ${r.pnlUsd >= 0 ? 'up' : 'down'}">${r.pnlUsd >= 0 ? '+' : '-'}${money(Math.abs(r.pnlUsd))}</span>`
     + `<span class="edge-note">All ${tokens(r.amount)} ${esc(r.token)}. ${note}</span></div>`;
-  edgeBox.innerHTML = x ? `<div class="edge-title">P&amp;L at the range edges · excludes KAT</div>`
+  edgeBox.innerHTML = x ? `<div class="edge-title">P&amp;L at the range edges · excludes ${fees ? 'fees' : 'KAT'}</div>`
     + edgeRow('Upper edge', x.upper, stableQuote ? 'The most it can be worth.' : `The most it can be worth in ${esc(quoteToken.symbol)}.`)
     + edgeRow('Lower edge', x.lower, 'Below it, the loss keeps growing.')
     + (stableQuote ? '' : `<div class="edge-foot">Valued with ${esc(quoteToken.symbol)} at today's dollar price.</div>`) : '';
   const [base, quote] = p.baseIndex === 0 ? [p.token0, p.token1] : [p.token1, p.token0];
   const [dBase, dQuote] = p.baseIndex === 0 ? [e.deposit.amount0, e.deposit.amount1] : [e.deposit.amount1, e.deposit.amount0];
-  const notes = [`Range rounds to ${price(e.range.lowerPrice)} – ${price(e.range.upperPrice)} ${esc(quote.symbol)} per ${esc(base.symbol)}, Sushi's nearest price steps. Deposit about ${held(dBase, base)} + ${held(dQuote, quote)} at today's price, then stake it.`];
+  const notes = [`Range rounds to ${price(e.range.lowerPrice)} – ${price(e.range.upperPrice)} ${esc(quote.symbol)} per ${esc(base.symbol)}, Sushi's nearest price steps. Deposit about ${held(dBase, base)} + ${held(dQuote, quote)} at today's price` + (fees
+    ? `; no staking, the fees collect in the position. Fees at the last ${fmt(p.fees.window_days, 0)} days' rate.` : ', then stake it.')];
   const pick = s.picked;
   if (pick && Number(s.lower) === pick.lower && Number(s.upper) === pick.upper)
     notes.unshift(`Range set from the last ${pick.days} days' lowest and highest traded price (${fmt(pick.swaps)} swaps${pick.complete ? '' : ', history incomplete'}).`);
   let warn = false;
   if (!e.inRange) { notes.push('The price is outside this range now, so it earns nothing until the price moves into it.'); warn = true; }
-  if (e.days <= 0) { notes.push('This reward period has ended by that start day; the next epoch’s KAT is set by its vote.'); warn = true; }
-  out.innerHTML = `
+  if (e.days <= 0) { notes.push(fees ? 'This period has ended by that start day.' : 'This reward period has ended by that start day; the next epoch’s KAT is set by its vote.'); warn = true; }
+  out.innerHTML = fees ? `
+    <div><div class="metric-label">My fees per day</div><div class="metric-value big">${money(e.usdPerDay)}</div><div class="metric-sub">${tokens(e.fees0PerDay)} ${esc(p.token0.symbol)} + ${tokens(e.fees1PerDay)} ${esc(p.token1.symbol)}</div></div>
+    <div><div class="metric-label">From ${esc(day(e.from))} to the period's end</div><div class="metric-value">${money(e.totalUsd)}</div><div class="metric-sub">over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
+    <div><div class="metric-label">My share of the pool's fees</div><div class="metric-value">${pct(e.share)}</div><div class="metric-sub">of ${money(p.fees.usd_per_day)} a day</div></div>
+    <div><div class="metric-label">APR on my capital</div><div class="metric-value">${pct(e.apr)}</div><div class="metric-sub">on ${money(Number(s.capital))}, fees only</div></div>
+    <div class="calc-note${warn ? ' warn' : ''}">${notes.join(' ')}</div>` : `
     <div><div class="metric-label">My KAT per day</div><div class="metric-value big">${kat(e.katPerDay)}</div><div class="metric-sub">${money(e.usdPerDay)} a day</div></div>
     <div><div class="metric-label">From ${esc(day(e.from))} to the period's end</div><div class="metric-value">${kat(e.totalKat)}</div><div class="metric-sub">${money(e.totalUsd)} over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
     <div><div class="metric-label">My share of the pool's KAT</div><div class="metric-value">${pct(e.share)}</div><div class="metric-sub">of ${kat(p.katPerDay)} a day</div></div>
@@ -181,7 +196,7 @@ function renderHedge(el, p, e, x, s) {
       </div>`;
   }).join('');
   const sum = (k) => plan.legs.reduce((t, l) => t + (l[k] || 0), 0);
-  const l0 = plan.legs[0], payments = l0.funding_periods;
+  const l0 = plan.legs[0], payments = l0.funding_periods, earned = isFees(p) ? 'Fees' : 'KAT';
   const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
   /* the hedge's fees and funding as one figure, item by item behind its "!" (Alex, 3 Nov: the
      list of fees was too many words) */
@@ -197,7 +212,7 @@ function renderHedge(el, p, e, x, s) {
   const fees = `<div class="hedge-fees"><div class="metric-label">Hedge fees, net<span class="hedge-info"><button type="button" class="info-btn" aria-label="Hedge fees, item by item" aria-expanded="false">!</button><span class="info-tip" role="tooltip">${breakdown}</span></span></div>
       <div class="metric-value ${tone(plan.net)}">${signedMoney(plan.net)}</div><div class="metric-sub">funding less fees, to the period's end</div></div>`;
   const total = `<div class="hedge-sum">${fees}` + (plan.total !== null ? `
-      <div><div class="metric-label">Income to the period's end</div><div class="metric-value">${money(plan.total)}</div><div class="metric-sub">KAT ${money(e.totalUsd)} ${plan.net >= 0 ? '+' : '−'} hedge ${money(Math.abs(plan.net))}, price moves aside</div></div>
+      <div><div class="metric-label">Income to the period's end</div><div class="metric-value">${money(plan.total)}</div><div class="metric-sub">${earned} ${money(e.totalUsd)} ${plan.net >= 0 ? '+' : '−'} hedge ${money(Math.abs(plan.net))}, price moves aside</div></div>
       <div><div class="metric-label">Capital it takes</div><div class="metric-value">${money(plan.capital)}</div><div class="metric-sub">LP ${money(Number(s.capital))} + margin ${money(plan.margin)}</div></div>
       <div><div class="metric-label">Hedged APR</div><div class="metric-value">${pct(plan.apr)}</div><div class="metric-sub">the income on all of it</div></div>` : '') + '</div>';
   /* the profit at the period's end: the income above plus what the price did to the LP and
@@ -213,9 +228,9 @@ function renderHedge(el, p, e, x, s) {
       const u = plan.edges.upper, d = plan.edges.lower;
       edges += profitRow(`Price ends at the upper edge · ${price(u.price)}`, u.net, `${income} · price ${signedMoney(u.net)} (LP ${signedMoney(u.lp)}, short ${signedMoney(u.short)})`)
         + profitRow(`Price ends at the lower edge · ${price(d.price)}`, d.net, `${income} · price ${signedMoney(d.net)} (LP ${signedMoney(d.lp)}, short ${signedMoney(d.short)})`)
-        + `<div class="edge-foot">The income counts KAT for every day of the period, which needs the price inside the range: about ${money(e.usdPerDay)} a day, nothing while outside. Past the edges the loss keeps growing: about ${money(Math.abs(u.beyond_per_pct))} for each further 1% up and ${money(Math.abs(d.beyond_per_pct))} for each further 1% down.</div>`;
+        + `<div class="edge-foot">The income counts ${isFees(p) ? 'fees' : 'KAT'} for every day of the period, which needs the price inside the range: about ${money(e.usdPerDay)} a day, nothing while outside. Past the edges the loss keeps growing: about ${money(Math.abs(u.beyond_per_pct))} for each further 1% up and ${money(Math.abs(d.beyond_per_pct))} for each further 1% down.</div>`;
     } else {
-      edges += '<div class="edge-foot">With two volatile tokens, the result at the edges depends on how both prices move, so only today\'s price is shown. The income counts KAT for every day, which needs the price inside the range.</div>';
+      edges += `<div class="edge-foot">With two volatile tokens, the result at the edges depends on how both prices move, so only today's price is shown. The income counts ${isFees(p) ? 'fees' : 'KAT'} for every day, which needs the price inside the range.</div>`;
     }
     edges += '</div>';
   }
@@ -239,53 +254,94 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') document.querySelectorAll(POPS).forEach((w) => w.classList.remove('open')); });
 
+/* the pools paying KAT, then the pools without KAT behind their button; each card is built
+   once and updated in place */
+const EMPTY = { pools: 'No live staking campaign right now. The next one starts when the epoch vote closes.', feePools: 'The pools without KAT could not be read this time.' };
 function renderPools() {
-  const box = $('pools');
-  if (!view.pools.length) { box.innerHTML = '<div class="card overview-card">No live staking campaign right now. The next one starts when the epoch vote closes.</div>'; cards.clear(); return; }
-  const live = new Set(view.pools.map((p) => p.pool));
+  const groups = [[$('pools'), view.pools], [$('feePools'), view.fee_pools || []]];
+  const live = new Set(groups.flatMap(([, list]) => list.map((p) => p.pool)));
   for (const [pool, el] of cards) if (!live.has(pool)) { el.remove(); cards.delete(pool); }
-  box.querySelectorAll(':scope > :not(.pool-card)').forEach((n) => n.remove());
-  for (const p of byApr(view.pools)) {
-    if (!state.has(p.pool)) state.set(p.pool, defaults(p));
-    const el = cards.get(p.pool) || build(p);
-    box.append(el);   /* re-appending keeps the APR order without rebuilding */
-    el.querySelector('h3').textContent = `${p.base} / ${p.quote}`;
-    el.querySelector('.fee').textContent = (p.fee_tier * 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
-    /* staked LPs in range now: the ones sharing the KAT (Merkl's figure when the chain gives none) */
-    const tvl = p.staked_usd || {}, liveTvl = Number.isFinite(tvl.in_range);
-    el.querySelector('.tvl').textContent = dollars(liveTvl ? tvl.in_range : p.tvl);
-    el.querySelector('.tvl').title = liveTvl ? 'Staked LPs in range now, on chain' : 'Staked value from Merkl';
-    el.querySelector('.apr').textContent = pct(p.apr);
-    el.querySelector('.kat').textContent = fmt(p.katPerDay, 0);
-    el.querySelector('.usd').textContent = money(p.katPerDay * view.kat_usd);
-    el.querySelector('.lo-label').textContent = `Lower · ${p.quote} per ${p.base}`;
-    el.querySelector('.hi-label').textContent = `Upper · ${p.quote} per ${p.base}`;
-    /* the recent-range buttons: enabled once the pool's history is read, each titled with its range */
-    el.querySelectorAll('.recent button[data-days]').forEach((b) => {
-      const r = (p.recent || {})[b.dataset.days];
-      b.disabled = !r;
-      b.title = r ? `${b.dataset.days}-day low ${price(r.low)} – high ${price(r.high)} ${p.quote} per ${p.base}${r.complete ? '' : ' (history incomplete)'}`
-        : 'Recent price history is not recorded yet';
-    });
-    const start = state.get(p.pool);
-    const dateInput = el.querySelector('[data-f=start]');
-    dateInput.min = isoDay(Math.max(nowS(), view.reward.start)); dateInput.max = isoDay(view.reward.end - 1);
-    if (!start.start) dateInput.value = start.start = isoDay(nowS());
-    const share = p.eligible.liquidity > 0 && p.activeLiquidity > 0 ? p.eligible.liquidity / p.activeLiquidity : null;
-    el.querySelector('.pool-context').textContent = `Now ${price(p.price)} ${p.quote} per ${p.base}`;
-    /* the rest about the pool, point by point, behind the "!" at the card's top corner (Alex, 3 Nov) */
-    el.querySelector('.pool-info .info-tip').innerHTML = '<span class="info-title">About this pool</span><ul class="info-list">' + [
-      `${kat(p.kat)} this epoch`,
-      p.voteShare !== null ? `${pct(p.voteShare)} of gauge votes` : null,
-      `${fmt(p.eligible.inRange)} staked positions and vault ranges in range`,
-      share !== null ? `${pct(share)} of the pool's active liquidity is staked` : null,
-      liveTvl && tvl.all > tvl.in_range * 1.01 ? `${dollars(tvl.all)} staked in all; ${dollars(tvl.all - tvl.in_range)} of it out of range, earning nothing` : null,
-      liveTvl && p.tvl !== null ? `Merkl's APR is on ${dollars(p.tvl)} staked` : null,
-    ].filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('') + '</ul>'
-      + (p.link ? `<a class="info-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Sushi pool ↗</a>` : '');
-    estimate(p.pool);
+  for (const [box, list] of groups) {
+    box.querySelectorAll(':scope > :not(.pool-card)').forEach((n) => n.remove());
+    if (!list.length) box.insertAdjacentHTML('beforeend', `<div class="card overview-card">${EMPTY[box.id]}</div>`);
+    for (const p of byApr(list)) renderPool(box, p);
   }
 }
+
+function renderPool(box, p) {
+  if (!state.has(p.pool)) state.set(p.pool, defaults(p));
+  const el = cards.get(p.pool) || build(p), fees = isFees(p);
+  box.append(el);   /* re-appending keeps the APR order without rebuilding */
+  el.querySelector('h3').textContent = `${p.base} / ${p.quote}`;
+  el.querySelector('.fee').textContent = (p.fee_tier * 100).toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+  /* staked LPs in range now: the ones sharing the KAT (Merkl's figure when the chain gives none) */
+  const tvl = p.staked_usd || {}, liveTvl = Number.isFinite(tvl.in_range);
+  el.querySelector('.tvl').textContent = dollars(fees ? p.tvl_usd : liveTvl ? tvl.in_range : p.tvl);
+  el.querySelector('.tvl').title = fees ? 'Everything the pool holds, at its own price' : liveTvl ? 'Staked LPs in range now, on chain' : 'Staked value from Merkl';
+  el.querySelector('.apr').textContent = pct(p.apr);
+  el.querySelector('.kat').textContent = fees ? dollars(p.fees && p.fees.volume_usd_per_day) : fmt(p.katPerDay, 0);
+  el.querySelector('.usd').textContent = fees ? money(p.fees && p.fees.usd_per_day) : money(p.katPerDay * view.kat_usd);
+  el.querySelector('.lo-label').textContent = `Lower · ${p.quote} per ${p.base}`;
+  el.querySelector('.hi-label').textContent = `Upper · ${p.quote} per ${p.base}`;
+  /* the recent-range buttons: enabled once the pool's history is read, each titled with its range */
+  el.querySelectorAll('.recent button[data-days]').forEach((b) => {
+    const r = (p.recent || {})[b.dataset.days];
+    b.disabled = !r;
+    b.title = r ? `${b.dataset.days}-day low ${price(r.low)} – high ${price(r.high)} ${p.quote} per ${p.base}${r.complete ? '' : ' (history incomplete)'}`
+      : 'Recent price history is not recorded yet';
+  });
+  const start = state.get(p.pool);
+  const dateInput = el.querySelector('[data-f=start]');
+  dateInput.min = isoDay(Math.max(nowS(), view.reward.start)); dateInput.max = isoDay(view.reward.end - 1);
+  if (!start.start) dateInput.value = start.start = isoDay(nowS());
+  el.querySelector('.pool-context').textContent = `Now ${price(p.price)} ${p.quote} per ${p.base}`;
+  /* the rest about the pool, point by point, behind the "!" beside its fee tier (Alex, 3 Nov) */
+  el.querySelector('.pool-info .info-tip').innerHTML = '<span class="info-title">About this pool</span><ul class="info-list">'
+    + (fees ? feeFacts(p) : katFacts(p, tvl, liveTvl)).filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('') + '</ul>'
+    + (p.link ? `<a class="info-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Sushi pool ↗</a>` : '');
+  estimate(p.pool);
+}
+
+function katFacts(p, tvl, liveTvl) {
+  const share = p.eligible.liquidity > 0 && p.activeLiquidity > 0 ? p.eligible.liquidity / p.activeLiquidity : null;
+  return [
+    `${kat(p.kat)} this epoch`,
+    p.voteShare !== null ? `${pct(p.voteShare)} of gauge votes` : null,
+    `${fmt(p.eligible.inRange)} staked positions and vault ranges in range`,
+    share !== null ? `${pct(share)} of the pool's active liquidity is staked` : null,
+    liveTvl && tvl.all > tvl.in_range * 1.01 ? `${dollars(tvl.all)} staked in all; ${dollars(tvl.all - tvl.in_range)} of it out of range, earning nothing` : null,
+    liveTvl && p.tvl !== null ? `Merkl's APR is on ${dollars(p.tvl)} staked` : null,
+  ];
+}
+
+/* a pool without KAT: what it trades and what its LPs earned, measured from its fee growth */
+function feeFacts(p) {
+  const f = p.fees, b = p.balances || {};
+  if (!f) return ['No KAT emissions: it earns trading fees only'];
+  const kept = f.lp_part0 === f.lp_part1 ? fmt((1 - f.lp_part0) * 100, 0) + '%' : `${fmt((1 - f.lp_part0) * 100, 0)}% / ${fmt((1 - f.lp_part1) * 100, 0)}%`;
+  return [
+    'No KAT emissions: it earns trading fees only, with no staking',
+    `${dollars(f.volume_usd_per_day)} traded a day over the last ${fmt(f.window_days, 0)} days; ${dollars(f.volume_usd_24h)} in the last 24 h`,
+    `LPs earned ${money(f.usd_per_day)} a day over ${fmt(f.window_days, 0)} days; ${money(f.usd_24h)} in the last 24 h`,
+    `Sushi keeps ${kept} of each swap's ${fmt(p.fee_tier * 100, 2)}% fee; LPs share the rest`,
+    `Pool TVL ${dollars(p.tvl_usd)}: ${tokens(b.amount0)} ${p.token0.symbol} + ${tokens(b.amount1)} ${p.token1.symbol}`,
+    'Fee APR is the fees over everything the pool holds; a range near the price earns more per dollar while in range',
+  ];
+}
+
+/* the button that shows the pools without KAT; remembered on this device */
+const feeToggle = $('feeToggle');
+const showFees = (on) => {
+  $('feeSection').hidden = !on;
+  feeToggle.setAttribute('aria-expanded', String(on));
+  feeToggle.textContent = on ? 'Hide pools without KAT emissions' : 'Show pools without KAT emissions';
+};
+try { showFees(localStorage.getItem(FEES_KEY) === '1'); } catch (e) { showFees(false); }
+feeToggle.addEventListener('click', () => {
+  const on = $('feeSection').hidden;
+  showFees(on);
+  try { localStorage.setItem(FEES_KEY, on ? '1' : '0'); } catch (e) { /* a convenience */ }
+});
 
 function renderOverview() {
   const e = view.epoch, t = nowS();

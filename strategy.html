@@ -56,12 +56,19 @@
   <div class="vote-note" id="voteNote" hidden></div>
   <div class="pools-head"><div class="label">Pools paying KAT · highest APR first</div><span class="pools-hint">Open a pool to estimate your own range</span></div>
   <div class="pools" id="pools"></div>
+  <!-- the pools without KAT emissions: trading fees only, behind their own button (Alex, 3 Nov 2026) -->
+  <button type="button" class="more-pools" id="feeToggle" aria-expanded="false" aria-controls="feeSection">Show pools without KAT emissions</button>
+  <section id="feeSection" hidden>
+    <div class="pools-head"><div class="label">Pools without KAT emissions · trading fees only</div><span class="pools-hint">Open a pool to estimate your own range</span></div>
+    <div class="pools" id="feePools"></div>
+  </section>
   <noscript><div class="card">Turn on JavaScript to read the epoch and the pools.</div></noscript>
   <div class="strategy-method">
     <details><summary>How these numbers are made</summary>
       <p><b>Epoch.</b> Katana's epoch clock runs 14-day epochs. The first week is the gauge vote; when it closes, each voted pool's KAT is paid over the next 14 days. The epoch shown is the one whose votes fund the rewards being paid now. Times are Malaysia time.</p>
       <p><b>KAT per pool.</b> Each pool's KAT is its live Merkl staking campaign for that epoch: the KAT is paid to positions staked through the Sushi staker (and to the few vaults Merkl whitelists for that pool). An unstaked position earns no KAT. APR is Merkl's: the pool's KAT value a year over the staked value it pays. <b>Staked TVL</b> is the staked positions and whitelisted vaults in range now, valued on chain at today's prices: the LPs your position would share the KAT with. Staked positions out of range earn nothing and are left out, as Merkl leaves them out.</p>
       <p><b>Your estimate.</b> These campaigns pay entirely by trading fees earned in range, so at any moment a position's share is its liquidity over all eligible liquidity in range. The estimate turns your capital and range into liquidity at today's price, adds it to what is already staked in range, and takes that share of the pool's KAT a day. A narrower range buys more liquidity per dollar, so a bigger share, but only while the price stays inside it. Out of range it earns nothing.</p>
+      <p><b>Pools without KAT.</b> They earn trading fees only, with no staking. A pool's fee growth rises by every swap's fee to LPs over the liquidity in range at that moment, so its rise over the last 7 days is what each unit of liquidity in range earned; a new position takes its share of that, at the same rate, as a staked one takes its share of the KAT. Sushi keeps half of each swap's fee on Katana (checked against the swaps on 3 Nov 2026), so the volume shown is the LPs' fees over the half they keep. Fee APR is the pool's fees a year over everything it holds. The period is the KAT pools' reward period, so the two read side by side.</p>
       <p><b>What it assumes.</b> The price stays in your range, the other stakers' liquidity stays as it is now, and the KAT price holds. The total runs from your start day to the end of this reward period; the next epoch's KAT depends on its vote and is not known until that vote closes. Checked on 1 Nov 2026 against a staked vbWBTC/vbUSDC position: predicted 2,535 KAT a day, earned about 2,588.</p>
       <p><b>Sources.</b> Katana's epoch clock and gauge voter, the pools and the Sushi staker on chain; campaigns from Merkl; KAT's price from the KAT/vbUSDC pool, as on the Lending page. This page reads only; it never connects a wallet.</p>
     </details>

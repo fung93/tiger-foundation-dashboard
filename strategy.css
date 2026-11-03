@@ -17,10 +17,12 @@
 .pools-hint{font-size:10.5px;color:var(--faint)}
 .pools{display:grid;gap:14px}
 .pool-card{padding:0;min-width:0;position:relative}
-/* the "!" at the pool card's top corner: what used to fill the line under the price */
-.pool-info{position:absolute;top:12px;right:14px;z-index:5}
-/* the open one sits above every other card's "!", which would otherwise show through its box on a phone */
-.pool-info:hover,.pool-info:focus-within,.pool-info.open{z-index:30}
+/* the pool's "!", beside its fee tier (Alex, 3 Nov). Its box opens under the name row, from
+   the card's left padding, so it stays on a phone screen and covers the cards below */
+.pool-name{position:relative}
+.pool-info{display:inline-flex}
+.pool-info .info-tip{top:calc(100% + 8px);left:0;right:auto}
+.pool-info .info-tip::before{top:-22px;height:22px}
 .info-btn{width:16px;height:16px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--gold);
   font:600 9px/14px var(--sans,system-ui,sans-serif);padding:0;cursor:pointer;letter-spacing:0;text-align:center}
 .info-btn:hover,.pool-info.open .info-btn{border-color:rgba(214,185,123,.55)}
@@ -37,7 +39,7 @@
 .info-link{display:inline-block;margin-top:8px;color:var(--gold);text-decoration:none;font-size:11px}
 html.tiger .themed-page .info-tip{background:var(--card)}
 .pool-head{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,4fr) 22px;align-items:center;gap:18px;width:100%;padding:20px 24px;
-  background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;box-sizing:border-box}
 .pool-head:focus-visible{outline:1px solid var(--gold);outline-offset:-4px;border-radius:16px}
 .pool-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
 .pool-name h3{font:400 24px/1.1 var(--serif);letter-spacing:.005em;white-space:nowrap}
@@ -118,7 +120,8 @@ html.tiger .themed-page .info-tip{background:var(--card)}
 .hedge-sum .metric-value.up{color:var(--up)}.hedge-sum .metric-value.down{color:var(--down)}
 /* the hedge fees' "!": its box opens under the figure, from the figure's left edge */
 .hedge-fees{position:relative}
-.hedge-info{display:inline-block;margin-left:6px;vertical-align:-4px}
+.hedge-fees>.metric-label{display:flex;align-items:center;gap:6px}
+.hedge-info{display:inline-flex}
 .hedge-info .info-tip{top:22px;left:0;right:auto;text-transform:none;letter-spacing:normal;font-weight:400}
 .hedge-info:hover .info-tip,.hedge-info:focus-within .info-tip,.hedge-info.open .info-tip{display:block}
 .hedge-info:hover .info-btn,.hedge-info.open .info-btn{border-color:rgba(214,185,123,.55)}
@@ -128,6 +131,13 @@ html.tiger .themed-page .info-tip{background:var(--card)}
 .tip-row .up{color:var(--up)}.tip-row .down{color:var(--down)}
 .tip-row.total{border-top:1px solid var(--line);font-weight:500;margin-top:2px}
 .tip-foot{display:block;margin-top:7px;font-size:10px;line-height:1.45;color:var(--faint)}
+
+/* the button under the KAT pools that shows the pools without KAT */
+.more-pools{display:block;margin:18px auto 0;padding:9px 18px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.02);
+  color:var(--dim);font:500 11px var(--sans);letter-spacing:.06em;cursor:pointer}
+.more-pools:hover,.more-pools[aria-expanded=true]{color:var(--gold);border-color:rgba(214,185,123,.4)}
+.more-pools:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+#feeSection[hidden]{display:none}
 
 .strategy-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
 .strategy-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}

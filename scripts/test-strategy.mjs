@@ -289,4 +289,62 @@ eq(edgeOutcome(btc, fresh.range, 0, 1000), null, 'no liquidity, nothing to show'
   near(step.fee, step.qty * 77000 * 0.00019, 1e-12, 'and re-hedging it costs the taker fee');
 }
 
+/* ---- pools without KAT: trading fees from fee growth (Alex, 3 Nov 2026) ----
+   KAT/vbUSDC 0.05% as read on chain on 3 Nov 2026: vbUSDC is token0, KAT token1, quoted in
+   vbUSDC per KAT; feeProtocol 34 (Sushi keeps half). Its fee growth rose by these amounts
+   per unit of liquidity over the 7 days to block 46,965,816. */
+{
+  const { feesFromGrowth, estimateFees, edgeOutcome, hedgePlan } = await import('../strategy-core.mjs');
+  const katTick = 331923, katUsd = 0.0038502;
+  const kp = {
+    kind: 'fees', pool: '0x10045367e619caae6f60cc80046c43c6cd55f629', baseIndex: 1, tickSpacing: 10, tick: katTick, sqrtPrice: Math.pow(1.0001, katTick / 2),
+    activeLiquidity: 683400718117695200, fee_tier: 0.0005,
+    token0: { symbol: 'vbUSDC', decimals: 6, usd: 1 }, token1: { symbol: 'KAT', decimals: 18, usd: katUsd },
+    rules: { weightFees: 10000, weightToken0: 0, weightToken1: 0, outOfRange: false },
+  };
+  eq(orientation(kp), { base: 1, quote: 0 }, 'KAT is the base though it is token1');
+  near(priceAtTick(katTick, kp), katUsd, 2e-6, 'so the price reads in vbUSDC per KAT, KAT\'s dollar price');
+  const before = [10n ** 30n, 10n ** 44n], grew = [4.5789936263165424e-11, 10839.977722277612].map((g) => BigInt(g * 2 ** 128));
+  const f = feesFromGrowth({ before, after: [before[0] + grew[0], before[1] + grew[1]], seconds: 7 * 86400, fee: 500, feeProtocol: 34, pool: kp });
+  eq([f.lp_part0, f.lp_part1], [0.5, 0.5], 'feeProtocol 34: Sushi keeps half on each side');
+  near(f.pool_day0, 31.292875 / 7, 1e-4, "the pool's vbUSDC fees a day, at today's liquidity");
+  near(f.pool_day1, 7408.0486 / 7, 1e-2, 'and its KAT fees');
+  near(f.usd_per_day, 8.5445, 0.001, 'about $8.54 a day to LPs, as measured');
+  near(f.volume_usd_per_day, f.usd_per_day / (0.0005 * 0.5), 1e-6, 'volume: the LP fees over the half of 0.05% they keep');
+  near(f.per_l_day1 * kp.activeLiquidity, f.pool_day1, 1e-9, 'per unit of liquidity, times the liquidity, is the pool');
+  const wrapped = feesFromGrowth({ before: [2n ** 256n - 5n, 0n], after: [10n, 0n], seconds: 86400, fee: 500, feeProtocol: 0, pool: { ...kp, activeLiquidity: 1 } });
+  near(wrapped.pool_day0, 15 / 2 ** 128 / 1e6, 1e-60, 'a fee growth that wrapped past 2^256 still counts its rise');
+  eq([wrapped.lp_part0, wrapped.lp_part1], [1, 1], 'feeProtocol 0: LPs keep it all');
+  eq(feesFromGrowth({ before, after: before, seconds: 0, fee: 500, feeProtocol: 34, pool: kp }), null, 'no time between the readings, no rate');
+
+  const pool = { ...kp, fees: f };
+  const lo = katUsd * 0.975, hi = katUsd * 1.025;
+  const e = estimateFees(pool, { capitalUsd: 1000, lowerPrice: lo, upperPrice: hi, startTs: now }, ctx);
+  ok(e.inRange && e.earns, 'a range around the price earns');
+  near(e.share, e.liquidity / (e.liquidity + kp.activeLiquidity), 1e-12, 'its share counts its own liquidity in the total');
+  near(e.usdPerDay, f.usd_per_day * e.share, 1e-9, 'it takes that share of the pool\'s fees');
+  near(e.fees0PerDay * 1 + e.fees1PerDay * katUsd, e.usdPerDay, 1e-9, 'in both tokens');
+  near(e.days, (end - now) / 86400, 1e-9, "to the KAT pools' period end, so the two read side by side");
+  near(e.apr, e.usdPerDay * 365 / 1000, 1e-12, 'APR on the capital');
+  eq([e.katPerDay, e.totalKat], [null, null], 'no KAT figures');
+  const wider = estimateFees(pool, { capitalUsd: 1000, lowerPrice: katUsd * 0.8, upperPrice: katUsd * 1.25, startTs: now }, ctx);
+  ok(wider.usdPerDay < e.usdPerDay, 'a wider range earns less per dollar');
+  const outside = estimateFees(pool, { capitalUsd: 1000, lowerPrice: katUsd * 1.1, upperPrice: katUsd * 1.2, startTs: now }, ctx);
+  eq([outside.inRange, outside.share, outside.usdPerDay], [false, 0, 0], 'out of range it earns nothing');
+  eq(estimateFees({ ...kp, fees: null }, { capitalUsd: 1000, lowerPrice: lo, upperPrice: hi }, ctx).error, 'This pool\'s fees could not be read this time.', 'unread fees are said, not zero');
+
+  /* the same hedge, on KAT-USD: KAT is the volatile token, vbUSDC the dollar */
+  const perps = { withdraw_fee: 0.05,
+    markets: { 'KAT-USD': { taker: 0.00019, maker: 0.0000475, mmf: 0.1, min: 2000, step: 1, index: katUsd } },
+    book: { 'KAT-USD': { mark: katUsd, bids: [[katUsd * 0.999, 1e7]], asks: [[katUsd * 1.001, 1e7]] } },
+    funding: { 'KAT-USD': { avg: 0.0001, now: 0.0001 } } };
+  const x = edgeOutcome(pool, e.range, e.liquidity, 1000);
+  const plan = hedgePlan(pool, e.deposit, perps, { days: e.days, katUsdTotal: e.totalUsd, capitalUsd: 1000, edges: x });
+  eq([plan.legs.length, plan.legs[0].symbol], [1, 'KAT-USD'], 'one leg, the KAT short');
+  eq(plan.legs[0].qty, Math.round(e.deposit.amount1), 'the deposit\'s KAT, to the market\'s whole-KAT step');
+  near(plan.edges.upper.token_usd, x.upper.price, 1e-15, 'the upper edge is KAT\'s dollar price, the pool being quoted in vbUSDC');
+  ok(plan.edges.upper.short < 0 && plan.edges.lower.short > 0, 'the short loses as KAT rises and gains as it falls');
+  near(plan.total, e.totalUsd + plan.net, 1e-9, 'the income is the fees plus the hedge net');
+}
+
 console.log(`Strategy maths: ${checks} assertions passed.`);
