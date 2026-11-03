@@ -16,7 +16,24 @@
 .pools-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:30px 0 14px;flex-wrap:wrap}
 .pools-hint{font-size:10.5px;color:var(--faint)}
 .pools{display:grid;gap:14px}
-.pool-card{padding:0;min-width:0;overflow:hidden}
+.pool-card{padding:0;min-width:0;position:relative}
+/* the "!" at the pool card's top corner: what used to fill the line under the price */
+.pool-info{position:absolute;top:12px;right:14px;z-index:5}
+.info-btn{width:16px;height:16px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--gold);
+  font:600 9px/14px var(--sans,system-ui,sans-serif);padding:0;cursor:pointer;letter-spacing:0;text-align:center}
+.info-btn:hover,.pool-info.open .info-btn{border-color:rgba(214,185,123,.55)}
+.info-btn:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+.info-tip{display:none;position:absolute;z-index:20;top:24px;right:-4px;width:min(280px,calc(100vw - 48px));
+  padding:11px 13px 10px;border-radius:10px;background:#111112;border:1px solid rgba(255,255,255,.13);box-shadow:0 10px 30px #000a;
+  font-size:11.5px;line-height:1.5;color:var(--text);text-align:left;cursor:default}
+.info-tip::before{content:'';position:absolute;left:0;right:0;top:-10px;height:10px}
+.pool-info:hover .info-tip,.pool-info:focus-within .info-tip,.pool-info.open .info-tip{display:block}
+.info-title{display:block;font-size:9.5px;font-weight:500;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.info-list{margin:0;padding:0 0 0 15px;display:grid;gap:4px}
+.info-list li{color:var(--text)}
+.info-list li::marker{color:var(--gold)}
+.info-link{display:inline-block;margin-top:8px;color:var(--gold);text-decoration:none;font-size:11px}
+html.tiger .themed-page .info-tip{background:var(--card)}
 .pool-head{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,4fr) 22px;align-items:center;gap:18px;width:100%;padding:20px 24px;
   background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .pool-head:focus-visible{outline:1px solid var(--gold);outline-offset:-4px;border-radius:16px}
@@ -75,6 +92,28 @@
 .calc-note.warn{color:var(--warn)}
 .calc-error{grid-column:1/-1;color:var(--warn);font-size:12px}
 
+/* the hedge, under the estimate: a tick box that opens what to short on Katana Perps */
+.hedge{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.hedge-toggle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;width:max-content;max-width:100%}
+.hedge-toggle input{width:17px;height:17px;margin:0;accent-color:var(--gold);cursor:pointer;flex:0 0 auto}
+.hedge-name{font-size:13px;font-weight:500;color:var(--text)}
+.hedge-hint{font-size:10.5px;color:var(--faint)}
+.hedge-body{display:grid;gap:16px;margin-top:16px}
+.hedge-body[hidden]{display:none}
+.hedge-legs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.hedge-leg .metric-value{font-size:25px;font-weight:300;line-height:1.25;letter-spacing:-.025em;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.hedge-leg .metric-value.big{color:var(--gold)}
+.hedge-leg .metric-sub.warn{color:var(--warn)}
+.hedge-costs{border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;background:rgba(255,255,255,.012)}
+.hedge-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:7px 0;border-top:1px solid var(--line2);font-size:12px;align-items:baseline}
+.hedge-row:first-of-type{border-top:0}
+.hedge-row>span:last-child{font-size:13px;font-weight:500;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hedge-row .up{color:var(--up)}.hedge-row .down{color:var(--down)}
+.hedge-row-note{display:block;font-size:10px;color:var(--faint);margin-top:2px}
+.hedge-row.total{border-top:1px solid var(--line);font-weight:500}
+.hedge-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.hedge-sum .metric-value{font-size:22px;font-weight:300;line-height:1.25;margin-top:8px;font-variant-numeric:tabular-nums}
+
 .strategy-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
 .strategy-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
 .strategy-method p{max-width:780px;margin:8px 0}
@@ -87,5 +126,6 @@
 @media(max-width:600px){.strategy-intro{margin-top:20px}.strategy-overview{gap:10px}.overview-card{padding:14px}
   .overview-value{font-size:clamp(18px,5vw,24px)}.overview-value.dates{font-size:clamp(15px,4.4vw,20px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
   .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.pool-fig{font-size:clamp(17px,5.2vw,21px)}
+  .hedge-sum{grid-template-columns:1fr 1fr}.hedge-sum>div:last-child{grid-column:1/-1}.hedge-leg .metric-value{font-size:22px}
   .calc-inputs{gap:10px}.calc-inputs .wide-phone{grid-column:1/-1}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
 @media(prefers-reduced-motion:reduce){.chev{transition:none}}

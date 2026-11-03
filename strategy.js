@@ -1,7 +1,7 @@
 /* strategy.js: lays out /api/strategy and runs each pool's estimate with strategy-core.mjs.
    Inputs and open pools survive every refresh: the cards are built once and updated in
    place, never rebuilt under the cursor. */
-import { estimateReward, edgeOutcome, byApr, RANGE_DAYS } from './strategy-core.mjs';
+import { estimateReward, edgeOutcome, byApr, RANGE_DAYS, hedgePlan, rehedgeStep } from './strategy-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,7 +50,8 @@ function build(p) {
   const id = 'pool-' + p.pool.slice(2, 12);
   const el = document.createElement('article');
   el.className = 'card pool-card'; el.id = id;
-  el.innerHTML = `<button class="pool-head" type="button" aria-expanded="false" aria-controls="${id}-body">
+  el.innerHTML = `<span class="info-wrap pool-info"><button type="button" class="info-btn" aria-label="About this pool" aria-expanded="false">!</button><span class="info-tip" role="tooltip"></span></span>
+    <button class="pool-head" type="button" aria-expanded="false" aria-controls="${id}-body">
       <div class="pool-name"><h3></h3><span class="tag fee"></span></div>
       <div class="pool-figs"><div><div class="metric-label">Staked TVL</div><div class="pool-fig tvl"></div></div><div><div class="metric-label">APR</div><div class="pool-fig apr"></div></div><div><div class="metric-label">KAT per day</div><div class="pool-fig kat"></div></div><div><div class="metric-label">Value per day</div><div class="pool-fig usd"></div></div></div>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -69,12 +70,19 @@ function build(p) {
         </div>
         <div class="calc-out" aria-live="polite"></div>
       </div>
+      <div class="hedge">
+        <label class="hedge-toggle"><input type="checkbox" class="hedge-on"><span class="hedge-name">Hedge this position</span><span class="hedge-hint">a short on Katana Perps at 1x, delta neutral at today's price</span></label>
+        <div class="hedge-body" hidden aria-live="polite"></div>
+      </div>
     </div>`;
   const s = state.get(p.pool);
   el.querySelectorAll('input[data-f]').forEach((input) => {
     input.value = s[input.dataset.f];
     input.addEventListener('input', () => { s[input.dataset.f] = input.value; estimate(p.pool); });
   });
+  const hedgeOn = el.querySelector('.hedge-on');
+  hedgeOn.checked = !!s.hedge;
+  hedgeOn.addEventListener('change', () => { s.hedge = hedgeOn.checked; estimate(p.pool); });
   el.querySelector('.pool-head').addEventListener('click', () => {
     s.open = !s.open;
     el.classList.toggle('open', s.open);
@@ -117,7 +125,7 @@ function estimate(pool) {
   el.querySelector('[data-f=lower]').setAttribute('aria-invalid', String(!!e.error && !(Number(s.lower) > 0)));
   el.querySelector('[data-f=capital]').setAttribute('aria-invalid', String(!(Number(s.capital) > 0)));
   const edgeBox = el.querySelector('.edge-box');
-  if (e.error) { out.innerHTML = `<div class="calc-error">${esc(e.error)}</div>`; edgeBox.innerHTML = ''; return; }
+  if (e.error) { out.innerHTML = `<div class="calc-error">${esc(e.error)}</div>`; edgeBox.innerHTML = ''; el.querySelector('.hedge-body').hidden = true; return; }
   /* the deposit's P&L if the price reaches either edge, rewards left out (as the LP Book's "!") */
   const x = edgeOutcome(p, e.range, e.liquidity, Number(s.capital));
   const quoteToken = p.baseIndex === 0 ? p.token1 : p.token0, stableQuote = quoteToken.usd > 0.95 && quoteToken.usd < 1.05;
@@ -143,7 +151,86 @@ function estimate(pool) {
     <div><div class="metric-label">My share of the pool's KAT</div><div class="metric-value">${pct(e.share)}</div><div class="metric-sub">of ${kat(p.katPerDay)} a day</div></div>
     <div><div class="metric-label">APR on my capital</div><div class="metric-value">${pct(e.apr)}</div><div class="metric-sub">on ${money(Number(s.capital))}, KAT only</div></div>
     <div class="calc-note${warn ? ' warn' : ''}">${notes.join(' ')}</div>`;
+  renderHedge(el, p, e, x, s);
 }
+
+/* ---- the hedge: what to short on Katana Perps to be delta neutral at today's price, what it
+   costs and earns to the period's end, and how the hedged position ends up at each edge ---- */
+const signedMoney = (v) => (Number.isFinite(v) ? (v > 0.0049 ? '+' : v < -0.0049 ? '−' : '') + money(Math.abs(v)) : '—');
+const rate = (r) => (r >= 0 ? '+' : '−') + fmt(Math.abs(r) * 100, 4) + '%';
+function renderHedge(el, p, e, x, s) {
+  const body = el.querySelector('.hedge-body');
+  body.hidden = !s.hedge;
+  if (!s.hedge) return;
+  if (!view.perps) { body.innerHTML = '<div class="calc-note warn">Katana Perps could not be read this time, so the hedge cannot be simulated. It will try again on the next refresh.</div>'; return; }
+  const plan = hedgePlan(p, e.deposit, view.perps, { days: e.days, from: e.from, to: view.reward.end, katUsdTotal: e.totalUsd, capitalUsd: Number(s.capital), edges: x });
+  if (plan.nothing) { body.innerHTML = '<div class="calc-note">Nothing to hedge: both tokens are dollars, so the position has no price exposure to short.</div>'; return; }
+  if (!plan.legs.length) { body.innerHTML = `<div class="calc-note warn">Katana Perps has no market for ${esc(plan.missing.join(' or '))}, so this position cannot be hedged there.</div>`; return; }
+  const legs = plan.legs.map((l) => {
+    const base = l.symbol.split('-')[0], up = l.liquidation / l.mark - 1;
+    const warns = [];
+    if (l.below_min) warns.push(`Below Katana Perps' smallest position of ${fmt(l.min, 4)} ${base}: raise the capital to hedge it.`);
+    if (l.thin) warns.push('The order book is too thin for this size right now.');
+    if (Math.abs(l.residual) * l.mark >= 0.01) warns.push(`Rounded to the market's step of ${fmt(l.step, 4)} ${base}; ${tokens(Math.abs(l.residual))} ${esc(l.token)} (${money(Math.abs(l.residual) * l.mark)}) stays ${l.residual > 0 ? 'unhedged' : 'over-hedged'}.`);
+    return `<div class="hedge-leg">
+        <div class="metric-label">Short on ${esc(l.symbol)}</div>
+        <div class="metric-value big">${tokens(l.qty)} ${esc(base)}</div>
+        <div class="metric-sub">${money(l.notional)} at ${price(l.mark)} · the ${tokens(l.amount)} ${esc(l.token)} in the deposit</div>
+        <div class="metric-sub">Margin ${money(l.margin)} vbUSDC at 1x · liquidated if ${esc(base)} reaches ${price(l.liquidation)} (+${fmt(up * 100, 0)}%)</div>
+        ${warns.length ? `<div class="metric-sub warn">${warns.join(' ')}</div>` : ''}
+      </div>`;
+  }).join('');
+  const sum = (k) => plan.legs.reduce((t, l) => t + (l[k] || 0), 0);
+  const l0 = plan.legs[0], payments = l0.funding_periods;
+  const row = (label, v, note) => `<div class="hedge-row"><span>${label}${note ? `<span class="hedge-row-note">${note}</span>` : ''}</span><span class="${v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : ''}">${signedMoney(v)}</span></div>`;
+  const costs = `<div class="hedge-costs"><div class="edge-title">To the period's end · ${fmt(e.days, 1)} days</div>`
+    + row('Open: taker fee', -sum('open_fee'), `${fmt(l0.taker * 100, 3)}% of the short`)
+    + row('Close: taker fee', -sum('close_fee'), `${fmt(l0.taker * 100, 3)}%; a limit order pays ${fmt(l0.maker * 100, 5)}%`)
+    + row('Order book, in and out', -sum('book_cost'), 'the spread and depth there now')
+    + row('Funding, received by the short', sum('funding'), `average ${rate(l0.funding_rate)} every 8 h over the last 30 days · ${payments} payments`)
+    + row('Withdraw the margin to Katana', -plan.withdraw_fee, 'Katana Perps\' fixed fee')
+    + `<div class="hedge-row total"><span>Hedge, net</span><span class="${plan.net > 0.0049 ? 'up' : plan.net < -0.0049 ? 'down' : ''}">${signedMoney(plan.net)}</span></div></div>`;
+  const total = plan.total !== null ? `<div class="hedge-sum">
+      <div><div class="metric-label">Income to the period's end</div><div class="metric-value">${money(plan.total)}</div><div class="metric-sub">KAT ${money(e.totalUsd)} ${plan.net >= 0 ? '+' : '−'} hedge ${money(Math.abs(plan.net))}, price moves aside</div></div>
+      <div><div class="metric-label">Capital it takes</div><div class="metric-value">${money(plan.capital)}</div><div class="metric-sub">LP ${money(Number(s.capital))} + margin ${money(plan.margin)}</div></div>
+      <div><div class="metric-label">Hedged APR</div><div class="metric-value">${pct(plan.apr)}</div><div class="metric-sub">the income on all of it</div></div>
+    </div>` : '';
+  /* the profit at the period's end: the income above plus what the price did to the LP and
+     the short, with the price ending where it is today or at either edge (Alex, 3 Nov: the
+     income and the edge results were shown apart, and never added up) */
+  const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
+  const profitRow = (label, priceRes, note) => { const v = plan.total + priceRes; return `<div class="hedge-row"><span>${label}<span class="hedge-row-note">${note}</span></span><span class="${tone(v)}">${signedMoney(v)}</span></div>`; };
+  const income = `income ${money(plan.total)}`;
+  let edges = '';
+  if (plan.total !== null) {
+    edges = `<div class="hedge-costs"><div class="edge-title">Profit at the period's end · income and price together</div>`
+      + profitRow(`Price ends where it is now · ${price(p.price)}`, 0, `${income} · price result about $0`);
+    if (plan.edges) {
+      const u = plan.edges.upper, d = plan.edges.lower;
+      edges += profitRow(`Price ends at the upper edge · ${price(u.price)}`, u.net, `${income} · price ${signedMoney(u.net)} (LP ${signedMoney(u.lp)}, short ${signedMoney(u.short)})`)
+        + profitRow(`Price ends at the lower edge · ${price(d.price)}`, d.net, `${income} · price ${signedMoney(d.net)} (LP ${signedMoney(d.lp)}, short ${signedMoney(d.short)})`)
+        + `<div class="edge-foot">The income counts KAT for every day of the period, which needs the price inside the range: about ${money(e.usdPerDay)} a day, nothing while outside. Past the edges the loss keeps growing: about ${money(Math.abs(u.beyond_per_pct))} for each further 1% up and ${money(Math.abs(d.beyond_per_pct))} for each further 1% down.</div>`;
+    } else {
+      edges += '<div class="edge-foot">With two volatile tokens, the result at the edges depends on how both prices move, so only today\'s price is shown. The income counts KAT for every day, which needs the price inside the range.</div>';
+    }
+    edges += '</div>';
+  }
+  let drift = '';
+  if (plan.legs.length === 1) {
+    const r = rehedgeStep(p, e.range, e.liquidity, l0.token, l0.taker, l0.mark);
+    drift = ` Each 1% the price moves changes the deposit's ${esc(l0.token)} by about ${tokens(r.qty)} (${money(r.usd)}); re-hedging that costs about ${money(r.fee)} in taker fees.`;
+  }
+  body.innerHTML = `<div class="hedge-legs">${legs}</div>${costs}${total}${edges}
+    <div class="calc-note">The short is the amount of each volatile token the deposit holds now, which is how much its value moves with that price.${drift} Funding has been ${rate(l0.funding_rate)} every 8 hours; a positive rate has longs pay shorts (the usual convention), so the short is paid. Fees from Katana Perps' own market data, read when the page refreshed.</div>`;
+}
+
+/* each pool's "!": opens on hover or focus, and on a tap for phones; a tap elsewhere or Escape closes it */
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.pool-info .info-btn');
+  document.querySelectorAll('.pool-info.open').forEach((w) => { if (!btn || w !== btn.parentElement) { w.classList.remove('open'); w.querySelector('.info-btn').setAttribute('aria-expanded', 'false'); } });
+  if (btn) { const w = btn.parentElement, open = !w.classList.contains('open'); w.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); }
+});
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') document.querySelectorAll('.pool-info.open').forEach((w) => w.classList.remove('open')); });
 
 function renderPools() {
   const box = $('pools');
@@ -178,15 +265,17 @@ function renderPools() {
     dateInput.min = isoDay(Math.max(nowS(), view.reward.start)); dateInput.max = isoDay(view.reward.end - 1);
     if (!start.start) dateInput.value = start.start = isoDay(nowS());
     const share = p.eligible.liquidity > 0 && p.activeLiquidity > 0 ? p.eligible.liquidity / p.activeLiquidity : null;
-    el.querySelector('.pool-context').innerHTML = [
-      `Now ${price(p.price)} ${esc(p.quote)} per ${esc(p.base)}`,
+    el.querySelector('.pool-context').textContent = `Now ${price(p.price)} ${p.quote} per ${p.base}`;
+    /* the rest about the pool, point by point, behind the "!" at the card's top corner (Alex, 3 Nov) */
+    el.querySelector('.pool-info .info-tip').innerHTML = '<span class="info-title">About this pool</span><ul class="info-list">' + [
       `${kat(p.kat)} this epoch`,
       p.voteShare !== null ? `${pct(p.voteShare)} of gauge votes` : null,
-      `${fmt(p.eligible.inRange)} staked positions and vault ranges in range` + (share !== null ? `, ${pct(share)} of the pool's active liquidity` : ''),
-      liveTvl && tvl.all > tvl.in_range * 1.01 ? `${dollars(tvl.all)} staked in all, ${dollars(tvl.all - tvl.in_range)} of it out of range and earning nothing` : null,
+      `${fmt(p.eligible.inRange)} staked positions and vault ranges in range`,
+      share !== null ? `${pct(share)} of the pool's active liquidity is staked` : null,
+      liveTvl && tvl.all > tvl.in_range * 1.01 ? `${dollars(tvl.all)} staked in all; ${dollars(tvl.all - tvl.in_range)} of it out of range, earning nothing` : null,
       liveTvl && p.tvl !== null ? `Merkl's APR is on ${dollars(p.tvl)} staked` : null,
-      p.link ? `<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Sushi pool ↗</a>` : null,
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('') + '</ul>'
+      + (p.link ? `<a class="info-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">Sushi pool ↗</a>` : '');
     estimate(p.pool);
   }
 }

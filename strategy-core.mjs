@@ -202,3 +202,98 @@ export function rangePrices(r, pool) {
   const a = priceAtTick(r.lowTick, pool), b = priceAtTick(r.highTick, pool);
   return { low: Math.min(a, b), high: Math.max(a, b) };
 }
+
+/* ---------------------------------------------------------------------------
+   Hedging a simulated deposit on Katana Perps (Alex, 3 Nov 2026).
+
+   A concentrated LP's value moves with each volatile token's price by exactly the amount
+   of that token it holds now, so the delta-neutral hedge is a short of those amounts, at
+   1x: margin equal to the short's value. Katana Perps margins in vbUSDC; vbWBTC and vbETH
+   are BTC and ETH one for one. Costs to the period's end: the taker fee to open and to close,
+   what the order book's depth costs on the way in and out, funding (paid every 8 hours; a
+   positive rate has longs pay shorts, the usual convention, so the short receives it) and
+   the fee to withdraw the margin back to Katana. The hedge is exact only at the price it is
+   set: as the price moves the LP's amounts change, and re-hedging costs fees too.
+   --------------------------------------------------------------------------- */
+export const PERP_OF = { vbWBTC: 'BTC-USD', WBTC: 'BTC-USD', vbETH: 'ETH-USD', WETH: 'ETH-USD', KAT: 'KAT-USD' };
+export const FUNDING_SECONDS = 8 * 3600;
+const isDollar = (t) => t.usd > 0.95 && t.usd < 1.05;
+
+/* filling `qty` against one side of the book: the average price, or null if it runs out */
+export function fillPrice(levels, qty) {
+  let left = qty, cost = 0;
+  for (const [p, q] of levels || []) {
+    const take = Math.min(left, q);
+    cost += take * p; left -= take;
+    if (left <= 1e-12) return cost / qty;
+  }
+  return null;
+}
+
+/* the short's liquidation price at 1x: equity (margin + its P&L) meets the maintenance margin */
+export const liquidationPrice = (entry, mmf) => (2 * entry) / (1 + mmf);
+
+/* the funding payments between two moments: they fall at 00:00, 08:00 and 16:00 UTC */
+export const fundingPayments = (from, to) => Math.max(0, Math.floor(to / FUNDING_SECONDS) - Math.floor(from / FUNDING_SECONDS));
+
+export function hedgePlan(pool, deposit, perps, { days, from = null, to = null, katUsdTotal = null, capitalUsd, edges = null }) {
+  const amounts = [deposit.amount0, deposit.amount1], toks = [pool.token0, pool.token1];
+  if (toks.every(isDollar)) return { nothing: true, legs: [] };
+  const legs = [], missing = [];
+  for (let i = 0; i < 2; i++) {
+    const t = toks[i];
+    if (isDollar(t) || !(amounts[i] > 0)) continue;
+    const symbol = PERP_OF[t.symbol], m = symbol && perps && perps.markets && perps.markets[symbol];
+    if (!m) { missing.push(t.symbol); continue; }
+    const book = (perps.book && perps.book[symbol]) || {}, fund = (perps.funding && perps.funding[symbol]) || {};
+    const step = m.step > 0 ? m.step : 1e-8;
+    const qty = Math.round(amounts[i] / step) * step;
+    const mark = book.mark > 0 ? book.mark : m.index;
+    const notional = qty * mark;
+    const sell = fillPrice(book.bids, qty), buy = fillPrice(book.asks, qty);
+    const periods = from !== null && to !== null ? fundingPayments(from, to) : Math.max(0, days) * 86400 / FUNDING_SECONDS;
+    const rate = Number.isFinite(fund.avg) ? fund.avg : Number.isFinite(fund.now) ? fund.now : 0;
+    legs.push({
+      token: t.symbol, symbol, amount: amounts[i], qty, residual: amounts[i] - qty, mark, notional, margin: notional,
+      below_min: qty < m.min, min: m.min, step,
+      liquidation: liquidationPrice(sell || mark, m.mmf),
+      open_fee: notional * m.taker, close_fee: notional * m.taker,
+      book_cost: sell && buy ? qty * (mark - sell) + qty * (buy - mark) : null,
+      funding_rate: rate, funding_periods: periods, funding: notional * rate * periods,
+      taker: m.taker, maker: m.maker, thin: sell === null || buy === null,
+    });
+  }
+  const sum = (k) => legs.reduce((s, l) => s + (l[k] || 0), 0);
+  const withdraw = legs.length ? (perps && perps.withdraw_fee) || 0 : 0;
+  const fees = sum('open_fee') + sum('close_fee') + sum('book_cost') + withdraw;
+  const net = sum('funding') - fees, margin = sum('margin');
+  const total = Number.isFinite(katUsdTotal) ? katUsdTotal + net : null, capital = capitalUsd + margin;
+  /* with one volatile token against a dollar, the short's P&L at each edge offsets the LP's */
+  let hedgedEdges = null;
+  if (edges && legs.length === 1 && toks.some(isDollar)) {
+    const leg = legs[0], volIs0 = toks[0].symbol === leg.token, baseIs0 = orientation(pool).base === 0;
+    const usdAt = (edgePrice) => (volIs0 === baseIs0 ? edgePrice : 1 / edgePrice);
+    hedgedEdges = Object.fromEntries(['lower', 'upper'].map((k) => {
+      const px = usdAt(edges[k].price), shortPnl = leg.qty * (leg.mark - px);
+      /* past the edge the LP stops changing: all the volatile token below, none above. What
+         is left is that holding less the short; a further 1% move away from the range then
+         gains or loses this much */
+      const holding = edges[k].token === leg.token ? edges[k].amount : 0;
+      const beyond = (holding - leg.qty) * px * 0.01 * (px < leg.mark ? -1 : 1);
+      return [k, { price: edges[k].price, token_usd: px, lp: edges[k].pnlUsd, short: shortPnl, net: edges[k].pnlUsd + shortPnl, beyond_per_pct: beyond }];
+    }));
+  }
+  return { nothing: false, legs, missing, withdraw_fee: withdraw, fees, funding: sum('funding'), net, margin, capital,
+    total, apr: total !== null && capital > 0 && days > 0 ? (total / capital) * (365 / days) : null, edges: hedgedEdges };
+}
+
+/* how far the LP's volatile amount drifts for a 1% move, and the taker fee to re-hedge it */
+export function rehedgeStep(pool, range, liquidity, legToken, perpTaker, markUsd) {
+  const i = pool.token0.symbol === legToken ? 0 : 1;
+  const at = (f) => { const a = amountsPerLiquidity(range.tickLower, range.tickUpper, pool.sqrtPrice * Math.sqrt(f), pool.token0.decimals, pool.token1.decimals); return liquidity * (i === 0 ? a.amount0 : a.amount1); };
+  /* a 1% rise in the volatile token's dollar price, in the pool's own token1-per-token0 terms */
+  const up = i === 0 ? 1.01 : 1 / 1.01;
+  const now = at(1), moved = at(up);
+  const qty = Math.abs(moved - now);
+  return { qty, usd: qty * markUsd, fee: qty * markUsd * perpTaker };
+}

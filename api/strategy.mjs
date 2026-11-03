@@ -18,7 +18,7 @@
    ========================================================================== */
 import { CFG, multi, pad, keccakHex, rpc } from './_core.mjs';
 import { epochOf, amountsPerLiquidity, orientation, priceAtTick, mergeSwapHours, recentRanges, rangePrices,
-  swapFromLog, SWAP_TOPIC, RANGE_DAYS } from '../strategy-core.mjs';
+  swapFromLog, SWAP_TOPIC, RANGE_DAYS, PERP_OF } from '../strategy-core.mjs';
 
 const KAT = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
 const CLOCK = '0x17049d374a2bcda70f8939c21ad92bcf6b2a95ab';
@@ -106,9 +106,50 @@ async function addRecentRanges(pools, ranges, now, notes) {
   }));
 }
 
+/* Katana Perps, for each pool's hedge: the markets its volatile tokens map to (fees, margin
+   fractions, sizes), funding now and its average over the last 30 days (90 payments), the
+   order book's top 50 levels each side, and the fee to withdraw margin back to Katana. Read
+   here, not in the browser: the exchange's API does not answer other sites' pages. */
+const PERPS = 'https://api-perps.katana.network/v1';
+/* The exchange takes about five requests in a burst, then answers 429 until its bucket
+   refills, a few a second (measured 3 Nov 2026). So the reads go one at a time, a quarter of
+   a second apart, with one retry after a pause. */
+const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
+let lastPerpsCall = 0;
+const getJson = async (url, retry = 1) => {
+  const wait = lastPerpsCall + 250 - Date.now();
+  if (wait > 0) await pause(wait);
+  lastPerpsCall = Date.now();
+  try { const r = await fetch(url, { signal: AbortSignal.timeout(8000) }); if (!r.ok) throw new Error('Katana Perps HTTP ' + r.status); return await r.json(); }
+  catch (e) { if (!retry) throw e; await pause(700); return getJson(url, retry - 1); }
+};
+export async function readPerps(symbols) {
+  const want = [...new Set(symbols)];
+  if (!want.length) return null;
+  const markets = await getJson(PERPS + '/markets');
+  const gas = await getJson(PERPS + '/gasFees').catch(() => null);
+  const out = { at: Math.floor(Date.now() / 1000), markets: {}, funding: {}, book: {}, withdraw_fee: gas && gas.withdrawal ? Number(gas.withdrawal['katana.katana']) || 0 : 0.05 };
+  for (const sym of want) {   /* one market at a time, gentle on the exchange */
+    const m = markets.find((x) => x.market === sym && x.status === 'active');
+    if (!m) continue;
+    out.markets[sym] = { taker: Number(m.takerFeeRate), maker: Number(m.makerFeeRate), imf: Number(m.initialMarginFraction), mmf: Number(m.maintenanceMarginFraction),
+      min: Number(m.minimumPositionSize), step: Number(m.stepSize), index: Number(m.indexPrice), next_funding: Math.floor(Number(m.nextFundingTime) / 1000) };
+    const rates = await getJson(`${PERPS}/fundingRates?market=${sym}&limit=90`).catch(() => []);
+    const book = await getJson(`${PERPS}/orderbook?market=${sym}&level=2&limit=50`).catch(() => null);
+    const r = rates.map((x) => Number(x.fundingRate)).filter(Number.isFinite);
+    out.funding[sym] = { now: Number(m.currentFundingRate), avg: r.length ? r.reduce((a, b) => a + b, 0) / r.length : null, n: r.length,
+      from: rates.length ? Math.floor(rates[0].time / 1000) : null, to: rates.length ? Math.floor(rates[rates.length - 1].time / 1000) : null };
+    if (book) out.book[sym] = { mark: Number(book.markPrice), bids: book.bids.map((l) => [Number(l[0]), Number(l[1])]), asks: book.asks.map((l) => [Number(l[0]), Number(l[1])]) };
+  }
+  return out;
+}
+
 export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges } = {}) {
   const pools = await readCampaigns(now);
   const notes = [];
+  /* the perps read runs beside the chain reads; a failure costs only the hedge */
+  const perpsP = readPerps(pools.flatMap((p) => [p.token0.symbol, p.token1.symbol]).map((t) => PERP_OF[t]).filter(Boolean))
+    .catch((e) => { notes.push('Katana Perps could not be read this time (' + String(e.message || e).slice(0, 60) + '); the hedge cannot be simulated.'); return null; });
 
   /* 1 · the clock, the votes, KAT's price, each pool's state and the staker's count */
   const fixed = [
@@ -208,6 +249,7 @@ export async function readStrategy(now = Math.floor(Date.now() / 1000), { ranges
     reward: { start, end },
     total: { kat: pools.reduce((s, p) => s + p.kat, 0), katPerDay: pools.reduce((s, p) => s + p.katPerDay, 0) },
     kat_usd: katUsd, total_votes: totalVotes, staked_positions: stakedCount,
+    perps: await perpsP,
     pools: pools.map(({ whitelist, blacklist, staked, ...p }) => ({ ...p, eligible: { ...p.eligible, holders: whitelist.length },
       staked_usd: { in_range: usdOf(p, p.eligible), all: usdOf(p, staked) } })),
     health: { notes },

@@ -547,6 +547,45 @@ item is lit on both.
   average 34.4% APR; best epoch 1474 (weETH/vbETH, 115.3% APR), latest 1482 (vbWBTC/vbUSDC,
   12.1%).
 
+### Strategy hedge on Katana Perps (Alex, 3 Nov 2026)
+
+Alex's spec: under each pool's expected KAT, a "Hedge this position" tick box; ticked, it shows
+how much to short at 1x to be delta neutral, on Katana Perps where the pair can be hedged, with
+every related fee simulated. Pushed 3 Nov 2026 after review.
+
+- **Venue:** Katana Perps, public REST `https://api-perps.katana.network/v1` (`/markets`,
+  `/fundingRates?market=&limit=`, `/orderbook?market=&level=2&limit=`, `/gasFees`; IDEX-style
+  fields). Exchange `0x62230CeA…`, margin in vbUSDC. Markets on 3 Nov: BTC, ETH, KAT, SOL, XRP,
+  DOGE, HYPE, TAO, ZEC, PUMP (-USD). Taker 0.019%, maker 0.00475%; funding every 8 h at
+  00/08/16 UTC, +0.0100% on BTC and ETH for all of the last 30 days; withdrawal to Katana 0.05
+  vbUSDC. Its API sends no CORS header, so `/api/strategy` reads it server-side (`readPerps`)
+  and returns `perps`; a failure costs only the hedge (a note says so). **Rate limit:** about
+  five requests in a burst, then 429 `EXCEEDED_RATE_LIMIT`, refilling within half a second;
+  reads go one at a time 250 ms apart with one retry (~1.6 s, beside the chain reads).
+- **Maths (`hedgePlan` in `strategy-core.mjs`):** a V3 LP's value moves with a token's price by
+  exactly the amount of it held now, so the hedge is a short of each volatile token's deposit
+  amount (`PERP_OF`: vbWBTC -> BTC-USD, vbETH -> ETH-USD, KAT -> KAT-USD; dollar tokens need
+  none; vbWBTC/vbETH shorts both), rounded to the market's step, margin = notional (1x),
+  liquidation where margin plus the short's P&L meets maintenance: 2 x entry / (1 + mmf),
+  about +98%. Costs to the period's end: taker fee to open and to close, the order book's cost
+  in and out (walking the top 50 levels now), funding = notional x the 30-day average rate x the
+  exact payments between the start and the reward end (`fundingPayments`), and the withdrawal
+  fee. A positive rate has longs pay shorts (the usual convention; Katana Perps' own docs were
+  not found), so the short is paid. Shown: the short(s), margin and liquidation, each cost,
+  the hedge net, the income to the period's end (KAT + hedge, price moves aside), capital
+  (LP + margin) and hedged APR on it, then **Profit at the period's end** (Alex, 3 Nov: the
+  income and the edge results were shown apart, he read them as "never a profit"): the income
+  plus the price result if the price ends where it is now, at the upper edge or at the lower
+  edge (LP + short, one-token hedges only), with the KAT a day it depends on and what each
+  further 1% past an edge loses (`beyond_per_pct`: the holding past the edge less the short),
+  and how far a 1% move shifts the hedge (`rehedgeStep`) with its fee.
+- **Checked 3 Nov 2026** ($1,000, ±2.5%, start today): vbWBTC/vbUSDC 0.05% short 0.0065 BTC
+  ($500), fees -$0.26, funding +$1.25 (25 payments), net +$1.00; profit at the end +$87.61 at
+  today's price, +$80.55 at the upper edge, +$80.74 at the lower; past them about -$5.13 / -$4.93
+  for each further 1%;
+  vbWBTC/vbETH shorts 0.0064 BTC + 0.222 ETH; vbUSDC/vbUSDT "nothing to hedge". 29 checks in
+  `scripts/test-strategy.mjs` (129).
+
 ---
 
 ## 5. Chain facts that bite
@@ -793,6 +832,18 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "add a hedge section in each KAT emission
+  pools ... Add this section in review. Do not push."):** the Strategy hedge (§4 "Strategy hedge
+  on Katana Perps"): `strategy-core.mjs` (`hedgePlan`, `fillPrice`, `liquidationPrice`,
+  `fundingPayments`, `rehedgeStep`, `PERP_OF`), `api/strategy.mjs` (`readPerps`, `perps` in the
+  reply), `strategy.js`/`strategy.css` (the tick box and its section), 33 more checks (133);
+  `sw.js` -> `tiger-v141`. Then (Alex: "make changes below too ... push all the changes"): the
+  hedge's Profit at the period's end; and each pool's line under its figures keeps only the price
+  now, the rest (KAT this epoch, vote share, staked positions in range, share of active
+  liquidity, staked in all and out of range, Merkl's base, Sushi link) is a bullet list behind
+  a "!" at the card's top corner (`.pool-info`, hover, focus or tap; the card no longer clips
+  with `overflow:hidden`).
 
 - **Pushed 3 Nov 2026 (Alex: "in LP book page, in fees claim card, change the information in the
   record icon from claim record to pending fees/reward value to claim from each chain. Push"):**

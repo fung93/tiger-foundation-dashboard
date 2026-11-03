@@ -216,4 +216,77 @@ ok(ue.lower.pnlUsd > 0 && ue.upper.pnlUsd > ue.lower.pnlUsd, 'a range above the 
 eq(edgeOutcome(btc, { tickLower: 10, tickUpper: 10 }, 1, 1), null, 'an empty range has no edges');
 eq(edgeOutcome(btc, fresh.range, 0, 1000), null, 'no liquidity, nothing to show');
 
+/* ---- the hedge on Katana Perps (Alex, 3 Nov 2026) ---- */
+{
+  const { hedgePlan, fillPrice, liquidationPrice, fundingPayments, rehedgeStep, FUNDING_SECONDS } = await import('../strategy-core.mjs');
+  const perps = {
+    withdraw_fee: 0.05,
+    markets: { 'BTC-USD': { taker: 0.00019, maker: 0.0000475, mmf: 0.01, min: 0.0005, step: 0.0001, index: 77000 },
+      'ETH-USD': { taker: 0.00019, maker: 0.0000475, mmf: 0.01, min: 0.01, step: 0.001, index: 2260 } },
+    book: { 'BTC-USD': { mark: 77000, bids: [[76999, 0.004], [76990, 1]], asks: [[77001, 1]] },
+      'ETH-USD': { mark: 2260, bids: [[2259.9, 10]], asks: [[2260.1, 10]] } },
+    funding: { 'BTC-USD': { avg: 0.0001, now: 0.0001 }, 'ETH-USD': { avg: 0.0001, now: 0.0001 } },
+  };
+  /* the book: a short sells into the bids, level by level */
+  near(fillPrice(perps.book['BTC-USD'].bids, 0.0065), (0.004 * 76999 + 0.0025 * 76990) / 0.0065, 1e-9, 'a fill walks the book');
+  eq(fillPrice([[1, 1]], 2), null, 'a book too thin gives no price');
+  near(liquidationPrice(77000, 0.01), 2 * 77000 / 1.01, 1e-9, 'a 1x short is liquidated near double the price');
+  eq(fundingPayments(Date.UTC(2026, 10, 3, 0, 0, 1) / 1000, Date.UTC(2026, 10, 4) / 1000), 3, 'three payments a day, at 00, 08 and 16 UTC');
+  eq(fundingPayments(0, FUNDING_SECONDS - 1), 0, 'none before the first');
+
+  /* worked by hand: 0.00648 vbWBTC + 500 vbUSDC, 8.5 days, 25 payments */
+  const from = Date.UTC(2026, 10, 3, 1) / 1000, to = from + 8 * 86400 + 7 * 3600;
+  const plan = hedgePlan(btc, { amount0: 0.00648, amount1: 500 }, perps, { days: 8.5, from, to, katUsdTotal: 85, capitalUsd: 1000 });
+  eq(plan.legs.length, 1, 'one leg: vbUSDC is already dollars');
+  const leg = plan.legs[0];
+  eq([leg.symbol, +leg.qty.toFixed(4)], ['BTC-USD', 0.0065], 'short the deposit\'s vbWBTC as BTC, rounded to the 0.0001 step');
+  near(leg.notional, 0.0065 * 77000, 1e-9, 'at the mark');
+  near(leg.margin, leg.notional, 1e-12, 'margin at 1x is the short\'s value');
+  near(leg.open_fee + leg.close_fee, 2 * 0.00019 * 500.5, 1e-9, 'taker fee in and out');
+  const sellAvg = (0.004 * 76999 + 0.0025 * 76990) / 0.0065;
+  near(leg.book_cost, 0.0065 * (77000 - sellAvg) + 0.0065 * (77001 - 77000), 1e-9, 'what the book costs in and out');
+  eq(leg.funding_periods, 25, 'the funding payments to the period\'s end');
+  near(leg.funding, 500.5 * 0.0001 * 25, 1e-9, 'funding: the short is paid on its value each time');
+  near(plan.net, leg.funding - (leg.open_fee + leg.close_fee + leg.book_cost + 0.05), 1e-12, 'net: funding less every fee');
+  near(plan.total, 85 + plan.net, 1e-12, 'hedged total: KAT plus the hedge');
+  near(plan.capital, 1000 + 500.5, 1e-9, 'capital: LP plus margin');
+  near(plan.apr, plan.total / plan.capital * 365 / 8.5, 1e-12, 'hedged APR on all of it');
+
+  /* the edges: the short offsets the LP; on a narrow range both edges still lose */
+  const est = estimateReward(btc, { capitalUsd: 1000, lowerPrice: 76000, upperPrice: 79800, startTs: now }, ctx);
+  const edges = edgeOutcome(btc, est.range, est.liquidity, 1000);
+  const hedged = hedgePlan(btc, est.deposit, perps, { days: est.days, katUsdTotal: est.totalUsd, capitalUsd: 1000, edges });
+  const h = hedged.legs[0];
+  near(hedged.edges.upper.short, h.qty * (h.mark - edges.upper.price), 1e-9, 'upper edge: the short loses what BTC gained');
+  near(hedged.edges.lower.net, edges.lower.pnlUsd + h.qty * (h.mark - edges.lower.price), 1e-9, 'lower edge: LP plus short');
+  ok(hedged.edges.lower.lp < hedged.edges.lower.net, 'the short cushions the fall');
+  /* past the edges: below, all the vbWBTC less the short; above, the short alone */
+  near(hedged.edges.lower.beyond_per_pct, -(edges.lower.amount - h.qty) * edges.lower.price * 0.01, 1e-9, 'each further 1% down loses the net long');
+  near(hedged.edges.upper.beyond_per_pct, -h.qty * edges.upper.price * 0.01, 1e-9, 'each further 1% up loses on the short');
+  ok(hedged.edges.lower.beyond_per_pct < 0 && hedged.edges.upper.beyond_per_pct < 0, 'past either edge the hedged position loses');
+  /* the profit the page shows: the income plus the price result */
+  const income = hedged.total;
+  ok(income + hedged.edges.upper.net > 0 && income + hedged.edges.lower.net > 0, 'with the KAT of the whole period, both edges still end in profit');
+
+  /* vbETH is the base of a pool whose token0 is vbUSDC: the edge prices are already dollars per ETH */
+  const ethEst = estimateReward(eth, { capitalUsd: 1000, lowerPrice: 2200, upperPrice: 2330, startTs: now }, ctx);
+  const ethPlan = hedgePlan(eth, ethEst.deposit, perps, { days: ethEst.days, katUsdTotal: ethEst.totalUsd, capitalUsd: 1000, edges: edgeOutcome(eth, ethEst.range, ethEst.liquidity, 1000) });
+  eq(ethPlan.legs.map((l) => l.symbol), ['ETH-USD'], 'vbETH hedges on ETH-USD');
+  near(ethPlan.edges.upper.token_usd, ethPlan.edges.upper.price, 1e-9, 'ETH\'s edge price is its dollar price');
+
+  /* two volatile tokens: a short on each */
+  const pair = { ...btc, token1: { symbol: 'vbETH', decimals: 18, usd: 2260 } };
+  eq(hedgePlan(pair, { amount0: 0.0064, amount1: 0.222 }, perps, { days: 8, capitalUsd: 1000 }).legs.map((l) => [l.symbol, +l.qty.toFixed(4)]),
+    [['BTC-USD', 0.0064], ['ETH-USD', 0.222]], 'vbWBTC/vbETH shorts both');
+  eq(hedgePlan({ ...btc, token0: { symbol: 'vbUSDT', decimals: 6, usd: 1 } }, { amount0: 500, amount1: 500 }, perps, { days: 8, capitalUsd: 1000 }).nothing, true, 'two dollars: nothing to hedge');
+  eq(hedgePlan({ ...btc, token0: { symbol: 'LBTC', decimals: 8, usd: 77000 } }, { amount0: 0.006, amount1: 500 }, perps, { days: 8, capitalUsd: 1000 }).missing, ['LBTC'], 'no market, said so');
+  eq(hedgePlan(btc, { amount0: 0.0002, amount1: 10 }, perps, { days: 8, capitalUsd: 30 }).legs[0].below_min, true, 'below the smallest position, said so');
+  eq(hedgePlan(btc, est.deposit, null, { days: 8, capitalUsd: 1000 }).missing, ['vbWBTC'], 'no perps data: nothing to hedge on');
+
+  /* the hedge drifts: a 1% move shifts the narrow LP's vbWBTC */
+  const step = rehedgeStep(btc, est.range, est.liquidity, 'vbWBTC', 0.00019, 77000);
+  ok(step.qty > 0 && step.qty < est.deposit.amount0, 'a 1% move shifts part of the vbWBTC');
+  near(step.fee, step.qty * 77000 * 0.00019, 1e-12, 'and re-hedging it costs the taker fee');
+}
+
 console.log(`Strategy maths: ${checks} assertions passed.`);
