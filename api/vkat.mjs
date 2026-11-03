@@ -150,6 +150,22 @@ async function readLocks() {
     power: reads[2 * i + 1].ok ? Number(word(reads[2 * i + 1].data, 0)) / 1e18 : null }));
 }
 
+/* Katana-wide (Alex, 3 Nov 2026): all the KAT locked in vKAT (the escrow's totalLocked, which
+   is its KAT balance), how many locks there are, KAT's supply, and the avKAT vault: its supply,
+   the KAT behind it and its rate (convertToAssets of one avKAT), now and a week back (archive,
+   a block a second). avKAT's KAT is itself one vKAT lock, its compound strategy's, so it is
+   part of the total locked. */
+const AVKAT = '0x7231dbacdfc968e07656d12389ab20de82fbfceb';
+async function readNetwork(head) {
+  const one = pad((10n ** 18n).toString(16)).slice(2);
+  const calls = [{ to: ESCROW, data: sel('totalLocked()') }, { to: VKAT_NFT, data: sel('totalSupply()') }, { to: KAT, data: sel('totalSupply()') },
+    { to: AVKAT, data: sel('totalSupply()') }, { to: AVKAT, data: sel('totalAssets()') }, { to: AVKAT, data: sel('convertToAssets(uint256)') + one }];
+  const [now, week] = await Promise.all([multi(RPC, calls, hex(head)), multi(RPC, [calls[5]], hex(head - 7 * 86400))]);
+  const val = (r, d = 18) => { if (!r || !r.ok || r.data.length < 66) throw new Error('a network total did not answer'); return Number(word(r.data, 0)) / 10 ** d; };
+  return { locked: val(now[0]), locks: val(now[1], 0), kat_supply: val(now[2]), avkat_supply: val(now[3]), avkat_kat: val(now[4]),
+    avkat_rate: val(now[5]), avkat_rate_7d: week[0] && week[0].ok && week[0].data.length >= 66 ? val(week[0]) : null };
+}
+
 export async function readVkat(saved, now = Math.floor(Date.now() / 1000)) {
   const notes = [];
   let file = emptyLedger();
@@ -159,7 +175,8 @@ export async function readVkat(saved, now = Math.floor(Date.now() / 1000)) {
   } else notes.push('The saved ledger could not be read; read from the chain instead.');
   const io = vkatReaders();
   const { head, headTs } = await io.tip();
-  const [adv, locks, katNow] = await Promise.all([advanceVkat(file, io, { head, headTs }), readLocks(), io.priceAt(KAT, 'latest')]);
+  const [adv, locks, katNow, network] = await Promise.all([advanceVkat(file, io, { head, headTs }), readLocks(), io.priceAt(KAT, 'latest'),
+    readNetwork(head).catch((e) => { notes.push('The Katana network totals could not be read this time (' + String(e.message || e).slice(0, 60) + ').'); return null; })]);
   notes.push(...adv.notes);
   const f = adv.file, epochNow = epochOf(headTs);
   const katUsd = { ...f.kat_usd, [epochNow]: f.kat_usd[epochNow] ?? katNow };
@@ -168,7 +185,7 @@ export async function readVkat(saved, now = Math.floor(Date.now() / 1000)) {
   return {
     at: now, head, head_ts: headTs, kat_usd: katNow, epoch: epochNow,
     vote_week: open ? { open: true, opens: epochStart(epochNow), closes: voteClose(epochNow) } : { open: false, opens: epochStart(epochNow + 1), closes: voteClose(epochNow + 1) },
-    locks, standing: standingVotes(f.events), pools: f.pools, book, ledger_to: file.last_ts, health: { notes },
+    locks, standing: standingVotes(f.events), pools: f.pools, book, ledger_to: file.last_ts, network, health: { notes },
   };
 }
 

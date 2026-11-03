@@ -553,6 +553,27 @@ item is lit on both.
   average 34.4% APR; best epoch 1474 (weETH/vbETH, 115.3% APR), latest 1482 (vbWBTC/vbUSDC,
   12.1%).
 
+### vKAT page: the Katana network row (Alex, 3 Nov 2026)
+
+Alex: "In vKAT vote page, add 3 information: total vKAT locked in Katana network, total avKAT
+minted in Katana network, ratio AVKAT/KAT". A row of three cards under his own four, read
+live by `readNetwork` in `api/vkat.mjs` at the head block (`network` in the reply; a failure
+is a note and "Not read this time"):
+
+- **vKAT locked:** the voting escrow's `totalLocked()` (`0x4d6fc15c...`), equal to its KAT
+  balance; with its dollars, its share of KAT's 10B supply and the lock NFT's `totalSupply()`
+  (4,096 locks on 3 Nov 2026: index 4095 is lock #19113, 4096 reverts, so earlier locks were
+  withdrawn). Measured 3 Nov: 503,762,698 KAT, $1.93M, 5.0%. Not the escrow's
+  `totalVotingPower()` (442.1M), which is lower.
+- **avKAT minted:** the avKAT vault's `totalSupply()` (ERC-4626, `0x7231dbac...`), with its
+  `totalAssets()` in KAT. Its KAT is one vKAT lock held by its compound strategy
+  (`0x60233d1c...`), so it is part of the total locked: 291.28M of 503.76M (57.8%).
+- **avKAT / KAT:** `convertToAssets(1e18)`, KAT per avKAT (1.3955), with the change against the
+  same read 7 days back (archive, head - 604,800 blocks): +0.61% (30 days: +3.12%).
+
+Values show as 503.76M with the unit set small (`.unit`); two across with the rate full width
+at <=720px, stacked at <=359px (checked at 320, 375 and 1280 px).
+
 ### Strategy hedge on Katana Perps (Alex, 3 Nov 2026)
 
 Alex's spec: under each pool's expected KAT, a "Hedge this position" tick box; ticked, it shows
@@ -875,6 +896,11 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "In vKAT vote page, add 3 information ... ADD AND PUSH"):** §4 "vKAT
+  page: the Katana network row": `readNetwork` in `api/vkat.mjs`, the row in `vkat.html`,
+  `renderNetwork` in `vkat.js`, its layout in `vkat.css`, a paragraph in the method notes.
+  `sw.js` -> `tiger-v145`.
 
 - **Pushed 3 Nov 2026 (Alex: "in KAt PAGE: The six-hourly ledger is 13 hours behind; the trades
   since were read live. FIX AND PUSH"):** nothing was wrong with the ledger: every run had

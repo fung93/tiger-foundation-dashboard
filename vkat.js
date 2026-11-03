@@ -47,6 +47,20 @@ function renderOverview() {
     : `<b>Epoch ${view.epoch + 1}'s vote</b> opens ${esc(when(w.opens))} and closes ${esc(when(w.closes))} MYT.` + (standing ? ` Your vote stays on ${esc(standing)} unless you change it.` : '');
 }
 
+/* Katana-wide: all KAT locked in vKAT, the avKAT minted and its rate in KAT (Alex, 3 Nov) */
+const big = (v) => (!Number.isFinite(v) ? '—' : v >= 1e9 ? fmt(v / 1e9, 2) + 'B' : v >= 1e6 ? fmt(v / 1e6, 2) + 'M' : fmt(v, 0));
+const share = (v) => (Number.isFinite(v) ? fmt(v * 100, 1) + '%' : '—');
+function renderNetwork() {
+  const n = view.network, cells = $('network').children;
+  /* the figure, its unit set small so the longest fits a phone's half-width card */
+  const set = (i, value, sub, unit = '') => { cells[i].querySelector('.overview-value').innerHTML = esc(value) + (unit ? `<span class="unit"> ${unit}</span>` : ''); cells[i].querySelector('.metric-sub').textContent = sub; };
+  if (!n) { [0, 1, 2].forEach((i) => set(i, '—', 'Not read this time')); return; }
+  set(0, big(n.locked), `$${big(n.locked * view.kat_usd)} · ${share(n.locked / n.kat_supply)} of all KAT · ${fmt(n.locks)} locks`, 'KAT');
+  set(1, big(n.avkat_supply), `backed by ${big(n.avkat_kat)} KAT · ${share(n.avkat_kat / n.locked)} of all vKAT`, 'avKAT');
+  const moved = n.avkat_rate_7d > 0 ? n.avkat_rate / n.avkat_rate_7d - 1 : null;
+  set(2, fmt(n.avkat_rate, 4), 'KAT per avKAT' + (moved === null ? '' : ` · ${moved >= 0 ? '+' : '−'}${fmt(Math.abs(moved) * 100, 2)}% in 7 days`));
+}
+
 /* ---- the chart: the total reward so far, epoch by epoch, each point labelled with that
    epoch's reward. Points keep at least 52 px apart so every label sits clear above its
    own point; when the epochs outgrow the card the chart scrolls sideways, opening on the
@@ -146,7 +160,7 @@ function renderStamp() {
 }
 
 function render() {
-  if (view) { renderOverview(); drawChart(); renderVotes(); }
+  if (view) { renderOverview(); renderNetwork(); drawChart(); renderVotes(); }
   const msgs = [failure, ...((view && view.health && view.health.notes) || [])].filter(Boolean);
   $('health').textContent = msgs.join(' ');
   $('health').classList.toggle('on', msgs.length > 0);

@@ -58,6 +58,13 @@
     <div class="card overview-card"><div class="metric-label">Average APR</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
   </div>
   <div class="waiting-note" id="voteNote" hidden></div>
+  <!-- all of Katana's vKAT and avKAT, read live (Alex, 3 Nov 2026) -->
+  <div class="net-head"><div class="label">Katana network</div><span class="trades-hint">All vKAT and avKAT, read live</span></div>
+  <div class="kat-overview net-overview" id="network" aria-live="polite">
+    <div class="card overview-card"><div class="metric-label">vKAT locked</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">avKAT minted</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">avKAT / KAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+  </div>
 
   <section class="card chart-card" aria-labelledby="chartTitle">
     <div class="chart-bar">
@@ -84,6 +91,7 @@
   <div class="kat-method">
     <details><summary>How these numbers are made</summary>
       <p><b>vKAT.</b> The KAT locked in the vKAT the two wallets hold now, read from Katana's voting escrow; its voting power is the same. KAT in avKAT is not counted here: the avKAT vault votes it and compounds its rewards itself.</p>
+      <p><b>Katana network.</b> All the KAT locked in vKAT is the voting escrow's total, which is the KAT it holds; it includes the KAT behind avKAT, which the vault keeps as one vKAT lock. avKAT minted is the vault's supply, and avKAT / KAT its rate: the KAT one avKAT redeems for, which rises as the vault compounds its vote rewards back into vKAT. The change is against the same reading a week before. Leaving avKAT goes through the same exit queue as vKAT.</p>
       <p><b>Votes.</b> Every vote and reset the gauge voter recorded for either wallet. A vote stands from epoch to epoch until it is changed, so an epoch counts as voted when a vote stood during it. Its pool and vKAT are the vote that stood with the most vKAT behind it in that epoch (the latest, if equal): a lock moved into avKAT after the vote week does not hide the vote it cast.</p>
       <p><b>Rewards.</b> The vote incentives Merkl paid each vKAT lock, named by pool and lock (AragonBribes). Each belongs to the epoch its campaign ends in, which is that epoch's vote week, and is valued at its token's price when the campaign ended; vbUSDC is a dollar. Rewards are booked once and never re-valued.</p>
       <p><b>APR.</b> An epoch's reward over the vKAT that voted, valued at KAT's price when that epoch's vote week closed, times the 26 epochs of a year. It is not compounded: the rewards are paid in dollars (vbUSDC, mostly) and stay in the wallet rather than going back into vKAT, so a compounded APY would describe a strategy that is not being run. The average is all the rewards over all the vKAT voted, for the epochs whose vote week has closed. Leaving vKAT takes a 60-day cooldown and a fee of 2.5% to 25%, which these rates do not include.</p>
