@@ -58,7 +58,7 @@
   <div class="card with-rec"><div class="label">PnL &middot; IL + price</div><div class="big" id="c2">&ndash;</div><div class="note" id="c2n">&nbsp;</div>
     <button class="rec" id="chainsBtn" type="button" title="By chain" aria-label="PnL by chain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card with-rec"><div class="label">Fees claimed</div><div class="big" id="c4">&ndash;</div><div class="note" id="c4n">&nbsp;</div>
-    <button class="rec" id="claimsBtn" type="button" title="Claim record" aria-label="Claim record"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
+    <button class="rec" id="claimsBtn" type="button" title="Still to claim, by chain" aria-label="Fees and rewards still to claim, by chain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg></button></div>
   <div class="card"><div class="label">Net PnL &middot; fees + PnL</div><div class="big" id="c9">&ndash;</div><div class="note" id="c9n">&nbsp;</div></div>
 </div>
 
@@ -78,9 +78,9 @@
 
 </main>
 
-<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Claim record">
+<div class="modal-back" id="claimsModal" role="dialog" aria-modal="true" aria-label="Still to claim, by chain">
   <div class="modal">
-    <div class="modal-head"><span class="label">Claim record &middot; open positions</span><button class="modal-x" type="button" aria-label="Close">&times;</button></div>
+    <div class="modal-head"><span class="label">Still to claim &middot; by chain</span><button class="modal-x" type="button" aria-label="Close">&times;</button></div>
     <div class="modal-body"></div>
   </div>
 </div>
@@ -97,23 +97,32 @@
 <script>
 (function () {
   var B = LPBook, $ = B.$, esc = B.esc, money = B.money, signed = B.signed, cls = B.cls, amt = B.amt;
-  var claims = B.modal('claimsModal'), CLAIMS = [];
+  var claims = B.modal('claimsModal'), OWED = '';
   var byChain = B.modal('chainsModal'), CHAINS = '';
   $('chainsBtn').addEventListener('click', function () { byChain.body.innerHTML = CHAINS; byChain.open(); });
 
-  $('claimsBtn').addEventListener('click', function () {
-    claims.body.innerHTML = CLAIMS.length ? CLAIMS.map(function (c) {
-      return '<div class="claim"><span class="d">' + esc(B.when(new Date(c.ts * 1000).toISOString())) + '</span>'
-        + '<span class="p">' + esc(c.pair) + ' &middot; ' + esc(c.chain) + '</span>'
-        + '<span class="a">' + esc(amt(c.amount)) + ' ' + esc(c.token) + '</span>'
-        + '<span></span><span></span><span class="u">' + (c.usd_now == null ? '' : esc(money(c.usd_now)) + ' now') + '</span></div>';
-    }).join('') : '<div class="empty">Nothing claimed yet by the open positions.</div>';
-    claims.open();
-  });
+  /* the record on Fees claimed: each chain's fees and rewards earned but not yet claimed,
+     valued now (Alex, 3 Nov 2026; it used to list the past claims) */
+  $('claimsBtn').addEventListener('click', function () { claims.body.innerHTML = OWED; claims.open(); });
+
+  function owedHtml(C) {
+    var keys = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; });
+    if (!keys.length) return '<div class="empty">Nothing open on any chain.</div>';
+    keys.sort(function (a, b) { return (C.chains[b].unclaimed_usd || 0) - (C.chains[a].unclaimed_usd || 0); });
+    return keys.map(function (k) {
+      var c = C.chains[k], list = c.unclaimed || [], n = c.unclaimed_positions || 0;
+      var tokens = list.map(function (t) { return esc(amt(t.amount)) + ' ' + esc(t.token) + (t.usd == null ? '' : ' (' + esc(money(t.usd)) + ')'); }).join(' + ');
+      return '<div class="chain"><div class="name">' + esc(k) + '</div><div></div>'
+        + '<div class="v" style="color:var(--gold);font-weight:600">' + esc(money(c.unclaimed_usd || 0)) + '</div>'
+        + '<div class="split">' + (list.length ? tokens + ' · ' + n + ' position' + (n === 1 ? '' : 's') : 'Nothing to claim · ' + c.open + ' open') + '</div></div>';
+    }).join('') + '<div class="chain"><div class="name">Total</div><div></div><div class="v" style="font-weight:600">' + esc(money(C.unclaimed_usd)) + '</div>'
+      + '<div class="split">Fees and rewards the open positions have earned and not claimed, valued now</div></div>';
+  }
 
   function render(v) {
     var C = v.cards;
-    CLAIMS = v.claims || [];
+    OWED = owedHtml(C);
+    if ($('claimsModal').classList.contains('open')) claims.body.innerHTML = OWED;   /* an open record follows each refresh */
     var chains = Object.keys(C.chains).filter(function (k) { return C.chains[k].open; }).length;
     $('c1').textContent = money(C.value_usd);
     $('c1n').textContent = C.open + ' open · ' + chains + ' chain' + (chains === 1 ? '' : 's') + ' · excl. fees';

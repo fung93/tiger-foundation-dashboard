@@ -138,7 +138,7 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
   }
 
-  /* a small dialog: the claim record */
+  /* a small dialog: a card's record (the Live page's still-to-claim and PnL by chain) */
   function modal(id) {
     var m = $(id);
     m.addEventListener('click', function (ev) { if (ev.target === m) m.classList.remove('open'); });

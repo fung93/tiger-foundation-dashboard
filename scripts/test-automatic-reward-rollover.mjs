@@ -130,6 +130,11 @@ try {
   conserve(native, result.merkl, [A, B]);
   const firstView = view(result);
   check(firstView.cards.unclaimed_usd, 1.1, 'Actual Live summary uses carried pending KAT');
+  /* the Fees claimed record: the same still-to-claim, split by chain (Alex, 3 Nov 2026) */
+  const owedChains = Object.values(firstView.cards.chains).filter((c) => c.unclaimed_usd > 0);
+  near(owedChains.reduce((t, c) => t + c.unclaimed_usd, 0), firstView.cards.unclaimed_usd, "Each chain's still-to-claim adds up to the card's");
+  check(owedChains.map((c) => c.unclaimed.map((u) => u.token)), [['KAT']], 'The chain lists what it owes, token by token');
+  check(owedChains[0].unclaimed_positions, 1, 'and how many positions it is owed by');
   check(firstView.live.find(P => P.id === '#' + B).yield_value, '$1.20', 'The actual position card uses all attributed income');
   check(firstView.live.find(P => P.id === '#' + B).comparison.earned_usd, 1.2, 'LP versus holding agrees with the card');
   near(positionFees(result.book, rows(result.book))[key(B)][KAT], 120, 'Scheduled observations see the same effective earnings');

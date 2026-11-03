@@ -1815,7 +1815,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
 
   /* ===== live ===== */
   const chains = {};
-  const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0 });
+  const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0, owed: {}, owing: 0 });
   V3.forEach((c) => touch(c.key));
   let value = 0, unrealised = 0;
   const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {}, liveComparisons = [];
@@ -1869,8 +1869,21 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     view.apr_detail = apr;
     view.apr = apr.available ? pctText(apr.pct) : '–';
     live.push(view);
-    /* what it has earned and not yet claimed: its own fees since opening, less its claims */
-    for (const [k, a] of Object.entries(tokens)) if (a - (got[k] || 0) > 0) sumInto(pending, { [k]: a - (got[k] || 0) });
+    /* what it has earned and not yet claimed: its own fees since opening, less its claims,
+       kept for the whole book and for its chain (the Fees claimed card's record, Alex 3 Nov) */
+    const owed = {};
+    for (const [k, a] of Object.entries(tokens)) if (a - (got[k] || 0) > 0) owed[k] = a - (got[k] || 0);
+    sumInto(pending, owed); sumInto(C.owed, owed);
+    if (Object.keys(owed).length) C.owing++;
+  }
+  /* each chain's unclaimed fees and rewards: their value now, token by token */
+  for (const c of Object.values(chains)) {
+    const owed = c.owed;
+    c.unclaimed_usd = usdOf(owed).usd;
+    c.unclaimed = Object.entries(owed).map(([k, a]) => ({ token: sym(k), amount: a, usd: prices[k] === undefined ? null : r2(a * prices[k]) }))
+      .sort((a, b) => (b.usd || 0) - (a.usd || 0));
+    c.unclaimed_positions = c.owing;
+    delete c.owed; delete c.owing;
   }
   for (const c of Object.values(chains)) for (const k of Object.keys(c)) if (typeof c[k] === 'number' && k.endsWith('_usd')) c[k] = r2(c[k]);
   live.sort((x, y) => (x.chain + x.id).localeCompare(y.chain + y.id));

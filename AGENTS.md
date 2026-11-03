@@ -794,6 +794,18 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 3 Nov 2026 (Alex: "in LP book page, in fees claim card, change the information in the
+  record icon from claim record to pending fees/reward value to claim from each chain. Push"):**
+  the record icon on the Live page's Fees claimed card opens "Still to claim · by chain": each
+  chain with open positions, its unclaimed fees and rewards valued now, token by token, and how
+  many positions owe them, then the total (equal to the card's "still to claim"). `bookView`
+  keeps each open position's earned-less-claimed tokens per chain as well as in the book total
+  (`cards.chains[c].unclaimed_usd`, `.unclaimed`, `.unclaimed_positions`). The past-claims list
+  is no longer shown on the Live page (the API still returns `claims`; the card keeps the last
+  claim's date). Checked 3 Nov: Katana $13.09 (3,438 KAT, 1 position) + Robinhood $0.29 =
+  $13.38, the card's figure. 3 more checks in `scripts/test-automatic-reward-rollover.mjs`.
+  `sw.js` -> `tiger-v140`.
+
 - **Pushed 2 Nov 2026 (Alex: "In lending page, why the market line chart is broken? Fix and
   push"):** the chart lifted the pen when two readings were more than 1.75 intervals apart
   (10.5 h for the six-hourly job). GitHub starts that job late: readings from 1 Oct to 2 Nov
