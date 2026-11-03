@@ -833,6 +833,12 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **Pushed 3 Nov 2026 (Alex: "the "!" pop up window should cover the "!" of card below in phone
+  view. Fix and push"):** every pool's `.pool-info` sat at `z-index:5`, so on a phone the next
+  card's "!" (later in the page) showed through the open box. The open, hovered or focused one
+  now rises to `z-index:30` (`strategy.css`). Checked at 375px: each of the five cards' boxes
+  covers the next card's "!". `sw.js` -> `tiger-v142`.
+
 - **Pushed 3 Nov 2026 (Alex: "add a hedge section in each KAT emission
   pools ... Add this section in review. Do not push."):** the Strategy hedge (§4 "Strategy hedge
   on Katana Perps"): `strategy-core.mjs` (`hedgePlan`, `fillPrice`, `liquidationPrice`,

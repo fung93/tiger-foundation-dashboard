@@ -19,6 +19,8 @@
 .pool-card{padding:0;min-width:0;position:relative}
 /* the "!" at the pool card's top corner: what used to fill the line under the price */
 .pool-info{position:absolute;top:12px;right:14px;z-index:5}
+/* the open one sits above every other card's "!", which would otherwise show through its box on a phone */
+.pool-info:hover,.pool-info:focus-within,.pool-info.open{z-index:30}
 .info-btn{width:16px;height:16px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--gold);
   font:600 9px/14px var(--sans,system-ui,sans-serif);padding:0;cursor:pointer;letter-spacing:0;text-align:center}
 .info-btn:hover,.pool-info.open .info-btn{border-color:rgba(214,185,123,.55)}
