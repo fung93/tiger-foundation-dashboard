@@ -571,8 +571,10 @@ every related fee simulated. Pushed 3 Nov 2026 after review.
   in and out (walking the top 50 levels now), funding = notional x the 30-day average rate x the
   exact payments between the start and the reward end (`fundingPayments`), and the withdrawal
   fee. A positive rate has longs pay shorts (the usual convention; Katana Perps' own docs were
-  not found), so the short is paid. Shown: the short(s), margin and liquidation, each cost,
-  the hedge net, the income to the period's end (KAT + hedge, price moves aside), capital
+  not found), so the short is paid. Shown: the short(s), margin and liquidation; then four
+  figures: **Hedge fees, net** (one figure; each cost and the funding item by item behind its
+  "!", `.hedge-info`, opening from the figure's left edge so it stays on a phone screen; Alex,
+  3 Nov: the list of fees was too many words), the income to the period's end (KAT + hedge, price moves aside), capital
   (LP + margin) and hedged APR on it, then **Profit at the period's end** (Alex, 3 Nov: the
   income and the edge results were shown apart, he read them as "never a profit"): the income
   plus the price result if the price ends where it is now, at the upper edge or at the lower
@@ -832,6 +834,14 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "the hedge fees structure is too many words,
+  make a single total value then add a "!" for fees breakdown"):** the hedge's costs box is now
+  one figure, Hedge fees, net, first of the four in `.hedge-sum` (4 across, 2 x 2 at <=760px);
+  its "!" (`.hedge-info`) lists open and close taker fees, order book, funding (payments x
+  rate), withdrawal, net, and a short foot on the funding rate's source and sign and the maker
+  fee. The funding and fee sentences left the note under the hedge. A tapped "!" stays open
+  through a refresh. `sw.js` -> `tiger-v143`.
 
 - **Pushed 3 Nov 2026 (Alex: "the "!" pop up window should cover the "!" of card below in phone
   view. Fix and push"):** every pool's `.pool-info` sat at `z-index:5`, so on a phone the next

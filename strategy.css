@@ -113,8 +113,21 @@ html.tiger .themed-page .info-tip{background:var(--card)}
 .hedge-row .up{color:var(--up)}.hedge-row .down{color:var(--down)}
 .hedge-row-note{display:block;font-size:10px;color:var(--faint);margin-top:2px}
 .hedge-row.total{border-top:1px solid var(--line);font-weight:500}
-.hedge-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.hedge-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .hedge-sum .metric-value{font-size:22px;font-weight:300;line-height:1.25;margin-top:8px;font-variant-numeric:tabular-nums}
+.hedge-sum .metric-value.up{color:var(--up)}.hedge-sum .metric-value.down{color:var(--down)}
+/* the hedge fees' "!": its box opens under the figure, from the figure's left edge */
+.hedge-fees{position:relative}
+.hedge-info{display:inline-block;margin-left:6px;vertical-align:-4px}
+.hedge-info .info-tip{top:22px;left:0;right:auto;text-transform:none;letter-spacing:normal;font-weight:400}
+.hedge-info:hover .info-tip,.hedge-info:focus-within .info-tip,.hedge-info.open .info-tip{display:block}
+.hedge-info:hover .info-btn,.hedge-info.open .info-btn{border-color:rgba(214,185,123,.55)}
+.tip-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:4px 0;border-top:1px solid var(--line2)}
+.info-title+.tip-row{border-top:0}
+.tip-row>span:last-child{font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip-row .up{color:var(--up)}.tip-row .down{color:var(--down)}
+.tip-row.total{border-top:1px solid var(--line);font-weight:500;margin-top:2px}
+.tip-foot{display:block;margin-top:7px;font-size:10px;line-height:1.45;color:var(--faint)}
 
 .strategy-method{font-size:11px;color:var(--faint);margin-top:26px;line-height:1.8}
 .strategy-method summary{cursor:pointer;color:var(--dim);margin-bottom:10px;list-style-position:inside}
@@ -122,12 +135,13 @@ html.tiger .themed-page .info-tip{background:var(--card)}
 .strategy-method b{color:var(--dim);font-weight:500}
 
 @media(max-width:1100px){.strategy-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.hedge-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:1000px){
   .pool-head{grid-template-columns:minmax(0,1fr) 22px;gap:14px 12px}.pool-figs{grid-column:1/2;grid-row:2}.chev{grid-row:1/3;grid-column:2;align-self:center}
   .calc{grid-template-columns:1fr;gap:20px}.calc-out{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:18px}}
 @media(max-width:600px){.strategy-intro{margin-top:20px}.strategy-overview{gap:10px}.overview-card{padding:14px}
   .overview-value{font-size:clamp(18px,5vw,24px)}.overview-value.dates{font-size:clamp(15px,4.4vw,20px)}.metric-label{font-size:8px;letter-spacing:.08em}.metric-sub{font-size:10px}
   .pool-head{padding:16px}.pool-body{padding:16px}.pool-name h3{font-size:21px}.pool-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}.pool-fig{font-size:clamp(17px,5.2vw,21px)}
-  .hedge-sum{grid-template-columns:1fr 1fr}.hedge-sum>div:last-child{grid-column:1/-1}.hedge-leg .metric-value{font-size:22px}
+  .hedge-leg .metric-value{font-size:22px}
   .calc-inputs{gap:10px}.calc-inputs .wide-phone{grid-column:1/-1}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
 @media(prefers-reduced-motion:reduce){.chev{transition:none}}

@@ -182,23 +182,27 @@ function renderHedge(el, p, e, x, s) {
   }).join('');
   const sum = (k) => plan.legs.reduce((t, l) => t + (l[k] || 0), 0);
   const l0 = plan.legs[0], payments = l0.funding_periods;
-  const row = (label, v, note) => `<div class="hedge-row"><span>${label}${note ? `<span class="hedge-row-note">${note}</span>` : ''}</span><span class="${v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : ''}">${signedMoney(v)}</span></div>`;
-  const costs = `<div class="hedge-costs"><div class="edge-title">To the period's end · ${fmt(e.days, 1)} days</div>`
-    + row('Open: taker fee', -sum('open_fee'), `${fmt(l0.taker * 100, 3)}% of the short`)
-    + row('Close: taker fee', -sum('close_fee'), `${fmt(l0.taker * 100, 3)}%; a limit order pays ${fmt(l0.maker * 100, 5)}%`)
-    + row('Order book, in and out', -sum('book_cost'), 'the spread and depth there now')
-    + row('Funding, received by the short', sum('funding'), `average ${rate(l0.funding_rate)} every 8 h over the last 30 days · ${payments} payments`)
-    + row('Withdraw the margin to Katana', -plan.withdraw_fee, 'Katana Perps\' fixed fee')
-    + `<div class="hedge-row total"><span>Hedge, net</span><span class="${plan.net > 0.0049 ? 'up' : plan.net < -0.0049 ? 'down' : ''}">${signedMoney(plan.net)}</span></div></div>`;
-  const total = plan.total !== null ? `<div class="hedge-sum">
+  const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
+  /* the hedge's fees and funding as one figure, item by item behind its "!" (Alex, 3 Nov: the
+     list of fees was too many words) */
+  const tipRow = (label, v, cls = '') => `<span class="tip-row${cls}"><span>${label}</span><span class="${tone(v)}">${signedMoney(v)}</span></span>`;
+  const breakdown = `<span class="info-title">Hedge fees · ${fmt(e.days, 1)} days</span>`
+    + tipRow(`Open · taker ${fmt(l0.taker * 100, 3)}%`, -sum('open_fee'))
+    + tipRow(`Close · taker ${fmt(l0.taker * 100, 3)}%`, -sum('close_fee'))
+    + tipRow('Order book, in and out', -sum('book_cost'))
+    + tipRow(`Funding · ${payments} × ${rate(l0.funding_rate)}`, sum('funding'))
+    + tipRow('Withdraw the margin', -plan.withdraw_fee)
+    + tipRow('Net', plan.net, ' total')
+    + `<span class="tip-foot">Funding is the last 30 days' average, paid every 8 h; a positive rate has longs pay shorts, so the short is paid. A limit order to close pays ${fmt(l0.maker * 100, 5)}%. From Katana Perps' own market data.</span>`;
+  const fees = `<div class="hedge-fees"><div class="metric-label">Hedge fees, net<span class="hedge-info"><button type="button" class="info-btn" aria-label="Hedge fees, item by item" aria-expanded="false">!</button><span class="info-tip" role="tooltip">${breakdown}</span></span></div>
+      <div class="metric-value ${tone(plan.net)}">${signedMoney(plan.net)}</div><div class="metric-sub">funding less fees, to the period's end</div></div>`;
+  const total = `<div class="hedge-sum">${fees}` + (plan.total !== null ? `
       <div><div class="metric-label">Income to the period's end</div><div class="metric-value">${money(plan.total)}</div><div class="metric-sub">KAT ${money(e.totalUsd)} ${plan.net >= 0 ? '+' : '−'} hedge ${money(Math.abs(plan.net))}, price moves aside</div></div>
       <div><div class="metric-label">Capital it takes</div><div class="metric-value">${money(plan.capital)}</div><div class="metric-sub">LP ${money(Number(s.capital))} + margin ${money(plan.margin)}</div></div>
-      <div><div class="metric-label">Hedged APR</div><div class="metric-value">${pct(plan.apr)}</div><div class="metric-sub">the income on all of it</div></div>
-    </div>` : '';
+      <div><div class="metric-label">Hedged APR</div><div class="metric-value">${pct(plan.apr)}</div><div class="metric-sub">the income on all of it</div></div>` : '') + '</div>';
   /* the profit at the period's end: the income above plus what the price did to the LP and
      the short, with the price ending where it is today or at either edge (Alex, 3 Nov: the
      income and the edge results were shown apart, and never added up) */
-  const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
   const profitRow = (label, priceRes, note) => { const v = plan.total + priceRes; return `<div class="hedge-row"><span>${label}<span class="hedge-row-note">${note}</span></span><span class="${tone(v)}">${signedMoney(v)}</span></div>`; };
   const income = `income ${money(plan.total)}`;
   let edges = '';
@@ -220,17 +224,20 @@ function renderHedge(el, p, e, x, s) {
     const r = rehedgeStep(p, e.range, e.liquidity, l0.token, l0.taker, l0.mark);
     drift = ` Each 1% the price moves changes the deposit's ${esc(l0.token)} by about ${tokens(r.qty)} (${money(r.usd)}); re-hedging that costs about ${money(r.fee)} in taker fees.`;
   }
-  body.innerHTML = `<div class="hedge-legs">${legs}</div>${costs}${total}${edges}
-    <div class="calc-note">The short is the amount of each volatile token the deposit holds now, which is how much its value moves with that price.${drift} Funding has been ${rate(l0.funding_rate)} every 8 hours; a positive rate has longs pay shorts (the usual convention), so the short is paid. Fees from Katana Perps' own market data, read when the page refreshed.</div>`;
+  const wasOpen = !!body.querySelector('.hedge-info.open');   /* a tapped "!" stays open through a refresh */
+  body.innerHTML = `<div class="hedge-legs">${legs}</div>${total}${edges}
+    <div class="calc-note">The short is the amount of each volatile token the deposit holds now, which is how much its value moves with that price.${drift}</div>`;
+  if (wasOpen) { const w = body.querySelector('.hedge-info'); w.classList.add('open'); w.querySelector('.info-btn').setAttribute('aria-expanded', 'true'); }
 }
 
-/* each pool's "!": opens on hover or focus, and on a tap for phones; a tap elsewhere or Escape closes it */
+/* each pool's "!" and the hedge fees' "!": open on hover or focus, and on a tap for phones; a tap elsewhere or Escape closes them */
+const POPS = '.pool-info, .hedge-info';
 document.addEventListener('click', (ev) => {
-  const btn = ev.target.closest('.pool-info .info-btn');
-  document.querySelectorAll('.pool-info.open').forEach((w) => { if (!btn || w !== btn.parentElement) { w.classList.remove('open'); w.querySelector('.info-btn').setAttribute('aria-expanded', 'false'); } });
+  const btn = ev.target.closest('.pool-info .info-btn, .hedge-info .info-btn');
+  document.querySelectorAll('.pool-info.open, .hedge-info.open').forEach((w) => { if (!btn || w !== btn.parentElement) { w.classList.remove('open'); w.querySelector('.info-btn').setAttribute('aria-expanded', 'false'); } });
   if (btn) { const w = btn.parentElement, open = !w.classList.contains('open'); w.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); }
 });
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') document.querySelectorAll('.pool-info.open').forEach((w) => w.classList.remove('open')); });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') document.querySelectorAll(POPS).forEach((w) => w.classList.remove('open')); });
 
 function renderPools() {
   const box = $('pools');
