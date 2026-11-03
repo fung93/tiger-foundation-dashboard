@@ -557,8 +557,10 @@ item is lit on both.
 
 Alex: "In vKAT vote page, add 3 information: total vKAT locked in Katana network, total avKAT
 minted in Katana network, ratio AVKAT/KAT". A row of three cards at the top of the page,
-above the vKAT votes bar and his own four (moved there the same day: "revert the row"), read
-live by `readNetwork` in `api/vkat.mjs` at the head block (`network` in the reply; a failure
+above the vKAT votes bar and his own four (moved there the same day: "revert the row"). Its
+heading is the page's top bar, "Katana network" with the KAT trades tab on the right, where KAT
+trades keeps its vKAT votes tab ("move the KAT trade button to top"); the vKAT votes bar below
+has no tab. Read live by `readNetwork` in `api/vkat.mjs` at the head block (`network` in the reply; a failure
 is a note and "Not read this time"):
 
 - **vKAT locked:** the voting escrow's `totalLocked()` (`0x4d6fc15c...`), equal to its KAT
@@ -897,6 +899,12 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "in kat page, move the KAT trade button to top, same
+  with VKAT votes button"):** vKAT page: the KAT trades tab moved from the vKAT votes bar to the
+  top bar, "Katana network · all vKAT and avKAT, read live" (the old `.net-head` is gone); the
+  KAT trades page already had its vKAT votes tab at the top. Both tabs sit at the same place
+  (163-164 px down at 375 px). `vkat.html`, `vkat.css`. `sw.js` -> `tiger-v148`.
 
 - **Pushed 3 Nov 2026 (Alex: "remove last claim 3 Nov, 12:12 in fees claimed card, push"):** LP
   Book's Fees claimed card reads "$X still to claim" only; `lp.html`. `sw.js` -> `tiger-v147`.

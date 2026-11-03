@@ -1,10 +1,9 @@
 /* vKAT Votes: the cards, chart frame and table come from kat.css; these are the page's own. */
 .vote-plot{height:260px}
-/* Katana network, at the top: three across; on a phone two, the rate below them full width.
-   It takes the page's opening margin, and the vKAT votes bar follows it */
-.net-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:30px 0 12px}
+/* Katana network, at the top under the bar with the KAT trades tab: three across; on a phone
+   two, the rate below them full width. The vKAT votes bar follows it */
 #network + .kat-intro{margin-top:26px}
-@media(max-width:600px){.net-head{margin-top:20px}#network + .kat-intro{margin-top:22px}}
+@media(max-width:600px){#network + .kat-intro{margin-top:22px}}
 .kat-overview.net-overview{grid-template-columns:repeat(3,minmax(0,1fr))}
 .net-overview .overview-value{font-size:clamp(18px,2.4vw,30px)}
 .net-overview .unit{font-size:.6em;color:var(--dim);letter-spacing:0}
