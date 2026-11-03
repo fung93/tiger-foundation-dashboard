@@ -2,7 +2,11 @@ name: Update dashboard data
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # every 6 hours
+    # Still a six-hourly update, but GitHub delays and drops scheduled runs, worst on the hour:
+    # '0 */6' ran 10 to 13 hours apart (31 Oct - 3 Nov 2026), so the KAT page said its ledger
+    # was 13 hours behind. Now it wakes every hour at :17 and the first step goes on only
+    # when the data is 5.5 hours old, so a dropped run is made up within the hour.
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,14 +22,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # a run by hand always goes on; a scheduled one only when the last update is 5.5 hours old
+      - name: Is the data due
+        id: due
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          age=$(node -e "const t=Date.parse(require('./data.json').last_updated);console.log(Number.isFinite(t)?Math.floor((Date.now()-t)/1000):1e9)")
+          echo "last update $((age / 60)) minutes ago"
+          if [ "$age" -ge 19800 ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "go=false" >> "$GITHUB_OUTPUT"; fi
+
       - uses: actions/setup-node@v4
+        if: steps.due.outputs.go == 'true'
         with:
           node-version: 20
 
       - name: Pull on-chain data
+        if: steps.due.outputs.go == 'true'
         run: node scripts/update-data.mjs
 
       - name: Commit and push if changed
+        if: steps.due.outputs.go == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

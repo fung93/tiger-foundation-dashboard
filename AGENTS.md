@@ -59,7 +59,12 @@ Chains with less than $5 and no LP show as INACTIVE.
 ## 3. Architecture: two clocks
 
 1. **Scheduled job, every 6 hours** (`.github/workflows/update-data.yml`, Node 20, zero
-   dependencies). It runs `scripts/update-data.mjs`, which reads everything server-side and,
+   dependencies). Since 3 Nov 2026 it wakes every hour at :17 and its first step ("Is the data
+   due") goes on only when `data.json`'s `last_updated` is 5.5 hours old (19,800 s); a run by
+   hand (`workflow_dispatch`) always goes on. GitHub delays and drops scheduled runs, worst on
+   the hour: `0 */6` ran 10 to 13 hours apart from 31 Oct to 3 Nov, and the KAT page said "The
+   six-hourly ledger is 13 hours behind" (its note shows past 12 hours). A skipped hour costs a
+   checkout and commits nothing, so Vercel still deploys about four times a day. It runs `scripts/update-data.mjs`, which reads everything server-side and,
    at its end, calls `scripts/lpbook.mjs` and `scripts/morpho.mjs` in separate error
    boundaries. It commits these files as `github-actions[bot]`:
    - `data.json`: the snapshot and discovery state (meteora_refs, morpho_markets, fables, ...)
@@ -870,6 +875,12 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Pushed 3 Nov 2026 (Alex: "in KAt PAGE: The six-hourly ledger is 13 hours behind; the trades
+  since were read live. FIX AND PUSH"):** nothing was wrong with the ledger: every run had
+  succeeded, but GitHub had not started the 06:00 and 12:00 UTC runs (the last was 00:11). The
+  workflow now wakes hourly at :17 and runs when the data is 5.5 hours old (§3). A run was
+  started by hand after the push to catch the ledgers up.
 
 - **Pushed 3 Nov 2026 (Alex: "the ! is not aligned with "Hedge fees, net", in strategy page,
   add a button, click to show non KAT emission pool, for now add USDC/KAT pool only, feature
