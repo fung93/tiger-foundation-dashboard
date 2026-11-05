@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 47089164,
-  "robinhood": 106256080
+  "katana": 47138795,
+  "robinhood": 106736248
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -312,19 +312,19 @@
     "r1": "0"
    },
    "fees": {
-    "WETH@robinhood": 0.0075233500047274995,
-    "USDG@robinhood": 17.228715
+    "WETH@robinhood": 0.008098328178564592,
+    "USDG@robinhood": 18.814608
    },
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1793831975,
-    "block": 106256080,
+    "ts": 1793881606,
+    "block": 106736248,
     "in": true,
-    "in_s": 1684636,
-    "all_s": 1684636
+    "in_s": 1734267,
+    "all_s": 1734267
    },
    "claims": [
     {
@@ -560,6 +560,19 @@
       "USDG@robinhood": 1
      },
      "usd": 1.87
+    },
+    {
+     "ts": 1793835064,
+     "block": 106286086,
+     "tokens": {
+      "WETH@robinhood": 0.000574978173837093,
+      "USDG@robinhood": 1.585893
+     },
+     "prices": {
+      "WETH@robinhood": 2423.1684350939754,
+      "USDG@robinhood": 1
+     },
+     "usd": 2.98
     }
    ]
   },
@@ -1446,7 +1459,7 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 14647.229595999634
+    "KAT@katana": 13668.006969583239
    },
    "unpriced": false,
    "range": {
@@ -1504,6 +1517,61 @@
      "KAT@katana": 0.0038627329735134077
     }
    }
+  },
+  "katana:493582": {
+   "key": "katana:493582",
+   "chain": "katana",
+   "id": "493582",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+   "lo": 66470,
+   "hi": 66970,
+   "fee": 500,
+   "t0": "vbWBTC@katana",
+   "t1": "vbUSDC@katana",
+   "s0": "vbWBTC",
+   "s1": "vbUSDC",
+   "d0": 8,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "vbWBTC / vbUSDC",
+   "liq": "1281616110",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1793839385,
+   "opened_block": 47096574,
+   "cost_usd": 900.18,
+   "deposits": [
+    {
+     "block": 47096574,
+     "ts": 1793839385,
+     "a0": 0.00103458,
+     "a1": 816.792965,
+     "usd": 900.18
+    }
+   ],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {
+    "KAT@katana": 2283.6614223057168
+   },
+   "unpriced": false,
+   "range": {
+    "ts": 1793881606,
+    "block": 47138795,
+    "in": true,
+    "in_s": 42221,
+    "all_s": 42221
+   },
+   "claimed_seen": {}
   }
  },
  "events": [
@@ -1658,6 +1726,14 @@
    "id": "492808",
    "block": 47061880,
    "ts": 1793804691
+  },
+  {
+   "t": "open",
+   "chain": "katana",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "id": "493582",
+   "block": 47096574,
+   "ts": 1793839385
   }
  ],
  "fee_series": [
@@ -3218,16 +3294,39 @@
     "katana:492626": 2631.7497890775458,
     "katana:492808": 19.707199814363776
    }
+  },
+  {
+   "ts": 1793881614,
+   "tokens": {
+    "WETH@robinhood": 0.00822413,
+    "USDG@robinhood": 19.483548,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 33485.05267502,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -89.4,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00822413,
+     "USDG@robinhood": 19.098404
+    },
+    "katana:493582": {
+     "KAT@katana": 2283.66142231
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -20.9,
+    "katana:493582": -0.69
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1793099802,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1793120547,
    "behind": {
@@ -3430,6 +3529,13 @@
   },
   {
    "ts": 1793831975,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1793881606,
    "behind": {
     "katana": 0,
     "robinhood": 0
@@ -3654,6 +3760,10 @@
   "katana:492808": {
    "earned": 14627.52239618527,
    "claimed": 13648.299769768875
+  },
+  "katana:493582": {
+   "earned": 1304.4387958893221,
+   "claimed": 0
   }
  },
  "reward_rollovers": [
@@ -3674,10 +3784,20 @@
    "claimedBefore": 3236.4994677360905,
    "initialCarry": 19.70719981436332,
    "ts": 1793319280
+  },
+  {
+   "source": "492808",
+   "target": "493582",
+   "wallet": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+   "token": "KAT@katana",
+   "claimedBefore": 13668.006969583239,
+   "initialCarry": 979.2226264163946,
+   "ts": 1793839385
   }
  ],
  "reward_rollover_basis": {
   "katana:492626": 2631.7497890775458,
-  "katana:492808": 19.707199814363776
+  "katana:492808": 0,
+  "katana:493582": 979.2226264163946
  }
 }
