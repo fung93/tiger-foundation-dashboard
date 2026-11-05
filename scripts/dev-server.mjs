@@ -6,7 +6,8 @@ import {dirname, extname, isAbsolute, relative, resolve, sep} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const DEFAULT_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','kat-trades','vkat']);
+const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','kat-trades','vkat','agent','agent-telegram','agent-monitor']);
+const AGENT_POSTS=new Set(['/api/agent','/api/agent-telegram','/api/agent-monitor']);
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8',
   '.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8',
   '.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8',
@@ -41,10 +42,6 @@ export async function createPreviewServer({root=DEFAULT_ROOT,host='127.0.0.1',po
   const base=await realpath(root);
   const server=createServer(async(request,response)=>{
     response.setHeader('x-content-type-options','nosniff');
-    if(request.method!=='GET'&&request.method!=='HEAD'){
-      response.setHeader('allow','GET, HEAD');
-      send(response,405,'Only GET and HEAD are supported.');return;
-    }
     let pathname;
     try{
       const raw=(request.url||'/').split(/[?#]/,1)[0];
@@ -53,6 +50,10 @@ export async function createPreviewServer({root=DEFAULT_ROOT,host='127.0.0.1',po
       if(pathname.includes('\0')||pathname.includes('\\'))throw new Error('Invalid request path');
     }catch{
       send(response,400,'Invalid request path.');return;
+    }
+    if(request.method!=='GET'&&request.method!=='HEAD'&&!(request.method==='POST'&&AGENT_POSTS.has(pathname))){
+      response.setHeader('allow','GET, HEAD');
+      send(response,405,'Only GET and HEAD are supported for this route.');return;
     }
     if(hidden(pathname)){send(response,403,'This path is not available in preview.');return;}
     try{

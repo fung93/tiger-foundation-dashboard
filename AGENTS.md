@@ -30,7 +30,9 @@ outcome, not implementation, and checks results on the live site.
 ## 2. What the project is
 
 A personal crypto portfolio dashboard. It reads balances, liquidity positions, lending and
-rewards straight from chain RPCs. There is no database and no API keys.
+rewards straight from chain RPCs without API keys. The optional personal agent (built locally
+5 Nov 2026) uses Cloudflare Workers Free, included Workers AI, D1 private state and
+Telegram credentials; the financial readers and public ledgers remain independent of it.
 
 - **Live site:** https://tiger-foundation-dashboard.vercel.app. Vercel auto-deploys every
   push to `main` of https://github.com/fung93/tiger-foundation-dashboard.
@@ -98,6 +100,9 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `api/morpho.mjs` | Current Katana Morpho positions, including accrued debt and oracle values. |
 | `api/strategy.mjs` | The Strategy page's reading: the epoch, the live KAT staking campaigns and each pool's eligible in-range liquidity. `s-maxage=30, swr=30`. |
 | `api/lp.mjs` | Legacy widget endpoint; no longer used by the widget. |
+| `api/agent.mjs` | Private owner login, shared chat/preferences and Telegram pairing. Private status uses POST, never GET. |
+| `api/agent-telegram.mjs` | Secret-verified private Telegram webhook; approved owner only. |
+| `api/agent-monitor.mjs` | Bearer-authenticated background health/data checks, MYT daily reports and notification retries. |
 
 ### Pages and shared assets
 
@@ -122,6 +127,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `widget.html`, `widget.webmanifest` | A separately installable phone shortcut showing the LP cards, with a small warning when a chain cannot be read. It has its own LP-range icon. |
 | `docs/hedge-desk/` | Historical Hedge Desk guides. The page has been withdrawn from the website; see §7. |
 | `sw.js` | Service worker. **Bump `CACHE_VERSION` on every page or asset change**, or returning visitors keep the old shell. |
+| `agent.html`, `agent.css`, `agent.js`, `agent-launcher.js` | Personal assistant page and floating dashboard drawer; both themes, private login, shared history/settings and Telegram pairing. |
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
 Portfolio, both LP Book pages, Lending and Strategy have a menu bar under the header:
@@ -655,6 +661,45 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
 
 ---
 
+## Personal agent (Alex, 5 Nov 2026)
+
+- Requested: build the natural-language dashboard and Telegram assistant. Work is local
+  until an explicit push request. Setup and activation are in `docs/AGENT-SETUP.md`.
+- Alex requires everything free: no OpenAI API/billing or paid database/scheduler. Use
+  Cloudflare Workers Free with its AI/D1/Cron allowances and the existing free dashboard
+  host. Quota exhaustion stops service; never add an automatic paid fallback. Current
+  provider limits/model availability must be checked at activation, not guessed. The
+  existing dashboard relays through a fixed HTTPS Worker origin and private gateway secret.
+- It explains verified data and changes its own notification preferences only. It has no
+  wallet signing, trade, repayment, voting, code-editing or Git tool. Financial observations
+  and calculations come from the existing APIs and `targetMetrics`; stale data cannot
+  produce actionable borrowing/repayment amounts. Never claim model/bot connectivity from
+  fixture tests or a saved environment configuration.
+- Private Cloudflare D1 stores owner sessions, the latest 24 shared messages, preferences, pairing
+  and alert/delivery state. Nothing private belongs in tracked/public JSON or localStorage.
+  Keys live only in ignored local env files or hosting secrets. The dashboard owner's
+  access key, webhook secret and cron secret are distinct. Keep the main financial site
+  operational when agent providers are missing or unavailable.
+- Private status uses same-origin POST, because old service workers cache GET API bodies.
+  GET status is public readiness only. `/api/agent*` is network-only in the new worker.
+  Login uses a random HttpOnly/SameSite session cookie. Pairing codes are one-time,
+  short-lived and revocable; groups and other Telegram users cannot invoke the agent.
+- Shared updates use owner locks and fenced transactional D1 commits. Update IDs cache Telegram
+  results so retries do not repeat AI calls or preference changes. Delivery checkpoints
+  reduce duplicates; Telegram cannot guarantee exactly-once external delivery.
+- The monitor runs only when a deployed scheduler is configured. The Worker includes a
+  five-minute free-plan Cron Trigger; daily reports use MYT, dashboard reports work without a
+  linked Telegram account, and queued notifications must respect current preferences and
+  fresh conditions. Monitoring never edits the public financial ledgers or deploys.
+- Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
+  `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
+  `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
+  `scripts/test-agent-gateway.mjs`, plus
+  `npm run check`. The integration check exercises dashboard login/pairing, Telegram
+  preferences, the real AI lending-tool protocol, retry deduplication and shared daily
+  reports together. Tests inject all external
+  providers; never register a bot or send real messages as part of tests.
+
 ## 5. Chain facts that bite
 
 ### Katana
@@ -746,8 +791,9 @@ before touching a chain reader.
   own terminal from the repo folder. Never read credentials from the Windows credential
   vault, and never print or commit tokens. The remote is plain https with no embedded
   token.
-- **No secrets exist in this project.** The workflow uses GitHub's built-in token. Keep it
-  that way.
+- **No secrets belong in this repository.** The financial updater uses GitHub's built-in
+  token. The optional personal agent uses Free-plan Worker bindings and private Telegram/gateway credentials;
+  never print, embed in browser code or commit them. See `docs/AGENT-SETUP.md`.
 - **Nothing signs or moves money.** Every reader is read-only. If something would ever
   need to sign, it needs a different safety review first.
 
@@ -899,6 +945,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **5 Nov 2026, push requested after D1 setup:** the private dashboard/Telegram agent
+  described above, free-plan Worker AI/D1/Cron configuration, authenticated dashboard
+  relay and pairing/setup guide. The owner supplied the D1 database ID and confirmed
+  its schema was created. All project checks and a Wrangler 4 deployment dry run pass.
+  `sw.js` -> `tiger-v149`. Code publication does not configure provider secrets, register
+  the Telegram webhook or activate the agent; continue `docs/AGENT-SETUP.md` with Alex.
 
 - **Pushed 3 Nov 2026 (Alex: "in kat page, move the KAT trade button to top, same
   with VKAT votes button"):** vKAT page: the KAT trades tab moved from the vKAT votes bar to the

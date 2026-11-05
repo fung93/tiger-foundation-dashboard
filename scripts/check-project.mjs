@@ -14,9 +14,9 @@ function run(args){
 if(!process.argv.includes('--tests-only')){
   const scripts=[...readdirSync(path.join(root,'api')).filter(f=>f.endsWith('.mjs')).map(f=>'api/'+f),
     ...readdirSync(path.join(root,'scripts')).filter(f=>f.endsWith('.mjs')).map(f=>'scripts/'+f),
-    'lending.js','lpbook.js','lpcards.js','sw.js','morpho-core.mjs','strategy.js','strategy-core.mjs','kat.js','kat-core.mjs','vkat.js','vkat-core.mjs','theme.js'];
+    'lending.js','lpbook.js','lpcards.js','sw.js','morpho-core.mjs','strategy.js','strategy-core.mjs','kat.js','kat-core.mjs','vkat.js','vkat-core.mjs','theme.js','agent.js','agent-launcher.js','cloudflare/worker.mjs'];
   for(const file of scripts)run(['--check',file]);
-  for(const file of ['index.html','vercel/index.html','lp.html','lp-all.html','lending.html','strategy.html','kat.html','vkat.html','widget.html']){
+  for(const file of ['index.html','vercel/index.html','lp.html','lp-all.html','lending.html','strategy.html','kat.html','vkat.html','widget.html','agent.html']){
     const html=readFileSync(path.join(root,file),'utf8');
     for(const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new Function(match[1]);
   }

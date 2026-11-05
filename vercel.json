@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/agent.mjs": { "maxDuration": 60 },
+    "api/agent-telegram.mjs": { "maxDuration": 60 },
+    "api/agent-monitor.mjs": { "maxDuration": 60 }
+  }
+}

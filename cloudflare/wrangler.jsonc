@@ -1,0 +1,24 @@
+{
+  // Deploy on a Cloudflare Workers Free account. Do not enable a paid plan or
+  // paid fallback. Free allowances are finite; exhaustion pauses service.
+  "name": "tiger-foundation-agent",
+  "main": "worker.mjs",
+  "compatibility_date": "2025-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    {
+      "binding": "AGENT_DB",
+      "database_name": "tiger-agent-private",
+      "database_id": "32405a9c-f592-4f18-88dd-fbdfb2f5db0c",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "AGENT_ORIGIN": "https://tiger-foundation-dashboard.vercel.app",
+    "AGENT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+    "AGENT_DAILY_MESSAGE_LIMIT": "40"
+  },
+  "triggers": { "crons": ["*/5 * * * *"] }
+}

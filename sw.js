@@ -25,11 +25,15 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v148';  /* vKAT: the KAT trades tab at the top, as on KAT trades */
+var CACHE_VERSION = 'tiger-v149';  /* Private dashboard and Telegram agent */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
 var SHELL_ASSETS = [
+  '/agent.html',
+  '/agent.css',
+  '/agent.js',
+  '/agent-launcher.js',
   '/',
   '/index.html',
   '/manifest.webmanifest',
@@ -108,6 +112,11 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return; /* RPC POSTs go straight to network */
 
   var url = new URL(req.url);
+  // Private sessions, conversations and notifications never enter an offline cache.
+  if (url.origin === self.location.origin && url.pathname.indexOf('/api/agent') === 0) {
+    e.respondWith(fetch(req, { cache: 'no-store' }));
+    return;
+  }
 
   /* Navigations → serve cached shell, refresh in background.
      Only the dashboard belongs under /index.html. This used to copy whatever document was

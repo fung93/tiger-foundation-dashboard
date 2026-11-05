@@ -290,7 +290,10 @@ try {
     identities(benchmark, 'Actual saved comparison ' + p.key);
   }
   if (savedView.alltime.cards.comparison.available) identities(savedView.alltime.cards.comparison, 'Actual saved closed aggregate');
-  check(savedView.alltime.cards.apr_detail.pct, savedView.alltime.cards.apr_pct, 'Saved closed APR stays identical');
+  if (actualClosed.some(p => p.deposits?.some(d => d.ts > p.opened_ts))) {
+    unavailableRate(savedView.alltime.cards.apr_detail, 'A saved closed top-up cannot present final capital as lifetime capital');
+    check(savedView.alltime.cards.apr_detail.reason.includes('unchanged capital'), true, 'Saved top-ups explain the unchanged-capital measurement requirement');
+  } else check(savedView.alltime.cards.apr_detail.pct, savedView.alltime.cards.apr_pct, 'Saved closed APR stays identical');
   check(saved, original, 'All performance views leave the saved ledger completely unchanged');
   const immutableBook = ledger([P], [observation(P, 6)]), immutableRows = { [P.key]: R };
   const originals = structuredClone({ immutableBook, immutableRows });

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050505">
+<script src="/theme.js"></script>
+<script>if(new URLSearchParams(location.search).get('panel')==='1')document.documentElement.classList.add('agent-embedded');</script>
+<title>Agent · Tiger Foundation</title>
+<link rel="icon" href="/icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lpcards.css">
+<link rel="stylesheet" href="/lpbook.css">
+<link rel="stylesheet" href="/theme.css">
+<link rel="stylesheet" href="/agent.css">
+</head>
+<body class="themed-page agent-page">
+<header>
+  <div class="hdr-inner">
+    <div class="theme-brand">
+      <img class="theme-mascot" src="/icons/cute-tiger.svg" alt="" aria-hidden="true">
+      <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
+    </div>
+    <div class="theme-actions"><button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button></div>
+  </div>
+</header>
+<div class="menu-wrap"><nav class="menu" aria-label="Main navigation">
+  <a href="/" title="Tiger Foundation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9zM15 2.6A9 9 0 0 1 21.4 9H15z"/></svg><span>Portfolio</span></a>
+  <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h18M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
+  <a href="/lending.html" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
+  <a href="/strategy.html" title="Strategy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg><span>Strategy</span></a>
+  <a href="/kat.html" title="KAT Trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>KAT</span></a>
+</nav></div>
+<main class="book-content agent-content">
+  <div class="agent-top"><div><div class="label">Your portfolio assistant</div><h2>Agent <span class="agent-readonly">Read-only</span></h2></div><button type="button" class="agent-button agent-quiet" id="agentLogout" hidden>Sign out</button></div>
+  <div class="agent-notice" id="agentNotice" role="status" aria-live="polite">Connecting to your agent…</div>
+  <section class="card agent-access" id="agentSetup" hidden><div class="agent-access-icon" aria-hidden="true">✦</div><h3>Your agent is not connected yet</h3><p>Your private agent connection needs to be set up before chat and Telegram can run. Your dashboard’s existing pages remain available.</p><a class="agent-button" href="/">Open portfolio</a></section>
+  <section class="card agent-access" id="agentLogin" hidden><div class="agent-access-icon" aria-hidden="true">✦</div><h3>A private conversation</h3><p>Sign in with your agent access key to open the conversation and settings shared with Telegram.</p><form id="agentLoginForm"><label for="agentAccessKey">Agent access key</label><input id="agentAccessKey" type="password" name="accessKey" autocomplete="current-password" maxlength="512" required><button class="agent-button agent-primary" type="submit">Sign in</button></form></section>
+  <div class="agent-workspace" id="agentWorkspace" hidden>
+    <section class="card agent-chat" aria-label="Agent conversation">
+      <div class="agent-chat-head"><div><div class="label">Conversation</div><p>Ask in your own words.</p></div><span class="agent-state" id="agentState">Connected</span></div>
+      <div class="agent-messages" id="agentMessages" role="log" aria-label="Conversation history" aria-live="polite" aria-relevant="additions"></div>
+      <div class="agent-sources" id="agentSources" aria-label="Readings used in the answer" hidden></div>
+      <div class="agent-shortcuts" aria-label="Suggested questions"><button type="button" data-question="Give me a summary of my portfolio and anything needing attention.">Summary</button><button type="button" data-question="Check my lending health and repayment needs.">Lending health</button><button type="button" data-question="Explain my LP performance, earnings and LP versus holding.">LP performance</button></div>
+      <form class="agent-composer" id="agentChatForm"><label class="agent-sr-only" for="agentMessage">Message your agent</label><textarea id="agentMessage" name="message" rows="2" maxlength="4000" placeholder="Ask about your LPs, loans or rewards…" required></textarea><div class="agent-composer-foot"><span id="agentComposeNote">Enter to send · Shift + Enter for a new line</span><button class="agent-button agent-primary" id="agentSend" type="submit">Send <span aria-hidden="true">↗</span></button></div></form>
+      <p class="agent-footnote">Answers use your dashboard readings. Wallet transactions remain in your hands.</p>
+    </section>
+    <aside class="agent-sidebar" aria-label="Agent connections and preferences">
+      <section class="card agent-connection"><div class="agent-section-head"><h3>Telegram</h3><span class="agent-state" id="agentTelegramState">Not linked</span></div><p id="agentTelegramNote">Connect your private Telegram chat for questions and alerts while the dashboard is closed.</p><button type="button" class="agent-button" id="agentPair">Link Telegram</button><button type="button" class="agent-button agent-quiet" id="agentUnlink" hidden>Unlink Telegram</button><div class="agent-pairing" id="agentPairing" hidden><p>Send this message to your bot in a private Telegram chat:</p><code id="agentPairCode"></code><a class="agent-button" id="agentPairLink" hidden target="_blank" rel="noopener noreferrer">Open Telegram ↗</a><span id="agentPairExpiry"></span></div></section>
+      <details class="card agent-preferences" id="agentPreferences"><summary>Alerts &amp; daily summary <span aria-hidden="true">+</span></summary><form id="agentSettingsForm"><p class="agent-help">These preferences are shared with Telegram. They do not change your lending limits.</p><label class="agent-toggle"><span>Risk alerts</span><input id="agentAlertsEnabled" type="checkbox"></label><div class="agent-settings-grid"><label>Health below<input id="agentHealthThreshold" type="number" min="1" max="100" step="any" inputmode="decimal" required></label><label>LTV above (%)<input id="agentLtvThreshold" type="number" min="0.01" max="100" step="any" inputmode="decimal" required></label></div><label class="agent-toggle"><span>Daily summary</span><input id="agentDailyEnabled" type="checkbox"></label><label for="agentDailyTime">Summary time · MYT</label><input id="agentDailyTime" type="time" required><p class="agent-help" id="agentPauseNote"></p><div class="agent-settings-actions"><button class="agent-button" type="button" id="agentPause">Pause alerts for 8 hours</button><button class="agent-button" type="button" id="agentResume" hidden>Resume alerts</button><button class="agent-button agent-primary" type="submit">Save preferences</button></div></form></details>
+      <section class="card agent-alert-card"><div class="agent-section-head"><h3>Recent alerts</h3><button type="button" class="agent-text-button" id="agentRefresh" aria-label="Refresh agent status">Refresh</button></div><div id="agentAlerts"><p class="agent-help">No recent alerts.</p></div><p class="agent-last-check" id="agentLastCheck"></p></section>
+    </aside>
+  </div>
+  <noscript><div class="card">Turn on JavaScript to use your agent.</div></noscript>
+</main>
+<script type="module" src="/agent.js"></script>
+</body>
+</html>
