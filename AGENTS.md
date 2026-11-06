@@ -203,6 +203,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
     are excluded from the replacement's APR so reassignment cannot masquerade as accrual.
     Saved APR observations are normalized by their recorded carry basis without rewriting
     their token balances or historical prices.
+  - A complete fully claimed reward reading establishes a zero-carry replacement
+    boundary immediately, even when its wallet claim is newer than the committed
+    anchor. Keep settled rewards and their dated claims with the closed LP; the
+    replacement's rewards and APR contain only its native earnings. Preserve that
+    boundary so later genuine unclaimed accrual cannot reassign settled history.
+    Partial unclaimed balances still require the existing durable claim checks.
   - On Robinhood, that is its trading fees, plus Fables fees not yet collected by the hook,
     split by the hook's own rules.
 - **Live page:**

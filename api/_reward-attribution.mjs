@@ -144,6 +144,9 @@ export function registerKatanaRollovers(book, effective, { persistRollovers = fa
   const closed = positions.filter(p => p.status === 'closed' && p.closed_ts >= START && !sources.has(p.id))
     .sort((a, b) => a.closed_ts - b.closed_ts);
   for (const source of closed) {
+    const e = effective.earned_tokens_by_id[source.id]?.[TOKEN], c = effective.claimed_tokens_by_id[source.id]?.[TOKEN];
+    if (!amount(e) || !amount(c) || c > e + EPS) throw new Error('The closing LP reward balance is incomplete.');
+    const fullyClaimed = e - c <= EPS;
     let candidates = positions.filter(p => p.id !== source.id && owner(p) === owner(source)
       && p.opened_ts >= START && p.opened_ts > source.opened_ts
       && p.opened_ts >= source.closed_ts - 86400 && (!p.closed_ts || p.closed_ts >= source.closed_ts));
@@ -156,21 +159,24 @@ export function registerKatanaRollovers(book, effective, { persistRollovers = fa
     const samePool = candidates.filter(p => p.pool && p.pool === source.pool);
     if (samePool.length) candidates = samePool;
     if (candidates.length > 1) {
-      issues.push('Unclaimed KAT remains with LP #' + source.id + ' because more than one replacement matches.');
+      if (!fullyClaimed) issues.push('Unclaimed KAT remains with LP #' + source.id + ' because more than one replacement matches.');
       continue;
     }
-    const target = candidates[0], e = effective.earned_tokens_by_id[source.id]?.[TOKEN], c = effective.claimed_tokens_by_id[source.id]?.[TOKEN];
-    if (!amount(e) || !amount(c) || c > e + EPS) throw new Error('The closing LP reward balance is incomplete.');
+    const target = candidates[0];
     const ts = Math.max(source.closed_ts, target.opened_ts), anchor = book.reward_rollover_anchor;
     const knownClaims = new Set(anchor?.claims || []);
     const ambiguousClaims = (book.claims || []).some(claim => claim.token === TOKEN
       && claim.wallet?.toLowerCase() === owner(source) && claim.ts >= source.opened_ts && claim.ts <= ts
       && (!knownClaims.has(claimId(claim)) || claim.amount - (claim.assigned || 0) > EPS));
-    if (ambiguousClaims && !persistRollovers) {
+    if (ambiguousClaims && !persistRollovers && !fullyClaimed) {
       issues.push('Unclaimed KAT from LP #' + source.id + ' is waiting for earlier claims to be confirmed.');
       continue;
     }
-    const cutoff = ambiguousClaims ? c : (anchor?.claimed?.[source.key] || 0);
+    // A complete earned==claimed reading leaves nothing to transfer. Keep those
+    // already collected rewards with the closed NFT even if its dated wallet
+    // claim only entered this API pass. Save a zero-carry boundary so later Merkl
+    // accrual can roll forward without ever reassigning the settled history.
+    const cutoff = fullyClaimed || ambiguousClaims ? c : (anchor?.claimed?.[source.key] || 0);
     if (cutoff > c + EPS) throw new Error('The rollover claim boundary exceeds the verified claimed balance.');
     const edge = { source: source.id, target: target.id, wallet: owner(source), token: TOKEN,
       claimedBefore: cutoff, initialCarry: Math.max(0, e - cutoff), ts };

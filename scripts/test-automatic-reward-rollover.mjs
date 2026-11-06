@@ -309,6 +309,57 @@ try {
   near(edge(persistedPreOpening.book, A, B).claimedBefore, 50, 'The durable rollover boundary includes already collected ambiguous rewards');
   near(pending(persistedPreOpening.merkl, B), 50, 'Pre-opening collected rewards are excluded from the new LP pending balance');
 
+  // #493582 regression: a closed NFT was fully collected before replacement,
+  // but its wallet claim was newer than the API's committed claim anchor.
+  // Nothing is pending, so waiting for a writer must not taint the new LP.
+  const settledId = '493582', settledClose = NOW - 2 * HOUR, settledClaim = settledClose - 30;
+  const settledSource = close(position(settledId), settledClose);
+  settledSource.merkl[KAT] = 100;
+  const settledInput = ledger([settledSource, opened(B, settledClose + 100)]);
+  settledInput.reward_rollover_anchor = { claimed: { [key(settledId)]: 0, [key(B)]: 0 }, claims: [] };
+  record(settledInput, settledId, 100, settledClaim, .02, false);
+  const settledFrozen = clone(settledInput.positions[key(settledId)].frozen);
+  const settledNative = reading({ [settledId]: [100, 100], [B]: [40, 0] });
+  const noCarry = await advance(settledInput, settledNative);
+  near(edge(noCarry.book, settledId, B).claimedBefore, 100, 'A complete fully claimed reading establishes the settled boundary without waiting');
+  near(edge(noCarry.book, settledId, B).initialCarry, 0, 'Fully claimed #493582 contributes zero carry to the replacement');
+  near(noCarry.book.reward_rollover_basis[key(B)], 0, 'The replacement has no inherited APR basis from the settled LP');
+  near(amount(noCarry.merkl, B), 40, 'The replacement earned total contains only its own new rewards');
+  near(pending(noCarry.merkl, B), 40, 'The replacement pending balance contains only its own new rewards');
+  near(claimed(noCarry.book.positions[key(settledId)]), 100, 'The collected reward stays with its closed source');
+  check(noCarry.book.positions[key(settledId)].claims[0].ts, settledClaim, 'The source claim retains its actual date');
+  check(noCarry.book.positions[key(settledId)].claims[0].usd, 2, 'The source claim retains its actual claim-time price');
+  check(noCarry.book.positions[key(settledId)].frozen, settledFrozen, 'Closed principal and P&L history remain unchanged');
+  check(noCarry.book.positions[key(B)].claims, [], 'Already collected source rewards never become replacement claims');
+  const ownApr = view(noCarry).live.find(P => P.id === '#' + B).apr_detail;
+  check(ownApr.available, true, 'A zero carry boundary does not block the replacement own APR');
+  near(ownApr.earned_usd, .4, 'APR counts only the replacement forty newly earned KAT');
+  conserve(settledNative, noCarry.merkl, [settledId, B]);
+  const noCarryColdInput = clone(settledInput); delete noCarryColdInput.reward_rollover_anchor;
+  const noCarryCold = await advance(noCarryColdInput, settledNative);
+  check(noCarryCold.book.reward_rollovers, noCarry.book.reward_rollovers, 'Cold and warm readers agree on the zero-carry boundary');
+  const noCarryWriter = await advanceBook(settledInput, { merkl: settledNative, maxWindows: 0, persistRollovers: true });
+  check(noCarryWriter.errors, {}, 'The writer uses the same settled boundary as the API');
+  check(noCarryWriter.book.reward_rollovers, noCarry.book.reward_rollovers, 'A scheduled write cannot reassign settled source rewards');
+  // Late Merkl accrual can still follow the ordinary rule, but the fully settled
+  // hundred KAT can never reappear in the new position's fees or APR basis.
+  const postSettlementNative = reading({ [settledId]: [105, 100], [B]: [50, 0] });
+  const lateAfterSettlement = await advance(noCarry.book, postSettlementNative);
+  near(pending(lateAfterSettlement.merkl, B), 55, 'Only genuinely new late source accrual can roll after settlement');
+  near(lateAfterSettlement.book.reward_rollover_basis[key(B)], 5, 'Settled historical rewards never become a later carry basis');
+  near(claimed(lateAfterSettlement.book.positions[key(settledId)]), 100, 'Late accrual preserves the source dated claim');
+  conserve(postSettlementNative, lateAfterSettlement.merkl, [settledId, B]);
+  const noRewardsInput = ledger([close(position(A), settledClose), opened(B, settledClose + 100)]);
+  const noRewards = await advance(noRewardsInput, reading({ [A]: [0, 0], [B]: [40, 0] }));
+  near(edge(noRewards.book, A, B).initialCarry, 0, 'A closed LP with no rewards also creates no phantom carry');
+  const settledAmbiguousInput = clone(settledInput);
+  settledAmbiguousInput.positions[key(C)] = opened(C, settledClose + 100);
+  const settledAmbiguous = await advance(settledAmbiguousInput,
+    reading({ [settledId]: [100, 100], [B]: [40, 0], [C]: [30, 0] }));
+  check(settledAmbiguous.book.reward_rollovers.length, 0, 'No arbitrary successor is chosen when there is nothing unclaimed');
+  near(pending(settledAmbiguous.merkl, B), 40, 'One ambiguous replacement retains only its own reward');
+  near(pending(settledAmbiguous.merkl, C), 30, 'The other ambiguous replacement retains only its own reward');
+
   const preferred = ledger([close(position(A), NOW - 5 * HOUR), opened(B, NOW - 4 * HOUR), opened(C, NOW - 4 * HOUR, { pool: OTHER_POOL })]);
   const preferredResult = await advance(preferred, reading({ [A]: [100, 0], [B]: [0, 0], [C]: [0, 0] }));
   check(Boolean(edge(preferredResult.book, A, B)), true, 'A same-pool replacement takes precedence over another pool');
