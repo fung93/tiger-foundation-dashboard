@@ -73,13 +73,14 @@ export function createAgentWorker({ agentFactory = createAgentHandler, telegramF
     async fetch(request, env) {
       try {
         const path = new URL(request.url).pathname;
-        let factory;
+        let factory, workerOrigin;
         if (path === '/api/agent') {
           if (typeof env.AGENT_GATEWAY_SECRET !== 'string' || env.AGENT_GATEWAY_SECRET.length < 24)
             return reply(503, 'The private agent gateway is not configured.');
           if (!safeEqual(request.headers.get('x-agent-gateway-secret') || '', env.AGENT_GATEWAY_SECRET))
             return reply(401, 'The agent gateway request could not be verified.');
           factory = agentFactory;
+          workerOrigin = new URL(request.url).origin;
         } else if (path === '/api/agent-telegram') {
           if (!env.TELEGRAM_BOT_TOKEN || typeof env.TELEGRAM_WEBHOOK_SECRET !== 'string' || env.TELEGRAM_WEBHOOK_SECRET.length < 24)
             return reply(503, 'Telegram is not configured.');
@@ -93,7 +94,7 @@ export function createAgentWorker({ agentFactory = createAgentHandler, telegramF
           factory = monitorFactory;
         }
         else return reply(404, 'Agent route not found.');
-        return await invokeAgentHandler(factory({ env }), request);
+        return await invokeAgentHandler(factory({ env, ...(workerOrigin ? { workerOrigin } : {}) }), request);
       } catch (error) {
         return reply(error?.status === 413 ? 413 : error?.status === 408 ? 408 : 503,
           error?.status === 413 ? 'The agent request is too large.' : error?.status === 408

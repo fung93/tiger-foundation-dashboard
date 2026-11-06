@@ -13,6 +13,8 @@
 .agent-button:disabled,.agent-page input:disabled,.agent-page textarea:disabled,.agent-shortcuts button:disabled{opacity:.5;cursor:wait}
 #agentPair:disabled{cursor:not-allowed}
 #agentPair[aria-busy=true]{cursor:wait}
+#agentTelegramCheck:disabled,#agentTelegramConnect:disabled{cursor:not-allowed}
+#agentTelegramCheck[aria-busy=true],#agentTelegramConnect[aria-busy=true]{cursor:wait}
 .agent-access{max-width:540px;margin:30px auto 60px;padding:34px}
 .agent-access-icon{font-size:27px;color:var(--gold);margin-bottom:19px}
 .agent-access h3{font:400 30px/1.2 var(--serif)}
@@ -50,6 +52,12 @@
 .agent-sidebar h3{font:500 12px/1.4 var(--sans)}
 .agent-connection>p{font-size:11px;line-height:1.8;color:var(--dim);margin:12px 0 15px}
 .agent-pairing{display:grid;gap:11px;margin-top:16px;padding-top:15px;border-top:1px solid var(--line)}
+.agent-telegram-setup{display:grid;gap:12px;margin-top:15px;padding-top:15px;border-top:1px solid var(--line);min-width:0}
+.agent-telegram-setup p{font-size:11px;line-height:1.75;color:var(--dim);overflow-wrap:anywhere}
+.agent-telegram-setup p+p{margin-top:8px}.agent-telegram-setup strong{color:var(--text);font-weight:500}
+.agent-page .agent-telegram-replace{display:flex;align-items:flex-start;gap:8px;font-size:11px;line-height:1.7}
+.agent-telegram-replace input{flex-shrink:0;margin-top:3px;accent-color:var(--gold)}
+.agent-connection .agent-telegram-feedback:empty{display:none}.agent-connection .agent-telegram-feedback[data-error=true]{color:var(--warn)}
 .agent-pairing p{color:var(--dim);font-size:11px;line-height:1.7}.agent-pairing code{display:block;padding:10px;border:1px solid var(--line);background:var(--bg);border-radius:7px;font:500 12px/1.8 var(--mono);color:var(--gold);overflow-wrap:anywhere;user-select:all}.agent-pairing>span{color:var(--faint);font-size:10px}
 .agent-preferences summary{display:flex;align-items:center;justify-content:space-between;gap:10px;font:500 12px/1.4 var(--sans);cursor:pointer;list-style:none}.agent-preferences summary::-webkit-details-marker{display:none}.agent-preferences summary>span{font-size:18px;color:var(--dim);font-weight:300}.agent-preferences[open] summary>span{transform:rotate(45deg)}
 .agent-preferences form{display:grid;gap:12px;margin-top:16px}.agent-help{font-size:11px;line-height:1.75;color:var(--dim)}

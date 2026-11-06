@@ -693,6 +693,13 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
 - Shared updates use owner locks and fenced transactional D1 commits. Update IDs cache Telegram
   results so retries do not repeat AI calls or preference changes. Delivery checkpoints
   reduce duplicates; Telegram cannot guarantee exactly-once external delivery.
+- Telegram setup has separate owner-authenticated Check/Connect actions. Status polling,
+  AI tools and cron never register webhooks. The browser reviews bot identity and the
+  actual Worker destination; replacing a foreign webhook needs explicit consent. Keep
+  bounded metadata only, never raw current URLs/error prose or credentials. Setup has
+  its own lease; no owner lock spans provider calls. Connection revokes pending pairing
+  codes, retains any linked human/history and preserves queued updates. Registration
+  is not proof of delivery; test a new invitation or an existing owner's fresh question.
 - The monitor runs only when a deployed scheduler is configured. The Worker includes a
   five-minute free-plan Cron Trigger; daily reports use MYT, dashboard reports work without a
   linked Telegram account, and queued notifications must respect current preferences and
@@ -977,6 +984,17 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **6 Nov 2026, Telegram activation follow-up under the existing release approval:**
+  the owner configured the bot secrets and generated a pairing invitation, but the bot
+  stayed silent. Added owner-only Check Telegram setup / Connect webhook controls so
+  registration can use saved Worker secrets without local commands or token URLs.
+  Reviews expire; foreign destinations require replacement consent. Old invitations
+  are revoked before connection; linked humans/history/queued messages are retained.
+  Full npm run check, 207 real-SQLite setup assertions, 45 interface assertions and
+  112 Chromium checks across both themes at 360/1366 pass. Worker dry run passes.
+  Cache 154. Real webhook registration, pairing/reply and cron delivery remain pending;
+  the dashboard's Qwen/deterministic lending path was already confirmed by the owner.
 
 - **Publication authorized (6 Nov 2026):** after reviewing the A–F local implementation,
   Alex explicitly approved committing/pushing the agent build to main and deploying

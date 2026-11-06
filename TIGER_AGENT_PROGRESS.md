@@ -1,6 +1,6 @@
 # Tiger agent implementation progress
 
-Updated 6 November 2026 (MYT). The owner has explicitly authorized commit, push and deployment after local review. Real-account activation is not yet verified.
+Updated 6 November 2026 (MYT). The owner authorized commit, push and deployment after local review. The dashboard's live Qwen/deterministic lending path is verified; Telegram activation remains pending.
 
 ## Baseline and reconciliation
 
@@ -41,11 +41,10 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 ## Production gates and blockers
 
 - No production secrets or authenticated Cloudflare account are available here.
-- No commit, push, deployment, remote migration, webhook registration or real message
-  is authorized by this implementation request.
-- After publication authorization, verify Qwen availability on Workers Free; model
-  response and lending calculation; D1 migrations/read/write; browser relay/session;
-  scheduled monitor and Telegram path. Measure CPU, latency, requests, D1 rows and usage.
+- Publication was subsequently authorized and completed; the owner verified D1 tables/
+  triggers and a fresh accepted Qwen/deterministic lending response through the dashboard.
+- Verify real scheduled monitoring and Telegram delivery. Measure CPU, latency,
+  requests, D1 rows and free-plan usage; these are not established by fixture success.
 - Keep live readiness, real connectivity and local fixture capability distinct.
 - Workflow execution may be deferred only if bounded synchronous research suffices;
   no interface may claim a background runner exists until it has been implemented/tested.
@@ -338,5 +337,33 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - The owner must add the two Secrets privately and deploy. This code change does not
   configure bot credentials or register its webhook, and does not affect the working
   Qwen profile, D1 schema, financial calculations or wallet permissions. Cache 153.
-- [ ] Owner confirms the button becomes available after configuring the Worker.
+- [x] Owner confirmed the button became available after configuring the Worker.
 - [ ] Register/verify the authenticated webhook, then confirm pairing and a bot reply.
+
+### Telegram webhook activation — 6 November 2026
+
+- Owner added the Worker secrets and sent an invitation privately, but the bot stayed
+  silent. No invitation code or credential is copied into this checklist.
+- Inspection found code generation and webhook registration were separate steps.
+  Added owner-only Check Telegram setup / Connect webhook controls using the saved
+  Worker secrets, a reviewable expiring preview and the Worker's actual request origin.
+- Checks read provider identity/metadata; connection requires an explicit owner action
+  and additional consent to replace a different destination. Closed model tools, cron
+  and status polling cannot register webhooks. No AI calls or new migrations are used.
+- Only bounded metadata is returned/stored. Raw existing URLs/provider errors and
+  credentials are excluded. Timeouts, rate limits, credential/target drift, uncertain
+  writes, duplicate connects and independent setup leases are covered locally.
+- Old pending invitations are revoked before enabling delivery. Existing linked human,
+  conversation, queued Telegram updates, financial accounting and wallet permissions
+  are preserved. After connection, generate a fresh invitation if not already linked.
+- [x] Targeted real-SQLite setup tests: 207 assertions. Real interface helpers: 45.
+- [x] Chromium: 112 assertions across both themes at 360/1366; preview, consent,
+  registration, fresh invitation, errors and late-response/logout privacy all pass.
+- [x] Worker dry run: 361.74 KiB / gzip 93.60 KiB, existing AI/D1 bindings retained.
+- [x] Final npm run check after the invitation/setup race guard: all suites pass,
+  including API 110, interface 107, setup 207/45, Worker 60 and rollover 466.
+- [x] Release files and activation guide prepared under the existing publication
+  authorization. Cache 154; no database migration or new credential is required.
+- [ ] Verify ready production deployments; owner checks/registers the real webhook
+  and confirms a fresh reply. This workspace has no Cloudflare account credentials.
+- [ ] Verify an actual scheduled Telegram alert and measure account usage/CPU.

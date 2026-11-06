@@ -2,12 +2,13 @@
 
 The ordered A–F implementation is complete locally, with the Workflow component
 explicitly deferred because research remains bounded synchronous execution. The
-agent is not verified operational against the real Cloudflare account. The owner has
-now explicitly authorized committing, pushing and deploying after local review. Remote
-migrations were verified by the owner through table/trigger inspection. Accepted Qwen
-responses, scheduled monitoring and real Telegram delivery remain unverified. The
+owner explicitly authorized committing, pushing and deploying after local review. Remote
+migrations were verified by the owner through table/trigger inspection. The owner also
+confirmed a fresh accepted Qwen selection and deterministic lending reply through the
+authenticated dashboard on 6 November at 20:23:54 MYT. Scheduled monitoring and real
+Telegram delivery remain unverified. The
 separately authorized LP rollover fix remains preserved at 6cbb805. The implementation
-is now published on main as `ad80012`; live activation remains unverified. Follow
+was published on main as `ad80012`, with subsequent response compatibility fixes. Follow
 [AGENT-ACTIVATION.md](AGENT-ACTIVATION.md) for the account steps.
 
 ## What is implemented
@@ -28,6 +29,13 @@ shares the same owner policy, conversation, reports and budget. `/journal` and
 read-only. Lending's per-visit 70/35/35 reset is unchanged. Financial JSON/history files
 and the published rollover helper have no local modifications.
 
+The Telegram card adds explicit owner-only webhook checks and registration from the
+saved Worker secrets. A short-lived preview fixes bot/destination/credential identity;
+replacement consent, drift checks, bounded provider reads, an independent lease and
+idempotent confirmations protect configuration changes. Raw provider error text/current
+URLs are discarded. Connecting revokes old invitations and preserves linked humans,
+history and queued updates. Registration still needs a fresh bot reply to prove delivery.
+
 ## Validation
 
 - Full `npm run check` passes, including existing financial/accounting suites, identical
@@ -42,8 +50,12 @@ and the published rollover helper have no local modifications.
 - Hybrid-wrapper follow-up: model 122, brain 248 and output diagnostics 109 assertions
   cover duplicate legacy/completion aliases, structured JSON, empty/null tool metadata,
   disagreement rejection and preserved financial/prose validation. Real account metadata
-  narrowed the failed stage to normalization; the corrected adapter still needs a new
-  live accepted-answer check after publication.
+  narrowed the failed stage to normalization; the owner subsequently confirmed a fresh
+  live accepted answer after publication.
+- Telegram setup follow-up: real-SQLite/API/provider isolation 207, interface privacy
+  and confirmation 45, Worker routing 60 assertions; Chromium 112 assertions over both
+  themes at 360/1366. No real bot is contacted by tests. Worker dry run builds at
+  361.74 KiB / gzip 93.60 KiB with the existing bindings.
 - Real SQLite tests cover reservation races, lost leases, dual-fence rollback, process
   interruption, immutable journal records, stale editors and policy changes mid-answer.
   A suspended provider does not block real deterministic critical monitoring or erase
@@ -70,7 +82,8 @@ The cap is not a guarantee of remaining account-wide free quota.
 
 Wrangler now targets the existing `tiger-foundation-dashboard` Worker at
 `https://tiger-foundation-dashboard.evalissol.workers.dev`. Reuse that Worker and the
-existing configured D1 ID; their remote schema/bindings are not verified here.
+existing configured D1 ID. The owner confirmed the real schema and a live request;
+remote bindings cannot be independently inspected from this workspace.
 Deployment preflight confirmed no authenticated Wrangler session or agent secrets in
 this workspace. Saved secrets on the real Worker remain unverified, not presumed absent.
 
@@ -78,8 +91,9 @@ The owner verified the real D1 tables/triggers and supplied a live dashboard fal
 plus a recorded Qwen attempt using 262 of 800 output tokens. That verifies progress through
 the shared authenticated data path and inference usage storage, while the model answer
 was rejected. The follow-up fixes the response contract and adds metadata-only diagnostics.
-An accepted new Qwen response, free-plan CPU/latency/subrequests/rows, scheduled monitoring
-and Telegram delivery still require real-account verification. Production Vercel endpoint
+The owner later confirmed the accepted Qwen lending response described above. Free-plan
+CPU/latency/subrequests/rows, scheduled monitoring and Telegram delivery still require
+real-account verification. Production Vercel endpoint
 reads were blocked by this environment's CONNECT403 policy. No accepted live inference
 is inferred from model playground greetings or fixture tests.
 
@@ -119,6 +133,7 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 - `api/agent.mjs`
 - `api/lpbook.mjs`
 - `cloudflare/wrangler.jsonc`
+- `cloudflare/worker.mjs`
 - `docs/AGENT-SETUP.md`
 - `index.html`
 - `scripts/check-project.mjs`
@@ -127,6 +142,7 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 - `scripts/test-agent-integration.mjs`
 - `scripts/test-agent-store.mjs`
 - `scripts/test-agent-telegram.mjs`
+- `scripts/test-agent-worker.mjs`
 - `scripts/test-api-refresh.mjs`
 - `scripts/test-portfolio-katana.mjs`
 - `sw.js`
@@ -137,6 +153,9 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 - `docs/AGENT-ACTIVATION.md`
 - `api/_agent-output-diagnostics.mjs`
 - `api/_agent-output-schema.mjs`
+- `api/_agent-telegram-setup.mjs`
+- `scripts/test-agent-telegram-setup.mjs`
+- `scripts/test-agent-telegram-interface.mjs`
 - `scripts/test-agent-output-diagnostics.mjs`
 - `TIGER_AGENT_IMPLEMENTATION_PLAN.md`
 - `TIGER_AGENT_PROGRESS.md`

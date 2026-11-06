@@ -13,6 +13,8 @@ const calls = [], reports = [];
 let broken = false;
 const factory = name => options => async (req, res) => {
   check(options.env, env, 'The Worker passes its actual AI/database bindings to the handler');
+  if (name === 'agent') check(options.workerOrigin, 'https://worker.fixture.test', 'The gateway supplies the actual Worker origin for Telegram registration');
+  else check(options.workerOrigin, undefined, 'Telegram and monitoring cannot select a webhook destination');
   calls.push({ name, req });
   if (broken) throw Error('upstream failed with secret fixture-private-secret');
   if (name === 'agent') {

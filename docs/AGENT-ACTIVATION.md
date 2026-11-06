@@ -140,14 +140,32 @@ Create these entries as Secrets in Cloudflare, save/deploy, then refresh Agent.
 Retain the new webhook secret privately for the registration step below.
 Set the optional text variable TELEGRAM_BOT_USERNAME without @ for a clickable bot link.
 
-If Telegram already shows Linked, use the existing private bot chat. Otherwise choose
-Link Telegram, open the bot link and send its `/start CODE` message. Pairing codes
-expire in 10 minutes. The bot should confirm the connection. Ask `Check my lending
-health.` and `/journal` to test the shared owner path and durable journal.
+The Telegram card now provides setup controls; no local terminal or token-bearing
+browser URL is required. After the latest Worker and dashboard deployments are ready:
 
-If the bot does not respond, its webhook may need registration. On your own machine,
-use an up-to-date checkout with Node installed. Copy `.env.agent.example` to ignored
-`.env.agent.local` and privately set these three entries:
+1. Sign in to Agent and find the Telegram card.
+2. Choose **Check Telegram setup**. This reads bot identity and webhook metadata only;
+   it sends no messages and makes no AI call. Review the verified bot username and
+   destination ending in `/api/agent-telegram` on your Worker.
+3. Choose **Connect webhook** to register that destination and the saved verification
+   secret. If the bot already points elsewhere, explicit replacement consent is required.
+   Registration preserves queued messages and any existing linked owner/conversation.
+4. If the card says Not linked, choose **Link Telegram** for a fresh code, then **Open
+   Telegram** and send the displayed `/start CODE` message privately. Old pending codes
+   are revoked during webhook connection. New codes expire in 10 minutes.
+5. Wait for the bot to confirm linking. If already Linked, send a new question instead.
+   Ask `Check my lending health.` and `/journal` to test the shared owner path and journal.
+
+Webhook registered means Telegram confirmed its configuration. It does not establish
+message delivery until a fresh bot reply arrives. If the bot remains silent, choose
+Check Telegram setup again and share only its status/error category, never a token or
+pairing code. Previous delivery errors are summarized without exposing raw provider text.
+A changed/expired preview or uncertain registration needs a new check before connecting.
+Checks and connects are limited to three attempts each per minute.
+
+The command-line alternative remains available on your own machine. Use an up-to-date
+checkout with Node installed. Copy `.env.agent.example` to ignored `.env.agent.local`
+and privately set these three entries:
 
 - `AGENT_WORKER_URL`: the existing workers.dev origin above.
 - `TELEGRAM_BOT_TOKEN`: the token from BotFather.

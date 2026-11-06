@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 let state=null,busy=false,loading=false,settingsDirty=false,lastMessages='',sources=[],pendingChat=null;
 let policyState=null,policyDraft=null,policyDirty=false,policyFormVersion=null,policyConflict=false,policyLoading=false,toolBusy=false,toolResult=null;
 let privateViewVersion=0,statusRequestVersion=0;
+let telegramSetup=null,telegramSetupBusy=false;
 let researchSources=[],researchSourcesLoaded=false,researchLoading=false,researchBusy=false,researchReport=null,pendingResearch=null;
 let pendingComparison=null,comparisonBusy=false,comparisonReport=null;
 let journalSelection=null,journalCursor=null,journalEventCursor=null,journalBusy=false,journalPending=null;
@@ -79,11 +80,63 @@ function renderSettings(){
 function renderTelegram(){
   const linked=state?.telegram?.connected===true,available=state?.readiness?.telegram===true;
   $('agentTelegramState').textContent=linked?'Linked':available?'Not linked':'Setup required';$('agentTelegramState').dataset.state=linked?'ready':'';
-  $('agentPair').hidden=linked;$('agentPair').disabled=!available||$('agentPair').getAttribute('aria-busy')==='true';
+  $('agentPair').hidden=linked;$('agentPair').disabled=!available||telegramSetupBusy||$('agentPair').getAttribute('aria-busy')==='true';
   $('agentPair').title=available?'Create your private Telegram linking code.':'Add the Telegram secrets in your Cloudflare Worker, then deploy and refresh.';
-  $('agentUnlink').hidden=!linked;
-  $('agentTelegramNote').textContent=linked?'Your private Telegram chat shares this conversation and these preferences.':available?'Connect your private Telegram chat for questions and alerts while the dashboard is closed.':'Setup required: add TELEGRAM_BOT_TOKEN and a TELEGRAM_WEBHOOK_SECRET of at least 24 characters in Cloudflare → your Worker → Settings → Variables and Secrets. Deploy, then refresh this page.';
+  $('agentUnlink').hidden=!linked;$('agentUnlink').disabled=telegramSetupBusy||$('agentUnlink').getAttribute('aria-busy')==='true';
+  $('agentTelegramNote').textContent=linked?'Your private Telegram chat shares this conversation and these preferences.':available?'First check Telegram setup and connect the webhook. Then choose Link Telegram to create a fresh private linking code.':'Setup required: add TELEGRAM_BOT_TOKEN and a TELEGRAM_WEBHOOK_SECRET of at least 24 characters in Cloudflare → your Worker → Settings → Variables and Secrets. Deploy, then refresh this page.';
   if(linked)$('agentPairing').hidden=true;
+  renderTelegramSetup();
+}
+function telegramFeedback(message='',error=false){$('agentTelegramFeedback').textContent=message;$('agentTelegramFeedback').dataset.error=String(error);}
+function clearTelegramSetup(){
+  telegramSetup=null;telegramSetupBusy=false;
+  for(const id of ['agentTelegramCheck','agentTelegramConnect']){$(id)?.setAttribute('aria-busy','false');if($(id))$(id).disabled=false;}
+  for(const id of ['agentTelegramSetup','agentTelegramReplaceLabel','agentTelegramConnect'])if($(id))$(id).hidden=true;
+  for(const id of ['agentTelegramPreview','agentTelegramFeedback'])$(id)?.replaceChildren();
+  if($('agentTelegramReplace'))$('agentTelegramReplace').checked=false;
+}
+function renderTelegramSetup(){
+  const available=state?.readiness?.telegram===true,pairBusy=['agentPair','agentUnlink'].some(id=>$(id).getAttribute('aria-busy')==='true');
+  $('agentTelegramCheck').disabled=!available||telegramSetupBusy||pairBusy;
+  $('agentTelegramSetup').hidden=!telegramSetup;
+  const box=$('agentTelegramPreview');box.replaceChildren();
+  if(!telegramSetup){$('agentTelegramConnect').hidden=true;$('agentTelegramReplaceLabel').hidden=true;return;}
+  const setup=telegramSetup,registered=setup.registered===true;
+  box.append(element('p','','Bot: @'+setup.botUsername));
+  const descriptions={missing:'Telegram has no webhook for this bot. Connect it below to deliver messages here.',matches:'Telegram points to this agent. Reconnect below to refresh its verification secret.',different:'This bot currently delivers messages to another service. Connecting here will replace that destination.'};
+  box.append(element('p','',registered?(state?.telegram?.connected?'Webhook registered. Send a new question to your linked bot to confirm delivery.':'Webhook registered. Send a fresh linking code to confirm message delivery.'):descriptions[setup.webhookStatus]||'Check the webhook before connecting.'));
+  box.append(element('p','','Destination: '+setup.targetWebhookUrl));
+  if(!registered&&setup.updatesStatus==='missing_messages')box.append(element('p','','The current webhook does not accept all required messages. Reconnect to update it.'));
+  const errors={unauthorized:'Telegram’s last delivery was rejected by the webhook. Reconnect to refresh its verification secret.',not_found:'Telegram could not find the webhook. Check that the latest Worker deployment is ready.',server_error:'Telegram reported a Worker error on a previous delivery.',timeout:'Telegram reported a delivery timeout.',tls_or_dns:'Telegram reported a connection problem reaching the webhook.',reported:'Telegram reported a previous delivery error.'};
+  if(!registered&&errors[setup.deliveryError])box.append(element('p','',errors[setup.deliveryError]));
+  if(Number.isSafeInteger(setup.pendingUpdates)&&setup.pendingUpdates>0)box.append(element('p','',String(setup.pendingUpdates)+' message(s) waiting for delivery.'));
+  box.append(element('p','',(registered?'Registered ':'Checked ')+date(registered?setup.registeredAt:setup.checkedAt)));
+  $('agentTelegramReplaceLabel').hidden=registered||setup.requiresReplacement!==true;
+  const button=$('agentTelegramConnect');button.hidden=registered;button.textContent=setup.requiresReplacement?'Replace and connect webhook':'Connect webhook';
+  button.disabled=telegramSetupBusy||pairBusy||!available||(setup.requiresReplacement===true&&!$('agentTelegramReplace').checked);
+}
+async function runTelegramSetup(connecting){
+  if(telegramSetupBusy||!state?.authenticated||['agentPair','agentUnlink'].some(id=>$(id).getAttribute('aria-busy')==='true'))return;
+  if(connecting&&(!telegramSetup||telegramSetup.registered||telegramSetup.requiresReplacement&&!$('agentTelegramReplace').checked))return;
+  const view=privateViewVersion,button=$(connecting?'agentTelegramConnect':'agentTelegramCheck');
+  telegramSetupBusy=true;button.setAttribute('aria-busy','true');
+  if(!connecting){telegramSetup=null;$('agentTelegramReplace').checked=false;}
+  if(connecting){$('agentPairing').hidden=true;$('agentPairCode').textContent='';$('agentPairExpiry').textContent='';$('agentPairLink').removeAttribute('href');}
+  renderTelegram();telegramFeedback(connecting?'Connecting Telegram to this agent…':'Checking the bot and webhook…');
+  try{
+    const answer=await request(connecting?'telegramConnect':'telegramCheck',connecting?{draftId:telegramSetup.draftId,...(telegramSetup.requiresReplacement?{replaceExisting:true}:{})}:{});
+    if(!samePrivateView(view))return;
+    const setup=answer.setup;
+    if(!setup||typeof setup.draftId!=='string'||typeof setup.botUsername!=='string'||typeof setup.targetWebhookUrl!=='string')throw new Error('The Telegram setup check could not be read. Please check again.');
+    telegramSetup=setup;$('agentTelegramReplace').checked=false;
+    telegramFeedback(connecting?(state?.telegram?.connected?'Webhook registered. Send a new question to your bot in Telegram to test delivery.':'Webhook registered. Choose Link Telegram, open your bot and send the new linking message.'):'Check complete. Review the connection below before connecting.');
+  }catch(error){
+    if(!samePrivateView(view))return;
+    // A failed connection can have reached Telegram. Require a new preview;
+    // never encourage blind registration retries or reuse an older invitation.
+    if(connecting)telegramSetup=null;
+    telegramFeedback(error.message,true);
+  }finally{if(view===privateViewVersion){telegramSetupBusy=false;button.setAttribute('aria-busy','false');renderTelegram();}}
 }
 function renderAlerts(){
   const box=$('agentAlerts');box.replaceChildren();
@@ -183,9 +236,13 @@ $('agentSettingsForm').addEventListener('submit',event=>{
 });
 $('agentPause').addEventListener('click',()=>saveSettings({pausedUntil:new Date(Date.now()+8*3600000).toISOString()}));
 $('agentResume').addEventListener('click',()=>saveSettings({pausedUntil:null}));
+$('agentTelegramCheck').addEventListener('click',()=>runTelegramSetup(false));
+$('agentTelegramConnect').addEventListener('click',()=>runTelegramSetup(true));
+$('agentTelegramReplace').addEventListener('change',renderTelegramSetup);
 $('agentPair').addEventListener('click',async()=>{
-  const view=privateViewVersion,button=$('agentPair');if(button.getAttribute('aria-busy')==='true')return;
+  const view=privateViewVersion,button=$('agentPair');if(telegramSetupBusy||button.getAttribute('aria-busy')==='true')return;
   button.disabled=true;button.setAttribute('aria-busy','true');
+  renderTelegramSetup();
   try{
     const pair=await request('pair',{});
     if(!samePrivateView(view))return;
@@ -196,15 +253,16 @@ $('agentPair').addEventListener('click',async()=>{
     if(typeof pair.url==='string'){
       try{const url=new URL(pair.url);if(url.protocol==='https:'&&['t.me','telegram.me'].includes(url.hostname)){$('agentPairLink').href=url.href;$('agentPairLink').hidden=false;}}catch{}
     }
-    $('agentPairing').hidden=false;notice('Open your bot in Telegram and send the linking message.');
-  }catch(error){if(samePrivateView(view))notice(error.message,true);}
-  finally{if(view===privateViewVersion){button.disabled=state?.readiness?.telegram!==true;button.setAttribute('aria-busy','false');}}
+    $('agentPairing').hidden=false;telegramFeedback('Open your bot in Telegram and send the linking message.');notice('Open your bot in Telegram and send the linking message.');
+  }catch(error){if(samePrivateView(view)){telegramFeedback(error.message,true);notice(error.message,true);}}
+  finally{if(view===privateViewVersion){button.setAttribute('aria-busy','false');renderTelegram();}}
 });
 $('agentUnlink').addEventListener('click',async()=>{
-  const view=privateViewVersion,button=$('agentUnlink');button.disabled=true;
+  const view=privateViewVersion,button=$('agentUnlink');if(telegramSetupBusy||button.getAttribute('aria-busy')==='true')return;
+  button.disabled=true;button.setAttribute('aria-busy','true');renderTelegramSetup();
   try{await request('unlink',{});if(!samePrivateView(view))return;$('agentPairCode').textContent='';await loadStatus({quiet:true});if(samePrivateView(view))notice('Telegram unlinked. Your dashboard conversation is still available.');}
   catch(error){if(samePrivateView(view))notice(error.message,true);}
-  finally{if(view===privateViewVersion)button.disabled=false;}
+  finally{if(view===privateViewVersion){button.setAttribute('aria-busy','false');renderTelegram();}}
 });
 $('agentRefresh').addEventListener('click',()=>loadStatus());
 initVerifiedControls();
@@ -363,6 +421,8 @@ function renderDiagnostics(value){
 }
 function clearPrivateAnalysis(){
   $('agentPair')?.setAttribute('aria-busy','false');
+  $('agentUnlink')?.setAttribute('aria-busy','false');
+  clearTelegramSetup();
   journalSelection=null;journalCursor=null;journalEventCursor=null;journalBusy=false;journalPending=null;
   for(const id of ['agentJournalList','agentJournalMeta','agentJournalBaseline','agentJournalEvents','agentJournalReportText'])$(id)?.replaceChildren();
   for(const id of ['agentJournalDetail','agentJournalMore','agentJournalEventsMore'])if($(id))$(id).hidden=true;

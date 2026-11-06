@@ -116,9 +116,26 @@ Deploy the dashboard changes only after an explicit push/publish instruction.
 
 ## Connect your existing Telegram bot
 
-Privately populate ignored `.env.agent.local` from `.env.agent.example` for operator
-setup. Its `AGENT_WORKER_URL` must be the deployed Worker address. Check without any
-registration or provider calls:
+Save TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET privately on the Worker first.
+After deployment, sign in to Agent and choose **Check Telegram setup** in the Telegram
+card. This makes bounded identity/webhook reads only. Review the bot username and
+Worker destination, then explicitly choose **Connect webhook**. An existing connection
+to another service requires replacement consent. No secrets are sent to the browser;
+raw provider destinations/error text are never displayed or stored. Setup actions are
+owner-authenticated, same-origin and limited to three checks/connects each per minute.
+They are not model tools, scheduled actions or AI calls.
+
+After registration choose **Link Telegram** for a fresh invitation. Open the bot link
+or send the new `/start CODE` privately. Connection revokes pending old invitations,
+preserves an existing linked human/history and keeps queued Telegram updates. A
+registered webhook is configuration evidence only; confirm a fresh bot reply. If
+already Linked, test with a new question. No schema migration is needed for setup;
+previews expire after 10 minutes in private agent_state. Credential/destination drift,
+expired previews and uncertain registration require a new check.
+
+For the optional command-line alternative, privately populate ignored `.env.agent.local`
+from `.env.agent.example`. Its `AGENT_WORKER_URL` must be the deployed Worker address.
+Check without any registration or provider calls:
 
 ```sh
 node --env-file=.env.agent.local scripts/agent-telegram-setup.mjs

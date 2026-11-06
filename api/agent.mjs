@@ -6,6 +6,7 @@ import { forwardAgentRequest } from './_agent-gateway.mjs';
 import { agentDiagnostics } from './_agent-diagnostics.mjs';
 import { agentAction } from './_agent-actions.mjs';
 import { getAgentPolicy } from './_agent-policy.mjs';
+import { telegramConfigured, telegramSetupAction, verifiedTelegramUsername } from './_agent-telegram-setup.mjs';
 
 const COOKIE = 'tiger_agent_session', SESSION_TTL = 7 * 86400;
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -15,7 +16,7 @@ function readiness(env) {
   try { createAgentStore(env); storage = true; } catch {}
   const owner = typeof env.AGENT_ACCESS_KEY === 'string' && env.AGENT_ACCESS_KEY.length >= 24;
   return { origin, storage, owner, ai: typeof env.AI?.run === 'function' && env.AGENT_INFERENCE_ENABLED !== 'false',
-    telegram: !!env.TELEGRAM_BOT_TOKEN && (env.TELEGRAM_WEBHOOK_SECRET || '').length >= 24,
+    telegram: telegramConfigured(env),
     monitor: (env.CRON_SECRET || '').length >= 24 };
 }
 function cookie(req) {
@@ -38,7 +39,7 @@ async function privateStatus(req, store, available, env) {
 }
 
 export function createAgentHandler({ env = process.env, storeFactory = createAgentStore, processMessage = processAgentMessage,
-  loadContext } = {}) {
+  loadContext, workerOrigin, telegramFetcher } = {}) {
   return async function handler(req, res) {
     try {
       if (await forwardAgentRequest(req, res, { env })) return;
@@ -71,6 +72,8 @@ export function createAgentHandler({ env = process.env, storeFactory = createAge
       const token = cookie(req);
       if (!token || !await store.get('session:' + hash(token))) throw httpError(401, 'Sign in to your private agent first.');
       if (body.action === 'diagnostics') return json(res, 200, await agentDiagnostics({ env, store }));
+      if (['telegramCheck', 'telegramConnect'].includes(body.action)) return json(res, 200,
+        await telegramSetupAction(body, { env, store, workerOrigin, ...(telegramFetcher ? { fetcher: telegramFetcher } : {}) }));
       const action = await agentAction(body, { env, store, ...(loadContext ? { loadContext } : {}) });
       if (action !== null) return json(res, 200, action);
       if (body.action === 'logout') {
@@ -97,7 +100,7 @@ export function createAgentHandler({ env = process.env, storeFactory = createAge
         if (await store.get('telegram')) throw httpError(409, 'Telegram is already linked. Unlink it before pairing another account.');
         const code = randomBytes(12).toString('hex').toUpperCase(), digest = hash(code), issuedAt = new Date().toISOString();
         await lock.commit([...revoke, { key: 'pair:' + digest, value: { issuedAt }, ttlSeconds: 600 }, { key: 'pair:active', value: digest, ttlSeconds: 600 }]);
-        const username = (env.TELEGRAM_BOT_USERNAME || '').replace(/^@/, '');
+        const username = await verifiedTelegramUsername({ env, store, workerOrigin });
         return json(res, 200, { code, expiresAt: new Date(Date.now() + 600000).toISOString(),
           url: /^[a-zA-Z0-9_]{5,32}$/.test(username) ? 'https://t.me/' + username + '?start=' + code : null });
       } finally { await lock.release(); }
