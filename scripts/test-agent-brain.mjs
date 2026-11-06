@@ -6,6 +6,7 @@ import { loadAgentContext, calculateAgentLending, summarizeAgent, readAgentJSON 
 import { respondAgent, agentPreferenceAction, AGENT_EXPLANATIONS } from '../api/_agent-brain.mjs';
 import { publicError, httpError } from '../api/_agent-http.mjs';
 import { DEFAULT_AGENT_MODEL } from '../api/_agent-models.mjs';
+import { AGENT_OUTPUT_SCHEMA } from '../api/_agent-output-schema.mjs';
 import { targetMetrics, MARKETS } from '../morpho-core.mjs';
 
 let checks = 0;
@@ -167,7 +168,7 @@ try {
   check(requests[0].max_tokens, 800, 'Each free model output has a fixed token budget');
   check(requests[0].temperature, .1, 'Low-variance inference supports the JSON protocol');
   check(requests[0].model, '@cf/zai-org/glm-4.7-flash', 'The server chooses only an explicit supported Workers AI profile');
-  check(requests[0].response_format, { type: 'json_object' }, 'Both configured profiles use their verified structured-output option');
+  check(requests[0].response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'Both configured profiles use their verified structured-output option');
   check(requests[0].messages.length, 7, 'Only four recent chat messages enter the compact model context');
   check(requests[0].messages.filter(row => row.role === 'system').length, 1, 'User history cannot inject a privileged model role');
   check(requests[0].messages[1].content.includes('"raw"'), false, 'Raw amounts are omitted from the model narrative context');
@@ -263,7 +264,7 @@ try {
   const defaultCalls = [];
   await respondAgent({ message: 'Hello', context, env: { AI: { run: async (name, input) => { defaultCalls.push({ name, input }); return JSON.stringify({ explanationId: 'greeting', preferenceChanges: [] }); } } } });
   check(defaultCalls.map(call => call.name), [DEFAULT_AGENT_MODEL], 'Qwen is the first candidate, with live account validation still required');
-  check(defaultCalls[0].input.response_format, { type: 'json_object' }, 'The documented default model uses its native JSON mode');
+  check(defaultCalls[0].input.response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'The documented default model uses its native JSON mode');
   const attempts = [], settlements = [];
   const inference = { reserve: async request => { const attempt = { id: 'fixture:' + request.round }; attempts.push(structuredClone(request)); return attempt; },
     settle: async (attempt, result) => { settlements.push({ attempt, ...structuredClone(result) }); } };
@@ -273,7 +274,7 @@ try {
       finish_reason: 'tool_calls' }], usage: { prompt_tokens: 1000, completion_tokens: 100, total_tokens: 1100 } }) } } });
   check(nativeCalculation.toolResults[0].data.repay_raw, expected.repay_raw, 'Native tool calls use the same trusted repayment calculation');
   check(attempts.map(attempt => attempt.round), [0], 'The sole inference reserves its cost before selecting a deterministic tool');
-  check(attempts[0].request.tools.length, 1, 'Reservation receives the complete request including native tool schema');
+  check(attempts[0].request.response_format.json_schema, AGENT_OUTPUT_SCHEMA, 'Reservation receives the full actual structured output schema');
   check(settlements.map(result => result.outcome), ['succeeded'], 'Completed inference settles exactly once');
   check(settlements[0].usage, { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }, 'Settlement includes billed reasoning inside completion tokens');
   let budgetModelCalls = 0;
@@ -284,6 +285,35 @@ try {
   check(native.reply, AGENT_EXPLANATIONS.greeting, 'Native object responses use the same closed explanation contract');
   const legacy = await respondAgent({ message: 'Hello', context, env: { AI: model({ reply: 'Hello.', preferenceChanges: [] }) } });
   check(legacy.reply, AGENT_EXPLANATIONS.greeting, 'The approved legacy greeting remains compatible without accepting arbitrary prose');
+  const outputNotes=[],outputSettlements=[];let healthModelCalls=0;
+  const outputLedger={reserve:async()=>({id:'output:0'}),settle:async(_attempt,outcome)=>outputSettlements.push(outcome),observe:value=>outputNotes.push(value)};
+  const healthReply=await respondAgent({message:'Check my lending health.',context,inference:outputLedger,
+    env:{AI:{run:async(_name,request)=>{
+      healthModelCalls++;
+      check(Object.hasOwn(request,'tools'),false,'A health question no longer competes with a repayment-only native tool');
+      check(request.response_format.json_schema.oneOf.some(branch=>branch.properties?.tool?.properties?.name?.enum?.includes('getLendingRisk')),true,'The actual Qwen response grammar permits the requested risk reading');
+      check(request.messages[0].content.endsWith('/no_think'),true,'Qwen receives its documented prompt-level non-thinking hint');
+      return {choices:[{message:{role:'assistant',content:JSON.stringify({tool:{name:'getLendingRisk',args:{}}})},finish_reason:'stop'}],
+        usage:{prompt_tokens:1000,completion_tokens:35,total_tokens:1035}};
+    }}}});
+  check(healthReply.toolResults[0].toolName,'getLendingRisk','The activation-test question executes a verified lending-risk tool');
+  check(healthReply.action,null,'Reading lending risk cannot change notification settings');
+  check(healthModelCalls,1,'A valid selection needs no repair call or extra inference');
+  check(outputNotes.at(-1).reason,'valid_selector','Successful planning is distinguished from configured bindings');
+  outputSettlements.length=0;outputNotes.length=0;
+  await respondAgent({message:'Check my lending health.',context,inference:outputLedger,
+    env:{AI:{run:async()=>({response:{reply:'PRIVATE unsupported financial prose 999999',preferenceChanges:[]}})}}});
+  check(outputSettlements[0].outcome,'failed','Rejected prose is no longer recorded as successful inference');
+  check(outputNotes[0].reason,'unapproved_reply','A valid JSON object with unsupported prose has its own safe reason');
+  check(JSON.stringify(outputNotes).includes('PRIVATE'),false,'Content-free failure observations never expose generated prose');
+  outputSettlements.length=0;outputNotes.length=0;
+  await rejects(respondAgent({message:'Check my lending health.',context,inference:outputLedger,
+    env:{AI:{run:async()=>({choices:[{message:{role:'assistant',content:'{}',reasoning_content:'PRIVATE thinking'},finish_reason:'length'}],
+      usage:{prompt_tokens:1000,completion_tokens:800,total_tokens:1800}})}}}),/incomplete/,'A token-limited response remains rejected, even if its content parses');
+  check(outputNotes[0].reason,'truncated','The exact truncation reason survives normalization failure');
+  check(outputNotes[0].usage.outputTokens,800,'Token exhaustion can be diagnosed without seeing reasoning');
+  check(outputSettlements[0].outcome,'failed','A truncated answer cannot produce a success timestamp');
+  check(JSON.stringify(outputNotes).includes('PRIVATE'),false,'Private reasoning never enters diagnostics');
   const inferenceFailure = async (AI, overrides = {}) => publicError(await respondAgent({ message: 'Hello', context,
     env: { ...env, AI, ...overrides } }).catch(error => error));
   check(await inferenceFailure({ run: async () => ({ response: '{"reply":' }) }),

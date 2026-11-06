@@ -2,18 +2,21 @@
    Catalog/schema and neuron rates checked against Cloudflare's official docs
    repository on 2026-11-05. Account access still needs the live release gate. */
 import { httpError } from './_agent-http.mjs';
+import { AGENT_OUTPUT_SCHEMA, AGENT_OUTPUT_SCHEMA_VERSION } from './_agent-output-schema.mjs';
 
 export const DEFAULT_AGENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
-export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v2';
+export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v3';
 const VERIFIED_AT = '2026-11-05';
 const CATALOG = 'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/workers-ai-models/';
 const PRICING = 'https://developers.cloudflare.com/workers-ai/platform/pricing/';
 const profile = (id, contextTokens, inputNeuronsPerMillion, outputNeuronsPerMillion) => Object.freeze({
-  id, version: id.split('/').at(-1) + ':2026-11-05:v1', verifiedAt: VERIFIED_AT,
+  id, version: id.split('/').at(-1) + ':2026-11-06:v2', verifiedAt: VERIFIED_AT,
   verification: 'official_schema_and_pricing; live_account_unverified', freeCompatible: true,
   contextTokens, maxInputTokens: Math.min(30000, contextTokens - 800), maxOutputTokens: 800,
-  requestFormat: 'workers-ai-messages', responseFormat: 'json_object',
-  responseShapes: Object.freeze(['chat-completion', 'workers-json']), tools: Object.freeze(['calculateTargetHealth']),
+  requestFormat: 'workers-ai-messages', responseFormat: 'json_schema', outputSchemaVersion: AGENT_OUTPUT_SCHEMA_VERSION,
+  responseShapes: Object.freeze(['chat-completion', 'workers-json']), tools: Object.freeze([]),
+  thinkingHint: id === DEFAULT_AGENT_MODEL ? '/no_think' : null,
+  plannedDeprecationDate: id === DEFAULT_AGENT_MODEL ? '2026-11-15' : null,
   rates: Object.freeze({ inputNeuronsPerMillion, outputNeuronsPerMillion }),
   schemaSource: CATALOG + id.split('/').at(-1) + '.json', pricingSource: PRICING,
 });
@@ -44,20 +47,15 @@ export function estimateAgentModelCost(value, inputTokens, outputTokens) {
   // Round up to a thousandth neuron; this is planning arithmetic, not billing.
   return Math.ceil((inputTokens * p.rates.inputNeuronsPerMillion + outputTokens * p.rates.outputNeuronsPerMillion) / 1000) / 1000;
 }
-const lendingTool = Object.freeze({ type: 'function', function: {
-  name: 'calculateTargetHealth', description: 'Calculate verified repayment and borrowing room for one fresh lending market and target health.',
-  parameters: { type: 'object', properties: { market: { type: 'string', description: 'Exact supplied market id, key or label.' },
-    targetHealth: { type: 'number', description: 'Owner-selected minimum health, at least one.' } }, required: ['market', 'targetHealth'], additionalProperties: false },
-} });
 export function createAgentModelRequest(value, messages) {
   const p = trustedProfile(value);
   if (!Array.isArray(messages) || !messages.length || messages.length > 12 || messages.some(row => !row
     || !['system', 'user', 'assistant', 'tool'].includes(row.role) || typeof row.content !== 'string'))
     throw agentModelError('configuration_missing', 'The AI request could not be verified.');
   return { messages, max_tokens: p.maxOutputTokens, temperature: .1, stream: false,
-    response_format: { type: p.responseFormat }, tools: [lendingTool] };
+    response_format: { type: p.responseFormat, json_schema: AGENT_OUTPUT_SCHEMA } };
 }
-const invalid = () => agentModelError('invalid_model_output', 'The AI answer was incomplete. Please try again.');
+const invalid = (reason = 'invalid_envelope') => Object.assign(agentModelError('invalid_model_output', 'The AI answer was incomplete. Please try again.'), { modelOutputReason: reason });
 export function readAgentModelUsage(response) {
   const u = response && typeof response === 'object' ? response.usage : null;
   if (!u || ![u.prompt_tokens, u.completion_tokens, u.total_tokens].every(n => Number.isSafeInteger(n) && n >= 0 && n <= 1000000)
@@ -88,6 +86,7 @@ export function normalizeAgentModelResponse(value, response) {
     const choice = response.choices[0], message = choice?.message;
     if (!message || message.role !== 'assistant' || typeof choice.finish_reason !== 'string') throw invalid();
     finishReason = choice.finish_reason;
+    if (finishReason === 'length') throw invalid('truncated');
     if (!['stop', 'tool_calls'].includes(finishReason) || message.refusal) throw invalid();
     calls = toolCalls(message.tool_calls);
     if ((finishReason === 'tool_calls') !== !!calls.length) throw invalid();
@@ -101,6 +100,7 @@ export function normalizeAgentModelResponse(value, response) {
     content = typeof response === 'string' ? response : response?.response;
     if (response && typeof response === 'object' && response.tool_calls) throw invalid();
     if (response && typeof response === 'object' && Object.hasOwn(response, 'finish_reason')) {
+      if (response.finish_reason === 'length') throw invalid('truncated');
       if (response.finish_reason !== 'stop') throw invalid();
       finishReason = 'stop';
     }
@@ -109,6 +109,7 @@ export function normalizeAgentModelResponse(value, response) {
   if (content && typeof content === 'object' && !Array.isArray(content)) {
     try { content = JSON.stringify(content); } catch { throw invalid(); }
   }
-  if (typeof content !== 'string' || !content.trim() || content.length > 16000 || /<\/?(?:think|analysis)>/i.test(content)) throw invalid();
+  if (typeof content !== 'string' || !content.trim() || content.length > 16000) throw invalid();
+  if (/<\/?(?:think|analysis)>/i.test(content)) throw invalid('reasoning_in_content');
   return { content, toolCalls: [], finishReason, usage: readAgentModelUsage(response) };
 }

@@ -702,6 +702,13 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   No paid fallback. Fixture success does not establish real account/model readiness.
   Agent policy persists separately from Lending's per-visit 70/35/35 reset. Canonical
   snapshots retain coverage gaps; unknown amounts or missing pinning never become zero.
+- Agent output uses a closed Cloudflare json_schema selector for five deterministic
+  tools and reviewed explanations. Do not combine it with a competing native-tool
+  request or accept arbitrary generated financial prose. Metadata-only output
+  diagnostics must never retain prompts, response text, reasoning or arguments.
+  Rejected prose settles as failed even if its JSON syntax is valid. Qwen's /no_think
+  is a documented prompt hint, not a guaranteed runtime flag. The provider catalog
+  currently lists planned Qwen deprecation on 15 Nov 2026; review it before that date.
 - Research is bounded to configured sources with immutable evidence. Strategy arithmetic
   and paper marks use shared deterministic code; arbitrary model financial prose has
   no authority. Saved briefs create append-only decisions, and owner acceptance means

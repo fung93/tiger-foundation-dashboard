@@ -86,7 +86,7 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 
 - Full `npm run check` passes. Latest targeted checks: policy 47, real-SQLite storage90,
   financial tools84, brain229, API102, relay/Telegram integration 60, portable interface43.
-- Browser fixture checks cover both themes at360/1366: existing suite84 and policy/tool/
+- Browser fixture checks cover both themes at 360/1366: existing suite84 and policy/tool/
   diagnostics suite128; an actual target-form test found a malformed option that was
   corrected and added to the portable checks. Final browser transport checks pass.
 - Confirmed policy persists separately; Lending defaults remain70/35/35 and untouched.
@@ -256,3 +256,33 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   deployments may have started from the push; their status remains unverified.
 - Browser/CLI activation walkthrough: docs/AGENT-ACTIVATION.md. The next owner account
   step is applying the additive usage/storage migrations in the existing D1 database.
+
+### Live activation evidence and response-contract follow-up — 6 November 2026
+
+- [x] Owner verified agent_state, agent_usage and agent_storage_metrics plus all three
+  storage triggers in the real D1 Console. No additional migration is needed for this fix.
+- [x] Owner's dashboard returned current readings and a factual fallback. The shared
+  login/relay/data path works for that request. D1 recorded the Qwen attempt as failed
+  invalid_model_output with 262 actual output tokens against an 800-token maximum.
+  This rules out ordinary output-cap exhaustion; no budget/token limit was raised.
+- [x] Found an incoherent contract: prompt requested five tool selectors while the
+  request advertised only native calculateTargetHealth and json_object syntax. Now
+  one closed Cloudflare json_schema describes all five selectors and explanations.
+  Native declaration removed; legacy parser, exact owner intent, deterministic
+  arithmetic, read-only wallets and per-attempt reservation controls remain.
+- [x] Added bounded output diagnostics (stage, reason, finish, shape and token counts)
+  without raw provider strings, model prose, reasoning, credentials or argument values.
+  Rejected prose can no longer settle as succeeded or advance accepted-answer evidence.
+- [x] New/extended tests: brain 244, API 110, interface 107, output diagnostics 96;
+  full npm run check passed again. Real browser checks passed 40 assertions over both
+  themes at 360/1366. The model stays Qwen with 800 output tokens and a documented soft
+  /no_think prompt hint; a new live account test remains necessary.
+- [x] Worker dry run passes with the current AI/D1 bindings (348.24 KiB; gzip 90.50 KiB).
+  Cache version is 151; model profile/output contract versions invalidate responses
+  from the earlier format.
+- [ ] Publish this follow-up and verify automatic hosting deployment.
+- [ ] Owner retries a new dashboard question and checks Model output check/finish/tokens
+  and a new successful-inference timestamp. Exact prior raw output was never retained,
+  so its precise failed branch is not retroactively proven by the category alone.
+- Current official catalog lists planned Qwen deprecation on 15 November 2026; recorded
+  in diagnostics/setup so an explicit supported replacement can be evaluated in time.

@@ -289,11 +289,36 @@ before dashboard questions can work. Share only the error text, never secret val
 Also check the deployed Worker's **Bindings** includes Workers AI named `AI`.
 
 The agent distinguishes AI connection failures, timeouts, free-allowance exhaustion and
-incomplete answers. These messages do not expose raw provider errors. An incomplete
-answer is rejected without saving a conversation reply or changing preferences.
-The default model uses Cloudflare's [JSON mode](https://developers.cloudflare.com/workers-ai/features/json-mode/);
-both JSON strings and structured response objects still pass the same strict action and
-financial-calculation validation. Only explicit tested Qwen and GLM profiles are accepted; there is no automatic
+incomplete answers. These messages do not expose raw provider errors. Rejected model
+text is never saved as an accepted answer or applied as a settings change. A clearly
+labeled deterministic factual fallback may enter shared conversation history.
+
+The model uses Cloudflare's documented direct JSON Schema format:
+`response_format: {type: 'json_schema', json_schema: <closed planning schema>}`.
+One schema permits five read-only tool selectors or reviewed explanation/preferences
+selectors. No competing native-tool declaration is sent. JSON strings and structured
+response objects still pass the same strict intent and financial-calculation validation.
+Qwen receives its documented `/no_think` prompt hint; no unsupported binding flag is
+invented, reasoning is never shown, and incomplete output still fails closed.
+
+For invalid_model_output, open Connection & usage after sending a new question. Model
+output check shows normalization/parsing/selection failure or accepted selection;
+Model finish and Model output tokens distinguish a truncated answer from malformed
+content. These are bounded metadata only. Neither provider text nor reasoning is saved.
+Rejected prose settles its usage attempt as failed and cannot establish a successful
+inference timestamp. Existing reservations and history remain intact.
+
+The owner-reported first live failure used 262 of 800 output tokens, so raising the cap
+was not supported by that evidence. The request/response contract was corrected instead;
+the live outcome still requires a new authenticated test after deployment.
+
+Cloudflare's [Qwen catalog](https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/workers-ai-models/qwen3-30b-a3b-fp8.json)
+lists planned deprecation on 15 November 2026. Diagnostics display that date. Recheck
+availability and evaluate the explicit GLM alternate before retirement; no automatic
+model or paid-provider switch is enabled. The prompt hint is documented in
+[Qwen's official README](https://github.com/QwenLM/Qwen3/blob/main/README.md#quickstart).
+
+Only explicit locally tested Qwen and GLM profiles are accepted; there is no automatic
 model switch. The retired Llama identifier is rejected with a model-unavailable category.
 
 ### Run the checks

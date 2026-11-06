@@ -1,5 +1,6 @@
 /* Verified provider envelopes and profile boundaries, without real inference. */
 import assert from 'node:assert/strict';
+import { AGENT_OUTPUT_SCHEMA } from '../api/_agent-output-schema.mjs';
 import { DEFAULT_AGENT_MODEL, AGENT_MODEL_PROFILES, getAgentModelProfile, createAgentModelRequest,
   normalizeAgentModelResponse, readAgentModelUsage, estimateAgentModelCost } from '../api/_agent-models.mjs';
 
@@ -17,9 +18,9 @@ for (const profile of Object.values(AGENT_MODEL_PROFILES)) {
   check(profile.verification.includes('live_account_unverified'), true, 'A fixture benchmark never claims real account access');
   check(profile.maxOutputTokens, 800, 'Every profile keeps the existing output cap');
   const request = createAgentModelRequest(profile, [{ role: 'user', content: 'Hello' }]);
-  check(request.response_format, { type: 'json_object' }, 'Both catalog schemas support structured-output requests');
+  check(request.response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'The binding receives the direct Cloudflare planning schema');
   check(request.stream, false, 'Streaming and unbounded partial output are disabled');
-  check(request.tools.map(row => row.function.name), ['calculateTargetHealth'], 'Only the closed deterministic lending tool is exposed');
+  check(Object.hasOwn(request,'tools'), false, 'Native tools do not compete with the closed JSON planning schema');
   const normalized = normalizeAgentModelResponse(profile, completion());
   check(normalized, { content, toolCalls: [], finishReason: 'stop', usage: { inputTokens: 4000, outputTokens: 1000, totalTokens: 5000 } },
     'Documented completion envelopes preserve final content, finish reason and usage');

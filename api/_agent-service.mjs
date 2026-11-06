@@ -7,6 +7,7 @@ import { getAgentModelProfile, AGENT_MODEL_SCHEMA_VERSION } from './_agent-model
 import { getAgentPolicy } from './_agent-policy.mjs';
 import { agentAction, researchQuestion } from './_agent-actions.mjs';
 import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
+import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
 const ANSWER_SCHEMA = 'agent-answer-v3', CURRENT_TTL = 90000;
@@ -96,7 +97,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     const messages = await store.get('messages') || [];
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
     const reading = { ...(context || await loadContext({ origin: getAgentOrigin(env) })), policy };
-    let result, inferenceSucceeded = false;
+    let result, inferenceSucceeded = false, modelOutput = null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());
     const research = researchQuestion(message);
     await agentJobPhase(lock, handle, research ? 'retrieving' : 'inference');
@@ -114,7 +115,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       let budget, usedInference = false;
       const ledger = () => budget ||= budgetFactory(env, { jobId });
       const inference = { reserve: async args => { const attempt = await ledger().reserve(args); usedInference = true; return attempt; },
-        settle: (attempt, outcome) => ledger().settle(attempt, outcome) };
+        settle: (attempt, outcome) => ledger().settle(attempt, outcome),
+        observe: value => { modelOutput = safeAgentOutputDiagnostic(value); } };
       result = await respond({ message: message.trim(), messages: messages.slice(-12), settings, context: reading, policy, env, inference });
       inferenceSucceeded = usedInference && !result?.errorCategory;
     } catch (error) {
@@ -164,7 +166,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     if (Array.isArray(result.calculationIds)) answer.calculationIds = result.calculationIds;
     if (result.report) answer.report = result.report;
     const writes = [{ key: 'messages', value: next }, { key: 'settings', value: settings }, { key: 'sources', value: answer.sources }];
-    writes.push({ key: 'diagnostics:lastRequest', value: { ts, mode: answer.mode, errorCategory: answer.errorCategory } });
+    writes.push({ key: 'diagnostics:lastRequest', value: { ts, mode: answer.mode, errorCategory: answer.errorCategory, modelOutput } });
     if (inferenceSucceeded && profile) writes.push({ key: 'diagnostics:lastInference', value: { ts, status: 'succeeded',
       modelId: profile.id, profileVersion: profile.version } });
     const completedAt = Date.now();

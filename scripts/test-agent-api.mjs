@@ -9,6 +9,7 @@ import { getAgentOrigin, readJson, safeEqual } from '../api/_agent-http.mjs';
 import { setupTelegram } from './agent-telegram-setup.mjs';
 import { agentDiagnostics } from '../api/_agent-diagnostics.mjs';
 import { getAgentModelProfile } from '../api/_agent-models.mjs';
+import { summarizeAgentModelOutput } from '../api/_agent-output-diagnostics.mjs';
 
 let checks = 0;
 const check = (a, b, text) => { assert.deepEqual(a, b, text); checks++; };
@@ -83,6 +84,13 @@ try {
   check(r.body.model.accountConnectivity, 'unverified', 'Configured model is not claimed to be live before an inference succeeds');
   check(r.body.budget.available, false, 'A missing usage migration remains a visible diagnostic blocker');
   check(JSON.stringify(r.body).includes(env.AGENT_ACCESS_KEY), false, 'Diagnostics never expose the owner key');
+  await store.set('diagnostics:lastRequest',{errorCategory:'invalid_model_output',modelOutput:{
+    ...summarizeAgentModelOutput({choices:[{message:{role:'assistant',content:'PRIVATE rejected content',reasoning_content:'PRIVATE reasoning'},finish_reason:'length'}]},
+      {stage:'normalize',reason:'truncated'}),secret:'PRIVATE_SECRET'}});
+  r=await request('POST',{action:'diagnostics'},auth);
+  check(r.body.lastModelOutput.reason,'truncated','Authenticated diagnostics expose the bounded failure reason');
+  check(r.body.lastModelOutput.finishReason,'length','A capped response can be distinguished from invalid JSON');
+  check(JSON.stringify(r.body.lastModelOutput).includes('PRIVATE'),false,'Raw content and unknown stored fields never enter diagnostic responses');
   r = await request('GET', undefined, auth);
   check(r.body.messages, undefined, 'An old service worker cannot cache private history from an authenticated GET');
   check(r.body.authenticated, false, 'Public GET metadata never exposes a logged-in session');
@@ -234,6 +242,14 @@ try {
   check(factual.mode, 'facts_only', 'An AI-only outage preserves a clearly labeled deterministic response');
   check(factual.errorCategory, 'configuration_missing', 'The deterministic response explains missing inference setup');
   check(factual.reply.includes('current readings unavailable'), true, 'Missing source readings stay unavailable in a fallback');
+  const badOutputStore=new MemoryStore(),settlements=[];
+  const malformed=await processAgentMessage({store:badOutputStore,context,requestId:'bad-model-output',message:'Hello',
+    env:{...env,AI:{run:async()=>({response:'{PRIVATE malformed JSON'})}},budgetFactory:()=>({reserve:async()=>({id:'malformed'}),settle:async(_attempt,outcome)=>settlements.push(outcome)})});
+  check(malformed.errorCategory,'invalid_model_output','Malformed model output still produces the deterministic fallback');
+  check((await badOutputStore.get('diagnostics:lastRequest')).modelOutput.reason,'invalid_json','Failure metadata survives the fallback and fenced shared-state commit');
+  check(await badOutputStore.get('diagnostics:lastInference'),null,'Malformed output cannot mark the selected model successful');
+  check(settlements[0].outcome,'failed','The rejected model answer settles its attempt once as failed');
+  check(JSON.stringify(await badOutputStore.get('diagnostics:lastRequest')).includes('PRIVATE'),false,'Persisted model metadata cannot retain provider content');
   const storageDown = new MemoryStore(); storageDown.get = async () => { throw Error('private database failure'); };
   await rejects(() => processAgentMessage({ store: storageDown, message: 'Hello', env, context }),
     'A database outage is never disguised as an AI-only fallback');

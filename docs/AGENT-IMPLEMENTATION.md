@@ -4,7 +4,8 @@ The ordered A–F implementation is complete locally, with the Workflow componen
 explicitly deferred because research remains bounded synchronous execution. The
 agent is not verified operational against the real Cloudflare account. The owner has
 now explicitly authorized committing, pushing and deploying after local review. Remote
-migrations, webhook registration and real delivery still require account access. The
+migrations were verified by the owner through table/trigger inspection. Accepted Qwen
+responses, scheduled monitoring and real Telegram delivery remain unverified. The
 separately authorized LP rollover fix remains preserved at 6cbb805. The implementation
 is now published on main as `ad80012`; live activation remains unverified. Follow
 [AGENT-ACTIVATION.md](AGENT-ACTIVATION.md) for the account steps.
@@ -35,6 +36,9 @@ and the published rollover helper have no local modifications.
   evidence82, gateway28, integration60, interface104, policy47, canonical portfolio78,
   reports41, scenarios/paper observations39, store90, Telegram/monitor114, tools84,
   Worker53 and API102 assertions.
+- Response-contract follow-up: brain 244, API 110, interface 107 and content-free output
+  diagnostics 96 assertions pass. Full npm run check passes again; real Chromium checks
+  cover the new failure/success fields and logout privacy in both themes at 360/1366.
 - Real SQLite tests cover reservation races, lost leases, dual-fence rollback, process
   interruption, immutable journal records, stale editors and policy changes mid-answer.
   A suspended provider does not block real deterministic critical monitoring or erase
@@ -65,11 +69,14 @@ existing configured D1 ID; their remote schema/bindings are not verified here.
 Deployment preflight confirmed no authenticated Wrangler session or agent secrets in
 this workspace. Saved secrets on the real Worker remain unverified, not presumed absent.
 
-Real Qwen availability/response/usage, free-plan CPU/latency/subrequests/rows, D1 migration
-and read/write, dashboard session/relay, scheduled monitoring and Telegram delivery still
-need verification on the real account after explicit publication authorization. Production
-Vercel endpoint reads were blocked by this environment's CONNECT403 policy. No live
-success is inferred from model playground greetings or fixture tests.
+The owner verified the real D1 tables/triggers and supplied a live dashboard fallback
+plus a recorded Qwen attempt using 262 of 800 output tokens. That verifies progress through
+the shared authenticated data path and inference usage storage, while the model answer
+was rejected. The follow-up fixes the response contract and adds metadata-only diagnostics.
+An accepted new Qwen response, free-plan CPU/latency/subrequests/rows, scheduled monitoring
+and Telegram delivery still require real-account verification. Production Vercel endpoint
+reads were blocked by this environment's CONNECT403 policy. No accepted live inference
+is inferred from model playground greetings or fixture tests.
 
 Configured repository documentation supports focused background research. It does not
 establish complete current news/governance/incentive coverage or general internet search.
@@ -123,6 +130,9 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 ### New local files
 
 - `docs/AGENT-ACTIVATION.md`
+- `api/_agent-output-diagnostics.mjs`
+- `api/_agent-output-schema.mjs`
+- `scripts/test-agent-output-diagnostics.mjs`
 - `TIGER_AGENT_IMPLEMENTATION_PLAN.md`
 - `TIGER_AGENT_PROGRESS.md`
 - `api/_agent-actions.mjs`

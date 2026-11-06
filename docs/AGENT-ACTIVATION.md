@@ -31,6 +31,11 @@ Rerun the table-name query. All three names should appear. These additive script
 retain existing sessions, messages and private records. If Console reports an error,
 stop at that script and share only the error text, with credentials removed.
 
+If Console says No SQL statements detected, check whether copying collapsed line
+breaks after a leading `--` comment. Remove full comment lines or preserve the raw
+file's newlines before running it. Creation statements normally return no data;
+the verification query confirms the tables exist.
+
 If you already use authenticated Wrangler locally, the alternative is one command
 from the updated repository root:
 
@@ -113,6 +118,12 @@ If chat returns factual mode or an error, share the safe error category and comp
 statuses. Do not share keys, cookies or bot tokens. If Qwen availability is in doubt,
 test that exact model in Workers AI Playground with `Reply with OK.` A playground
 reply is an additional diagnosis, not a replacement for the dashboard test.
+
+After the response-contract update, Connection & usage also shows Model output check,
+Model finish and Model output tokens. If a new question still returns
+invalid_model_output, share those three metadata fields. They contain no model prose
+or secrets. A model/profile update requires a fresh successful-inference timestamp;
+an older reply or cached failure cannot verify the new version.
 
 ## 6. Pair Telegram
 

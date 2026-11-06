@@ -1,6 +1,7 @@
 import { getAgentModelProfile, AGENT_MODEL_SCHEMA_VERSION } from './_agent-models.mjs';
 import { createAgentBudget } from './_agent-budget.mjs';
 import { agentErrorCategory } from './_agent-http.mjs';
+import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
 
 // Called only after the normal owner session check. No provider request, secret,
 // transcript, wallet amount or raw database/provider error belongs in this view.
@@ -23,12 +24,14 @@ export async function agentDiagnostics({ env, store, budgetFactory = createAgent
       monitor: monitor?.status === 'failed' || monitor?.degraded || monitor?.ts && Date.now() - Date.parse(monitor.ts) > 600000 ? 'degraded' : monitor?.status || 'unverified', telegramConfigured: !!env.TELEGRAM_BOT_TOKEN && !!env.TELEGRAM_WEBHOOK_SECRET },
     model: { id: profile?.id || null, profileVersion: profile?.version || null,
       documentationVerifiedAt: profile?.verifiedAt || null, errorCategory: modelError || null,
+      plannedDeprecationDate: profile?.plannedDeprecationDate || null,
       accountConnectivity: selectedModelSucceeded ? 'previous_success' : 'unverified' },
     lastSuccessfulInference: selectedModelSucceeded ? lastInference.ts : null,
     lastSuccessfulInferenceAnyModel: lastInference?.ts || budget?.lastSuccessfulInference || null,
     lastMonitorSuccess: monitorSuccess?.ts || (monitor?.status === 'checked' ? monitor.ts : null),
     nextIntendedMonitorCheck: monitor?.ts ? new Date(Date.parse(monitor.ts) + 300000).toISOString() : null,
     lastErrorCategory: lastRequest?.errorCategory || null,
+    lastModelOutput: safeAgentOutputDiagnostic(lastRequest?.modelOutput),
     monitorSources: monitor?.sources || [], storageUsage,
     jobs: { execution: 'bounded_synchronous', backgroundRunner: false, sampled: jobs?.items?.map(({value}) => ({kind:value.kind,state:value.state,phase:value.phase,updatedAt:value.updatedAt})) || [], hasMore: !!jobs?.cursor },
     delivery: { pending: !!pending, remainingItems: pending ? Math.max(0, (pending.items?.length || 0) - (pending.itemIndex || 0)) : 0 }, budget };

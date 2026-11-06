@@ -1,6 +1,7 @@
 /* Cross-channel integration with the real handlers, service and AI tool protocol.
    Every external provider is a local fixture; no model/bot/RPC is contacted. */
 import assert from 'node:assert/strict';
+import { AGENT_OUTPUT_SCHEMA } from '../api/_agent-output-schema.mjs';
 import { readFileSync } from 'node:fs';
 import { createAgentHandler } from '../api/agent.mjs';
 import { createTelegramHandler } from '../api/agent-telegram.mjs';
@@ -55,7 +56,7 @@ try {
     check(name, '@cf/qwen/qwen3-30b-a3b-fp8', 'The Qwen candidate is the selected Workers AI profile');
     modelCalls++;
     check(body.max_tokens, 800, 'Free inference has a bounded output allowance');
-    check(body.response_format, { type: 'json_object' }, 'The default model enforces JSON output for both channels and calculation rounds');
+    check(body.response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'The default model enforces JSON output for both channels and calculation rounds');
     const calculation = body.messages.find(m => m.role === 'user' && m.content.startsWith('Verified lending calculation result'));
     if (calculation) {
       const result = JSON.parse(calculation.content.split('\n')[1]);

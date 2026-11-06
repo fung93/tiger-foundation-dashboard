@@ -348,6 +348,9 @@ async function runVerifiedTool(name,args={}){
 function renderDiagnostics(value){
   const box=$('agentDiagnosticsResult');box.replaceChildren();const rows=[];
   const components=value.components||{},model=value.model||{},budget=value.budget||{};
+  const output=value.lastModelOutput;
+  if(output)rows.push(['Model output check',output.stage+' · '+output.reason],['Model finish',output.finishReason||'Not reported'],['Model output tokens',Number.isSafeInteger(output.usage?.outputTokens)?String(output.usage.outputTokens):'Not reported']);
+  if(model.plannedDeprecationDate)rows.push(['Planned model retirement',model.plannedDeprecationDate]);
   rows.push(['Session',components.session||'unverified'],['Gateway',components.gateway||'unverified'],['Private storage',components.storage||'unverified'],['AI binding',components.inference||'unverified'],['AI explanations',components.inferenceEnabled===false?'Disabled':'Enabled'],['Model',model.id||'Unavailable'],['Model connection',model.accountConnectivity||'unverified'],['Last successful inference',date(value.lastSuccessfulInference)||'No verified success'],['Last monitor success',date(value.lastMonitorSuccess)||'No verified success'],['Next intended check',date(value.nextIntendedMonitorCheck)||'Not reported'],['Last error',value.lastErrorCategory||'None reported']);
   if(budget.available===false)rows.push(['Usage ledger',budget.errorCategory||'Unavailable']);
   else rows.push(['AI usage · current UTC day',Number.isFinite(budget.chargedNeurons)&&Number.isFinite(budget.dailyLimitNeurons)?budget.chargedNeurons.toFixed(2)+' / '+budget.dailyLimitNeurons+' neurons':'Not reported'],['Uncertain attempts',Number.isSafeInteger(budget.unknownAttempts)?String(budget.unknownAttempts):'Not reported'],['Budget reset',date(budget.resetsAt)||'Not reported']);
