@@ -284,7 +284,8 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   confirm that the new request path is deployed and records metadata.
 - [x] Owner retried a new dashboard question. It still failed before JSON parsing;
   exact sanitized response-shape metadata is recorded in the next investigation.
-- [ ] Obtain an accepted live answer with a new successful-inference timestamp.
+- [x] Owner confirmed a fresh accepted live lending answer after the compatibility
+  update; acceptance evidence is recorded below.
 - Current official catalog lists planned Qwen deprecation on 15 November 2026; recorded
   in diagnostics/setup so an explicit supported replacement can be evaluated in time.
 
@@ -308,4 +309,34 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   content-free subreasons identify future failures without retaining provider output.
   Profile version is v3, model contract v4, cache 152. No migration, secrets, budget,
   notification preferences, financial history or deterministic accounting changed.
-- [ ] Publish the compatibility fix and verify a new real dashboard question.
+- [x] Published compatibility fix 85b8d22; owner confirmed a fresh real lending response
+  observed 6 November 2026 at 20:23:54 MYT, status ready and accepted/valid_selector.
+  No loan amounts, wallet details or calculation/snapshot identifiers are copied here.
+
+### Dashboard live acceptance passed — 6 November 2026
+
+- [x] Owner successfully used the authenticated dashboard and Qwen selection path to
+  obtain a server-rendered, deterministic lending-risk calculation. This verifies the
+  dashboard path for that request; it does not prove every tool or transport works.
+- [ ] Verify Telegram pairing and an authenticated reply using the same owner store.
+- [ ] Verify an actual scheduled monitor tick and intended Telegram delivery.
+- [ ] Measure real provider/Worker CPU, latency and account allowance behavior.
+- Strategy policy remains unconfirmed at version 0. Owner preferences must be entered
+  through preview/confirm before treating them as an allocation mandate.
+
+### Telegram setup state — 6 November 2026
+
+- Owner reported a wait cursor on Link Telegram. Code inspection and browser checks
+  confirmed the button is disabled when its server-side Telegram readiness is false.
+  Owner then confirmed neither TELEGRAM_BOT_TOKEN nor TELEGRAM_WEBHOOK_SECRET is
+  present in the existing Worker's Variables and Secrets. No secret value was shared.
+- Clarified the unavailable state: Setup required, explicit Worker configuration
+  instructions, a not-allowed cursor and a setup tooltip. A wait cursor now applies
+  only during an actual pairing request; status refresh cannot re-enable it mid-request.
+- Full npm run check passed. Browser checks 68 passed across both themes and 360/1366,
+  including missing setup, cursor state, code generation, bot link and privacy cleanup.
+- The owner must add the two Secrets privately and deploy. This code change does not
+  configure bot credentials or register its webhook, and does not affect the working
+  Qwen profile, D1 schema, financial calculations or wallet permissions. Cache 153.
+- [ ] Owner confirms the button becomes available after configuring the Worker.
+- [ ] Register/verify the authenticated webhook, then confirm pairing and a bot reply.

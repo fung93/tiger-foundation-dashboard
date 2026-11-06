@@ -11,6 +11,8 @@
 .agent-quiet{color:var(--dim)}
 .agent-button:focus-visible,.agent-page input:focus-visible,.agent-page textarea:focus-visible,.agent-page summary:focus-visible,.agent-shortcuts button:focus-visible,.agent-text-button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .agent-button:disabled,.agent-page input:disabled,.agent-page textarea:disabled,.agent-shortcuts button:disabled{opacity:.5;cursor:wait}
+#agentPair:disabled{cursor:not-allowed}
+#agentPair[aria-busy=true]{cursor:wait}
 .agent-access{max-width:540px;margin:30px auto 60px;padding:34px}
 .agent-access-icon{font-size:27px;color:var(--gold);margin-bottom:19px}
 .agent-access h3{font:400 30px/1.2 var(--serif)}

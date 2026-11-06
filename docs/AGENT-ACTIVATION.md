@@ -132,6 +132,14 @@ normalization reasons distinguish role, finish, tool metadata and content proble
 
 ## 6. Pair Telegram
 
+If Link Telegram is disabled, check the Worker's TELEGRAM_BOT_TOKEN and
+TELEGRAM_WEBHOOK_SECRET first. Both are required; the webhook secret must have at
+least 24 characters. A missing configuration shows Setup required. The disabled
+button uses a not-allowed cursor; a wait cursor is reserved for an active request.
+Create these entries as Secrets in Cloudflare, save/deploy, then refresh Agent.
+Retain the new webhook secret privately for the registration step below.
+Set the optional text variable TELEGRAM_BOT_USERNAME without @ for a clickable bot link.
+
 If Telegram already shows Linked, use the existing private bot chat. Otherwise choose
 Link Telegram, open the bot link and send its `/start CODE` message. Pairing codes
 expire in 10 minutes. The bot should confirm the connection. Ask `Check my lending

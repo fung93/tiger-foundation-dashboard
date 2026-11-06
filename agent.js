@@ -78,10 +78,11 @@ function renderSettings(){
 }
 function renderTelegram(){
   const linked=state?.telegram?.connected===true,available=state?.readiness?.telegram===true;
-  $('agentTelegramState').textContent=linked?'Linked':'Not linked';$('agentTelegramState').dataset.state=linked?'ready':'';
-  $('agentPair').hidden=linked;$('agentPair').disabled=!available;
+  $('agentTelegramState').textContent=linked?'Linked':available?'Not linked':'Setup required';$('agentTelegramState').dataset.state=linked?'ready':'';
+  $('agentPair').hidden=linked;$('agentPair').disabled=!available||$('agentPair').getAttribute('aria-busy')==='true';
+  $('agentPair').title=available?'Create your private Telegram linking code.':'Add the Telegram secrets in your Cloudflare Worker, then deploy and refresh.';
   $('agentUnlink').hidden=!linked;
-  $('agentTelegramNote').textContent=linked?'Your private Telegram chat shares this conversation and these preferences.':available?'Connect your private Telegram chat for questions and alerts while the dashboard is closed.':'The Telegram connection still needs to be set up. You can use dashboard chat once the agent is connected.';
+  $('agentTelegramNote').textContent=linked?'Your private Telegram chat shares this conversation and these preferences.':available?'Connect your private Telegram chat for questions and alerts while the dashboard is closed.':'Setup required: add TELEGRAM_BOT_TOKEN and a TELEGRAM_WEBHOOK_SECRET of at least 24 characters in Cloudflare → your Worker → Settings → Variables and Secrets. Deploy, then refresh this page.';
   if(linked)$('agentPairing').hidden=true;
 }
 function renderAlerts(){
@@ -183,7 +184,8 @@ $('agentSettingsForm').addEventListener('submit',event=>{
 $('agentPause').addEventListener('click',()=>saveSettings({pausedUntil:new Date(Date.now()+8*3600000).toISOString()}));
 $('agentResume').addEventListener('click',()=>saveSettings({pausedUntil:null}));
 $('agentPair').addEventListener('click',async()=>{
-  const view=privateViewVersion,button=$('agentPair');button.disabled=true;
+  const view=privateViewVersion,button=$('agentPair');if(button.getAttribute('aria-busy')==='true')return;
+  button.disabled=true;button.setAttribute('aria-busy','true');
   try{
     const pair=await request('pair',{});
     if(!samePrivateView(view))return;
@@ -196,7 +198,7 @@ $('agentPair').addEventListener('click',async()=>{
     }
     $('agentPairing').hidden=false;notice('Open your bot in Telegram and send the linking message.');
   }catch(error){if(samePrivateView(view))notice(error.message,true);}
-  finally{if(view===privateViewVersion)button.disabled=state?.readiness?.telegram!==true;}
+  finally{if(view===privateViewVersion){button.disabled=state?.readiness?.telegram!==true;button.setAttribute('aria-busy','false');}}
 });
 $('agentUnlink').addEventListener('click',async()=>{
   const view=privateViewVersion,button=$('agentUnlink');button.disabled=true;
@@ -360,6 +362,7 @@ function renderDiagnostics(value){
   for(const [label,text] of rows){const row=element('div','agent-diagnostic-row');row.append(element('span','',label),element('span','',text));box.append(row);}
 }
 function clearPrivateAnalysis(){
+  $('agentPair')?.setAttribute('aria-busy','false');
   journalSelection=null;journalCursor=null;journalEventCursor=null;journalBusy=false;journalPending=null;
   for(const id of ['agentJournalList','agentJournalMeta','agentJournalBaseline','agentJournalEvents','agentJournalReportText'])$(id)?.replaceChildren();
   for(const id of ['agentJournalDetail','agentJournalMore','agentJournalEventsMore'])if($(id))$(id).hidden=true;
