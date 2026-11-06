@@ -85,7 +85,7 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 ### Package C local gate passed
 
 - Full `npm run check` passes. Latest targeted checks: policy 47, real-SQLite storage90,
-  financial tools84, brain229, API102, relay/Telegram integration60, portable interface43.
+  financial tools84, brain229, API102, relay/Telegram integration 60, portable interface43.
 - Browser fixture checks cover both themes at360/1366: existing suite84 and policy/tool/
   diagnostics suite128; an actual target-form test found a malformed option that was
   corrected and added to the portable checks. Final browser transport checks pass.
@@ -116,7 +116,7 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 ### Package D local gate passed
 
 - Full `npm run check` passes. Latest targeted suites: evidence82, optional context89,
-  immutable real-SQLite research reports29, interface89, brain229/tools84/integration60.
+  immutable real-SQLite research reports29, interface89, brain229/tools84/integration 60.
 - Browser D156 and C128 checks pass; baseline/cleanup rerun continues independently.
 - Configured Morpho/Sushi/Merkl background docs are verified; unavailable docs and absent
   announcement/governance/incentive feeds remain explicit limitations, not current claims.
@@ -242,3 +242,17 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - Cloudflare still has no authenticated session in this workspace. Any account steps
   that cannot be executed here will be guided through the owner's existing dashboard.
   No secret values should be pasted into this conversation.
+
+### Code published — real-account activation pending
+
+- Committed and pushed the reviewed 58-file implementation as ad80012 to origin/main.
+  Pulled with rebase before pushing; remote main SHA was verified. No unrelated
+  financial snapshot updates were overwritten, and rollover 6cbb805 remains in history.
+- Immediately before release, Worker 53, relay 28, API 102 and cross-channel integration 60
+  assertions passed; prior full npm run check and corrected-target dry run passed.
+- Live Vercel service-worker verification remains blocked by CONNECT403. Cloudflare
+  CLI is unauthenticated, so no remote migrations, account plan/model tests, webhook
+  registration or direct Worker deployment were executed here. Automatic hosting
+  deployments may have started from the push; their status remains unverified.
+- Browser/CLI activation walkthrough: docs/AGENT-ACTIVATION.md. The next owner account
+  step is applying the additive usage/storage migrations in the existing D1 database.

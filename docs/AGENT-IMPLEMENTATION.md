@@ -5,7 +5,9 @@ explicitly deferred because research remains bounded synchronous execution. The
 agent is not verified operational against the real Cloudflare account. The owner has
 now explicitly authorized committing, pushing and deploying after local review. Remote
 migrations, webhook registration and real delivery still require account access. The
-separately authorized LP rollover fix remains preserved at 6cbb805.
+separately authorized LP rollover fix remains preserved at 6cbb805. The implementation
+is now published on main as `ad80012`; live activation remains unverified. Follow
+[AGENT-ACTIVATION.md](AGENT-ACTIVATION.md) for the account steps.
 
 ## What is implemented
 
@@ -120,6 +122,7 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 
 ### New local files
 
+- `docs/AGENT-ACTIVATION.md`
 - `TIGER_AGENT_IMPLEMENTATION_PLAN.md`
 - `TIGER_AGENT_PROGRESS.md`
 - `api/_agent-actions.mjs`
