@@ -293,19 +293,28 @@ try {
       check(Object.hasOwn(request,'tools'),false,'A health question no longer competes with a repayment-only native tool');
       check(request.response_format.json_schema.oneOf.some(branch=>branch.properties?.tool?.properties?.name?.enum?.includes('getLendingRisk')),true,'The actual Qwen response grammar permits the requested risk reading');
       check(request.messages[0].content.endsWith('/no_think'),true,'Qwen receives its documented prompt-level non-thinking hint');
-      return {choices:[{message:{role:'assistant',content:JSON.stringify({tool:{name:'getLendingRisk',args:{}}})},finish_reason:'stop'}],
+      return {response:{tool:{name:'getLendingRisk',args:{}}},tool_calls:[],
+        choices:[{message:{role:'assistant',content:JSON.stringify({tool:{name:'getLendingRisk',args:{}}}),
+          tool_calls:null,reasoning_content:'PRIVATE_PROVIDER_REASONING'},finish_reason:'stop'}],
         usage:{prompt_tokens:1000,completion_tokens:35,total_tokens:1035}};
     }}}});
   check(healthReply.toolResults[0].toolName,'getLendingRisk','The activation-test question executes a verified lending-risk tool');
   check(healthReply.action,null,'Reading lending risk cannot change notification settings');
   check(healthModelCalls,1,'A valid selection needs no repair call or extra inference');
   check(outputNotes.at(-1).reason,'valid_selector','Successful planning is distinguished from configured bindings');
+  check(outputNotes.at(-1).envelope,'hybrid','The activation question works through a completion plus matching legacy alias');
+  check(healthReply.reply.includes('PRIVATE_PROVIDER_REASONING'),false,'A successful hybrid response never reveals separate provider reasoning');
   outputSettlements.length=0;outputNotes.length=0;
   await respondAgent({message:'Check my lending health.',context,inference:outputLedger,
     env:{AI:{run:async()=>({response:{reply:'PRIVATE unsupported financial prose 999999',preferenceChanges:[]}})}}});
   check(outputSettlements[0].outcome,'failed','Rejected prose is no longer recorded as successful inference');
   check(outputNotes[0].reason,'unapproved_reply','A valid JSON object with unsupported prose has its own safe reason');
   check(JSON.stringify(outputNotes).includes('PRIVATE'),false,'Content-free failure observations never expose generated prose');
+  const unsupported={reply:'PRIVATE unsupported financial prose 999999',preferenceChanges:[]};
+  const unsafeHybrid=await respondAgent({message:'Check my lending health.',context,inference:outputLedger,
+    env:{AI:{run:async()=>({response:unsupported,choices:[{message:{role:'assistant',content:JSON.stringify(unsupported)},finish_reason:'stop'}]})}}});
+  check(unsafeHybrid.errorCategory,'invalid_model_output','Matching response aliases cannot authorize unsupported financial prose');
+  check(unsafeHybrid.reply.includes('999999'),false,'Financial response validation remains in force after wrapper normalization');
   outputSettlements.length=0;outputNotes.length=0;
   await rejects(respondAgent({message:'Check my lending health.',context,inference:outputLedger,
     env:{AI:{run:async()=>({choices:[{message:{role:'assistant',content:'{}',reasoning_content:'PRIVATE thinking'},finish_reason:'length'}],

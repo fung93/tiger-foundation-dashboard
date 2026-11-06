@@ -39,7 +39,12 @@ openai.choices[0].message.tool_calls = [{ id: PRIVATE, type: 'function', functio
 value = diagnostic(openai, { stage: 'normalize', reason: 'invalid_selector' });
 check([value.envelope, value.nativeToolCount, value.finishReason, value.contentType], ['chat_completion', 1, 'tool_calls', 'null'],
   'OpenAI native envelopes remain identifiable without inspecting tool values');
-check(diagnostic({ ...completion(), response: PRIVATE }).envelope, 'ambiguous', 'Conflicting completion envelopes remain identifiable');
+check(diagnostic({ ...completion(), response: PRIVATE }).envelope, 'hybrid', 'Completion and legacy aliases are identifiable without recording their contents');
+check(diagnostic({...completion(),tool_calls:[]}).envelope,'chat_completion','An empty root tool list is compatibility metadata rather than a second answer');
+check(diagnostic({response:content,tool_calls:null}).nativeToolCount,0,'A null optional tool field contains no tool requests');
+check(diagnostic({response:content,tool_calls:[]}).envelope,'workers_json','An empty optional tool list preserves JSON-mode envelope classification');
+check(diagnostic({...completion(),tool_calls:[{name:PRIVATE}]}).envelope,'ambiguous','An additional real root tool request remains distinguishable from empty metadata');
+check(safeAgentOutputReason('conflicting_envelope'),'conflicting_envelope','Conflicting aliases have an approved content-free reason');
 check(diagnostic({ response: { [PRIVATE]: PRIVATE } }).jsonShape, 'object', 'Native JSON objects need no serialization or key copying');
 check(diagnostic({ response: { [PRIVATE]: PRIVATE } }).contentCharacters, null, 'Object content is not stringified for a size estimate');
 check(diagnostic({ response: '{"private":"' + PRIVATE }).jsonShape, 'invalid', 'Malformed JSON exposes its shape only');

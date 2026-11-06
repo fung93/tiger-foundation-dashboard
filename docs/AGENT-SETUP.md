@@ -308,6 +308,18 @@ content. These are bounded metadata only. Neither provider text nor reasoning is
 Rejected prose settles its usage attempt as failed and cannot establish a successful
 inference timestamp. Existing reservations and history remain intact.
 
+Workers AI can return one completion in both `choices` and a legacy `response`
+field. The adapter accepts matching bounded JSON aliases (including reordered object
+keys), empty compatibility fields and nullable/empty tool-call metadata. Conflicting
+answers or additional real calls fail closed. Separate reasoning is discarded. A
+Model response format of `hybrid` describes this wrapper and can accompany an accepted
+answer. Model profile shows which response adapter is deployed.
+
+The owner observed `normalize · invalid_envelope` with one stopped choice, a valid
+121-character JSON string and 83 output tokens. Its wrapper was classified ambiguous
+by the previous adapter. Compatibility handling and specific failure reasons were
+added; the financial selector/intent checks and 800-token cap remain unchanged.
+
 The owner-reported first live failure used 262 of 800 output tokens, so raising the cap
 was not supported by that evidence. The request/response contract was corrected instead;
 the live outcome still requires a new authenticated test after deployment.

@@ -709,6 +709,11 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   Rejected prose settles as failed even if its JSON syntax is valid. Qwen's /no_think
   is a documented prompt hint, not a guaranteed runtime flag. The provider catalog
   currently lists planned Qwen deprecation on 15 Nov 2026; review it before that date.
+- Workers AI may return both choices and a legacy response alias. Accept a single
+  completed selection when aliases match as bounded JSON or the legacy field is
+  empty. Empty/null tool-call metadata is not a second request. Reject disagreeing
+  aliases, extra actual calls, truncation and unsupported final selectors; never
+  expose separate reasoning. Diagnostic format labels do not themselves imply failure.
 - Research is bounded to configured sources with immutable evidence. Strategy arithmetic
   and paper marks use shared deterministic code; arbitrary model financial prose has
   no authority. Saved briefs create append-only decisions, and owner acceptance means

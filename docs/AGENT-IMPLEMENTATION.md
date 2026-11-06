@@ -39,6 +39,11 @@ and the published rollover helper have no local modifications.
 - Response-contract follow-up: brain 244, API 110, interface 107 and content-free output
   diagnostics 96 assertions pass. Full npm run check passes again; real Chromium checks
   cover the new failure/success fields and logout privacy in both themes at 360/1366.
+- Hybrid-wrapper follow-up: model 122, brain 248 and output diagnostics 109 assertions
+  cover duplicate legacy/completion aliases, structured JSON, empty/null tool metadata,
+  disagreement rejection and preserved financial/prose validation. Real account metadata
+  narrowed the failed stage to normalization; the corrected adapter still needs a new
+  live accepted-answer check after publication.
 - Real SQLite tests cover reservation races, lost leases, dual-fence rollback, process
   interruption, immutable journal records, stale editors and policy changes mid-answer.
   A suspended provider does not block real deterministic critical monitoring or erase

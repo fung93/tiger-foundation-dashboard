@@ -3,8 +3,11 @@
 export const AGENT_OUTPUT_DIAGNOSTIC_SCHEMA = 'agent-output-diagnostics-v1';
 const stages = new Set(['normalize', 'parse', 'validate', 'render', 'accepted', 'unknown']);
 const reasons = new Set(['truncated', 'invalid_envelope', 'reasoning_in_content', 'invalid_json',
-  'invalid_selector', 'unapproved_reply', 'valid_selector', 'unknown']);
-const envelopes = new Set(['chat_completion', 'workers_json', 'workers_native_tools', 'text', 'ambiguous', 'unknown']);
+  'invalid_selector', 'unapproved_reply', 'valid_selector', 'conflicting_envelope',
+  'invalid_tool_metadata', 'unserializable_content', 'invalid_content_type', 'missing_final_content',
+  'content_too_large', 'invalid_choice_count', 'invalid_message_role', 'invalid_finish_reason',
+  'model_refusal', 'tool_finish_mismatch', 'mixed_tool_content', 'unknown']);
+const envelopes = new Set(['chat_completion', 'workers_json', 'workers_native_tools', 'text', 'hybrid', 'ambiguous', 'unknown']);
 const finishes = new Set(['stop', 'tool_calls', 'length', 'max_tokens', 'content_filter', 'other']);
 const types = new Set(['missing', 'null', 'string', 'object', 'array', 'number', 'boolean', 'other']);
 const shapes = new Set(['object', 'array', 'string', 'number', 'boolean', 'null', 'invalid', 'not_present', 'too_large', 'unknown']);
@@ -30,7 +33,7 @@ function kind(value, present = true) {
 }
 function integer(value, max) { return Number.isSafeInteger(value) && value >= 0 && value <= max; }
 function count(value) {
-  if (value === undefined) return 0;
+  if (value === undefined || value === null) return 0;
   const length = array(value) ? own(value, 'length') : null;
   return integer(length, Number.MAX_SAFE_INTEGER) ? Math.min(length, MAX_COUNT) : null;
 }
@@ -58,14 +61,14 @@ export function summarizeAgentModelOutput(response, options = {}) {
   const choices = own(response, 'choices'), native = own(response, 'tool_calls');
   if (typeof response === 'string') { envelope = 'text'; content = response; present = true; }
   else if (has(response, 'choices')) {
-    envelope = has(response, 'response') || has(response, 'tool_calls') ? 'ambiguous' : 'chat_completion';
+    envelope = has(response, 'response') ? 'hybrid' : count(native) !== 0 ? 'ambiguous' : 'chat_completion';
     choiceCount = count(choices);
     message = own(own(choices, '0'), 'message');
     content = own(message, 'content'); present = has(message, 'content');
     finishReason = finish(own(own(choices, '0'), 'finish_reason'));
     nativeToolCount = count(own(message, 'tool_calls'));
   } else if (record(response)) {
-    envelope = has(response, 'tool_calls') ? 'workers_native_tools' : has(response, 'response') ? 'workers_json' : 'unknown';
+    envelope = count(native) !== 0 ? 'workers_native_tools' : has(response, 'response') ? 'workers_json' : 'unknown';
     content = own(response, 'response'); present = has(response, 'response');
     finishReason = finish(own(response, 'finish_reason'));
     nativeToolCount = count(native);

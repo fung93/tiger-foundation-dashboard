@@ -280,9 +280,32 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [x] Worker dry run passes with the current AI/D1 bindings (348.24 KiB; gzip 90.50 KiB).
   Cache version is 151; model profile/output contract versions invalidate responses
   from the earlier format.
-- [ ] Publish this follow-up and verify automatic hosting deployment.
-- [ ] Owner retries a new dashboard question and checks Model output check/finish/tokens
-  and a new successful-inference timestamp. Exact prior raw output was never retained,
-  so its precise failed branch is not retroactively proven by the category alone.
+- [x] Published the response-contract follow-up as 908f094. Owner's UI/D1 diagnostics
+  confirm that the new request path is deployed and records metadata.
+- [x] Owner retried a new dashboard question. It still failed before JSON parsing;
+  exact sanitized response-shape metadata is recorded in the next investigation.
+- [ ] Obtain an accepted live answer with a new successful-inference timestamp.
 - Current official catalog lists planned Qwen deprecation on 15 November 2026; recorded
   in diagnostics/setup so an explicit supported replacement can be evaluated in time.
+
+### Hybrid response wrapper — 6 November 2026
+
+- Owner supplied the current stored diagnostic: normalize/invalid_envelope,
+  envelope ambiguous, finish stop, one choice, string content 121 characters, valid
+  JSON object, separate reasoning present, zero message-level native calls and 83
+  completion tokens. The response completed without hitting the 800-token cap.
+- Reproduced local rejection of otherwise valid structured content, duplicate
+  completion/response aliases, empty root tool lists and nullable tool metadata.
+- Fixed compatibility handling: identical bounded JSON aliases are one answer;
+  missing/null/blank legacy aliases and empty/null tool metadata are ignored.
+  Conflicting aliases, extra actual calls, truncated output and unapproved prose
+  remain rejected. Separate reasoning is never returned or persisted.
+- Model 122, brain 248, output diagnostics 109 and API 110 targeted assertions pass.
+  Full npm run check passed; 48 real browser assertions passed over both themes at
+  360/1366, including the new wrapper/profile labels and private logout cleanup.
+  Wrangler dry run passed (350.50 KiB; gzip 91.00 KiB) with the existing AI/D1 bindings.
+- Added Model response format and Model profile to the private diagnostics; detailed
+  content-free subreasons identify future failures without retaining provider output.
+  Profile version is v3, model contract v4, cache 152. No migration, secrets, budget,
+  notification preferences, financial history or deterministic accounting changed.
+- [ ] Publish the compatibility fix and verify a new real dashboard question.

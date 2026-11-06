@@ -120,10 +120,15 @@ test that exact model in Workers AI Playground with `Reply with OK.` A playgroun
 reply is an additional diagnosis, not a replacement for the dashboard test.
 
 After the response-contract update, Connection & usage also shows Model output check,
-Model finish and Model output tokens. If a new question still returns
-invalid_model_output, share those three metadata fields. They contain no model prose
+Model response format, Model profile, Model finish and Model output tokens. If a new
+question still returns invalid_model_output, share those metadata fields. They contain no model prose
 or secrets. A model/profile update requires a fresh successful-inference timestamp;
 an older reply or cached failure cannot verify the new version.
+
+The current adapter's model profile ends in `2026-11-06:v3`. A `hybrid` response format
+is supported when its legacy and modern fields carry the same final JSON answer.
+`normalize · conflicting_envelope` means meaningful fields disagree; other specific
+normalization reasons distinguish role, finish, tool metadata and content problems.
 
 ## 6. Pair Telegram
 
