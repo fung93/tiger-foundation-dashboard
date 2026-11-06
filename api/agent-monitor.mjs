@@ -6,6 +6,7 @@ import { loadAgentContext } from './_agent-context.mjs';
 import { summarizeAgent } from './_agent-brain.mjs';
 import { monitorConditions, mytDayAndTime, sendTelegram } from './_agent-notifications.mjs';
 import { forwardAgentRequest } from './_agent-gateway.mjs';
+import { getAgentPolicy } from './_agent-policy.mjs';
 
 const COOLDOWN = 6 * 3600000;
 const paused = (settings, timestamp) => settings.pausedUntil && Date.parse(settings.pausedUntil) > timestamp;
@@ -18,28 +19,66 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
     if (!['POST', 'GET'].includes(req.method)) { res.setHeader('allow', 'GET, POST'); return json(res, 405, { error: 'Use GET or POST.' }); }
     if (!env.CRON_SECRET || env.CRON_SECRET.length < 24) return json(res, 503, { error: 'Monitoring is not configured.' });
     if (!safeEqual(req.headers?.authorization || '', 'Bearer ' + env.CRON_SECRET)) return json(res, 401, { error: 'Monitoring request could not be verified.' });
-    let owner;
+    let monitor, store, commit;
     try {
       const deliveryDeadline = Date.now() + 45000;
       let sentChunks = 0;
-      const origin = getAgentOrigin(env), store = storeFactory(env), timestamp = now(), iso = new Date(timestamp).toISOString();
-      owner = await store.lock('owner', 90);
-      if (!owner) return json(res, 200, { ok: true, skipped: 'busy' });
-      const settings = await getSettings(store);
+      const origin = getAgentOrigin(env), timestamp = now(), iso = new Date(timestamp).toISOString();
+      store = storeFactory(env);
+      monitor = await store.lock('monitor', 90);
+      if (!monitor) return json(res, 200, { ok: true, skipped: 'busy' });
+      commit = async entries => {
+        const owner = await store.lock('owner', 15);
+        if (!owner) throw Error('A short private update is in progress.');
+        try {
+          // Merge shared conversation state only while the owner lease is held.
+          const shared = entries.find(entry => entry.key === 'messages');
+          if (shared) {
+            const latest = await store.get('messages') || [], added = shared.value.at(-1);
+            shared.value = latest.some(message => added.id && message.id === added.id) ? latest : [...latest,added].slice(-24);
+          }
+          await monitor.commit(entries, { alsoOwned: [owner] });
+        } finally { await owner.release(); }
+      };
+      let settings = await getSettings(store);
+      let policy = await getAgentPolicy(store);
       if (paused(settings, timestamp)) {
-        await owner.commit([{ key: 'lastCheck', value: { ts: iso, status: 'paused', sources: [] } }]);
+        await commit([{ key: 'lastCheck', value: { ts: iso, status: 'paused', sources: [] } }]);
         return json(res, 200, { ok: true, skipped: 'paused' });
       }
       const binding = await store.get('telegram'), linked = binding && env.TELEGRAM_BOT_TOKEN;
-      const context = await loadContext({ origin, fetcher, now });
+      const triggers = policy.constraints?.lpReviewTriggers || {};
+      const needs = triggers.rewardChangePct != null || triggers.priceMovePct != null ? ['strategy'] : [];
+      const context = await loadContext({ origin, fetcher, now, needs });
+      settings = await getSettings(store); policy = await getAgentPolicy(store);
+      if (paused(settings, timestamp)) {
+        await commit([{key:'lastCheck',value:{ts:iso,status:'paused',sources:[]}}]);
+        return json(res,200,{ok:true,skipped:'paused'});
+      }
+      let decisions = [];
+      if (store.list) {
+        const cursor = await store.get('monitor:decisionCursor');
+        const page = await store.list('journal:decision:', { cursor, limit: 20 });
+        decisions = page.items.map(item => item.value);
+        await commit([{key:'monitor:decisionCursor',value:page.cursor}]);
+      }
       let state = await store.get('monitor:state') || { conditions: {}, dailyDate: null };
-      const conditions = monitorConditions(context, settings), day = mytDayAndTime(timestamp);
+      const previousConditions = state.policyVersion === policy.version ? state.conditions : Object.fromEntries(Object.entries(state.conditions).filter(([key]) => !key.startsWith('lp:')));
+      const conditions = monitorConditions(context, settings, { policy, previous: previousConditions, decisions, now: timestamp }), day = mytDayAndTime(timestamp);
+      const limitations = [];
+      if (needs.length && context.strategy?.status !== 'fresh') limitations.push('Current campaign/price coverage is incomplete.');
+      if ((triggers.outOfRange || triggers.maxOutOfRangeHours != null) && (context.lp?.positions || []).some(row => !row.canonical?.block)) limitations.push('Some LP range readings have no pinned block.');
+      if (store.storageUsage) {
+        try { const usage = await store.storageUsage(); conditions.storage = { active: usage.status === 'review_required', type:'data', severity:'warning',
+          title:'Private storage budget',message:'Private payload storage is approaching its local budget; review Cloudflare usage. Durable decisions were retained.',sourceTs:iso }; }
+        catch { limitations.push('Private storage accounting requires the storage migration.'); }
+      }
       let pending = await store.get('monitor:pending');
       const deliver = async () => {
         if (!pending) return;
         // A disconnected/replaced recipient never inherits pending messages.
         if (!linked || pending.chatId !== binding.chatId) {
-          await owner.commit([{ key: 'monitor:pending', remove: true }]); pending = null; return;
+          await commit([{ key: 'monitor:pending', remove: true }]); pending = null; return;
         }
         while (pending.itemIndex < pending.items.length) {
           const item = pending.items[pending.itemIndex];
@@ -57,11 +96,15 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
             if (deliveredMessage !== item.text) { pending.sentParts = 0; item.text = deliveredMessage; }
             await sendTelegram(binding.chatId, deliveredMessage, { env, fetcher, origin, startPart: pending.sentParts || 0,
               beforePart: async () => {
-                await owner.assertOwned();
+                await monitor.assertOwned();
+                const currentSettings = await getSettings(store), currentBinding = await store.get('telegram');
+                if (paused(currentSettings, now()) || currentBinding?.chatId !== binding.chatId
+                  || !(item.type === 'daily' ? currentSettings.dailyEnabled : currentSettings.alertsEnabled)
+                  || (await getAgentPolicy(store)).version !== policy.version) throw Error('Delivery requires fresh preferences and policy.');
                 if (sentChunks >= 4 || Date.now() >= deliveryDeadline) throw Error('Continue pending delivery on the next check.');
               },
               onPart: async sentParts => { sentChunks++; pending.sentParts = sentParts;
-                await owner.commit([{ key: 'monitor:pending', value: pending }]); } });
+                await commit([{ key: 'monitor:pending', value: pending }]); } });
           }
           const alerts = await store.get('alerts') || [];
           for (const alert of alerts) if (item.alertId === alert.id) {
@@ -72,17 +115,21 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
             state.conditions[item.key].notifiedAt = 0;
           pending.itemIndex++;
           pending.sentParts = 0;
-          await owner.commit([{ key: 'alerts', value: alerts }, { key: 'monitor:pending', value: pending },
+          await commit([{ key: 'alerts', value: alerts }, { key: 'monitor:pending', value: pending },
             { key: 'monitor:state', value: state }]);
         }
-        await owner.commit([{ key: 'monitor:pending', remove: true }]); pending = null;
+        await commit([{ key: 'monitor:pending', remove: true }]); pending = null;
       };
       await deliver();
-      const events = [], next = { ...state, conditions: { ...state.conditions },
+      const events = [], next = { ...state, policyVersion: policy.version, conditions: { ...previousConditions },
         telegramChatId: linked ? binding.chatId : null };
       const newChannel = !!linked && state.telegramChatId !== binding.chatId;
       if (settings.alertsEnabled) for (const [key, condition] of Object.entries(conditions)) {
-        const before = state.conditions?.[key], repeated = before?.active && timestamp - (before.notifiedAt || 0) >= COOLDOWN;
+        const before = previousConditions?.[key];
+        const observedActive = condition.active;
+        const consecutive = observedActive ? (before?.consecutive || 0) + 1 : 0;
+        if (condition.persistence && consecutive < condition.persistence && condition.severity !== 'critical') condition.active = false;
+        const repeated = before?.active && timestamp - (before.notifiedAt || 0) >= COOLDOWN;
         const escalated = condition.active && before?.active && condition.severity === 'critical' && before.severity !== 'critical';
         if (condition.active && (!before?.active || repeated || escalated || newChannel)) {
           events.push({ id: randomUUID(), key, type: condition.type, severity: condition.severity,
@@ -92,11 +139,12 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
         } else if (!condition.active && before?.active) {
           events.push({ id: randomUUID(), key, type: condition.type, severity: 'info', title: 'Reading recovered',
             message: condition.type === 'data' ? condition.title.replace(' needs attention', '') + ' is fresh again.'
-              : condition.title + ' is within your alert limits or has no outstanding debt.',
+              : condition.type === 'lending' ? condition.title + ' is within your alert limits or has no outstanding debt.' : condition.message,
             ts: iso, sourceTs: condition.sourceTs, status: 'recovered', telegramSent: false });
           next.conditions[key] = { active: false, notifiedAt: timestamp };
         } else next.conditions[key] = before ? { ...before, active: condition.active, severity: condition.severity }
           : { active: false, notifiedAt: 0 };
+        Object.assign(next.conditions[key], { consecutive, firstSeen: condition.firstSeen ?? null, anchor: condition.anchor ?? null });
       }
       const dailyDue = !!(settings.dailyEnabled && day.time >= settings.dailyTime && state.dailyDate !== day.day);
       if (dailyDue) {
@@ -107,7 +155,9 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
       }
       const alerts = [...(await store.get('alerts') || []), ...events].slice(-30);
       const entries = [{ key: 'monitor:state', value: next }, { key: 'alerts', value: alerts },
-        { key: 'lastCheck', value: { ts: iso, status: 'checked', sources: context.sources || [] } }];
+        { key: 'lastCheck', value: { ts: iso, status: 'checked', nextIntendedCheck: new Date(timestamp + 300000).toISOString(),
+          degraded: limitations.length > 0 || (context.sources || []).some(source => ['lending','lp'].includes(source.name) && source.status !== 'fresh'), limitations, sources: context.sources || [] } },
+        { key: 'monitor:lastSuccess', value: { ts: iso } }];
       if (dailyDue) {
         const messages = await store.get('messages') || [];
         const brief = events.find(e => e.type === 'daily');
@@ -120,13 +170,14 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           text: e.title + '\n' + e.message })), itemIndex: 0, sentParts: 0, ts: iso };
         entries.push({ key: 'monitor:pending', value: pending });
       }
-      await owner.commit(entries);
+      await commit(entries);
       state = next;
       await deliver();
       return json(res, 200, { ok: true, alerts: events.length, daily: dailyDue, telegram: !!linked, checkedAt: iso });
     } catch {
+      if (commit) { try { await commit([{key:'lastCheck',value:{ts:new Date(now()).toISOString(),status:'failed',degraded:true,errorCategory:'monitor_unavailable'}}]); } catch {} }
       return json(res, 503, { error: 'The monitoring check did not finish. The next scheduled check can retry.' });
-    } finally { if (owner) { try { await owner.release(); } catch {} } }
+    } finally { if (monitor) { try { await monitor.release(); } catch {} } }
   };
 }
 

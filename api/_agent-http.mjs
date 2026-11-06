@@ -1,6 +1,15 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-export function httpError(status, message) { return Object.assign(new Error(message), { status, expose: true }); }
+export function httpError(status, message, category) { return Object.assign(new Error(message), { status, expose: true,
+  ...(category ? { category } : {}) }); }
+const ERROR_CATEGORIES = new Set(['configuration_missing', 'authentication_failed', 'model_unavailable',
+  'quota_exhausted', 'rate_limited', 'timeout', 'invalid_model_output', 'data_stale', 'data_unavailable', 'request_failed']);
+export function agentErrorCategory(error) {
+  if (error?.expose && ERROR_CATEGORIES.has(error.category)) return error.category;
+  if (error?.status === 401 || error?.status === 403) return 'authentication_failed';
+  if (error?.status === 429) return 'rate_limited';
+  return 'request_failed';
+}
 export function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || !a || !b) return false;
   return timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());

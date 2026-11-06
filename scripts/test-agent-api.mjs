@@ -7,6 +7,8 @@ import { createAgentHandler } from '../api/agent.mjs';
 import { processAgentMessage, normalizeSettings } from '../api/_agent-service.mjs';
 import { getAgentOrigin, readJson, safeEqual } from '../api/_agent-http.mjs';
 import { setupTelegram } from './agent-telegram-setup.mjs';
+import { agentDiagnostics } from '../api/_agent-diagnostics.mjs';
+import { getAgentModelProfile } from '../api/_agent-models.mjs';
 
 let checks = 0;
 const check = (a, b, text) => { assert.deepEqual(a, b, text); checks++; };
@@ -24,12 +26,12 @@ class MemoryStore {
   async setMany(entries) { for (const { key, value, remove } of entries) { if (remove) await this.del(key); else await this.set(key, value); } }
   async lock(k) { if (this.locks.has(k)) return null; this.locks.add(k); return { assertOwned: async () => {}, commit: entries => this.setMany(entries), release: async () => this.locks.delete(k) }; }
 }
-const store = new MemoryStore(); let modelCalls = 0;
-const context = { sources: [{ name: 'lending', status: 'fresh', ts: '2030-01-01T00:00:00Z' }] };
+const store = new MemoryStore(); let modelCalls = 0, contextReads = 0;
+const context = { sources: [{ name: 'lending', status: 'fresh', ts: new Date(Date.now() - 1000).toISOString() }] };
 const respond = async ({ message }) => { modelCalls++; return { reply: 'Verified answer to ' + message, action: null, sources: context.sources }; };
 const messageOptions = { store, env, context, respond };
 const handler = createAgentHandler({ env, storeFactory: () => store,
-  processMessage: opts => processAgentMessage({ ...opts, context, respond }) });
+  processMessage: opts => processAgentMessage({ ...opts, context, respond }), loadContext: async () => { contextReads++; return context; } });
 async function request(method = 'GET', body, extra = {}, target = handler) {
   const req = { method, url: '/api/agent', headers: { host: 'tiger.test', origin: env.AGENT_ORIGIN, 'content-type': 'application/json', ...extra }, body };
   const res = { headers: {}, statusCode: 200, setHeader(k, v) { this.headers[k.toLowerCase()] = v; }, status(n) { this.statusCode = n; return this; }, end(v) { this.body = JSON.parse(v); } };
@@ -47,9 +49,11 @@ try {
   check(r.body.configured, false, 'POST status honestly reports unconfigured state too');
   r = await request(); check(r.body.authenticated, false, 'A configured agent still requires owner sign-in');
   check(r.body.messages, undefined, 'Public status never exposes private conversation history');
+  check(r.body.model, undefined, 'Public readiness does not expose the private configured model');
   check(r.headers['cache-control'].includes('no-store'), true, 'Private API responses cannot be cached');
   check(r.headers['access-control-allow-origin'], undefined, 'The private API has no wildcard CORS');
   r = await request('POST', { action: 'chat', message: 'How is my LP?' }); check(r.statusCode, 401, 'Chat cannot spend model credits before authentication');
+  r = await request('POST', { action: 'diagnostics' }); check(r.statusCode, 401, 'Operational diagnostics require an owner session');
   r = await request('POST', { action: 'login', accessKey: env.AGENT_ACCESS_KEY }, { origin: 'https://attacker.test' });
   check(r.statusCode, 403, 'Cross-site login is rejected even with a correct access key');
   r = await request('POST', { action: 'login', accessKey: 'incorrect' }); check(r.statusCode, 401, 'Wrong owner keys are rejected');
@@ -59,6 +63,26 @@ try {
   for (const flag of ['HttpOnly', 'SameSite=Strict', 'Secure', 'Path=/api']) check(r.headers['set-cookie'].includes(flag), true, 'Session cookie includes ' + flag);
   check(cookie.includes(env.AGENT_ACCESS_KEY), false, 'The owner key is not used as the session cookie');
   const auth = { cookie };
+  r = await request('POST', { action: 'tool', tool: 'transfer_tokens', args: {} }, auth);
+  check(r.statusCode, 400, 'Unknown financial actions cannot enter the closed read-only registry');
+  check(contextReads, 0, 'Tool authorization happens before any financial-source request');
+  r = await request('POST', { action: 'policy' }, auth);
+  check(r.body.version, 0, 'Alert defaults do not create a confirmed strategy policy');
+  r = await request('POST', { action: 'policyDraft', patch: { horizonDays: 30, minLiquidReserveUsd: 100 }, expectedVersion: 0 }, auth);
+  const draftId = r.body.draftId;
+  check(r.body.status, 'draft', 'An owner policy change is previewed before confirmation');
+  check(r.body.changes.length, 2, 'The policy preview names only the changed constraints');
+  r = await request('POST', { action: 'policy' }, auth);
+  check(r.body.version, 0, 'Previewing a policy does not silently confirm it');
+  r = await request('POST', { action: 'policyConfirm', draftId }, auth);
+  check(r.body.version, 1, 'An explicit confirmation creates a persistent policy version');
+  check(r.body.constraints.minLiquidReserveUsd, 100, 'Confirmed strategy constraints survive a separate request');
+  r = await request('POST', { action: 'diagnostics' }, auth);
+  check(r.statusCode, 200, 'The owner can inspect diagnostics without making a model call');
+  check(r.body.components.session, 'verified', 'Diagnostics distinguish verified session flow from configured bindings');
+  check(r.body.model.accountConnectivity, 'unverified', 'Configured model is not claimed to be live before an inference succeeds');
+  check(r.body.budget.available, false, 'A missing usage migration remains a visible diagnostic blocker');
+  check(JSON.stringify(r.body).includes(env.AGENT_ACCESS_KEY), false, 'Diagnostics never expose the owner key');
   r = await request('GET', undefined, auth);
   check(r.body.messages, undefined, 'An old service worker cannot cache private history from an authenticated GET');
   check(r.body.authenticated, false, 'Public GET metadata never exposes a logged-in session');
@@ -76,6 +100,18 @@ try {
   await request('POST', { action: 'chat', message: 'How is my LP?', requestId: 'dashboard:fixture-1' }, auth);
   check(modelCalls, 1, 'Retrying a request reuses the durable result without another model call');
   check((await store.get('messages')).length, 2, 'Retries do not duplicate shared history');
+  r = await request('POST', { action: 'chat', message: 'A different question', requestId: 'dashboard:fixture-1' }, auth);
+  check(r.statusCode, 409, 'A message reference cannot reuse an answer for different inputs');
+  const realNow = Date.now;
+  try {
+    const later = realNow() + 90001; Date.now = () => later;
+    r = await request('POST', { action: 'chat', message: 'How is my LP?', requestId: 'dashboard:fixture-1' }, auth);
+    check(r.body.errorCategory, 'data_stale', 'An expired financial response is never replayed as a fresh recommendation');
+  } finally { Date.now = realNow; }
+  r = await request('POST', { action: 'policyDraft', patch: { horizonDays: 45 }, expectedVersion: 1 }, auth);
+  await request('POST', { action: 'policyConfirm', draftId: r.body.draftId }, auth);
+  r = await request('POST', { action: 'chat', message: 'How is my LP?', requestId: 'dashboard:fixture-1' }, auth);
+  check(r.body.errorCategory, 'data_stale', 'A newly confirmed policy invalidates an older cached financial response');
   await processAgentMessage({ ...messageOptions, message: 'Lending health please', source: 'telegram', requestId: 'telegram:fixture-2' });
   r = await request('POST', { action: 'status' }, auth);
   check(r.body.messages.at(-1).source, 'telegram', 'Dashboard history includes the same Telegram conversation');
@@ -101,6 +137,66 @@ try {
   assert.throws(() => getAgentOrigin({ AGENT_ORIGIN: 'https://tiger.test/redirect?url=elsewhere' })); checks++;
   check(safeEqual('a', 'a'), true, 'Secret checks accept equal values'); check(safeEqual('a', 'b'), false, 'Secret checks reject different values');
   await rejects(() => readJson({ headers: { 'content-type': 'application/json', 'content-length': '99999' }, body: {} }), 'Body limits apply before parsing');
+
+  const budgetFixture = () => ({ status: async () => ({ lastSuccessfulInference: '2026-11-01T00:00:00Z' }) });
+  const diagnosticStore = new MemoryStore(), selected = getAgentModelProfile(env);
+  await diagnosticStore.set('diagnostics:lastInference', { ts: '2026-11-01T00:00:00Z', status: 'succeeded' });
+  let diagnostic = await agentDiagnostics({ env, store: diagnosticStore, budgetFactory: budgetFixture });
+  check(diagnostic.model.accountConnectivity, 'unverified', 'An old success without model provenance cannot verify the newly selected model');
+  check(diagnostic.lastSuccessfulInference, null, 'A different or unknown model success is not the selected model success');
+  check(diagnostic.lastSuccessfulInferenceAnyModel, '2026-11-01T00:00:00Z', 'Historical provider success remains separately labeled');
+  await diagnosticStore.set('diagnostics:lastInference', { ts: '2026-11-01T00:00:00Z', status: 'succeeded', modelId: selected.id, profileVersion: selected.version });
+  diagnostic = await agentDiagnostics({ env, store: diagnosticStore, budgetFactory: budgetFixture });
+  check(diagnostic.model.accountConnectivity, 'previous_success', 'Only an exact model and profile version match verifies previous connectivity');
+  diagnostic = await agentDiagnostics({ env: { ...env, AGENT_MODEL: '@cf/zai-org/glm-4.7-flash' }, store: diagnosticStore, budgetFactory: budgetFixture });
+  check(diagnostic.model.accountConnectivity, 'unverified', 'Changing the configured model requires new provider evidence');
+
+  const clock = Date.now, at = clock();
+  try {
+    Date.now = () => at;
+    const nearStore = new MemoryStore(); let calls = 0;
+    const nearContext = { sources: [{ name: 'lending', status: 'fresh', ts: new Date(at - 89000).toISOString() },
+      { name: 'history', status: 'fresh', ts: '2020-01-01T00:00:00Z' }] };
+    const nearOptions = { store: nearStore, env, context: nearContext, message: 'Check my health', requestId: 'near-expiry',
+      respond: async () => { calls++; return { reply: 'A verified current result.', action: null }; } };
+    await processAgentMessage(nearOptions);
+    await processAgentMessage(nearOptions);
+    check(calls, 1, 'A recent result can still be replayed before its original source expires; historical data does not expire the current source');
+    Date.now = () => at + 1001;
+    await rejects(() => processAgentMessage(nearOptions), /expired/, 'Cached financial data expires with its original source time, not model completion time');
+    check(calls, 1, 'An expired idempotent request cannot silently repeat inference');
+    Date.now = () => at;
+    await rejects(() => processAgentMessage({ ...nearOptions, env: { ...env, AGENT_MODEL: '@cf/zai-org/glm-4.7-flash' } }), /configuration has changed/, 'A model or profile change invalidates the old result without rerunning the same job');
+    await rejects(() => processAgentMessage({ ...nearOptions, env: { ...env, AGENT_INFERENCE_ENABLED: 'false' } }), /configuration has changed/, 'Disabling inference cannot replay an AI result from the enabled configuration');
+    const key = 'request:' + createHash('sha256').update('near-expiry').digest('hex');
+    const legacy = await nearStore.get(key); delete legacy.configurationHash; await nearStore.set(key, legacy);
+    await rejects(() => processAgentMessage(nearOptions), /configuration has changed/, 'A cache record from an older schema cannot verify its model fingerprint');
+
+    const slowStore = new MemoryStore();
+    const expired = await processAgentMessage({ store: slowStore, env, context: { asOf: new Date(at).toISOString(),
+      sources: [{ name: 'lending', status: 'fresh', ts: new Date(at - 89000).toISOString() }],
+      lending: { status: 'fresh', ts: new Date(at - 89000).toISOString(), markets: [{ status: 'fresh', label: 'avKAT / KAT',
+        ts: new Date(at - 89000).toISOString(), debt_amount: 1, health: 1.4, debt_usd: 100 }] } },
+    message: 'How much should I repay?', requestId: 'slow-reply', respond: async () => {
+      Date.now = () => at + 2000;
+      return { reply: 'Repay exactly 123 KAT now.', action: { type: 'settings', settings: { healthThreshold: 2 } } };
+    } });
+    check(expired.mode, 'facts_only', 'A model reply whose source expires during inference becomes dated deterministic facts');
+    check(expired.errorCategory, 'data_stale', 'Expiry during inference is visible as stale data');
+    check(expired.sources[0].status, 'stale', 'Source freshness is rechecked at completion');
+    check(expired.reply.includes('123'), false, 'An expired generated repayment amount is never returned');
+    check(expired.settings.healthThreshold, 1.2, 'A discarded expired reply cannot apply its proposed settings action');
+    check(await slowStore.get('diagnostics:lastInference'), null, 'An injected fixture responder cannot falsely attest a real model invocation');
+    Date.now = () => at;
+    const independent = await processAgentMessage({ store: new MemoryStore(), env,
+      context: { sources: [{ name: 'lp', status: 'fresh', ts: new Date(at - 89000).toISOString() }] },
+      message: 'Review the verified lending market', respond: async () => {
+        Date.now = () => at + 2000;
+        return { reply: 'Verified selected market result.', toolResults: [{ status: 'ready', validUntil: new Date(at + 90000).toISOString() }] };
+      } });
+    check(independent.reply, 'Verified selected market result.', 'An unrelated expired LP source cannot discard a separately verified market result');
+    check(independent.sources[0].status, 'stale', 'Unrelated source freshness is still rechecked independently');
+  } finally { Date.now = clock; }
 
   const setupCalls = [];
   const setupFetch = async (url, init) => {
@@ -132,5 +228,14 @@ try {
   await rejects(() => privateResponse, 'An offline agent request fails rather than exposing cached private content');
   await rejects(() => processAgentMessage({ ...messageOptions, message: 'hello', respond: async () => { throw Error('upstream failed'); } }), 'A model failure is surfaced');
   check(store.locks.has('owner'), false, 'A failed model call releases the owner lock');
+  const fallbackStore = new MemoryStore();
+  const factual = await processAgentMessage({ store: fallbackStore, message: 'Check my lending health.',
+    env: { ...env, AI: undefined }, context, requestId: 'missing-ai' });
+  check(factual.mode, 'facts_only', 'An AI-only outage preserves a clearly labeled deterministic response');
+  check(factual.errorCategory, 'configuration_missing', 'The deterministic response explains missing inference setup');
+  check(factual.reply.includes('current readings unavailable'), true, 'Missing source readings stay unavailable in a fallback');
+  const storageDown = new MemoryStore(); storageDown.get = async () => { throw Error('private database failure'); };
+  await rejects(() => processAgentMessage({ store: storageDown, message: 'Hello', env, context }),
+    'A database outage is never disguised as an AI-only fallback');
   console.log('Agent API and private state: ' + checks + ' assertions passed.');
 } finally { globalThis.fetch = before; }

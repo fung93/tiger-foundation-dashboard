@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createAgentStore } from './_agent-store.mjs';
-import { json, httpError, readJson, requireSameOrigin, safeEqual, getAgentOrigin, publicError } from './_agent-http.mjs';
+import { json, httpError, readJson, requireSameOrigin, safeEqual, getAgentOrigin, publicError, agentErrorCategory } from './_agent-http.mjs';
 import { getSettings, normalizeSettings, processAgentMessage } from './_agent-service.mjs';
 import { forwardAgentRequest } from './_agent-gateway.mjs';
+import { agentDiagnostics } from './_agent-diagnostics.mjs';
+import { agentAction } from './_agent-actions.mjs';
+import { getAgentPolicy } from './_agent-policy.mjs';
 
 const COOKIE = 'tiger_agent_session', SESSION_TTL = 7 * 86400;
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -11,7 +14,7 @@ function readiness(env) {
   try { getAgentOrigin(env); origin = true; } catch {}
   try { createAgentStore(env); storage = true; } catch {}
   const owner = typeof env.AGENT_ACCESS_KEY === 'string' && env.AGENT_ACCESS_KEY.length >= 24;
-  return { origin, storage, owner, ai: typeof env.AI?.run === 'function',
+  return { origin, storage, owner, ai: typeof env.AI?.run === 'function' && env.AGENT_INFERENCE_ENABLED !== 'false',
     telegram: !!env.TELEGRAM_BOT_TOKEN && (env.TELEGRAM_WEBHOOK_SECRET || '').length >= 24,
     monitor: (env.CRON_SECRET || '').length >= 24 };
 }
@@ -26,15 +29,16 @@ function setCookie(res, token, env, expire = false) {
 async function privateStatus(req, store, available, env) {
   const token = cookie(req);
   if (!token || !await store.get('session:' + hash(token))) return { configured: true, authenticated: false, readiness: available };
-  const [settings, messages, alerts, binding, sources, lastCheck] = await Promise.all([
-    getSettings(store), store.get('messages'), store.get('alerts'), store.get('telegram'), store.get('sources'), store.get('lastCheck'),
+  const [settings, messages, alerts, binding, sources, lastCheck, policy] = await Promise.all([
+    getSettings(store), store.get('messages'), store.get('alerts'), store.get('telegram'), store.get('sources'), store.get('lastCheck'), getAgentPolicy(store),
   ]);
   return { configured: true, authenticated: true, readiness: available,
-    settings, messages: messages || [], alerts: alerts || [], sources: sources || [], last_check: lastCheck,
+    settings, policy, messages: messages || [], alerts: alerts || [], sources: sources || [], last_check: lastCheck,
     telegram: { connected: !!binding, username: env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '') || null } };
 }
 
-export function createAgentHandler({ env = process.env, storeFactory = createAgentStore, processMessage = processAgentMessage } = {}) {
+export function createAgentHandler({ env = process.env, storeFactory = createAgentStore, processMessage = processAgentMessage,
+  loadContext } = {}) {
   return async function handler(req, res) {
     try {
       if (await forwardAgentRequest(req, res, { env })) return;
@@ -66,6 +70,9 @@ export function createAgentHandler({ env = process.env, storeFactory = createAge
       }
       const token = cookie(req);
       if (!token || !await store.get('session:' + hash(token))) throw httpError(401, 'Sign in to your private agent first.');
+      if (body.action === 'diagnostics') return json(res, 200, await agentDiagnostics({ env, store }));
+      const action = await agentAction(body, { env, store, ...(loadContext ? { loadContext } : {}) });
+      if (action !== null) return json(res, 200, action);
       if (body.action === 'logout') {
         await store.del('session:' + hash(token)); setCookie(res, '', env, true);
         return json(res, 200, { authenticated: false });
@@ -94,7 +101,7 @@ export function createAgentHandler({ env = process.env, storeFactory = createAge
         return json(res, 200, { code, expiresAt: new Date(Date.now() + 600000).toISOString(),
           url: /^[a-zA-Z0-9_]{5,32}$/.test(username) ? 'https://t.me/' + username + '?start=' + code : null });
       } finally { await lock.release(); }
-    } catch (error) { const safe = publicError(error); return json(res, safe.status, { error: safe.message }); }
+    } catch (error) { const safe = publicError(error); return json(res, safe.status, { error: safe.message, errorCategory: agentErrorCategory(error) }); }
   };
 }
 export default createAgentHandler();

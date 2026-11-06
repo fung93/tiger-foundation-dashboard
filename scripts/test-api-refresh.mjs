@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders,
   savedBookValid, savedFables } from '../api/_live-cache.mjs';
+import { V3, FABLES } from '../api/_core.mjs';
+import { compactLPPositions } from '../portfolio-core.mjs';
 
 let checks = 0;
 const check = (actual, expected, note) => { assert.deepEqual(actual, expected, note); checks++; };
@@ -24,7 +26,7 @@ function handler(file, dependencies) {
     .replace(/^import[^\n]*\n/gm, '').replace('export default async function handler', 'async function handler');
   return vm.runInNewContext(source + '\nhandler', { Date: TestDate, URL, Map, Promise,
     createLiveCache, requestOrigin, lpViewComplete, responseHeaders, savedBookValid, savedFables,
-    BOOK_VERSION: seed.version, ...dependencies }, { filename: file });
+    BOOK_VERSION: seed.version, V3, FABLES, compactLPPositions, ...dependencies }, { filename: file });
 }
 async function call(run, host = 'dashboard.example') {
   const response = { headers: {}, code: null, text: '',
@@ -99,6 +101,10 @@ try {
     'A new saved source discards an obsolete runtime claim anchor before rebuilding effective rewards');
   check(first[0].body.effective_reward, 80, 'The actual endpoint renders ledger-attributed rewards rather than raw native rewards');
   check(first[0].body.reward_basis, { 'katana:replacement': 80 }, 'The view receives the same rollover basis used by the ledger');
+  check(first[0].body.position_data.every(row => row.status === 'unavailable' && row.principalUsd === null), true,
+    'The compact endpoint view leaves a missing raw position read unavailable rather than fabricating zero principal');
+  check(first[0].body.position_data.every(row => /^0x[0-9a-f]{40}$/.test(row.owner)), true,
+    'Compact position owners come from the ledger address, not a display label');
   check(state.pricedReward, .004, 'Live pricing uses the effective reward reading returned by advancement');
   check(state.scanWindows, 3, 'The controlled six-hour backlog takes three RH windows');
   check(first.every((answer) => answer.code === 200 && answer.headers['cache-control'].startsWith('s-maxage=10')), true,

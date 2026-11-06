@@ -31,7 +31,11 @@ function harness(mode='complete') {
     rpc:async(method)=>{
       if(method==='eth_getBalance')return'0x0';
       if(method==='eth_blockNumber')return'0x64';
-      if(method==='eth_getLogs'){if(mode==='logs-failed')throw Error('forced logs failure');return[];}
+      if(method==='eth_getLogs'){
+        if(mode==='logs-failed'||mode==='new-logs-failed')throw Error('forced logs failure');
+        if(mode==='new-staked')return[{topics:['0xtransfer','0x'+word(CFG.wallet),'0x'+word(CFG.lpStaker),'0x'+word(ID)]}];
+        return[];
+      }
       throw Error('Unexpected RPC method '+method);
     },
     multicall:async calls=>{
@@ -72,7 +76,8 @@ function harness(mode='complete') {
   };
   vm.createContext(ctx);
   vm.runInContext(helpers+'\n'+reader+'\nthis.readKatana=getKatanaLive;',ctx);
-  const read=()=>ctx.readKatana(twoPositions?[ID,ID+1]:mode==='ownership-race'||mode==='owned-transferred'||!owned?[ID]:[],[]);
+  const seeded=!mode.startsWith('new-');
+  const read=()=>ctx.readKatana(!seeded?[]:twoPositions?[ID,ID+1]:mode==='ownership-race'||mode==='owned-transferred'||!owned?[ID]:[],[]);
   read.setMode=next=>{mode=next;};
   return read;
 }
@@ -98,6 +103,23 @@ check(result.lps.length,0,'A successful ownership read proving transfer removes 
 result=await harness('logs-failed')();
 check(result.lps.length,1,'A failed discovery sweep preserves a verified snapshot candidate');
 check(result.lps[0].value_usd,100,'Discovery failure does not reduce a verified position value');
+check(result.lp_discovery_complete,false,'A failed discovery sweep cannot claim complete LP coverage');
+const replacement=harness('new-staked');
+result=await replacement();
+check(result.lps.length,1,'A replacement absent from the saved snapshot is discovered by its stake transfer');
+replacement.setMode('new-logs-failed');
+result=await replacement();
+check(result.lps.length,1,'A later failed sweep cannot erase the verified replacement before the scheduled writer saves it');
+check(result.lps[0].value_usd,100,'Discovery interruption does not create a false loss of the replacement principal');
+check(result.lp_discovery_complete,false,'Retained verified positions do not conceal unknown discovery coverage');
+replacement.setMode('closed');
+result=await replacement();
+check(result.lps.length,0,'A successful zero-liquidity read still removes a cached replacement');
+replacement.setMode('new-logs-failed');
+result=await replacement();
+check(result.lps.length,0,'A verified closure is not resurrected by the warm candidate cache');
+result=await harness('new-logs-failed')();
+check(result.lp_discovery_complete,false,'A cold failed sweep is unknown coverage, never a verified empty portfolio');
 result=await harness('owned-complete')();
 check(result.lps.length,1,'Wallet-held LPs remain counted');
 check(result.lps[0].staked,false,'Wallet-held positions are not classified as staked');

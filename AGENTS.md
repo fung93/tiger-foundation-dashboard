@@ -697,6 +697,20 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   five-minute free-plan Cron Trigger; daily reports use MYT, dashboard reports work without a
   linked Telegram account, and queued notifications must respect current preferences and
   fresh conditions. Monitoring never edits the public financial ledgers or deploys.
+- Agent implementation plan (6 Nov 2026): Qwen is the first explicit free Workers AI
+  profile; inference reserves conservative per-attempt D1 budget before calling AI.
+  No paid fallback. Fixture success does not establish real account/model readiness.
+  Agent policy persists separately from Lending's per-visit 70/35/35 reset. Canonical
+  snapshots retain coverage gaps; unknown amounts or missing pinning never become zero.
+- Research is bounded to configured sources with immutable evidence. Strategy arithmetic
+  and paper marks use shared deterministic code; arbitrary model financial prose has
+  no authority. Saved briefs create append-only decisions, and owner acceptance means
+  review only. Actual transaction notes are explicitly owner-reported and unverified.
+- Slow work has per-job leases; owner/policy locks protect short fenced commits only.
+  The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
+  current recipient/preferences/policy revalidation. Synchronous job records retain
+  interruption state; there is no background Workflow runner to advertise. Keep 0002
+  usage and 0003 storage migrations additive; never expire decision evidence as cache.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
   `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
   `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
@@ -951,6 +965,25 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **Publication authorized (6 Nov 2026):** after reviewing the A–F local implementation,
+  Alex explicitly approved committing/pushing the agent build to main and deploying
+  the existing tiger-foundation-dashboard Worker. No repeat approval is needed for
+  those actions. Reuse the existing private D1 database. Complete the operator setup
+  and real-account acceptance checks in docs/AGENT-SETUP.md; fixture/dry-run success
+  does not establish live Qwen, migrations, scheduling, relay or Telegram delivery.
+
+- **Built locally, not pushed (5 Nov 2026, agent activation troubleshooting):** Alex
+  confirmed sign-in works, but sending a question returns the generic agent error.
+  Enable JSON mode for the default Workers AI model and accept its documented object
+  responses as well as JSON text, with the same action/calculation validation. Known
+  connection, timeout, quota and incomplete-answer failures now have safe distinct
+  messages; raw provider errors stay private. Cross-channel integration covers native
+  object responses and failures passing through the Worker/dashboard relay without
+  saving partial replies or settings. The actual live cause is still unconfirmed;
+  Alex was asked to test the same model in Cloudflare's Workers AI Playground.
+  His reported Worker URL is `https://tiger-foundation-dashboard.evalissol.workers.dev`.
+  Telegram webhook registration and pairing have not been confirmed.
 
 - **5 Nov 2026, push requested after D1 setup:** the private dashboard/Telegram agent
   described above, free-plan Worker AI/D1/Cron configuration, authenticated dashboard

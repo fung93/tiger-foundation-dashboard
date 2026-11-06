@@ -4,6 +4,7 @@ import { safeEqual, readJson, json, getAgentOrigin } from './_agent-http.mjs';
 import { processAgentMessage } from './_agent-service.mjs';
 import { sendTelegram, telegramRequest } from './_agent-notifications.mjs';
 import { forwardAgentRequest } from './_agent-gateway.mjs';
+import { listAgentDecisions } from './_agent-decisions.mjs';
 
 const approved = (binding, chat, sender) => binding && String(binding.chatId) === String(chat.id)
   && String(binding.userId) === String(sender.id);
@@ -68,6 +69,12 @@ export function createTelegramHandler({ env = process.env, storeFactory = create
             message = prompts[callback.data];
             if (!message || typeof callback.id !== 'string') return json(res, 200, { ok: true, ignored: true });
             await telegramRequest('answerCallbackQuery', { callback_query_id: callback.id }, { env, fetcher });
+          } else if (/^\/(?:decisions|journal)(?:@[a-zA-Z0-9_]+)?$/i.test(text)) {
+            const page = await listAgentDecisions(store, { limit: 5 });
+            pending = { chatId: binding.chatId, userId: binding.userId, sentParts: 0,
+              reply: 'Decision journal (dated, review only)\n' + (page.items.length ? page.items.map(item =>
+                item.thesis + '\n' + item.state + ' · policy ' + item.policyVersion + ' · ' + item.createdAt + '\n' + item.reportId).join('\n\n') : 'No saved briefs yet.')
+                + '\nReview decisions: ' + getAgentOrigin(env) + '/agent.html#agentJournal' };
           } else if (/^\/start(?:@[a-zA-Z0-9_]+)?(?:\s|$)/i.test(text)) {
             pending = { chatId: binding.chatId, userId: binding.userId, sentParts: 0,
               reply: 'You are already connected. Ask me a question, or choose Summary, Lending health or LP performance below.' };
@@ -85,7 +92,7 @@ export function createTelegramHandler({ env = process.env, storeFactory = create
                 requestId: 'telegram:' + body.update_id });
               pending = { chatId: binding.chatId, userId: binding.userId, reply: result.reply, sentParts: 0 };
             } catch (error) {
-              if (error?.status !== 429) throw error;
+              if (![409,429].includes(error?.status)) throw error;
               pending = { chatId: binding.chatId, userId: binding.userId, sentParts: 0,
                 reply: error.expose ? error.message : 'The agent has reached its message limit. Please try again later.' };
             }

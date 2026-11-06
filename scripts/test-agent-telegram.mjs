@@ -63,7 +63,8 @@ function transport() {
     return { ok: true, status: 200, json: async () => ({ ok: true, result: { message_id: calls.length } }) };
   } };
 }
-const realFetch = globalThis.fetch;
+const realFetch = globalThis.fetch, realNow = Date.now;
+Date.now = () => NOW;
 globalThis.fetch = () => { throw Error('Agent tests must not contact external services'); };
 try {
   check(telegramParts('😀'.repeat(7001)).map(x => Array.from(x).length), [3500,3500,1], 'Telegram chunks retain complete Unicode characters');
@@ -205,9 +206,9 @@ try {
   check(loads, beforePause, 'A paused pass does not spend remote data reads');
   check(network.calls.length, sendsBeforePause, 'A paused pass sends no notifications');
   await store.set('settings', { ...DEFAULT_SETTINGS });
-  store.locks.add('owner');
-  check((await call(monitor)).body.skipped, 'busy', 'Monitoring yields while a shared conversation is in progress');
-  store.locks.delete('owner');
+  store.locks.add('monitor');
+  check((await call(monitor)).body.skipped, 'busy', 'A concurrent monitor cannot duplicate the same risk pass');
+  store.locks.delete('monitor');
 
   store = memory(); network = transport(); context = fixtureContext(); context.lending.markets[0].health = 1.1;
   const offlineMonitor = createMonitorHandler({ env: { ...env, TELEGRAM_BOT_TOKEN: '' }, storeFactory: () => store,
@@ -307,7 +308,7 @@ try {
 
   store = memory({ telegram: binding }); network = transport(); context = fixtureContext(); context.lending.markets[0].health = 1.1;
   const expiredLeaseMonitor = createMonitorHandler({ env, storeFactory: () => store, fetcher: network.fetcher, now: () => NOW,
-    loadContext: async () => { store.locks.delete('owner'); return context; } });
+    loadContext: async () => { store.locks.delete('monitor'); return context; } });
   check((await call(expiredLeaseMonitor)).code, 503, 'An expired monitor lease cannot persist a completed check');
   check(await store.get('alerts'), null, 'An expired monitor cannot overwrite another owner’s alert state');
   check(network.calls.length, 0, 'An expired monitor does not send notifications');
@@ -324,4 +325,4 @@ try {
   context.lending.markets[0].health = .98;
   check((await call(escalationMonitor)).body.alerts, 1, 'A second deterioration below one escalates immediately rather than waiting six hours');
   console.log('Agent Telegram and monitoring: ' + checks + ' assertions passed.');
-} finally { globalThis.fetch = realFetch; }
+} finally { globalThis.fetch = realFetch; Date.now = realNow; }

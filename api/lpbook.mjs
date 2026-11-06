@@ -8,8 +8,9 @@
    now is what the ledger will say after the next run — then values it all at
    live prices.
    ========================================================================== */
-import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION } from './_core.mjs';
+import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION, V3, FABLES } from './_core.mjs';
 import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders, savedBookValid } from './_live-cache.mjs';
+import { compactLPPositions } from '../portfolio-core.mjs';
 
 const readLive = createLiveCache({ complete: lpViewComplete });
 const checkpoints = new Map();
@@ -42,6 +43,8 @@ async function readBook(origin) {
     behind,
   });
   view.generated = new Date().toISOString();
+  view.position_data = compactLPPositions(now, live.rows, { generated: view.generated,
+    contracts: { ...Object.fromEntries(V3.map(chain => [chain.key, chain.npm])), fables: FABLES.ramp } });
   return view;
 }
 

@@ -656,12 +656,12 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
     <div class="sec-title">Performance Breakdown</div>
     <div class="grid3">
       <div class="c" id="earnCard" style="cursor:pointer" title="Click to change period">
-        <div class="cl" id="earnLabel">Average Daily Earning &#8644;</div>
+        <div class="cl" id="earnLabel">Average Daily Value Change &#8644;</div>
         <div class="cv green" id="dailyEarnings">$---</div>
         <div class="cs" id="dailyEarningsSub">Since portfolio start</div>
       </div>
       <div class="c" id="roiCard" style="cursor:pointer" title="Click to change period">
-        <div class="cl" id="roiToggleLabel">Daily ROI &#8644;</div>
+        <div class="cl" id="roiToggleLabel">Daily Value Change &#8644;</div>
         <div class="cv" id="roiToggleVal">---</div>
         <div class="cs" id="roiToggleSub">---</div>
       </div>
@@ -1276,7 +1276,12 @@ function katanaRead(result,label,words){
     throw new Error('Katana '+label+' could not be read');
   return result.data;
 }
+/* Newly discovered staked NFTs can predate the next saved snapshot. Keep their
+   verified ids across refreshes until a successful ownership/liquidity read removes
+   them; a transient log failure must not turn a replacement LP into zero wealth. */
+var KAT_LP_CANDIDATES={};
 function getKatanaLive(stakedLpIds,markets){
+  var discoveryComplete=true;
   var W=CFG.wallet.replace(/^0x/,'');
   var T=CFG.tokens;
   var TKEYS=Object.keys(T);
@@ -1364,20 +1369,24 @@ function getKatanaLive(stakedLpIds,markets){
        log query fails we still have the snapshot ids. */
     var liveP=rpc('eth_blockNumber',[]).then(function(bn){
       var latest=Number(BigInt(bn));
+      if(!Number.isSafeInteger(latest)||latest<0)throw new Error('Katana discovery block is unavailable');
       return rpc('eth_getLogs',[{
-        fromBlock:'0x'+Math.max(0,latest-CFG.logWindow).toString(16),toBlock:'latest',address:CFG.npm,
+        fromBlock:'0x'+Math.max(0,latest-CFG.logWindow).toString(16),toBlock:'0x'+latest.toString(16),address:CFG.npm,
         topics:[CFG.transferTopic,'0x'+pad(W),'0x'+pad(CFG.lpStaker.replace(/^0x/,''))]
       }]);
     }).then(function(logs){
+      if(!Array.isArray(logs)||logs.length>=10000)throw new Error('Katana staked-LP discovery is incomplete');
+      if(logs.some(function(l){return !l||!Array.isArray(l.topics)||l.topics.length!==4||!/^0x[0-9a-f]{64}$/i.test(l.topics[3]);}))
+        throw new Error('Katana staked-LP discovery response is incomplete');
       return logs.map(function(l){return BigInt(l.topics[3]);});
-    }).catch(function(e){console.warn('staked-LP log scan failed, using snapshot ids',e);return[];});
+    }).catch(function(e){discoveryComplete=false;console.warn('staked-LP log scan failed, keeping verified candidates',e);return[];});
 
     var stakedP=liveP.then(function(live){
       var seen={};
       /* the ledger's open positions count as candidates too, so a failed log sweep cannot
          hide a staked position the Action has already booked */
       var fromLedger=Object.keys((POSITIONS&&POSITIONS.open)||{});
-      (stakedLpIds||[]).concat(live).concat(fromLedger).forEach(function(x){
+      (stakedLpIds||[]).concat(live).concat(fromLedger).concat(Object.keys(KAT_LP_CANDIDATES)).forEach(function(x){
         try{seen[BigInt(x).toString()]=1;}catch(e){}
       });
       var sIds=Object.keys(seen).map(function(s){return BigInt(s);});
@@ -1512,8 +1521,10 @@ function getKatanaLive(stakedLpIds,markets){
             return Promise.all([lockP,orcP]).then(function(pr){
               var vkat=pr[0];
               if(vkat.error)throw new Error('Katana vKAT locks could not be read');
+              var verified={};lps.forEach(function(p){verified[p.token_id]=true;});
+              KAT_LP_CANDIDATES=verified;
               return{ethBal:ethBal,bal:bal,avkatRate:avkatRate,katPrice:katPrice,ethPrice:ethPrice,btcPrice:btcPrice,
-                morpho:morpho,lps:lps,vkat:vkat};
+                morpho:morpho,lps:lps,vkat:vkat,lp_discovery_complete:discoveryComplete};
             });
           });
         });
@@ -2175,6 +2186,8 @@ function loadLive(refs,snap){
     .catch(function(e){throw new Error('Katana refresh incomplete: '+String(e&&e.message||e));});
   return Promise.all([katP,solP,getSushiAprs()]).then(function(rr){
     var kat=rr[0],sol=rr[1],aprMap=rr[2];
+    if(kat.lp_discovery_complete===false)
+      throw new Error('Katana LP discovery is incomplete; a failed scan cannot confirm the current LP total');
     var merklFallback=(snap&&snap.merkl_rewards)||null;
     /* snapshot APRs as fallback when Merkl is unreachable (e.g. local http) */
     var snapAprs={};
@@ -2346,8 +2359,19 @@ setInterval(function(){
   if(el)el.textContent=clockNow();
 },1000);
 
-/* Average Earning = (current total − first history total) ÷ days, scaled to the chosen period */
+/* Average wealth movement = (current total − first history total) ÷ elapsed days. */
 var HIST_START=null,LAST_TOTAL=null,HIST=null,CHART=null,LAST_BREAKDOWN=null;
+/* Historical totals do not contain a verified external cash-flow ledger or full
+   coverage history. Their difference is wealth movement, not investment P&L/ROI.
+   An incomplete current read cannot even support that comparison. */
+function portfolioMovementState(d,now){
+  var h=d&&d.live_health,ts=Date.parse(h&&h.read_at||'');
+  now=now===undefined?Date.now():now;
+  var available=!!h&&Number.isFinite(ts)&&ts>0&&ts<=now+30000&&now-ts<=90000
+    &&Array.isArray(h.warnings)&&!h.warnings.length;
+  return{available:available,basis:'wealth_change_unadjusted',investment_return_available:false,
+    reason:available?'Includes cash flows; historical coverage is not reconciled.':'Current coverage incomplete; change unavailable.'};
+}
 var EARN_MODES=[{k:'Daily',mult:1},{k:'Weekly',mult:7},{k:'Monthly',mult:30},{k:'Yearly',mult:365}];
 var EARN_IDX=0;
 try{EARN_IDX=parseInt(localStorage.getItem('earnIdx'),10)||0;}catch(e){}
@@ -2357,11 +2381,13 @@ function updateAvgDaily(){
   if(days<=0)return;
   var m=EARN_MODES[EARN_IDX];
   var avg=(LAST_TOTAL-HIST_START.total)/days*m.mult;
-  document.getElementById('earnLabel').innerHTML='Average '+m.k+' Earning <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
+  document.getElementById('earnLabel').innerHTML='Average '+m.k+' Value Change <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
   var el=document.getElementById('dailyEarnings');
+  var movement=portfolioMovementState(LAST_DATA);
+  if(!movement.available){el.textContent='—';el.style.color='var(--dim)';document.getElementById('dailyEarningsSub').textContent=movement.reason;return;}
   el.textContent=fmtSigned(avg);
   el.style.color=avg>=0?'var(--green)':'var(--red)';
-  document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' ('+Math.floor(days)+' days)';
+  document.getElementById('dailyEarningsSub').textContent='Since '+HIST_START.dateStr+' · includes cash flows';
 }
 
 /* change chip — click to cycle 24H → 7D → 14D → 30D; choice remembered */
@@ -2376,6 +2402,8 @@ function updateChangeChips(){
   for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)b=HIST[i];}
   if(!b)b=HIST[0]; /* lookback longer than history → since inception */
   var el=document.getElementById('chgChips');
+  var movement=portfolioMovementState(LAST_DATA);
+  if(!movement.available){el.innerHTML='<span class="chg-chip" title="'+movement.reason+'">Value change unavailable</span>';return;}
   if(!b||!b.total_usd){el.innerHTML='';return;}
   var next=CHIP_MODES[(CHIP_IDX+1)%CHIP_MODES.length];
   var delta=LAST_TOTAL-b.total_usd;
@@ -2383,8 +2411,8 @@ function updateChangeChips(){
   var cls=delta>=0?'chg-up':'chg-down';
   var sign=delta>=0?'+':'-';
   el.innerHTML='<span class="chg-chip '+cls+'" style="cursor:pointer;user-select:none" '
-    +'title="vs '+b.date+' ('+money(b.total_usd)+') — click to switch to '+next.l+'">'
-    +'<span class="lbl">'+m.l+' &#8644;</span>'+fmtSigned(delta)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
+    +'title="Wealth movement vs '+b.date+' ('+money(b.total_usd)+'); includes cash flows and coverage changes, not investment P&amp;L — click to switch to '+next.l+'">'
+    +'<span class="lbl">'+m.l+' value &#8644;</span>'+fmtSigned(delta)+' ('+sign+Math.abs(pct).toFixed(1)+'%)</span>';
   el.firstChild.onclick=function(){
     CHIP_IDX=(CHIP_IDX+1)%CHIP_MODES.length;
     try{localStorage.setItem('chipIdx',CHIP_IDX);}catch(e){}
@@ -2403,14 +2431,16 @@ function updateRoiToggle(){
   var b=null;
   for(var i=0;i<HIST.length;i++){if(HIST[i].date<=cutoff)b=HIST[i];}
   if(!b)b=HIST[0]; /* lookback longer than history → since inception */
-  document.getElementById('roiToggleLabel').innerHTML=m.k+' ROI <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
+  document.getElementById('roiToggleLabel').innerHTML=m.k+' Value Change <span style="font-size:10px;color:var(--dim)">&#8644;</span>';
   var el=document.getElementById('roiToggleVal');
   var sub=document.getElementById('roiToggleSub');
+  var movement=portfolioMovementState(LAST_DATA);
+  if(!movement.available){el.textContent='—';el.style.color='var(--dim)';sub.textContent=movement.reason;return;}
   if(!b||!b.total_usd){el.textContent='---';sub.textContent='no data';return;}
   var pct=(LAST_TOTAL-b.total_usd)/b.total_usd*100;
   el.textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
   el.style.color=pct>=0?'var(--green)':'var(--red)';
-  sub.textContent='since '+b.date;
+  sub.textContent='Since '+b.date+' · includes cash flows';
 }
 
 /* Tap the rocket or the moon and it says something. Each tap advances a 4-step cycle:
@@ -4016,6 +4046,7 @@ function buildCompound(){
    Safe to call from either side: it no-ops until both history and a total are present. */
 function syncTodayPoint(){
   if(!HIST||LAST_TOTAL===null)return;
+  if(!portfolioMovementState(LAST_DATA).available)return;
   var today=new Date().toISOString().slice(0,10);   /* history.json is keyed by UTC date */
   var last=HIST[HIST.length-1];
   if(last&&last.date===today){

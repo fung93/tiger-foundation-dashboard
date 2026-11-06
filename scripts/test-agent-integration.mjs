@@ -10,6 +10,7 @@ import { respondAgent } from '../api/_agent-brain.mjs';
 import { forwardAgentRequest } from '../api/_agent-gateway.mjs';
 import { createAgentWorker } from '../cloudflare/worker.mjs';
 import { loadAgentContext, calculateAgentLending } from '../api/_agent-context.mjs';
+import { renderAgentToolResult } from '../api/_agent-tools.mjs';
 
 let checks = 0;
 const check = (a, b, note) => { assert.deepEqual(a, b, note); checks++; };
@@ -51,22 +52,27 @@ try {
   const question = 'How much should I repay on avKAT / KAT to reach health 1.5?';
   const preference = 'Let me know when health goes below 1.3.';
   const model = async (name, body) => {
-    check(name, '@cf/meta/llama-3.1-8b-instruct', 'Only the included Workers AI model is used');
+    check(name, '@cf/qwen/qwen3-30b-a3b-fp8', 'The Qwen candidate is the selected Workers AI profile');
     modelCalls++;
     check(body.max_tokens, 800, 'Free inference has a bounded output allowance');
+    check(body.response_format, { type: 'json_object' }, 'The default model enforces JSON output for both channels and calculation rounds');
     const calculation = body.messages.find(m => m.role === 'user' && m.content.startsWith('Verified lending calculation result'));
     if (calculation) {
       const result = JSON.parse(calculation.content.split('\n')[1]);
       check(result.repay_raw, expected.repay_raw, 'The free model receives the exact shared repayment calculation');
-      return { response: JSON.stringify({ reply: 'Fixture repayment: ' + result.repay_amount + ' ' + result.loan_token, preferenceChanges: [] }) };
+      return { response: { reply: 'Fixture repayment: ' + result.repay_amount + ' ' + result.loan_token, preferenceChanges: [] } };
     }
     if (body.messages.some(m => m.role === 'user' && m.content === question))
-      return { response: JSON.stringify({ calculation: { market: market.key, targetHealth: 1.5 } }) };
-    return { response: JSON.stringify({ reply: 'I will save the health alert at 1.3.',
-      preferenceChanges: [{ key: 'healthThreshold', value: '1.3', evidence: preference }] }) };
+      return { response: { calculation: { market: market.key, targetHealth: 1.5 } } };
+    return { response: { reply: 'I will save the health alert at 1.3.',
+      preferenceChanges: [{ key: 'healthThreshold', value: '1.3', evidence: preference }] } };
   };
   env.AI = { run: model };
-  const shared = args => processAgentMessage({ ...args, context, respond: opts => respondAgent(opts) });
+  const attempts = [];
+  const shared = args => processAgentMessage({ ...args, context, budgetFactory: () => ({
+    reserve: async options => { const attempt = { id: attempts.length, ...options }; attempts.push(attempt); return attempt; },
+    settle: async (attempt, result) => { attempt.result = result; },
+  }) });
   const localWeb = createAgentHandler({ env, storeFactory: () => store, processMessage: shared });
   const worker = createAgentWorker({ agentFactory: () => localWeb });
   const web = async (req, res) => {
@@ -100,7 +106,8 @@ try {
   check(result.body.messages.at(-1).source, 'telegram', 'Both channels read the same conversation');
   result = await call(web, { action: 'chat', message: question, requestId: 'integration:web:question' }, auth);
   check(result.code, 200, 'Dashboard lending questions execute through the real tool protocol');
-  check(result.body.reply, 'Fixture repayment: ' + expected.repay_amount + ' ' + market.loan_token, 'The final answer uses verified token amounts');
+  check(result.body.result.data.repay_raw, expected.repay_raw, 'The final answer retains the shared core exact repayment amount');
+  check(result.body.reply, renderAgentToolResult(result.body.result), 'The server renders financial amounts from the trusted tool, never model prose');
   const beforeRetry = modelCalls;
   await call(web, { action: 'chat', message: question, requestId: 'integration:web:question' }, auth);
   check(modelCalls, beforeRetry, 'Retrying an answered dashboard question spends no extra model call');
@@ -114,6 +121,27 @@ try {
   check(result.body.messages.at(-1).source, 'monitor', 'The scheduled report appears in the shared dashboard conversation');
   check(sends.some(s => s.text.includes('Tiger Foundation summary')), true, 'The paired Telegram transport receives that report');
   check(modelCalls, beforeRetry, 'Deterministic monitoring and reports do not spend model calls');
+  const savedSettings = await store.get('settings');
+  for (const [name, run, code, message] of [
+    ['incomplete', async () => ({ response: '{"reply":' }), 'invalid_model_output'],
+    ['connection', async () => { throw Error('Provider failed with fixture-private-provider-token'); }, 'model_unavailable'],
+    ['quota', async () => { throw Error('429 free neurons quota exhausted fixture-private-provider-token'); }, 'quota_exhausted'],
+  ]) {
+    const beforeMessages = await store.get('messages');
+    let attempts = 0;
+    env.AI = { run: async (...args) => { attempts++; return run(...args); } };
+    result = await call(web, { action: 'chat', message: 'Check my lending health.', requestId: 'integration:failure:' + name }, auth);
+    check(result.code, 200, 'The ' + name + ' AI failure still returns available deterministic facts');
+    check(result.body.errorCategory, code, 'The ' + name + ' failure gives a safe, specific category');
+    check(result.body.mode, 'facts_only', 'An AI outage is explicitly distinguished from an AI explanation');
+    check(result.body.status, 'partial', 'An AI outage never presents a complete strategy recommendation');
+    check(JSON.stringify(result.body).includes('fixture-private-provider-token'), false, 'Provider details never enter the public error');
+    check(attempts, 1, 'A failed question never silently retries inference or switches provider');
+    check((await store.get('messages')).length, beforeMessages.length + 2, 'Only the explicitly labeled factual fallback enters shared history');
+    check(await store.get('settings'), savedSettings, 'A failed question does not change monitoring settings');
+  }
+  check(attempts.length, 5, 'All successful or failed inference attempts share the same budget path');
+  check(attempts.every(attempt => attempt.result), true, 'Every model attempt is conservatively settled');
   check(locks.size, 0, 'All cross-channel owner and update locks are released');
   console.log('Agent dashboard/Telegram integration: ' + checks + ' assertions passed.');
 } finally { globalThis.fetch = oldFetch; Date.now = oldNow; }

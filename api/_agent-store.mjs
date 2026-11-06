@@ -62,12 +62,21 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
       return result.meta.changes;
     } catch { throw httpError(503, STORAGE_ERROR); }
   }
+  async function all(sql, args) {
+    try {
+      const result = await bounded(() => prepared(sql, args).all());
+      if (result?.success === false || !Array.isArray(result?.results)) throw Error();
+      return result.results;
+    } catch { throw httpError(503, STORAGE_ERROR); }
+  }
   const validateEntries = entries => {
     if (!Array.isArray(entries) || !entries.length || entries.length > 12) throw Error('Invalid private state update');
     const at = clock();
     return entries.map(entry => {
       if (!entry || typeof entry !== 'object') throw Error('Invalid private state update');
+      if (entry.immutable === true && entry.remove === true) throw Error('An immutable update cannot delete a record');
       return { key: key(entry.key), remove: entry.remove === true,
+        immutable: entry.immutable === true,
         value: entry.remove ? null : encode(entry.value ?? null),
         expiresAt: expiry(entry.ttlSeconds, at) };
     });
@@ -79,6 +88,8 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
         return prepared(`DELETE FROM ${TABLE} WHERE key=?${fence ? ` AND EXISTS (${ownsSQL})` : ''}`,
           [entry.key, ...(fence ? [fence.key, fence.token, fence.at] : [])]);
       }
+      if (entry.immutable) return prepared(`INSERT INTO ${TABLE} (key,value,expires_at) SELECT ?,?,?${fence ? ` WHERE EXISTS (${ownsSQL})` : ' WHERE 1'}`,
+        [entry.key, entry.value, entry.expiresAt, ...(fence ? [fence.key, fence.token, fence.at] : [])]);
       return prepared(`INSERT INTO ${TABLE} (key,value,expires_at) SELECT ?,?,?${fence ? ` WHERE EXISTS (${ownsSQL})` : ' WHERE 1'}
         ON CONFLICT(key) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at`,
       [entry.key, entry.value, entry.expiresAt, ...(fence ? [fence.key, fence.token, fence.at] : [])]);
@@ -91,7 +102,15 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
       return result;
     } catch { throw httpError(503, STORAGE_ERROR); }
   }
+  const leaseFences = new WeakMap();
   const store = {
+    storageUsage: async () => {
+      const row = await first('SELECT rows_count,bytes_count FROM agent_storage_metrics WHERE id=1', []);
+      if (!row || !Number.isSafeInteger(row.rows_count) || !Number.isSafeInteger(row.bytes_count)) throw httpError(503, STORAGE_ERROR);
+      return { rows: row.rows_count, payloadBytes: row.bytes_count, softBudgetBytes: 100 * 1024 * 1024,
+        status: row.bytes_count >= 80 * 1024 * 1024 ? 'review_required' : 'within_local_budget',
+        scope: 'agent_state payload only; database indexes, usage ledger and account quotas require Cloudflare metrics' };
+    },
     get: async name => {
       const row = await first(`SELECT value FROM ${TABLE} WHERE key=? AND (expires_at IS NULL OR expires_at>${CLOCK})`, [key(name), clock()]);
       return decode(row?.value);
@@ -103,6 +122,30 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
         ${options.nx ? `WHERE ${TABLE}.expires_at IS NOT NULL AND ${TABLE}.expires_at<=${CLOCK}` : ''}
         RETURNING key`, [key(name), encode(value), expiresAt, ...(options.nx ? [at] : [])]);
       return !!row;
+    },
+    putImmutable: async (name, value) => !!await first(`INSERT INTO ${TABLE} (key,value,expires_at) VALUES (?,?,NULL)
+      ON CONFLICT(key) DO NOTHING RETURNING key`, [key(name), encode(value)]),
+    list: async (prefix, { cursor = null, limit = 20, reverse = false } = {}) => {
+      if (typeof prefix !== 'string' || !prefix || prefix.length > 240 || !Number.isSafeInteger(limit) || limit < 1 || limit > 50
+        || typeof reverse !== 'boolean' || (cursor !== null && (typeof cursor !== 'string' || !cursor.startsWith(prefix) || cursor.length > 300)))
+        throw httpError(400, 'Choose a valid private history page.');
+      const start = key(prefix || ''), chars = Array.from(start);
+      // The fixed ASCII namespace guarantees a successor. Increment the last
+      // code point, so '%'/'_' and Unicode in a caller's prefix stay literal.
+      let end;
+      for (let i = chars.length - 1; i >= 0; i--) {
+        const point = chars[i].codePointAt(0);
+        if (point < 0x10ffff) {
+          const next = point + 1 >= 0xd800 && point + 1 <= 0xdfff ? 0xe000 : point + 1;
+          end = chars.slice(0, i).join('') + String.fromCodePoint(next); break;
+        }
+      }
+      const rows = await all(`SELECT key,value FROM ${TABLE} WHERE key>=? AND key<?
+        AND (expires_at IS NULL OR expires_at>${CLOCK})${cursor === null ? '' : ` AND key${reverse ? '<' : '>'}?`}
+        ORDER BY key ${reverse ? 'DESC' : 'ASC'} LIMIT ?`,
+      [start, end, clock(), ...(cursor === null ? [] : [key(cursor)]), limit + 1]);
+      const page = rows.slice(0, limit).map(row => ({ key: row.key.slice(PREFIX.length), value: decode(row.value) }));
+      return { items: page, cursor: rows.length > limit ? page.at(-1).key : null };
     },
     del: async name => run(`DELETE FROM ${TABLE} WHERE key=?`, [key(name)]),
     take: async name => {
@@ -136,20 +179,25 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
       if (!await store.set(nameKey, token, { nx: true, ttlSeconds: seconds })) return null;
       const encoded = encode(token);
       const owns = async () => !!await first(ownsSQL, [lockKey, encoded, clock()]);
-      return {
+      const lease = {
         assertOwned: async () => { if (!await owns()) throw httpError(409, 'This agent request expired. Please try again.'); },
-        commit: async entries => {
+        commit: async (entries, { alsoOwned = [] } = {}) => {
           const changes = validateEntries(entries), at = clock();
           if (changes.some(e => e.key === lockKey)) throw Error('A fenced update cannot change its own lock');
           // Both guards must succeed. A failed guard aborts the D1 transaction,
           // including writes made before a lease expired during the batch.
-          const guard = () => prepared(`SELECT CASE WHEN EXISTS (${ownsSQL}) THEN 1 ELSE json('agent lock expired') END AS owned`, [lockKey, encoded, at]);
-          try { await batch([guard(), ...writeStatements(changes, { key: lockKey, token: encoded, at }), guard()]); }
+          const fences = [{ key: lockKey, token: encoded }, ...alsoOwned.map(lease => {
+            const fence = leaseFences.get(lease); if (!fence) throw Error('Unknown private lease'); return fence;
+          })];
+          const guards = () => fences.map(fence => prepared(`SELECT CASE WHEN EXISTS (${ownsSQL}) THEN 1 ELSE json('agent lock expired') END AS owned`, [fence.key, fence.token, at]));
+          try { await batch([...guards(), ...writeStatements(changes, { key: lockKey, token: encoded, at }), ...guards()]); }
           catch (error) { if (!await owns()) throw httpError(409, 'This agent request expired. Please try again.'); throw error; }
           return 1;
         },
         release: () => run(`DELETE FROM ${TABLE} WHERE key=? AND value=?`, [lockKey, encoded]),
       };
+      leaseFences.set(lease, { key: lockKey, token: encoded });
+      return lease;
     },
   };
   return store;

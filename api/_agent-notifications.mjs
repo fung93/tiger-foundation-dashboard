@@ -58,7 +58,7 @@ const watchSources = new Set(['lending', 'lp']);
 
 /* Missing/old readings never clear an existing lending warning. An explicitly
    verified no-position reading can clear it. This function makes no RPCs. */
-export function monitorConditions(context, settings) {
+export function monitorConditions(context, settings, { policy, previous = {}, decisions = [], now = Date.now() } = {}) {
   const conditions = {};
   for (const source of context.sources || []) {
     if (!watchSources.has(source.name)) continue;
@@ -84,18 +84,68 @@ export function monitorConditions(context, settings) {
     }
     if (!finite(market.debt_amount) || market.debt_amount < 0 || !finite(market.health) || market.health < 0
       || !finite(market.ltv) || market.ltv < 0) continue;
-    const healthLow = market.health < settings.healthThreshold;
-    const ltvHigh = market.ltv * 100 > settings.ltvThreshold;
+    const limits = policy?.constraints?.marketLimits?.[market.key] || {};
+    const healthLimit = limits.targetHealth ?? settings.healthThreshold;
+    const ltvLimit = Math.min(limits.maxLtvPct ?? settings.ltvThreshold, Number.isFinite(market.lltv) ? market.lltv * 100 : 100);
+    const wasActive = previous[key]?.active === true;
+    const healthLow = market.health < healthLimit + (wasActive ? 0.01 : 0);
+    const ltvHigh = market.ltv * 100 > ltvLimit - (wasActive ? 0.5 : 0);
     const critical = market.health < 1;
     const health = market.health.toFixed(4), ltv = (market.ltv * 100).toFixed(2) + '%';
     conditions[key] = { active: critical || healthLow || ltvHigh, type: 'lending',
       severity: critical ? 'critical' : 'warning', title: label + (critical ? ' below liquidation boundary' : ' lending alert'),
       message: label + ': health ' + health + ', LTV ' + ltv + '. '
         + (critical ? 'Health is below the liquidation boundary of 1.' : 'Your alert limits are health '
-          + settings.healthThreshold + ' and LTV ' + settings.ltvThreshold + '%.')
+          + healthLimit + ' and LTV ' + ltvLimit + '%.')
         + (sourceTs ? ' Reading: ' + myt(sourceTs) + '.' : ''),
       sourceTs, marketId: market.id,
     };
+  }
+  if (context.snapshot?.reconciliation?.lp?.status) {
+    const mismatch = context.snapshot.reconciliation.lp.status === 'mismatch';
+    conditions.reconciliation = { active: mismatch, type: 'data', severity: 'warning', persistence: 2,
+      title: 'Portfolio reconciliation', message: mismatch ? 'LP subtotal does not reconcile. Allocation sizing is blocked.' : 'LP subtotal is reconciled.',
+      sourceTs: context.asOf || null };
+  }
+  const triggers = policy?.constraints?.lpReviewTriggers || {};
+  if (context.lp?.status === 'fresh') for (const row of (context.lp.positions || []).slice(0,100)) {
+    const p = row.canonical;
+    if (!p || p.status !== 'observed' || typeof p.inRange !== 'boolean' || !p.block) continue;
+    const key = 'lp:range:' + [p.chain,p.owner,p.id].join(':'), firstSeen = previous[key]?.firstSeen || now;
+    const elapsedHours = (now - firstSeen) / 3600000;
+    if (triggers.outOfRange === true || triggers.maxOutOfRangeHours != null) conditions[key] = {
+      active: !p.inRange && (triggers.maxOutOfRangeHours == null || elapsedHours >= triggers.maxOutOfRangeHours),
+      firstSeen: !p.inRange ? firstSeen : null, persistence: 2, type: 'lp', severity: 'warning', title: 'LP #' + p.id + ' range review',
+      message: p.inRange ? 'Verified LP position is back in range.' : 'Verified LP position is out of range; review the recorded strategy. No transaction was made.',
+      sourceTs: p.observedAt };
+  }
+  if (triggers.rewardChangePct != null || triggers.priceMovePct != null) for (const pool of [...(context.strategy?.pools || []),...(context.strategy?.fee_pools || [])].slice(0,100)) {
+    if (!['fresh','partial'].includes(pool.status) || !pool.pool || !Number.isFinite(Date.parse(pool.ts)) || now-Date.parse(pool.ts)<-30000 || now-Date.parse(pool.ts)>=90000) continue;
+    if (triggers.rewardChangePct != null && Number.isFinite(pool.campaign?.start) && Number.isFinite(pool.campaign?.end) && pool.campaign.end > pool.campaign.start) {
+      const key = 'lp:campaign:' + pool.pool, signature = pool.campaign.start + ':' + pool.campaign.end, anchor = previous[key]?.anchor ?? signature;
+      const ended = pool.campaign.end * 1000 <= now;
+      conditions[key] = { active: ended || signature !== anchor, persistence:2, anchor, type:'lp', severity:'warning',
+        title:'LP campaign schedule review', message:ended ? 'The verified campaign reward period has ended. New earnings must be reviewed.' : 'The campaign schedule changed from its saved monitoring baseline.', sourceTs:pool.ts };
+    }
+    if (pool.status !== 'fresh') continue;
+    if (triggers.rewardChangePct != null && Number.isFinite(pool.katPerDay)) {
+      const key = 'lp:reward:' + pool.pool, anchor = previous[key]?.anchor ?? pool.katPerDay;
+      const change = anchor > 0 ? Math.abs(pool.katPerDay / anchor - 1) * 100 : pool.katPerDay > 0 ? 100 : 0;
+      conditions[key] = { active: change >= triggers.rewardChangePct, persistence: 2, anchor, type: 'lp', severity: 'warning',
+        title: 'LP campaign reward review', message: 'Observed KAT campaign rate changed by ' + change.toFixed(2) + '% from the saved monitoring baseline. Future earnings need review.', sourceTs: pool.ts };
+    }
+    if (triggers.priceMovePct != null && Number.isFinite(pool.price) && pool.price > 0) {
+      const key = 'lp:price:' + pool.pool, anchor = previous[key]?.anchor ?? pool.price;
+      const change = Math.abs(pool.price / anchor - 1) * 100;
+      conditions[key] = { active: change >= triggers.priceMovePct, persistence: 2, anchor, type: 'lp', severity: 'warning',
+        title: 'LP token price review', message: 'Pool token ratio changed by ' + change.toFixed(2) + '% from the saved monitoring baseline.', sourceTs: pool.ts };
+    }
+  }
+  for (const decision of decisions) {
+    if (['rejected','invalidated','superseded'].includes(decision.state) || !decision.reviewAt) continue;
+    const key = 'review:' + decision.decisionId;
+    conditions[key] = { active: Date.parse(decision.reviewAt) <= now, type: 'review', severity: 'info',
+      title: 'Strategy review due', message: (decision.thesis || 'Saved strategy').slice(0,160) + '\nReview ' + decision.decisionId + '. Acceptance never executes a trade.', sourceTs: decision.updatedAt };
   }
   return conditions;
 }

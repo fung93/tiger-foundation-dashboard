@@ -57,6 +57,7 @@ const binding = {
       return { sql, params,
         first: async () => { if (binding.fail) throw Error('Private provider failure'); return (await execute([{ sql, params }]))[0].results[0] ?? null; },
         run: async () => { if (binding.fail) throw Error('Private provider failure'); return (await execute([{ sql, params }]))[0]; },
+        all: async () => { if (binding.fail) throw Error('Private provider failure'); return (await execute([{ sql, params }]))[0]; },
       };
     } };
   },
@@ -109,6 +110,50 @@ try {
   await store.setMany([{ key: 'pair:active', value: 'old' }, { key: 'pair:active', remove: true }, { key: 'pair:active', value: 'new' }]);
   check(await store.get('pair:active'), 'new', 'A batch preserves duplicate-key order used by pairing rotation');
 
+  const historyPrefix = 'record:decision:';
+  for (const id of ['001', '002', '003', '004', '005']) await store.putImmutable(historyPrefix + id, { id });
+  await store.set(historyPrefix + '000-expired', { invalid: true }, { ttlSeconds: 1 });
+  at += 1000;
+  let page = await store.list(historyPrefix, { limit: 2 });
+  check(page.items.map(item => item.value.id), ['001', '002'], 'Forward history starts at the first unexpired record');
+  check(page.cursor, historyPrefix + '002', 'The history cursor is the last returned key, without offset scanning');
+  const second = await other.list(historyPrefix, { cursor: page.cursor, limit: 2 });
+  check(second.items.map(item => item.value.id), ['003', '004'], 'A second instance resumes the same indexed history page');
+  const last = await store.list(historyPrefix, { cursor: second.cursor, limit: 2 });
+  check(last.items.map(item => item.value.id), ['005'], 'The final history page has no duplicates or expired entries');
+  check(last.cursor, null, 'A final partial page has no continuation cursor');
+  const beyond = await store.list(historyPrefix, { cursor: historyPrefix + '999', limit: 2 });
+  check(beyond, { items: [], cursor: null }, 'A cursor beyond the final record returns an empty bounded page');
+  page = await store.list(historyPrefix, { reverse: true, limit: 2 });
+  check(page.items.map(item => item.value.id), ['005', '004'], 'Newest-first history returns descending keys');
+  const older = await store.list(historyPrefix, { reverse: true, cursor: page.cursor, limit: 3 });
+  check(older.items.map(item => item.value.id), ['003', '002', '001'], 'Newest-first continuation does not repeat the boundary record');
+  check(older.cursor, null, 'An exact terminal page does not create a false continuation');
+  for (const prefix of ['literal%:', 'literal_:', '虎🐯:', '終🐯']) {
+    await store.putImmutable(prefix + '001', { prefix });
+    await store.putImmutable(prefix.replace(/[%_]|🐯/gu, 'X') + 'other', { unrelated: true });
+    const literalPage = await store.list(prefix, { limit: 10 });
+    check(literalPage.items.map(item => item.key), [prefix + '001'],
+      'History prefix ' + prefix + ' is a literal key range, never a LIKE wildcard');
+  }
+  for (const options of [{ limit: 0 }, { limit: 51 }, { limit: 1.5 }, { reverse: 'true' }, { cursor: 'another:namespace' }]) {
+    await rejects(() => store.list(historyPrefix, options), 400, 'Invalid page bounds or cross-namespace cursors are rejected');
+  }
+  await rejects(() => store.list('x'.repeat(241)), 400, 'History prefix size is bounded');
+  await rejects(() => store.list(''), 400, 'An empty history prefix cannot expose the entire private namespace');
+  const plan = await raw('EXPLAIN QUERY PLAN SELECT key,value FROM agent_state WHERE key>=? AND key<? ORDER BY key LIMIT ?',
+    ['tiger:agent:v1:' + historyPrefix, 'tiger:agent:v1:record:decision;', 21]);
+  check(plan.some(row => /SEARCH agent_state USING INDEX/i.test(row.detail)), true, 'History key ranges use the existing primary-key index');
+
+  const immutable = 'record:evidence:immutable';
+  check(await store.putImmutable(immutable, { original: true }), true, 'An immutable record is inserted once');
+  check(await other.putImmutable(immutable, { replacement: true }), false, 'Immutable insertion cannot overwrite an existing record');
+  check(await store.get(immutable), { original: true }, 'A rejected immutable insert leaves its original evidence intact');
+  const winners = await Promise.all([store.putImmutable('record:evidence:race', { writer: 'a' }),
+    other.putImmutable('record:evidence:race', { writer: 'b' })]);
+  check(winners.filter(Boolean).length, 1, 'Concurrent immutable inserts authorize exactly one durable record');
+  check(['a', 'b'].includes((await store.get('record:evidence:race')).writer), true, 'The winning immutable record persists across instances');
+
   const competitors = await Promise.all([store.lock('owner', 2), other.lock('owner', 2)]);
   check(competitors.filter(Boolean).length, 1, 'Only one concurrent owner lock is granted');
   const owner = competitors.find(Boolean);
@@ -116,9 +161,19 @@ try {
   await owner.commit([{ key: 'messages', value: ['verified'] }, { key: 'settings', value: { health: 1.8 } }]);
   check(await store.get('messages'), ['verified'], 'A live owner can commit shared history');
   check(await store.get('settings'), { health: 1.8 }, 'A live fenced commit saves matching preferences');
+  await owner.commit([{ key: 'record:policy:001', value: { version: 1 }, immutable: true }]);
+  check(await store.get('record:policy:001'), { version: 1 }, 'A live fenced commit can append immutable policy history');
+  await rejects(() => owner.commit([{ key: 'messages', value: ['must roll back'] },
+    { key: 'record:policy:001', value: { version: 999 }, immutable: true }]), 503,
+    'An immutable collision fails the entire fenced transaction');
+  check(await store.get('messages'), ['verified'], 'An immutable collision rolls back preceding mutable writes');
+  check(await store.get('record:policy:001'), { version: 1 }, 'An immutable collision cannot rewrite the original policy');
   at += 2000;
   await rejects(() => owner.assertOwned(), 409, 'Expired owners cannot claim ownership');
   await rejects(() => owner.commit([{ key: 'messages', value: ['expired overwrite'] }]), 409, 'An expired owner cannot commit');
+  await rejects(() => owner.commit([{ key: 'record:policy:expired', value: { version: 2 }, immutable: true }]), 409,
+    'An expired owner cannot append an immutable record');
+  check(await store.get('record:policy:expired'), null, 'An expired append creates no policy history');
   check(await store.get('messages'), ['verified'], 'Expired commits leave existing history intact');
   const successor = await other.lock('owner', 2);
   check(!!successor, true, 'A new owner can take an expired lease');
@@ -144,11 +199,17 @@ try {
   await assert.rejects(() => store.set('invalid-expiry', true, { ttlSeconds: 0 })); checks++;
   await assert.rejects(() => store.lock('invalid-permanent-lock')); checks++;
   await assert.rejects(() => store.setMany([])); checks++;
+  await assert.rejects(() => store.setMany([{ key: immutable, remove: true, immutable: true }]), /cannot delete/); checks++;
   binding.fail = true;
   await rejects(() => store.get('settings'), 503, 'A free storage outage fails clearly without a paid fallback');
+  await rejects(() => store.list(historyPrefix), 503, 'A history read outage cannot masquerade as an empty journal');
+  await rejects(() => store.putImmutable('record:evidence:unwritten', { facts: true }), 503,
+    'Immutable record creation also fails closed during a storage outage');
   binding.fail = false;
   const stalled = createAgentStore({ AGENT_DB: { prepare: () => ({ bind: () => ({ first: () => new Promise(() => {}) }) }), batch() {} } }, { timeoutMs: 5 });
   await rejects(() => stalled.get('settings'), 503, 'A stalled binding cannot leave a private request waiting indefinitely');
+  const stalledHistory = createAgentStore({ AGENT_DB: { prepare: () => ({ bind: () => ({ all: () => new Promise(() => {}) }) }), batch() {} } }, { timeoutMs: 5 });
+  await rejects(() => stalledHistory.list(historyPrefix), 503, 'A stalled journal page has the same bounded storage deadline');
   at += 100000;
   const expiredBefore = (await raw('SELECT key FROM agent_state WHERE expires_at IS NOT NULL AND expires_at<=?', [at])).length;
   await store.increment('cleanup-trigger', 60);
