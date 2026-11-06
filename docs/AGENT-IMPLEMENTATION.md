@@ -56,6 +56,13 @@ history and queued updates. Registration still needs a fresh bot reply to prove 
   and confirmation 45, Worker routing 60 assertions; Chromium 112 assertions over both
   themes at 360/1366. No real bot is contacted by tests. Worker dry run builds at
   361.74 KiB / gzip 93.60 KiB with the existing bindings.
+- Native runtime follow-up: workerd reproduced Telegram setup failing before fetch
+  because its Request rejects the Node-supported error redirect mode. Manual redirects
+  with explicit status rejection fix setup and the same optional-context issue. Real
+  Worker/local D1 validation passes 25 assertions with closed fake outbound providers;
+  real-SQLite setup now passes 257 and optional context 89. Node-only success alone
+  cannot validate Workers Request options. No real bot or account is tested locally.
+  Full npm run check and a 362.94 KiB / gzip 93.97 KiB Worker dry run pass.
 - Real SQLite tests cover reservation races, lost leases, dual-fence rollback, process
   interruption, immutable journal records, stale editors and policy changes mid-answer.
   A suspended provider does not block real deterministic critical monitoring or erase
@@ -155,6 +162,7 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 - `api/_agent-output-schema.mjs`
 - `api/_agent-telegram-setup.mjs`
 - `scripts/test-agent-telegram-setup.mjs`
+- `scripts/check-agent-telegram-runtime.mjs`
 - `scripts/test-agent-telegram-interface.mjs`
 - `scripts/test-agent-output-diagnostics.mjs`
 - `TIGER_AGENT_IMPLEMENTATION_PLAN.md`

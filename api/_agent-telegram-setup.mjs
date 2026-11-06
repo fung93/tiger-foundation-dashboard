@@ -40,28 +40,40 @@ async function readReply(response) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   return JSON.parse(new TextDecoder().decode(bytes));
 }
+function providerFailure(method, status, label = 'HTTP') {
+  const code = Number.isInteger(status) && status >= 100 && status <= 599 ? ' (' + label + ' ' + status + ')' : '';
+  if (status >= 300 && status < 400) return httpError(503, 'Telegram ' + method + ' returned a redirect' + code + '. The request was stopped to keep the bot token private.');
+  if ([401, 404].includes(status)) return httpError(409, 'Telegram ' + method + ' rejected the bot credentials' + code + '. Check TELEGRAM_BOT_TOKEN in Cloudflare.');
+  if (status === 429) return httpError(429, 'Telegram ' + method + ' is rate limited' + code + '. Wait a minute before checking setup again.');
+  return httpError(503, 'Telegram ' + method + ' did not accept the setup request' + code + '. Try Check Telegram setup again.');
+}
 async function call(method, body, { env, fetcher, timeoutMs }) {
   if (!['getMe', 'getWebhookInfo', 'setWebhook'].includes(method)) throw Error('Unsupported Telegram setup method');
-  const controller = new AbortController(); let timer;
+  const controller = new AbortController(); let timer, readingBody = false, timedOut = false;
+  const timeout = () => httpError(503, 'Telegram ' + method + ' timed out. Check setup again before connecting.');
   try {
     return await Promise.race([(async () => {
       const response = await fetcher('https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/' + method, {
-        method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json' },
+        // Workers supports manual/follow, but rejects error before any request.
+        // Manual plus the status check below prevents token-bearing redirects.
+        method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body), signal: controller.signal,
       });
-      if ([401, 404].includes(response.status)) throw httpError(409, 'Telegram rejected the bot credentials. Check TELEGRAM_BOT_TOKEN in Cloudflare.');
-      if (!response.ok) throw Error();
+      if (!response.ok) throw providerFailure(method, response.status);
+      readingBody = true;
       const value = await readReply(response);
-      if (value?.ok !== true) throw Error();
+      if (value?.ok !== true) throw providerFailure(method, value?.error_code, 'API');
       return value.result;
     })(), new Promise((_, reject) => {
-      timer = setTimeout(() => { controller.abort(); reject(httpError(503, 'Telegram setup timed out. Check setup again before connecting.')); }, timeoutMs);
+      timer = setTimeout(() => { timedOut = true; controller.abort(); reject(timeout()); }, timeoutMs);
     })]);
   } catch (error) {
+    if (timedOut) throw timeout();
     if (error?.expose) throw error;
     // Telegram descriptions and thrown network errors can contain token-bearing
     // URLs or unrelated webhook addresses. Never return or persist them.
-    throw httpError(503, 'Telegram setup could not be verified. Check the bot credentials and try Check Telegram setup again.');
+    throw httpError(503, readingBody ? 'Telegram ' + method + ' returned an unreadable response. Try Check Telegram setup again.'
+      : 'Telegram ' + method + ' could not be reached from the Worker. Try Check Telegram setup again.');
   } finally { clearTimeout(timer); controller.abort(); }
 }
 function webhookInfo(value, target) {

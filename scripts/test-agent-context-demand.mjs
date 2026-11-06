@@ -74,7 +74,7 @@ try {
   result = await loadAgentContext({ origin: ORIGIN, fetcher: reader, now: NOW, needs: ['strategy', 'kat', 'vkat'] });
   check(calls.length, 7, 'Three explicit optional requests add only three existing API reads');
   check(maximum <= 4, true, 'Base and optional phases stay below the six-connection limit');
-  check(calls.slice(4).every(call => call.options.redirect === 'error'), true, 'Optional API reads cannot follow an unexpected redirect');
+  check(calls.slice(4).every(call => call.options.redirect === 'manual'), true, 'Optional API reads use Workers-compatible redirect rejection');
   check(result.strategy.status, 'fresh', 'A complete recent strategy reading remains fresh');
   check(result.strategy.pools[0].pool, address(1), 'Pool identity is preserved');
   check(result.strategy.pools[0].eligible.amount0, null, 'All-holder campaigns retain their intentional unknown token totals');

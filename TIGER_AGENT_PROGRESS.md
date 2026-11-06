@@ -367,3 +367,27 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [ ] Verify ready production deployments; owner checks/registers the real webhook
   and confirms a fresh reply. This workspace has no Cloudflare account credentials.
 - [ ] Verify an actual scheduled Telegram alert and measure account usage/CPU.
+
+### Telegram runtime compatibility — 6 November 2026
+
+- Owner's Check Telegram setup returned the generic verification failure after
+  publication. Reproduced the actual Worker failure in local workerd with the
+  deployed compatibility date/flags: `redirect: 'error'` is rejected before fetch.
+  Prior Node fixtures accepted that option and missed the platform incompatibility.
+- [x] Use supported manual redirects and explicitly reject non-success statuses.
+  Apply the same fix to optional strategy/KAT/vKAT context requests, which used the
+  same unsupported option. The Vercel-only Node relay retains its supported behavior.
+- [x] Errors name only the fixed Telegram method and bounded HTTP/API code or category.
+  Distinguish token rejection, redirects, rate limits, network, timeouts and unreadable
+  bodies without returning provider prose, destinations or secrets.
+- [x] Native platform regression: actual Worker, local D1, owner login, check/connect,
+  fresh invitation and redirect refusal. Failed before the fix; 25 assertions pass
+  after it. All outbound traffic uses a closed fake provider; no real bot was contacted.
+- [x] Real-SQLite/API setup: 257 assertions. Optional context: 89 assertions.
+- [x] Full npm run check passes, including financial regressions and private agent
+  interfaces. Worker dry run passes at 362.94 KiB / gzip 93.97 KiB.
+- [x] Release artifacts prepared under the standing authorization. No new secret,
+  migration, AI call or browser asset change; cache 154 remains current.
+- [ ] Confirm a new ready Worker deployment and owner retries setup. Actual
+  credentials/provider response and delivery remain
+  unverified here; the compatibility error does not establish a bad bot token.

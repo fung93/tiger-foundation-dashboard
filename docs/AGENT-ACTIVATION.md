@@ -163,6 +163,14 @@ pairing code. Previous delivery errors are summarized without exposing raw provi
 A changed/expired preview or uncertain registration needs a new check before connecting.
 Checks and connects are limited to three attempts each per minute.
 
+The setup fix following `2b9cb5f` replaces a redirect mode that workerd rejects
+before contacting Telegram. Wait for that newer Worker deployment before retrying
+Check Telegram setup. This failure alone does not show that the bot token is wrong.
+Provider failures now identify the method (`getMe`, `getWebhookInfo` or `setWebhook`)
+and a safe HTTP/API code or network/body category. Share that message only. A real
+401/404 rejection calls for checking the saved token privately in Cloudflare; a
+network error or timeout does not establish an invalid token.
+
 The command-line alternative remains available on your own machine. Use an up-to-date
 checkout with Node installed. Copy `.env.agent.example` to ignored `.env.agent.local`
 and privately set these three entries:

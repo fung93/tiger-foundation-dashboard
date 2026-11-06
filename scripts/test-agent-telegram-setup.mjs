@@ -22,11 +22,16 @@ const fetcher = async (url, options) => {
   const method = new URL(url).pathname.split('/').at(-1), body = JSON.parse(options.body);
   calls.push({ method, body });
   check(url, 'https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/' + method, 'Only the fixed Telegram Bot API is contacted');
-  check(options.redirect, 'error', 'Token-bearing requests never follow redirects');
+  check(options.redirect, 'manual', 'Token-bearing requests reject redirects using the Workers-supported mode');
   check(await store.get('lock:owner'), null, 'No owner lock spans a Telegram network call');
   if (hold) { entered(); await hold; }
   if (mode === 'throw') throw Error('https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/PRIVATE');
   if (mode === 'unauthorized') return new Response('PRIVATE provider body', { status: 401 });
+  if (mode === 'redirect') return new Response(null, { status: 302, headers: { location: 'https://PRIVATE.fixture.test/token' } });
+  if (mode === 'rate_limit') return Response.json({ ok: false, description: 'PRIVATE provider text' }, { status: 429 });
+  if (mode === 'server_error') return new Response('PRIVATE provider body', { status: 502 });
+  if (mode === 'api_unauthorized') return Response.json({ ok: false, error_code: 401, description: 'PRIVATE provider text' });
+  if (mode === 'api_rejected') return Response.json({ ok: false, error_code: 'PRIVATE' });
   if (mode === 'oversized') return new Response('x'.repeat(17000));
   if (mode === 'oversized_stream') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(17000)); controller.close(); } }));
   if (mode === 'malformed') return new Response('{invalid');
@@ -139,12 +144,17 @@ try {
   webhook = ''; setup = await preview(); mode = 'wrong_destination';
   await rejects(() => action(connect(setup)), 503, 'Provider acknowledgement without the expected webhook fails verification'); mode = null;
 
-  for (const failure of ['throw', 'unauthorized', 'oversized', 'oversized_stream', 'malformed', 'not_bot']) {
+  for (const failure of ['throw', 'unauthorized', 'redirect', 'rate_limit', 'server_error', 'api_unauthorized', 'api_rejected', 'oversized', 'oversized_stream', 'malformed', 'not_bot']) {
     await store.del('telegram:setup:checks'); mode = failure;
     r = await request({ action: 'telegramCheck' });
     check(r.statusCode >= 400, true, 'Provider failure is safely bounded: ' + failure);
     check(JSON.stringify(r.body).includes(env.TELEGRAM_BOT_TOKEN), false, 'Provider failure never returns a token: ' + failure);
     check(JSON.stringify(r.body).includes('PRIVATE'), false, 'Provider failure never returns raw error text: ' + failure);
+    if (failure !== 'not_bot') check(r.body.error.includes('getMe'), true, 'Provider failures identify the safe method name: ' + failure);
+    const expected = { throw: 'could not be reached', unauthorized: 'HTTP 401', redirect: 'redirect (HTTP 302)',
+      rate_limit: 'HTTP 429', server_error: 'HTTP 502', api_unauthorized: 'API 401', api_rejected: 'did not accept',
+      oversized: 'unreadable response', oversized_stream: 'unreadable response', malformed: 'unreadable response' }[failure];
+    if (expected) check(r.body.error.includes(expected), true, 'Failure classification is actionable without provider prose: ' + failure);
   }
   mode = null;
   await store.del('telegram:setup:checks');

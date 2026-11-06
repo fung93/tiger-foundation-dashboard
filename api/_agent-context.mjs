@@ -198,7 +198,7 @@ export async function loadAgentSupplementalContext({ origin, needs = [], context
   const selected = requestedNeeds(needs), base = validOrigin(origin), at = clockValue(now);
   if (!Number.isFinite(at)) throw new Error('A valid agent reading time is required.');
   const results = await Promise.allSettled(selected.map(name => readAgentJSON(base + optionalPaths[name],
-    { fetcher, timeoutMs, maxBytes: 350000, init: { redirect: 'error' } })));
+    { fetcher, timeoutMs, maxBytes: 350000, init: { redirect: 'manual' } })));
   const views = {};
   for (let i = 0; i < selected.length; i++) {
     const sample = results[i].status === 'fulfilled' ? results[i].value : null, name = selected[i];

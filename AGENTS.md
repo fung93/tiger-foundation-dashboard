@@ -700,6 +700,12 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   its own lease; no owner lock spans provider calls. Connection revokes pending pairing
   codes, retains any linked human/history and preserves queued updates. Registration
   is not proof of delivery; test a new invitation or an existing owner's fresh question.
+- Workers Request rejects redirect error mode before network access. On Worker paths,
+  use manual mode and explicitly reject non-success responses; never follow bot-token
+  redirects. Node fixtures alone missed this incompatibility. The optional native
+  regression is scripts/check-agent-telegram-runtime.mjs, using a separate validation
+  installation of Miniflare/esbuild and closed fake outbound providers. Never assume
+  a generic transport error proves the bot token is invalid.
 - The monitor runs only when a deployed scheduler is configured. The Worker includes a
   five-minute free-plan Cron Trigger; daily reports use MYT, dashboard reports work without a
   linked Telegram account, and queued notifications must respect current preferences and
@@ -984,6 +990,15 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **6 Nov 2026, Telegram setup runtime fix under the existing release approval:**
+  native workerd reproduced the published setup check failing before Telegram access:
+  redirect error mode is unsupported. Use manual mode plus status rejection in setup
+  and optional strategy/KAT/vKAT context reads. Safe failure messages identify only
+  the fixed method, HTTP/API code or transport category. The native Worker/local D1
+  regression failed before the fix and passes 25 assertions after it; setup 257,
+  context 89, full npm run check and Worker dry run pass. No new settings, secrets,
+  migration or browser asset change. Real provider credentials/delivery remain pending.
 
 - **6 Nov 2026, Telegram activation follow-up under the existing release approval:**
   the owner configured the bot secrets and generated a pairing invitation, but the bot

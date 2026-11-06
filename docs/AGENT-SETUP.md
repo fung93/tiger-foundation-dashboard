@@ -365,6 +365,25 @@ Use a separate development D1 database/bot if testing real bindings. Fixture scr
 are not proof of live provider activation. The integration test exercises dashboard relay,
 Worker, shared history, free AI calculation protocol and Telegram together.
 
+Platform behavior also needs a real Workers runtime check: Node accepts fetch
+options that workerd rejects. The Telegram setup and optional API readers use
+`redirect: 'manual'` and reject non-success status codes before reading bodies;
+they must never follow token-bearing redirects. workerd rejects `redirect: 'error'`
+before sending a request (see its [Request implementation](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/http.c%2B%2B#L486)).
+
+For the optional platform regression, install Wrangler 4.157.0 and its Miniflare/esbuild
+dependencies in a separate validation directory, then run from this repository:
+
+```sh
+node scripts/check-agent-telegram-runtime.mjs /path/to/validation/node_modules
+```
+
+This bundles the actual Worker, uses its configured compatibility date/flags and
+creates local D1 tables. Every outbound request goes to a closed fake provider.
+It checks login, setup, registration, fresh invitations, error classification and
+redirect rejection in workerd. It does not run in the dependency-free default suite
+and does not establish real Telegram delivery or Cloudflare account readiness.
+
 ## Local implementation and real release gates
 
 See `TIGER_AGENT_IMPLEMENTATION_PLAN.md` and `TIGER_AGENT_PROGRESS.md` for the ordered
