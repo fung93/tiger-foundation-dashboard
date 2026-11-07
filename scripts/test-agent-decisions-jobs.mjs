@@ -72,7 +72,7 @@ try{
   await store.set('settings',{...DEFAULT_SETTINGS,dailyEnabled:true,dailyTime:'00:00'});
   let resolveProvider,enteredProvider;
   const entered=new Promise(resolve=>{enteredProvider=resolve;}),waiting=new Promise(resolve=>{resolveProvider=resolve;});
-  const chat=processAgentMessage({store,env,context,requestId:'slow-chat',message:'Review my portfolio',
+  const chat=processAgentMessage({store,env,context,requestId:'slow-chat',message:'Explain my current lending health',
     respond:async()=>{enteredProvider();await waiting;return {reply:'A fixture explanation.',action:null};}});
   await entered;check(await store.get('lock:owner'),null,'Slow inference does not hold the shared owner lease');
   const monitor=createMonitorHandler({env,storeFactory:()=>store,loadContext:async()=>context,summarize:()=> 'Deterministic daily fixture',now:()=>at});
@@ -89,7 +89,8 @@ try{
   const limits=monitorConditions({...context,lending:{...context.lending,markets:[{...context.lending.markets[0],health:1.4,ltv:.6}]}},DEFAULT_SETTINGS,{policy:{constraints:{marketLimits:{'kat-usdc':{targetHealth:1.5,maxLtvPct:55}}}}});
   check(limits['lending:fixture-market'].active,true,'Confirmed per-market policy limits drive monitoring');
   const diagnostic=await agentDiagnostics({env,store,budgetFactory:()=>({status:async()=>({available:false})})});
-  check(diagnostic.jobs.backgroundRunner,false,'Status never advertises an unimplemented background runner');
+  check(diagnostic.jobs.backgroundRunner,false,'An unconfigured Workflow is never reported as a working background runner');
+  check(diagnostic.jobs.researchExecution,'bounded_synchronous','Research jobs keep their actual execution mode');
   check(diagnostic.lastMonitorSuccess,iso,'Diagnostics expose a successful check independently of inference');
   check(diagnostic.storageUsage.status,'within_local_budget','Storage is monitored without deleting durable decisions');
   const watchDraft=await draftAgentPolicy(store,{lpReviewTriggers:{outOfRange:true,rewardChangePct:25,priceMovePct:10}},

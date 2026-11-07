@@ -46,8 +46,9 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 - One scheduled Telegram message is confirmed by the owner. Verify continued cadence and measure CPU, latency,
   requests, D1 rows and free-plan usage; these are not established by fixture success.
 - Keep live readiness, real connectivity and local fixture capability distinct.
-- Workflow execution may be deferred only if bounded synchronous research suffices;
-  no interface may claim a background runner exists until it has been implemented/tested.
+- Recurring reviews now have a real locally tested Workflow runner. Its new binding,
+  account CPU/allowances, scheduled cadence and actual Telegram review delivery require
+  deployment/account verification; configured binding and fixture success are distinct.
 
 ### Package B investigation evidence (in progress)
 
@@ -548,3 +549,62 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   a fresh owner question after publication.
   This workspace has no authenticated Cloudflare account and production URL access
   has previously been blocked by its CONNECT proxy; fixtures are not live acceptance.
+
+### Recurring portfolio strategy loop — 7 November 2026
+
+- [x] Owner explicitly requests the proposed observe/assess/compare/recommend/review
+  loop for dashboard and Telegram. Re-read current instructions, inspect monitoring,
+  deterministic tools, reports/journal, model contracts, leases and shared free budget.
+  Preserve the clean ffef2dc baseline and the original supplied plan unchanged.
+- [x] Add private versioned review controls, bounded MYT scheduling/event cooldowns,
+  optional owner-confirmed comparison plans and pause/manual review controls.
+- [x] Build deterministic candidate comparisons and factual follow-up observations;
+  retain original calculations/evidence and distinguish learning from model retraining.
+- [x] Add one budget-reserved, closed AI selection per eligible review. Keep critical
+  risk facts independent of model availability; no invented amounts or risk preferences.
+- [x] Add durable review checkpoints, immutable reports/journal, restart/retry handling
+  and recipient/preference/policy-aware Telegram delivery.
+- [x] Wire the existing free Cron after the independent zero-AI risk monitor, add
+  dashboard controls/status and natural-language/Telegram manual review entry points.
+- [x] Validate arithmetic, evidence, lessons, MYT/UTC caps, races, unknown inference
+  outcomes, delivery privacy, real native Worker/D1 and both responsive themes.
+- [x] Run npm run check, Worker dry run and publication preflight; document changed
+  files, controls, acceptance steps and real-account/deployment checks still pending.
+
+Local evidence: analysis/closed selection 36, MYT controls 33, durable review/journal
+25, Workflow recovery/cases 276, Telegram fencing 46, risk/Cron bounds 16, shared
+atomic budget 57 assertions. Native workerd/Workflows/local D1 passes 17 assertions;
+the existing native Telegram suite passes 82. Chromium passes 96 checks across both
+themes at 360/1366, including asynchronous completion, dirty settings/version conflicts,
+comparison reuse/removal, safe URLs, literal text rendering and delayed logout responses.
+No real AI, bot, wallet or public financial writer is used by these tests.
+
+The first implementation combined analysis with the risk tick. Official Free limits
+inspection and query instrumentation rejected that design. Production now queues a
+real eight-step Workflow; D1 batches keep tested native steps at or below29 calls and
+the stressed risk-plus-dispatch invocation at or below48 (Free ceiling50). The owner
+lock never spans inference. Risk notices are bounded and unsent notices/cursors are
+retained; critical notices take priority even during a Telegram outage. D1 terminal
+dispatch checkpoints survive three-day Workflow history pruning. An automatic review cannot consume the
+500-neuron interactive holdback. Original plan SHA256 remains
+`b28f17ad6b6a024dd30158cc0e792b58f223499ed85e06acd7f8c3cada46337f`.
+
+Configuration: new `PORTFOLIO_REVIEWS` Workflow binding/name/class are declared in
+`cloudflare/wrangler.jsonc`, entry point `cloudflare/runtime.mjs`; no new secret,
+database, paid provider or SQL migration. Optional `AGENT_REVIEW_ENABLED=false` stops
+new reviews without changing risk monitoring. Service-worker cache156. Lending,
+LP reward rollover, public financial JSON/history and both Portfolio copies are unchanged.
+See docs/AGENT-REVIEW-LOOP.md for activation, limitations, changed modules and checks.
+
+Remaining account gates: Wrangler reports no authenticated Cloudflare account here.
+Deploy/provision the updated Worker/Workflow, verify actual Free CPU (10ms/step),
+AI/model access and shared account quotas, D1 usage/storage, daily/event cadence,
+dashboard completion and Telegram review delivery. Qwen's planned20November retirement
+and the explicit GLM candidate still need operator attention; no automatic model switch.
+
+Final local gate: `npm run check` passes every project regression. Wrangler4.157.0
+builds the actual Workflow/AI/D1 entry point in dry-run mode. `git diff --check`
+passes; the original plan and public financial files remain unchanged. Publication
+follows the existing explicit owner authorization; preserve the automated data update
+on origin/main during the required pre-push rebase. Live account activation is not
+claimed by these checks.

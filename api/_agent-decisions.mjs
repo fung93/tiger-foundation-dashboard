@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { httpError } from './_agent-http.mjs';
 import { getAgentPolicy } from './_agent-policy.mjs';
 import { amountsPerLiquidity } from '../strategy-core.mjs';
+import { currentReviewObservation, observeReviewFollowUp } from './_agent-review-analysis.mjs';
 const SCHEMA = 'agent-decision-v1';
 const STATES = new Set(['proposed','accepted_for_review','rejected','deferred','superseded','invalidated']);
 const hash = x => createHash('sha256').update(x).digest('hex');
@@ -22,9 +23,9 @@ export async function proposeAgentDecision(store, report) {
     const record = { schemaVersion: SCHEMA, decisionId: id, version: 1, state: 'proposed',
       createdAt: report.createdAt, updatedAt: report.createdAt, reportId: report.reportId,
       snapshotId: report.snapshotId, policyVersion: report.policyVersion, modelProfileVersion: report.modelProfileVersion,
-      thesis: report.thesis || report.objective, catalysts: report.catalysts || [],
+      kind: report.kind, thesis: report.thesis || report.objective, catalysts: report.catalysts || [],
       invalidationConditions: report.invalidationConditions || [], reviewAt: report.result?.reviewAt || report.nextReviewAt,
-      options: (report.options || []).map(option => ({ id: option.id, label: option.label, status: option.status })),
+      options: (report.options || []).map(option => ({ id: option.id, label: option.label, status: option.status, ...(option.key ? { key: option.key } : {}) })),
       assessment: report.assessment, sourceIds: report.sourceIds, calculationIds: report.calculationIds,
       execution: 'No transaction recorded. Acceptance is for review only.' };
     const event = { schemaVersion: SCHEMA, eventId: eventPrefix(id) + '000001', decisionId: id,
@@ -79,8 +80,24 @@ export async function recordAgentDecision(store, input, { source = 'owner', now 
       provenance: 'owner', acceptanceMeans: 'review_only' };
     const next = { ...record, version, state: input.state, updatedAt: ts, latestEvent: event.eventId };
     const result = { decision: next, event };
-    await lease.commit([{ key, value: next }, { key: event.eventId, value: event, immutable: true },
-      { key: idemKey, value: { digest, result }, immutable: true }]);
+    const entries = [{ key, value: next }, { key: event.eventId, value: event, immutable: true },
+      { key: idemKey, value: { digest, result }, immutable: true }];
+    let feedbackLease;
+    try {
+      if (record.kind === 'portfolio_review') {
+        feedbackLease = await store.lock('review:feedback', 15);
+        if (!feedbackLease) throw httpError(409, 'Review feedback is being saved. Retry the same decision reference.');
+        const memory = await store.get('review:feedback') || [];
+        // Another policy can be confirmed while this owner note is saved.
+        // Retain other decisions; readers select the applicable policy version.
+        const retained = memory.filter(item => item.decisionId !== record.decisionId);
+        if (['rejected', 'invalidated'].includes(input.state)) for (const option of record.options.filter(option => option.key && (!choice || option.id === choice)))
+          retained.push({ decisionId: record.decisionId, key: option.key, state: input.state, policyVersion: record.policyVersion,
+            rationale: rationale.slice(0, 500), updatedAt: ts });
+        entries.push({ key: 'review:feedback', value: retained.slice(-64) });
+      }
+      await lease.commit(entries, { alsoOwned: feedbackLease ? [feedbackLease] : [] });
+    } finally { await feedbackLease?.release(); }
     return result;
   } finally { await lease.release(); }
 }
@@ -97,6 +114,16 @@ export async function observeAgentDecision(store, id, context, { now = Date.now(
   const comparable = baseline?.status === 'complete' && current.status === 'complete'
     && JSON.stringify(identity(baseline)) === JSON.stringify(identity(current));
   const report = await store.get(record.reportId), basis = report?.result?.paperBaseline;
+  if (report?.kind === 'portfolio_review') {
+    const { risk, observation } = await currentReviewObservation(context, now);
+    await store.putImmutable(risk.calculationId, risk);
+    const reading = { schemaVersion: 'agent-review-observation-v1', ...observation, riskCalculationId: risk.calculationId,
+      sources: context.sources || [] };
+    const calculationId = 'reviewobs:' + hash(JSON.stringify(reading));
+    await store.putImmutable(calculationId, { ...reading, calculationId });
+    return recordReviewObservation(store, id, { measurementId: current.snapshotId, calculationId,
+      observedAt: observation.observedAt, lessons: observeReviewFollowUp(report, observation) });
+  }
   let calculation = null;
   const pool = basis && [...(context.strategy?.pools || []),...(context.strategy?.fee_pools || [])].find(pool => pool.pool === basis.pool);
   if (report?.kind === 'strategy' && report.result.kind === 'lp' && basis && pool?.status === 'fresh'
@@ -138,4 +165,20 @@ export async function observeAgentDecision(store, id, context, { now = Date.now(
       earningsLimit:'Paper price marks exclude unverified fees, rewards, financing and actual execution costs; no net-performance ranking or win rate.' } : {}) };
   await store.putImmutable(event.eventId, event);
   return { event: await store.get(event.eventId) };
+}
+
+export async function recordReviewObservation(store, id, { measurementId, calculationId, observedAt, lessons }) {
+  idCheck(id);
+  const record = await store.get('journal:' + id);
+  if (!record || record.kind !== 'portfolio_review' || !Array.isArray(lessons)
+    || lessons.some(lesson => lesson.sourceReportId !== record.reportId) || !Number.isFinite(Date.parse(observedAt))
+    || Date.parse(observedAt) <= Date.parse(record.createdAt)) throw httpError(400, 'Choose a later verified observation for this strategy review.');
+  const eventId = eventPrefix(id) + 'review-observation:' + hash(String(measurementId));
+  const event = { schemaVersion: SCHEMA, eventId, decisionId: id, type: 'review_observation', provenance: 'later_verified_reading',
+    ts: observedAt, status: lessons.some(lesson => lesson.status === 'observed') ? 'partial' : 'blocked',
+    calculationId, baselineSnapshotId: record.snapshotId, sourceReportId: record.reportId, lessons,
+    measurement: lessons.map(lesson => lesson.message).join('\n') || 'A matching later reading is not available.',
+    limitations: ['These are point-in-time checks of recorded ideas; execution, realized net performance and win rates are not inferred.'] };
+  await store.putImmutable(eventId, event);
+  return { event: await store.get(eventId) };
 }

@@ -2,6 +2,7 @@ import { getAgentModelProfile, AGENT_MODEL_SCHEMA_VERSION } from './_agent-model
 import { createAgentBudget } from './_agent-budget.mjs';
 import { agentErrorCategory } from './_agent-http.mjs';
 import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
+import { loadReviewInputs, nextReviewTime, reviewFeatureEnabled } from './_agent-review-state.mjs';
 
 // Called only after the normal owner session check. No provider request, secret,
 // transcript, wallet amount or raw database/provider error belongs in this view.
@@ -17,6 +18,9 @@ export async function agentDiagnostics({ env, store, budgetFactory = createAgent
   catch (error) { budget = { available: false, errorCategory: agentErrorCategory(error) }; }
   const selectedModelSucceeded = !!profile && lastInference?.status === 'succeeded'
     && lastInference.modelId === profile.id && lastInference.profileVersion === profile.version && !!lastInference.ts;
+  const { controls: reviewControls, settings: notificationSettings, raw } = await loadReviewInputs(store, ['review:state', 'review:lastTick', 'review:dispatch']);
+  const review = raw['review:state'], reviewTick = raw['review:lastTick'], dispatch = raw['review:dispatch'];
+  const activeReview = review?.activeJob ? await store.get(review.activeJob) : null;
   return { schemaVersion: AGENT_MODEL_SCHEMA_VERSION, checkedAt: new Date().toISOString(),
     components: { session: 'verified', gateway: 'verified', storage: 'reachable',
       inference: typeof env.AI?.run === 'function' ? 'binding_configured' : 'configuration_missing',
@@ -33,6 +37,13 @@ export async function agentDiagnostics({ env, store, budgetFactory = createAgent
     lastErrorCategory: lastRequest?.errorCategory || null,
     lastModelOutput: safeAgentOutputDiagnostic(lastRequest?.modelOutput),
     monitorSources: monitor?.sources || [], storageUsage,
-    jobs: { execution: 'bounded_synchronous', backgroundRunner: false, sampled: jobs?.items?.map(({value}) => ({kind:value.kind,state:value.state,phase:value.phase,updatedAt:value.updatedAt})) || [], hasMore: !!jobs?.cursor },
+    jobs: { execution: 'bounded_synchronous_and_workflows', backgroundRunner: typeof env.PORTFOLIO_REVIEWS?.create === 'function',
+      researchExecution: 'bounded_synchronous', sampled: jobs?.items?.map(({value}) => ({kind:value.kind,state:value.state,phase:value.phase,updatedAt:value.updatedAt})) || [], hasMore: !!jobs?.cursor },
+    strategyReview: { enabled: reviewFeatureEnabled(env) && reviewControls.enabled,
+      status: dispatch?.state === 'recovery_required' ? 'recovery_required' : activeReview?.phase || review?.status || 'unverified',
+      lastSuccess: review?.lastSuccess || null, lastAutomaticSuccess: review?.lastAutomaticSuccess || null, lastSchedulerTick: reviewTick?.ts || null,
+      nextIntendedReview: nextReviewTime(reviewControls, notificationSettings, review, Date.now()), mode: 'cloudflare_workflow',
+      workflowConfigured: typeof env.PORTFOLIO_REVIEWS?.create === 'function',
+      automaticDailyLimit: 3, manualDailyLimit: 5 },
     delivery: { pending: !!pending, remainingItems: pending ? Math.max(0, (pending.items?.length || 0) - (pending.itemIndex || 0)) : 0 }, budget };
 }

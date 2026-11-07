@@ -4,6 +4,7 @@ import { createAgentHandler } from '../api/agent.mjs';
 import { createTelegramHandler } from '../api/agent-telegram.mjs';
 import { createMonitorHandler } from '../api/agent-monitor.mjs';
 import { safeEqual } from '../api/_agent-http.mjs';
+import { dispatchPortfolioReview } from '../api/_agent-review-dispatch.mjs';
 
 const MAX_BODY_BYTES = 16384;
 function reply(status, message) {
@@ -68,7 +69,7 @@ export async function invokeAgentHandler(handler, request) {
 }
 
 export function createAgentWorker({ agentFactory = createAgentHandler, telegramFactory = createTelegramHandler,
-  monitorFactory = createMonitorHandler, report = message => console.error(message) } = {}) {
+  monitorFactory = createMonitorHandler, reviewRunner = dispatchPortfolioReview, report = message => console.error(message) } = {}) {
   return {
     async fetch(request, env) {
       try {
@@ -113,6 +114,10 @@ export function createAgentWorker({ agentFactory = createAgentHandler, telegramF
           headers: { authorization: 'Bearer ' + env.CRON_SECRET, 'content-type': 'application/json' }, body: '{}' });
         const response = await invokeAgentHandler(monitorFactory({ env }), request);
         if (!response.ok) throw Error('Agent monitoring did not complete.');
+        // Only queue here. Full analysis runs in separate bounded Workflow
+        // invocations, keeping both CPU and D1 calls out of the risk tick.
+        try { await reviewRunner({ env, monitoringSucceeded: true }); }
+        catch { report('The strategy review did not complete; its durable checkpoint will be checked on the next tick.'); }
       })().catch(() => {
         report('Agent monitoring did not complete; the next scheduled check can retry.');
         throw Error('Agent monitoring did not complete.');

@@ -7,6 +7,7 @@ import { validateEvidenceReferences } from './_agent-evidence.mjs';
 import { renderAgentStrategyResult } from './_agent-scenarios.mjs';
 import { proposeAgentDecision } from './_agent-decisions.mjs';
 import { researchExplanation, agentReadingTime } from '../agent-language.mjs';
+import { renderPortfolioReview } from './_agent-review-analysis.mjs';
 
 export const AGENT_REPORT_SCHEMA = 'agent-report-v1';
 const bounded = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
@@ -59,6 +60,7 @@ export function createResearchReport({ context, policy, research, query, now = D
 }
 
 export function renderResearchReport(report) {
+  if (report.kind === 'portfolio_review') return renderPortfolioReview(report);
   if(report.kind==='strategy')return renderAgentStrategyResult({...report.result,status:report.status});
   const explanation = researchExplanation(report), lines = [explanation.text];
   if (report.status === 'superseded') lines.push('Your saved preferences changed after this report. Run a new review before using it.');
@@ -78,7 +80,7 @@ export function createStrategyReport({context,policy,result,input,evidence=[],no
   const report=createResearchReport({context,policy,query:'Compare '+input.kind+' strategies',now,
     research:{evidence,protocol:input.kind,status:'ready',sources:context.sources||[],limitations:[]}});
   return {...report,kind:'strategy',modelProfileVersion:'deterministic-strategy-v1',status:result.status,result,
-    options:result.options,scenarios:result.scenarios,assumptions:result.assumptions,
+    options:result.options,scenarios:result.scenarios,assumptions:result.assumptions,comparisonInput:structuredClone(input),
     assessment:result.scope,calculationIds:[result.calculationId,...result.calculationIds],
     nextReviewAt:result.validUntil||input.reviewAt||null,invalidationConditions:result.invalidationConditions,
     limitations:result.limitations,thesis:result.thesis,catalysts:result.catalysts,
@@ -90,6 +92,19 @@ export async function persistAgentReport(store, report, snapshot = null) {
   if(report.kind==='strategy'){
     for(const calculation of report.result.calculations)await store.putImmutable(calculation.calculationId,calculation);
     await store.putImmutable(report.result.calculationId,report.result);
+  }
+  if (report.kind === 'portfolio_review') {
+    const analysis = report.review?.analysis;
+    if (!Array.isArray(analysis?.calculations) || report.calculationIds.some(id => id !== analysis.calculationId
+      && !analysis.calculations.some(calculation => calculation.calculationId === id)))
+      throw httpError(503, 'The recurring review calculations could not be verified.', 'data_unavailable');
+    if (store.putImmutableMany && analysis.calculations.length) await store.putImmutableMany(analysis.calculations.map(calculation => ({ key: calculation.calculationId, value: calculation })));
+    else for (const calculation of analysis.calculations) await store.putImmutable(calculation.calculationId, calculation);
+    const compact = { ...analysis, calculations: undefined, planResults: analysis.planResults.map(plan => ({
+      planId: plan.planId, originalReportId: plan.originalReportId, confirmedAt: plan.confirmedAt, expiresAt: plan.expiresAt,
+      calculationId: plan.result.calculationId, evidenceBasis: plan.evidenceBasis })) };
+    await store.putImmutable(analysis.calculationId, compact);
+    report = { ...report, review: { ...report.review, analysis: compact } };
   }
   const policy = await getAgentPolicy(store);
   const final = policy.version === report.policyVersion ? report : { ...report, status: 'superseded',

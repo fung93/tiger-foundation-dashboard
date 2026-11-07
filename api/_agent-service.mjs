@@ -8,6 +8,10 @@ import { getAgentPolicy } from './_agent-policy.mjs';
 import { agentAction, researchQuestion } from './_agent-actions.mjs';
 import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
+import { getSettings, normalizeSettings } from './_agent-settings.mjs';
+export { DEFAULT_SETTINGS, getSettings, normalizeSettings } from './_agent-settings.mjs';
+import { isPortfolioReviewQuestion } from './_agent-review-state.mjs';
+import { dispatchPortfolioReview } from './_agent-review-dispatch.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
 const ANSWER_SCHEMA = 'agent-answer-v5', CURRENT_TTL = 90000;
@@ -37,23 +41,6 @@ export function factualAgentAnswer(context, category) {
   return { reply: 'I could not finish the full request this time. Here are the readings I can check:\n\n'
     + summarizeAgent(current), action: null, sources: current.sources, status: 'partial', mode: 'facts_only', errorCategory: category };
 }
-
-export const DEFAULT_SETTINGS = Object.freeze({ healthThreshold: 1.2, ltvThreshold: 70, alertsEnabled: true, dailyEnabled: false, dailyTime: '09:00', pausedUntil: null });
-export function normalizeSettings(input, { partial = false } = {}) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw httpError(400, 'Choose valid alert settings.');
-  const out = partial ? {} : { ...DEFAULT_SETTINGS };
-  for (const [key, value] of Object.entries(input)) {
-    if (!Object.hasOwn(DEFAULT_SETTINGS, key)) throw httpError(400, 'An alert setting was not recognised.');
-    if (key === 'healthThreshold' && (!Number.isFinite(value) || value < 1 || value > 100)) throw httpError(400, 'The health alert must be between 1 and 100.');
-    if (key === 'ltvThreshold' && (!Number.isFinite(value) || value <= 0 || value > 100)) throw httpError(400, 'The LTV alert must be above 0 and no higher than 100%.');
-    if (['alertsEnabled', 'dailyEnabled'].includes(key) && typeof value !== 'boolean') throw httpError(400, 'Choose whether this alert is enabled.');
-    if (key === 'dailyTime' && (typeof value !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))) throw httpError(400, 'Choose a valid daily report time in MYT.');
-    if (key === 'pausedUntil' && value !== null && (typeof value !== 'string' || !Number.isFinite(Date.parse(value)))) throw httpError(400, 'Choose a valid time to resume alerts.');
-    out[key] = value;
-  }
-  return out;
-}
-export async function getSettings(store) { return normalizeSettings(await store.get('settings') || {}); }
 
 export async function processAgentMessage({ store, message, source = 'dashboard', requestId, env = process.env, context,
   loadContext = loadAgentContext, loadSupplementalContext = loadAgentSupplementalContext, respond = respondAgent, budgetFactory = createAgentBudget }) {
@@ -96,7 +83,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     let settings = await getSettings(store);
     const messages = await store.get('messages') || [];
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
-    const reading = { ...(context || await loadContext({ origin: getAgentOrigin(env) })), policy };
+    const fullReview = isPortfolioReviewQuestion(message);
+    const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
     let result, inferenceSucceeded = false, modelOutput = null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());
     const research = researchQuestion(message);
@@ -106,6 +94,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
         { env, store, loadContext: async () => reading });
       result = { reply: prepared.reply, report: prepared.report, status: prepared.report.status,
         action: null, mode: 'research', sources: reading.sources || [] };
+    } else if (fullReview) {
+      result = await dispatchPortfolioReview({ env, store, manual: true, requestId: jobId });
     } else {
     try {
       if (env.AGENT_INFERENCE_ENABLED === 'false') throw httpError(503, 'AI explanations are disabled.', 'configuration_missing');

@@ -6,6 +6,9 @@ the real account. Local tests are separate evidence; they do not confirm your pr
 or replace a live check.
 
 Open [Agent](https://tiger-foundation-dashboard.vercel.app/agent.html) and sign in.
+For the recurring observe/compare/review loop, also follow
+[AGENT-REVIEW-LOOP.md](AGENT-REVIEW-LOOP.md). Individual comparison acceptance below
+does not establish that the new Workflow is provisioned or scheduled delivery works.
 
 ## 1. Confirm your strategy policy
 

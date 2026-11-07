@@ -26,10 +26,10 @@ except Exception as error:
 finally:
     db.close()
 `;
-export function createAgentSQLiteFixture() {
+export function createAgentSQLiteFixture({ usage = false } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'tiger-agent-policy-'));
   const path = join(directory, 'private.sqlite');
-  const schema = ['0001_agent.sql','0003_agent_storage.sql'].map(file =>
+  const schema = ['0001_agent.sql', ...(usage ? ['0002_agent_usage.sql'] : []), '0003_agent_storage.sql'].map(file =>
     readFileSync(new URL('../../cloudflare/migrations/' + file, import.meta.url), 'utf8')).join('\n');
   async function execute(queries, batch = false) {
     return new Promise((resolve, reject) => {

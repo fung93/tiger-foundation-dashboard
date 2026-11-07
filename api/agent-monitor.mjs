@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { createAgentStore } from './_agent-store.mjs';
+import { createAgentStore, readAgentState } from './_agent-store.mjs';
 import { safeEqual, json, getAgentOrigin } from './_agent-http.mjs';
-import { getSettings } from './_agent-service.mjs';
+import { getSettings } from './_agent-settings.mjs';
 import { loadAgentContext } from './_agent-context.mjs';
 import { summarizeAgent } from './_agent-brain.mjs';
 import { monitorConditions, mytDayAndTime, sendTelegram } from './_agent-notifications.mjs';
 import { forwardAgentRequest } from './_agent-gateway.mjs';
 import { getAgentPolicy } from './_agent-policy.mjs';
+import { yieldReviewOutbox } from './_agent-review-delivery.mjs';
 
 const COOLDOWN = 6 * 3600000;
 const paused = (settings, timestamp) => settings.pausedUntil && Date.parse(settings.pausedUntil) > timestamp;
@@ -22,7 +23,7 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
     let monitor, store, commit;
     try {
       const deliveryDeadline = Date.now() + 45000;
-      let sentChunks = 0;
+      let sentChunks = 0, processedItems = 0;
       const origin = getAgentOrigin(env), timestamp = now(), iso = new Date(timestamp).toISOString();
       store = storeFactory(env);
       monitor = await store.lock('monitor', 90);
@@ -40,17 +41,21 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           await monitor.commit(entries, { alsoOwned: [owner] });
         } finally { await owner.release(); }
       };
-      let settings = await getSettings(store);
-      let policy = await getAgentPolicy(store);
+      const preferences = async () => {
+        const saved = await readAgentState(store, ['settings', 'policy:current', 'telegram']);
+        const view = { get: async name => saved[name] };
+        return { settings: await getSettings(view), policy: await getAgentPolicy(view), binding: saved.telegram };
+      };
+      let { settings, policy, binding } = await preferences();
       if (paused(settings, timestamp)) {
         await commit([{ key: 'lastCheck', value: { ts: iso, status: 'paused', sources: [] } }]);
         return json(res, 200, { ok: true, skipped: 'paused' });
       }
-      const binding = await store.get('telegram'), linked = binding && env.TELEGRAM_BOT_TOKEN;
+      const linked = binding && env.TELEGRAM_BOT_TOKEN;
       const triggers = policy.constraints?.lpReviewTriggers || {};
       const needs = triggers.rewardChangePct != null || triggers.priceMovePct != null ? ['strategy'] : [];
       const context = await loadContext({ origin, fetcher, now, needs });
-      settings = await getSettings(store); policy = await getAgentPolicy(store);
+      ({ settings, policy } = await preferences());
       if (paused(settings, timestamp)) {
         await commit([{key:'lastCheck',value:{ts:iso,status:'paused',sources:[]}}]);
         return json(res,200,{ok:true,skipped:'paused'});
@@ -73,6 +78,9 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           title:'Private storage budget',message:'Private payload storage is approaching its local budget; review Cloudflare usage. Durable decisions were retained.',sourceTs:iso }; }
         catch { limitations.push('Private storage accounting requires the storage migration.'); }
       }
+      // Risk checks take priority over an unfinished strategy notice. Preserve
+      // its acknowledged-part checkpoint, then use the same outbox for alerts.
+      await yieldReviewOutbox(store, monitor);
       let pending = await store.get('monitor:pending');
       const deliver = async () => {
         if (!pending) return;
@@ -81,6 +89,9 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           await commit([{ key: 'monitor:pending', remove: true }]); pending = null; return;
         }
         while (pending.itemIndex < pending.items.length) {
+          // Bounded delivery leaves room for the verified risk pass and the
+          // cheap Workflow dispatch in this Free-plan invocation.
+          if (processedItems >= 2) return;
           const item = pending.items[pending.itemIndex];
           // Preferences may have changed after a failed delivery, including a
           // mixed batch containing risk alerts and the daily summary.
@@ -97,11 +108,11 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
             await sendTelegram(binding.chatId, deliveredMessage, { env, fetcher, origin, startPart: pending.sentParts || 0,
               beforePart: async () => {
                 await monitor.assertOwned();
-                const currentSettings = await getSettings(store), currentBinding = await store.get('telegram');
+                const { settings: currentSettings, policy: currentPolicy, binding: currentBinding } = await preferences();
                 if (paused(currentSettings, now()) || currentBinding?.chatId !== binding.chatId
                   || !(item.type === 'daily' ? currentSettings.dailyEnabled : currentSettings.alertsEnabled)
-                  || (await getAgentPolicy(store)).version !== policy.version) throw Error('Delivery requires fresh preferences and policy.');
-                if (sentChunks >= 4 || Date.now() >= deliveryDeadline) throw Error('Continue pending delivery on the next check.');
+                  || currentPolicy.version !== policy.version) throw Error('Delivery requires fresh preferences and policy.');
+                if (sentChunks >= 3 || Date.now() >= deliveryDeadline) throw Error('Continue pending delivery on the next check.');
               },
               onPart: async sentParts => { sentChunks++; pending.sentParts = sentParts;
                 await commit([{ key: 'monitor:pending', value: pending }]); } });
@@ -114,13 +125,15 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           if (!enabled && item.type !== 'daily' && state.conditions?.[item.key]?.active)
             state.conditions[item.key].notifiedAt = 0;
           pending.itemIndex++;
-          pending.sentParts = 0;
+          processedItems++;
+          pending.sentParts = pending.items[pending.itemIndex]?.sentParts || 0;
           await commit([{ key: 'alerts', value: alerts }, { key: 'monitor:pending', value: pending },
             { key: 'monitor:state', value: state }]);
         }
         await commit([{ key: 'monitor:pending', remove: true }]); pending = null;
       };
-      await deliver();
+      let deliveryFailed = false;
+      try { await deliver(); } catch { deliveryFailed = true; }
       const events = [], next = { ...state, policyVersion: policy.version, conditions: { ...previousConditions },
         telegramChatId: linked ? binding.chatId : null };
       const newChannel = !!linked && state.telegramChatId !== binding.chatId;
@@ -156,7 +169,8 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
       const alerts = [...(await store.get('alerts') || []), ...events].slice(-30);
       const entries = [{ key: 'monitor:state', value: next }, { key: 'alerts', value: alerts },
         { key: 'lastCheck', value: { ts: iso, status: 'checked', nextIntendedCheck: new Date(timestamp + 300000).toISOString(),
-          degraded: limitations.length > 0 || (context.sources || []).some(source => ['lending','lp'].includes(source.name) && source.status !== 'fresh'), limitations, sources: context.sources || [] } },
+          degraded: deliveryFailed || limitations.length > 0 || (context.sources || []).some(source => ['lending','lp'].includes(source.name) && source.status !== 'fresh'),
+          ...(deliveryFailed ? { delivery: 'queued' } : {}), limitations, sources: context.sources || [] } },
         { key: 'monitor:lastSuccess', value: { ts: iso } }];
       if (dailyDue) {
         const messages = await store.get('messages') || [];
@@ -165,15 +179,26 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           source: 'monitor', id: brief.key }].slice(-24) });
       }
       if (events.length && linked) {
-        pending = { chatId: binding.chatId, items: events.map(e => ({ alertId: e.id, type: e.type, key: e.key,
+        const remaining = pending ? pending.items.slice(pending.itemIndex).map((item, index) => ({ ...item,
+          sentParts: index === 0 ? pending.sentParts || 0 : item.sentParts || 0 })) : [];
+        const added = events.map(e => ({ alertId: e.id, type: e.type, key: e.key, severity: e.severity,
           status: e.status, ...(e.type === 'daily' ? { day: day.day } : {}),
-          text: e.title + '\n' + e.message })), itemIndex: 0, sentParts: 0, ts: iso };
+          text: e.title + '\n' + e.message }));
+        const items = [...remaining, ...added].sort((a,b) => Number(b.severity === 'critical') - Number(a.severity === 'critical'));
+        pending = { chatId: binding.chatId, items, itemIndex: 0, sentParts: items[0]?.sentParts || 0, ts: iso };
         entries.push({ key: 'monitor:pending', value: pending });
       }
       await commit(entries);
       state = next;
-      await deliver();
-      return json(res, 200, { ok: true, alerts: events.length, daily: dailyDue, telegram: !!linked, checkedAt: iso });
+      if (!deliveryFailed) try { await deliver(); } catch {
+        deliveryFailed = true;
+        await commit([{ key: 'lastCheck', value: { ...entries.find(entry => entry.key === 'lastCheck').value, degraded: true, delivery: 'queued' } }]);
+      }
+      // A bot outage must never suppress newly observed critical dashboard
+      // conditions. Keep the verified risk pass and durable outbox, but report
+      // delivery failure so Cron prioritizes recovery over new strategy AI.
+      return json(res, deliveryFailed ? 503 : 200, { ok: !deliveryFailed, alerts: events.length, daily: dailyDue, telegram: !!linked, checkedAt: iso,
+        ...(deliveryFailed ? { error: 'Telegram delivery is queued. The next scheduled check can retry.' } : {}) });
     } catch {
       if (commit) { try { await commit([{key:'lastCheck',value:{ts:new Date(now()).toISOString(),status:'failed',degraded:true,errorCategory:'monitor_unavailable'}}]); } catch {} }
       return json(res, 503, { error: 'The monitoring check did not finish. The next scheduled check can retry.' });

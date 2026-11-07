@@ -3,6 +3,7 @@
    repository on 2026-11-07. Account access still needs the live release gate. */
 import { httpError } from './_agent-http.mjs';
 import { AGENT_OUTPUT_SCHEMA, AGENT_OUTPUT_SCHEMA_VERSION } from './_agent-output-schema.mjs';
+import { AGENT_REVIEW_OUTPUT_SCHEMA } from './_agent-review-schema.mjs';
 
 export const DEFAULT_AGENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
 export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v4';
@@ -49,17 +50,19 @@ export function estimateAgentModelCost(value, inputTokens, outputTokens) {
   // Round up to a thousandth neuron; this is planning arithmetic, not billing.
   return Math.ceil((inputTokens * p.rates.inputNeuronsPerMillion + outputTokens * p.rates.outputNeuronsPerMillion) / 1000) / 1000;
 }
-export function createAgentModelRequest(value, messages) {
+export function createAgentModelRequest(value, messages, { purpose = 'chat' } = {}) {
   const p = trustedProfile(value);
   if (!Array.isArray(messages) || !messages.length || messages.length > 12 || messages.some(row => !row
     || !['system', 'user', 'assistant', 'tool'].includes(row.role) || typeof row.content !== 'string'))
     throw agentModelError('configuration_missing', 'The AI request could not be verified.');
+  if (!['chat', 'portfolio_review'].includes(purpose)) throw agentModelError('configuration_missing', 'The AI request purpose could not be verified.');
+  const schema = purpose === 'portfolio_review' ? AGENT_REVIEW_OUTPUT_SCHEMA : AGENT_OUTPUT_SCHEMA;
   // These bindings use different documented JSON-schema envelopes. GLM also
   // exposes an explicit thinking switch; Qwen has only its prompt hint here.
   return { messages, [p.outputTokenParameter]: p.maxOutputTokens, temperature: .1, stream: false,
     ...(p.jsonSchemaFormat === 'named' ? { chat_template_kwargs: { enable_thinking: false } } : {}),
     response_format: { type: p.responseFormat, json_schema: p.jsonSchemaFormat === 'named'
-      ? { name: 'tiger_agent_selection', schema: AGENT_OUTPUT_SCHEMA, strict: true } : AGENT_OUTPUT_SCHEMA } };
+      ? { name: purpose === 'portfolio_review' ? 'tiger_portfolio_review' : 'tiger_agent_selection', schema, strict: true } : schema } };
 }
 const invalid = (reason = 'invalid_envelope') => Object.assign(agentModelError('invalid_model_output', 'The AI answer was incomplete. Please try again.'), { modelOutputReason: reason });
 export function readAgentModelUsage(response) {

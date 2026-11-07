@@ -151,6 +151,17 @@ try {
   check((await make('overrun').status()).remainingNeurons, 0, 'Unexpectedly larger reported usage is retained and blocks future inference');
   await rejects(() => make('after-overrun').reserve(payload()), 'quota_exhausted', 'Actual-usage overruns cannot create negative-budget inference headroom');
 
+  await reset();
+  const floor = 100;
+  const protectedBudget = make('automatic-with-floor', floor, { holdbackNeurons: 90 });
+  await rejects(() => protectedBudget.reserve(payload()), 'quota_exhausted', 'Automatic analysis preserves headroom for interactive questions');
+  const interactive = await make('manual-keeps-headroom', floor).reserve(payload());
+  check(interactive.outcome, 'reserved', 'Interactive questions can use the same protected budget without an automatic holdback');
+  await reset();
+  const parallelAutomatic = await Promise.allSettled([make('auto-a', floor, { holdbackNeurons: 60 }).reserve(payload()),
+    make('auto-b', floor, { holdbackNeurons: 60 }).reserve(payload())]);
+  check(parallelAutomatic.filter(row => row.status === 'fulfilled').length, 1, 'The automatic holdback is enforced atomically across independent connections');
+
   unavailable = true;
   await rejects(() => make('outage').reserve(payload()), 'data_unavailable', 'A database outage stops inference before provider access');
   unavailable = false;

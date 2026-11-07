@@ -755,9 +755,26 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   explicit. Complete cost-aware comparisons and saved decisions retain their existing flow.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
-  current recipient/preferences/policy revalidation. Synchronous job records retain
-  interruption state; there is no background Workflow runner to advertise. Keep 0002
+  current recipient/preferences/policy revalidation. Synchronous chat/research records
+  retain interruption state. Portfolio reviews now use a real eight-step Cloudflare
+  Workflow, `PORTFOLIO_REVIEWS` / `PortfolioReviewWorkflow`, exported by runtime.mjs.
+  Never run the full review inline in chat, Telegram or the risk Cron: the Free D1
+  ceiling is 50 queries per invocation, and Free CPU is 10ms per Workflow step.
+  Batch private reads/writes, bound each step/delivery and retain unknown inference
+  reservations without replay. See docs/AGENT-REVIEW-LOOP.md. Keep 0002
   usage and 0003 storage migrations additive; never expire decision evidence as cache.
+- Recurring reviews (Alex, 7 Nov 2026) use confirmed policy, at most 3 automatic and
+  5 manual reviews/MYT day, one accounted selection per review, a four-hour event
+  cooldown and 500-neuron automatic holdback within the shared UTC budget. Private
+  revisioned review controls and up to three owner-confirmed cost/path cases remain
+  separate from notification settings and Lending's intentional per-visit reset.
+  Later matching source timestamps test original conditions; cached readings never
+  become new outcomes. Journal rejections suppress ideas under that policy while
+  independent critical facts remain visible. No policy auto-tuning/model retraining,
+  trade/signing or realized-return/win-rate claims. Strategy delivery uses the existing
+  monitor outbox/lease and yields to risk alerts; recheck recipient, pause, policy and
+  report expiry for every chunk. Missing Workflow binding is setup-required, never
+  an inline fallback. Only actual account checks establish live CPU/quota/readiness.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
   `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
   `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
@@ -1012,6 +1029,22 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **7 Nov 2026, recurring portfolio strategy reviews under the ongoing authorization:**
+  daily/material-event and explicit dashboard/Telegram reviews use eight real
+  Cloudflare Workflow steps, private controls and up to three owner-confirmed cases.
+  One accounted closed AI selection references deterministic choices; original
+  evidence/journal and later conditions persist without training the model or
+  changing policy. Unknown inference is never replayed. D1 dispatch checkpoints
+  survive Workflow history pruning. Risk alerts stay independent and new critical
+  dashboard conditions survive bot outages; the shared outbox retains unsent cursors.
+  Full npm check passes; review suites36/33/25/276/46/16, native Workflow17 and
+  Telegram82, Chromium96 checks in both themes at360/1366 and Worker dry run pass.
+  Tested native stages use at most29 D1 calls, stressed risk/dispatch48 (Free50).
+  Cache156; no new secret, migration or public financial/accounting change. Deploy
+  runtime.mjs with PORTFOLIO_REVIEWS from Wrangler config. Actual Free CPU/account
+  quotas, Workflow provisioning, cadence and review delivery remain live gates;
+  see docs/AGENT-REVIEW-LOOP.md and TIGER_AGENT_PROGRESS.md.
 
 - **7 Nov 2026, LP range analysis under the ongoing agent authorization:**
   chat can now answer suitable-range questions with numeric historical candidates,

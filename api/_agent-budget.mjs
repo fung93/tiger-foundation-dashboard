@@ -50,14 +50,14 @@ function record(row) {
     settledAt: row.settled_at === null ? null : new Date(row.settled_at).toISOString() };
 }
 
-export function createAgentBudget(env = process.env, { jobId, now = Date.now, timeoutMs = 8000 } = {}) {
+export function createAgentBudget(env = process.env, { jobId, now = Date.now, timeoutMs = 8000, holdbackNeurons = 0 } = {}) {
   const db = env.AGENT_DB;
   if (!db || typeof db.prepare !== 'function')
     throw error(503, 'Private AI usage storage has not been configured.', 'configuration_missing');
   if (jobId !== undefined && (typeof jobId !== 'string' || !jobId || jobId.length > 200))
     throw error(400, 'The inference job reference is invalid.', 'configuration_missing');
   const limit = env.AGENT_DAILY_NEURON_LIMIT === undefined ? DEFAULT_LIMIT : Number(env.AGENT_DAILY_NEURON_LIMIT);
-  if (!integer(limit, 1, 10000) || !integer(timeoutMs, 1, 30000))
+  if (!integer(limit, 1, 10000) || !integer(timeoutMs, 1, 30000) || !integer(holdbackNeurons, 0, 10000))
     throw error(503, 'The AI usage limit has not been configured correctly.', 'configuration_missing');
   const cap = limit * SCALE;
   const clock = () => {
@@ -101,7 +101,7 @@ export function createAgentBudget(env = process.env, { jobId, now = Date.now, ti
               WHERE owner=? AND utc_date<? AND outcome IN ('reserved','outcome_unknown')),0)<=?
         ON CONFLICT(owner,reservation_id) DO NOTHING RETURNING *`,
       [OWNER, id, jobId, round, date, profile.id, profile.version, input.hash, input.tokens,
-        maxOutputTokens, amount, amount, at, OWNER, id, OWNER, date, OWNER, date, cap - amount]);
+        maxOutputTokens, amount, amount, at, OWNER, id, OWNER, date, OWNER, date, cap - amount - holdbackNeurons * SCALE]);
       if (inserted) return { ...record(inserted), rates: { ...profile.rates } };
       const existing = await lookup(id);
       if (existing)

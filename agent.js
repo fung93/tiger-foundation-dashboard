@@ -8,6 +8,7 @@ let privateViewVersion=0,statusRequestVersion=0;
 let telegramSetup=null,telegramSetupBusy=false;
 let researchSources=[],researchSourcesLoaded=false,researchLoading=false,researchBusy=false,researchReport=null,pendingResearch=null;
 let pendingComparison=null,comparisonBusy=false,comparisonReport=null;
+let reviewState=null,reviewDirty=false,reviewBusy=false,reviewSaving=false,reviewFormRevision=null,pendingReview=null;
 let journalSelection=null,journalCursor=null,journalEventCursor=null,journalBusy=false,journalPending=null;
 const samePrivateView=version=>version===privateViewVersion&&state?.authenticated===true;
 const embedded=document.documentElement.classList.contains('agent-embedded');
@@ -52,6 +53,7 @@ function renderMessages(messages){
     const meta=element('div','agent-message-meta');meta.append(element('span','agent-message-name',message.role==='user'?'You':'Agent'));
     const stamp=date(message.ts);if(stamp)meta.append(element('time','',stamp));
     if(message.source==='telegram')meta.append(element('span','','via Telegram'));
+    if(message.source==='review')meta.append(element('span','','strategy review'));
     item.append(meta,element('div','agent-message-text',message.content));box.append(item);
   }
   if(atBottom||first)box.scrollTop=box.scrollHeight;
@@ -160,7 +162,7 @@ function render(){
   if(!authenticated)clearPrivateAnalysis();
   if(authenticated){
     if(state.policy)renderPolicy(state.policy);
-    renderMessages(state.messages);renderSettings();renderTelegram();renderAlerts();
+    renderMessages(state.messages);renderSettings();renderTelegram();renderAlerts();if(state.review)renderReview(state.review);
     if(Array.isArray(state.sources))sources=state.sources;renderSources();
   }
   setBusy(busy);
@@ -417,11 +419,18 @@ function renderDiagnostics(value){
   rows.push(['Session',components.session||'unverified'],['Gateway',components.gateway||'unverified'],['Private storage',components.storage||'unverified'],['AI binding',components.inference||'unverified'],['AI explanations',components.inferenceEnabled===false?'Disabled':'Enabled'],['Model',model.id||'Unavailable'],['Model connection',model.accountConnectivity||'unverified'],['Last successful inference',date(value.lastSuccessfulInference)||'No verified success'],['Last monitor success',date(value.lastMonitorSuccess)||'No verified success'],['Next intended check',date(value.nextIntendedMonitorCheck)||'Not reported'],['Last error',value.lastErrorCategory||'None reported']);
   if(budget.available===false)rows.push(['Usage ledger',budget.errorCategory||'Unavailable']);
   else rows.push(['AI usage · current UTC day',Number.isFinite(budget.chargedNeurons)&&Number.isFinite(budget.dailyLimitNeurons)?budget.chargedNeurons.toFixed(2)+' / '+budget.dailyLimitNeurons+' neurons':'Not reported'],['Uncertain attempts',Number.isSafeInteger(budget.unknownAttempts)?String(budget.unknownAttempts):'Not reported'],['Budget reset',date(budget.resetsAt)||'Not reported']);
-  rows.push(['Monitoring',components.monitor||'unverified'],['Storage budget',value.storageUsage?.status||'unverified'],['Private payload',Number.isSafeInteger(value.storageUsage?.payloadBytes)?(value.storageUsage.payloadBytes/1048576).toFixed(2)+' MiB':'Not reported'],['Research execution',value.jobs?.backgroundRunner?'Background runner':'Bounded synchronous requests']);
+  rows.push(['Monitoring',components.monitor||'unverified'],['Storage budget',value.storageUsage?.status||'unverified'],['Private payload',Number.isSafeInteger(value.storageUsage?.payloadBytes)?(value.storageUsage.payloadBytes/1048576).toFixed(2)+' MiB':'Not reported'],['Research execution','Bounded synchronous requests']);
+  if(value.strategyReview){const review=value.strategyReview;rows.push(['Strategy review',reviewLabel(review.status)],['Strategy review runner',review.workflowConfigured?'Cloudflare Workflow configured':'Workflow connection missing'],
+    ['Last scheduled review tick',date(review.lastSchedulerTick)||'No verified tick'],['Last automatic review',date(review.lastAutomaticSuccess)||'No verified success'],
+    ['Next intended review',date(review.nextIntendedReview)||'Not scheduled']);}
   rows.push(['Telegram delivery',value.delivery?.pending?'Pending · '+String(value.delivery.remainingItems||0)+' item(s)':'No queued delivery reported']);
   for(const [label,text] of rows){const row=element('div','agent-diagnostic-row');row.append(element('span','',label),element('span','',text));box.append(row);}
 }
 function clearPrivateAnalysis(){
+  reviewState=null;reviewDirty=false;reviewBusy=false;reviewSaving=false;reviewFormRevision=null;pendingReview=null;
+  for(const id of ['agentReviewReply','agentReviewSources','agentReviewPlans','agentReviewSchedule','agentReviewProgress'])$(id)?.replaceChildren();
+  if($('agentReviewResult'))$('agentReviewResult').hidden=true;if($('agentReviewDetails'))$('agentReviewDetails').open=false;
+  $('agentReviewSettings')?.reset();if($('agentReviewRun'))$('agentReviewRun').disabled=true;if($('agentReviewPlanSave'))$('agentReviewPlanSave').disabled=true;
   $('agentPair')?.setAttribute('aria-busy','false');
   $('agentUnlink')?.setAttribute('aria-busy','false');
   clearTelegramSetup();
@@ -629,6 +638,7 @@ function initComparisonControls(){
       const answer=await request('compare',{input,requestId:pendingComparison.requestId});if(!samePrivateView(view))return;
       if(!answer.report||typeof answer.reply!=='string')throw new Error('The comparison could not be verified.');
       comparisonReport=answer.report;updateComparisonValidity();
+      updateReviewPlanButton();
       $('agentCompareReply').textContent=answer.reply;
       const checks=$('agentCompareChecks');checks.replaceChildren();
       checks.append(element('p','agent-help','Uses saved preferences version '+answer.report.policyVersion+'.'));
@@ -663,6 +673,7 @@ async function openJournal(id,more=false){
   try{const value=await request('decision',{decisionId:id,cursor:more?journalEventCursor:null});if(!samePrivateView(view))return;
     journalSelection=value.decision;journalEventCursor=value.cursor||null;
     $('agentJournalMeta').textContent=agentLabel(value.decision.state)+' · saved '+date(value.decision.createdAt);
+    if($('agentJournalObserve'))$('agentJournalObserve').textContent=value.decision.kind==='portfolio_review'?'Check earlier conditions':'Save paper observation';
     $('agentJournalBaseline').textContent=value.decision.thesis+'\n'+(/^Retrieved excerpts/.test(value.decision.assessment||'')?'':value.decision.assessment)+'\nWhen to reconsider: '+(value.decision.invalidationConditions||[]).join('; ')+'\nNext review: '+(date(value.decision.reviewAt)||'Not set');
     if(!more){$('agentJournalEvents').replaceChildren();$('agentJournalReportText').replaceChildren();$('agentJournalForm').reset();journalPending=null;
       const choice=$('agentJournalChoice'),unset=element('option','','No option chosen');unset.value='';choice.replaceChildren(unset);
@@ -694,3 +705,90 @@ function initJournal(){
   });
 }
 initJournal();
+
+function reviewLabel(status){return ({completed:'Review ready',verified_checks:'Verified checks ready',queued:'Review queued',collecting:'Reading positions…',research:'Checking official sources…',paper:'Revisiting saved comparisons…',
+  ready_for_inference:'Comparing choices…',inference_started:'Reviewing the choices…',inference_finished:'Saving the review…',publishing:'Saving the review…',
+  waiting_data:'Waiting for fresh readings',waiting_first_review:'Ready for a first review',policy_required:'Confirm Strategy policy',
+  preferences_changed:'Run a fresh review',blocked:'Fresh readings needed',recovery_required:'Review needs attention',setup_required:'Background connection missing',paused:'Automatic reviews paused',disabled:'Reviews switched off',running:'Review in progress'})[status]||agentLabel(status);}
+function renderReview(value,{force=false}={}){
+  if(!$('agentReview')||!value?.controls||!state?.authenticated)return;
+  if(reviewState&&value.controls.revision<reviewState.controls.revision)return;
+  reviewState=value;
+  if(state)state.review=value;
+  const running=['queued','collecting','research','paper','ready_for_inference','inference_started','inference_finished','publishing','running','waiting_data'].includes(value.status);
+  if(!running)pendingReview=null;
+  $('agentReviewState').textContent=reviewLabel(value.status);$('agentReviewState').dataset.state=value.status==='completed'?'ready':'';
+  $('agentReviewSchedule').textContent='Daily at '+value.dailyTime+' MYT'+(value.nextIntendedReview?' · next intended '+date(value.nextIntendedReview):'');
+  $('agentReviewProgress').textContent=(value.usage?'Today: '+value.usage.automatic+'/'+value.limits.automatic+' automatic, '+value.usage.manual+'/'+value.limits.manual+' manual reviews. ':'')
+    +(value.lastSuccess?'Last completed '+date(value.lastSuccess)+'. ':'')+(value.pendingDelivery?'Telegram update queued.':'')
+    +(value.workflowConfigured===false?' Background review connection needs deployment.':'');
+  $('agentReviewRun').disabled=reviewBusy||running||value.featureEnabled===false;
+  if(force||!reviewDirty){
+    reviewDirty=false;reviewFormRevision=value.controls.revision;
+    $('agentReviewEnabled').checked=value.controls.enabled;$('agentReviewEvents').checked=value.controls.eventReviews;$('agentReviewResearch').checked=value.controls.research;
+    $('agentReviewFollowTime').checked=value.controls.dailyTime===null;$('agentReviewTime').value=value.controls.dailyTime||value.dailyTime;
+    $('agentReviewDelivery').value=value.controls.delivery;updateReviewTime();
+  }
+  if(value.latestReport&&typeof value.latestReply==='string'){
+    $('agentReviewReply').textContent=value.latestReply;$('agentReviewResult').hidden=false;
+    const sources=$('agentReviewSources');sources.replaceChildren();
+    sources.append(element('p','agent-help','Uses saved strategy preferences version '+value.latestReport.policyVersion+'.'));
+    for(const assumption of value.latestReport.assumptions||[])sources.append(element('p','agent-help',assumption));
+    for(const source of value.latestReport.sourceCoverage?.sources||[]){const label=({lending:'Lending',lp:'LP Book',portfolio:'Saved portfolio',history:'Recorded history',strategy:'Pool price and range history'})[source.name]||'Dashboard reading';
+      sources.append(element('p','agent-help',label+' · '+(({fresh:'Checked',stale:'Older reading',historical:'Recorded history',unavailable:'Unavailable'})[source.status]||'Not fully verified')+(date(source.ts)?' · '+date(source.ts):'')));}
+    for(const fact of value.latestReport.review?.research?.facts||[]){
+      const url=researchCitationUrl(fact.url);if(!url)continue;
+      const link=element('a','agent-research-link',fact.title||'Official source');link.href=url;link.target='_blank';link.rel='noopener noreferrer';sources.append(link);
+      if(researchDate(fact.retrievedAt))sources.append(element('p','agent-help','Retrieved '+researchDate(fact.retrievedAt)));
+    }
+  }
+  const plans=$('agentReviewPlans');plans.replaceChildren();
+  if(!value.plans?.items?.length)plans.append(element('p','agent-help','No recurring comparisons saved yet.'));
+  for(const plan of value.plans?.items||[]){
+    const row=element('article','agent-review-plan');row.append(element('p','',plan.label),element('p','agent-help',
+      (({active:'Assumptions confirmed until ',expired:'Assumptions expired ',preferences_changed:'Uses earlier preferences · until '})[plan.status]||'Saved assumptions · ')+date(plan.expiresAt)));
+    const button=element('button','agent-text-button','Remove from recurring reviews');button.type='button';
+    button.addEventListener('click',async()=>{const view=privateViewVersion;button.disabled=true;try{const next=await request('reviewPlanRemove',{id:plan.id,expectedRevision:reviewState.plans.revision});
+      if(samePrivateView(view))renderReview(next);}catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view))button.disabled=false;}});
+    row.append(button);plans.append(row);
+  }
+  updateReviewPlanButton();
+}
+function updateReviewTime(){if(!$('agentReviewFollowTime'))return;const inherit=$('agentReviewFollowTime').checked;$('agentReviewTime').disabled=inherit;$('agentReviewTime').required=!inherit;}
+function updateReviewPlanButton(){if(!$('agentReviewPlanSave'))return;$('agentReviewPlanSave').disabled=!state?.authenticated||!reviewState||!comparisonReport?.comparisonInput
+  ||!comparisonReport?.result?.options?.some(option=>!['blocked','outside_policy'].includes(option.status)&&option.outcomes?.length);}
+async function loadReview({force=false}={}){
+  if(!state?.authenticated)return;const view=privateViewVersion;
+  try{const value=await request('reviewStatus',{});if(samePrivateView(view))renderReview(value,{force});}
+  catch(error){if(samePrivateView(view))notice(error.message,true);}
+}
+function initReviewControls(){
+  if(!$('agentReview'))return;
+  $('agentReviewRefresh').addEventListener('click',()=>loadReview());$('agentReviewReload').addEventListener('click',()=>loadReview({force:true}));
+  $('agentReviewFollowTime').addEventListener('change',updateReviewTime);
+  const dirty=()=>{reviewDirty=true;};$('agentReviewSettings').addEventListener('input',dirty);$('agentReviewSettings').addEventListener('change',dirty);
+  $('agentReviewSettings').addEventListener('submit',async event=>{
+    event.preventDefault();if(reviewSaving||!state?.authenticated||!reviewState||!event.currentTarget.reportValidity())return;
+    const view=privateViewVersion;reviewSaving=true;$('agentReviewSave').disabled=true;
+    const settings={enabled:$('agentReviewEnabled').checked,eventReviews:$('agentReviewEvents').checked,research:$('agentReviewResearch').checked,
+      dailyTime:$('agentReviewFollowTime').checked?null:$('agentReviewTime').value,delivery:$('agentReviewDelivery').value};
+    try{const value=await request('reviewSettings',{settings,expectedRevision:reviewFormRevision});if(!samePrivateView(view))return;renderReview(value,{force:true});notice('Review settings saved. Your investment policy is unchanged.');}
+    catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view)){reviewSaving=false;$('agentReviewSave').disabled=false;}}
+  });
+  $('agentReviewRun').addEventListener('click',async()=>{
+    if(reviewBusy||!state?.authenticated)return;const view=privateViewVersion;reviewBusy=true;$('agentReviewRun').disabled=true;
+    if(!pendingReview)pendingReview=crypto.randomUUID();$('agentReviewProgress').textContent='Reading positions and reviewing supported choices…';
+    try{const value=await request('reviewRun',{requestId:pendingReview});if(!samePrivateView(view))return;
+      if(value.review)renderReview(value.review);if(!['queued','running','waiting_data'].includes(value.status))pendingReview=null;
+      if(!value.report&&typeof value.reply==='string')notice(value.reply);else notice('Your review is saved.');await loadStatus({quiet:true});
+    }catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view)){reviewBusy=false;renderReview(reviewState||state.review);}}
+  });
+  $('agentReviewJournal').addEventListener('click',async()=>{if(!reviewState?.decisionId)return;await loadJournal();await openJournal(reviewState.decisionId);$('agentJournal')?.scrollIntoView?.({behavior:'smooth',block:'start'});});
+  $('agentReviewPlanSave')?.addEventListener('click',async()=>{
+    if(!reviewState||!comparisonReport||!state?.authenticated)return;const view=privateViewVersion,button=$('agentReviewPlanSave');button.disabled=true;
+    try{const value=await request('reviewPlanSave',{reportId:comparisonReport.reportId,days:Number($('agentReviewPlanDays').value),expectedRevision:reviewState.plans.revision});
+      if(samePrivateView(view)){renderReview(value);notice('The displayed assumptions are saved for recurring reviews.');}}
+    catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view))updateReviewPlanButton();}
+  });
+}
+initReviewControls();

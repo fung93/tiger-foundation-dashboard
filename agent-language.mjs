@@ -18,7 +18,7 @@ export function agentLabel(value) {
     superseded: 'Preferences changed', proposed: 'Awaiting review', deferred: 'Deferred', accepted_for_review: 'Accepted for review',
     rejected: 'Rejected', invalidated: 'No longer applicable', superseded_policy: 'Uses earlier preferences', due: 'Review due', scheduled: 'Review scheduled',
     proposal: 'Brief saved', owner_decision: 'Your decision', owner: 'You', validated_report: 'Saved brief',
-    paper_observation: 'Paper check', observed: 'Observed', conditional: 'What-if estimate', outside_policy: 'Outside your saved limits' })[value]
+    paper_observation: 'Paper check', review_observation: 'Later reading checked', observed: 'Observed', conditional: 'What-if estimate', outside_policy: 'Outside your saved limits' })[value]
     || String(value || '').replace(/_/g, ' ');
 }
 export function friendlyAgentNotes(notes = [], { partial = false, blocked = false, kind = '' } = {}) {

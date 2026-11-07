@@ -1,7 +1,8 @@
 # Agent implementation review — 7 November 2026
 
-The ordered A–F implementation is complete locally, with the Workflow component
-explicitly deferred because research remains bounded synchronous execution. The
+The ordered A–F implementation is complete locally. Recurring portfolio reviews now
+use a real eight-step Cloudflare Workflow; individual research questions retain
+bounded synchronous execution. See [AGENT-REVIEW-LOOP.md](AGENT-REVIEW-LOOP.md). The
 owner explicitly authorized committing, pushing and deploying after local review. Remote
 migrations were verified by the owner through table/trigger inspection. The owner also
 confirmed a fresh accepted Qwen selection and deterministic lending reply through the
@@ -22,7 +23,7 @@ Continue with [AGENT-STRATEGY-ACCEPTANCE.md](AGENT-STRATEGY-ACCEPTANCE.md) for t
 | C | Separate versioned agent policy with draft/confirm, closed deterministic tools, exact integer lending calculations and server-rendered financial answers |
 | D | Bounded official configured-source retrieval, immutable evidence, exact citations, original source dates and source/policy-aware immutable reports |
 | E | Same-capital/horizon lending, LP and KAT paper comparisons with explicit costs, price paths, dilution, campaign expiry, policy checks and blocked unknowns |
-| F | Append-only journal, owner decisions and provenance, prospective paper observations, durable synchronous job phases/interruption handling, independent zero-AI monitoring and storage metrics |
+| F | Append-only journal, owner decisions and provenance, prospective paper observations, synchronous job recovery plus staged recurring-review Workflows, independent zero-AI monitoring and storage metrics |
 
 The dashboard includes verified tools, policy editing, configured research, comparison
 forms, journal browsing/actions and connection/usage status in both themes. Telegram
@@ -159,8 +160,10 @@ financing, cash flows and actual execution; no realized-return ranking or win ra
 
 Durable decisions/evidence/baselines never use cache TTL. Operational jobs retain 30 days;
 private payload metrics warn at 80 MiB of a 100 MiB local soft budget. Inspect actual D1
-account/index/usage-ledger storage separately. Workflow/background research is deferred;
-there is no interface claim that a runner exists. Rollback flags preserve all private
+account/index/usage-ledger storage separately. The recurring-review Workflow is locally
+tested, including real native execution and Free D1 bounds. Account CPU/quotas,
+provisioning, schedule and Telegram delivery still require real-account acceptance.
+Rollback flags preserve all private
 records, usage reservations and financial history.
 
 ## Changed files

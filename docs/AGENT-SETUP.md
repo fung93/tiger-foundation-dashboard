@@ -19,6 +19,9 @@ is available again; the agent never switches to a billed inference provider. Cha
 also capped locally at 40 questions per day by default (maximum configurable 100),
 five per minute, two inference passes per question and 800 output tokens per pass.
 Monitoring and daily summaries use calculations in code, without model inference.
+Recurring strategy reviews use separate bounded Cloudflare Workflows and one shared-
+budget inference per eligible review. See [AGENT-REVIEW-LOOP.md](AGENT-REVIEW-LOOP.md)
+for the new binding, schedule, owner feedback and account acceptance steps.
 
 **Confirm the Free plan and current model/allowance availability in your Cloudflare
 account before activating.** Code cannot prevent charges if you deliberately choose
@@ -97,6 +100,8 @@ without `@`, enabling one-click pairing links.
 | `AGENT_INFERENCE_ENABLED` | Worker variable: `false` disables AI explanations while retaining available factual tools |
 | `AGENT_RESEARCH_ENABLED` | Worker variable: `false` disables configured-source research |
 | `AGENT_STRATEGY_ENABLED` | Worker variable: `false` disables new strategy comparisons; factual tools and saved records remain available |
+| `AGENT_REVIEW_ENABLED` | Worker variable: `false` disables recurring/manual portfolio strategy reviews without changing risk monitoring |
+| `PORTFOLIO_REVIEWS` | Workflow binding to `tiger-portfolio-review`, class `PortfolioReviewWorkflow`; provisioned by the updated Wrangler config, not a secret |
 | `AGENT_DAILY_NEURON_LIMIT` | Worker variable: application cap, default 5,000 neurons per UTC day |
 | `AGENT_DAILY_MESSAGE_LIMIT` | Optional Worker variable: default 40, maximum 100 |
 | `AGENT_ACCESS_KEY` | Worker secret: owner sign-in key, 24+ characters |
@@ -257,8 +262,9 @@ research**; copying evidence IDs is unnecessary.
 
 Reports and their source snapshots are private immutable D1 records. A retry of the same
 request reference reuses one report. Older reports retain their original dates; policy
-changes mark them superseded, and expired evidence marks them partial. These are bounded
-synchronous requests; there is no claimed background runner.
+changes mark them superseded, and expired evidence marks them partial. Individual
+research requests remain bounded synchronous requests. Recurring portfolio reviews
+use the separately tested Workflow runner described in AGENT-REVIEW-LOOP.md.
 
 D1 keeps sessions, pairing, the latest 24 shared messages, preferences and delivery state
 separate from public financial JSON. The model sees at most four short previous messages
@@ -304,10 +310,13 @@ observation rather than an invented result. Telegram `/decisions` or `/journal` 
 the same private journal and links back to dashboard review; no model call is required.
 
 Research remains bounded synchronous execution (up to four configured documents).
-There is no Workflow/background research runner in this release. Durable job records
+Recurring portfolio reviews now use a real staged Workflow; its documentation step
+uses bounded configured sources. Durable synchronous chat/research job records
 preserve phase/completion/failure; lost invocations are marked interrupted on retry,
 and an ambiguous inference is never blindly repeated. Use a new request for a fresh
 review. Completed requests reuse the original dated report; expiry does not renew data.
+The Workflow also checkpoints its draft, AI dispatch/selection, publication and
+acknowledged Telegram chunks. It never repeats an inference with an unknown outcome.
 
 ### Storage, migrations and rollback
 

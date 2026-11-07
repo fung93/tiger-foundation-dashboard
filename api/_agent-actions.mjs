@@ -8,6 +8,7 @@ import { createResearchReport, createStrategyReport, persistAgentReport, renderR
 import { compareAgentStrategies, validateAgentComparison } from './_agent-scenarios.mjs';
 import { listAgentDecisions, getAgentDecision, recordAgentDecision, observeAgentDecision } from './_agent-decisions.mjs';
 import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
+import { reviewAction } from './_agent-review-actions.mjs';
 
 export function researchQuestion(message) {
   if (typeof message !== 'string' || message.length > 1000) return null;
@@ -20,6 +21,8 @@ export function researchQuestion(message) {
 // This dispatcher is called only after the existing owner session and origin
 // checks. Model tool calls have no route to policy confirmation or private writes.
 export async function agentAction(body, { env, store, loadContext = loadAgentContext } = {}) {
+  const review = await reviewAction(body, { env, store, loadContext });
+  if (review !== null) return review;
   if (body.action === 'decisions') return listAgentDecisions(store, { cursor: body.cursor ?? null, limit: body.limit ?? 10 });
   if (body.action === 'decision') return getAgentDecision(store, body.decisionId, { cursor: body.cursor ?? null });
   if (body.action === 'decisionRecord') return recordAgentDecision(store, body.input, { source: 'owner' });
@@ -27,7 +30,8 @@ export async function agentAction(body, { env, store, loadContext = loadAgentCon
     // Verify ownership/reference before any outbound data request.
     const saved = await getAgentDecision(store, body.decisionId, { limit: 1 });
     if (await store.increment('journal:observe:minute', 60) > 3) throw httpError(429, 'Please wait before recording another observation.');
-    const context = await loadContext({ origin: getAgentOrigin(env), needs: saved.decision.calculationIds?.some(id => id.startsWith('scenario:')) ? ['strategy'] : [] });
+    const context = await loadContext({ origin: getAgentOrigin(env), needs: saved.decision.kind === 'portfolio_review'
+      || saved.decision.calculationIds?.some(id => id.startsWith('scenario:')) ? ['strategy'] : [] });
     return observeAgentDecision(store, body.decisionId, context);
   }
   if(body.action==='compare'){

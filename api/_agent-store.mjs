@@ -11,6 +11,13 @@ const TABLE = 'agent_state';
 const CLOCK = "MAX(?, CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))";
 const STORAGE_ERROR = 'Private agent storage is unavailable. Check the free-plan allowance and try again later.';
 
+// D1 batch() counts as one query against the Free per-invocation query limit.
+// The fallback keeps small in-memory test doubles compatible, never production.
+export async function readAgentState(store, names) {
+  const values = store.getMany ? await store.getMany(names) : await Promise.all(names.map(name => store.get(name)));
+  return Object.fromEntries(names.map((name, index) => [name, values[index]]));
+}
+
 export function createAgentStore(env = process.env, { now = Date.now, timeoutMs = 8000 } = {}) {
   const db = env.AGENT_DB;
   if (!db || typeof db.prepare !== 'function' || typeof db.batch !== 'function')
@@ -115,6 +122,12 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
       const row = await first(`SELECT value FROM ${TABLE} WHERE key=? AND (expires_at IS NULL OR expires_at>${CLOCK})`, [key(name), clock()]);
       return decode(row?.value);
     },
+    getMany: async names => {
+      if (!Array.isArray(names) || !names.length || names.length > 100) throw Error('Invalid private state read');
+      const at = clock();
+      const rows = await batch(names.map(name => prepared(`SELECT value FROM ${TABLE} WHERE key=? AND (expires_at IS NULL OR expires_at>${CLOCK})`, [key(name), at])));
+      return rows.map(row => decode(row.results?.[0]?.value));
+    },
     set: async (name, value, options = {}) => {
       const at = clock(), expiresAt = expiry(options.ttlSeconds, at);
       const row = await first(`INSERT INTO ${TABLE} (key,value,expires_at) VALUES (?,?,?)
@@ -125,6 +138,11 @@ export function createAgentStore(env = process.env, { now = Date.now, timeoutMs 
     },
     putImmutable: async (name, value) => !!await first(`INSERT INTO ${TABLE} (key,value,expires_at) VALUES (?,?,NULL)
       ON CONFLICT(key) DO NOTHING RETURNING key`, [key(name), encode(value)]),
+    putImmutableMany: async entries => {
+      if (!Array.isArray(entries) || !entries.length || entries.length > 40) throw Error('Invalid immutable state update');
+      await batch(entries.map(({ key: name, value }) => prepared(`INSERT INTO ${TABLE} (key,value,expires_at) VALUES (?,?,NULL)
+        ON CONFLICT(key) DO NOTHING`, [key(name), encode(value)])));
+    },
     list: async (prefix, { cursor = null, limit = 20, reverse = false } = {}) => {
       if (typeof prefix !== 'string' || !prefix || prefix.length > 240 || !Number.isSafeInteger(limit) || limit < 1 || limit > 50
         || typeof reverse !== 'boolean' || (cursor !== null && (typeof cursor !== 'string' || !cursor.startsWith(prefix) || cursor.length > 300)))

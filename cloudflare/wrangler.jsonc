@@ -2,12 +2,13 @@
   // Deploy on a Cloudflare Workers Free account. Do not enable a paid plan or
   // paid fallback. Free allowances are finite; exhaustion pauses service.
   "name": "tiger-foundation-dashboard",
-  "main": "worker.mjs",
+  "main": "runtime.mjs",
   "compatibility_date": "2025-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "keep_vars": true,
   "ai": { "binding": "AI" },
+  "workflows": [{ "binding": "PORTFOLIO_REVIEWS", "name": "tiger-portfolio-review", "class_name": "PortfolioReviewWorkflow" }],
   "d1_databases": [
     {
       "binding": "AGENT_DB",
@@ -22,6 +23,7 @@
     "AGENT_INFERENCE_ENABLED": "true",
     "AGENT_RESEARCH_ENABLED": "true",
     "AGENT_STRATEGY_ENABLED": "true",
+    "AGENT_REVIEW_ENABLED": "true",
     "AGENT_DAILY_NEURON_LIMIT": "5000",
     "AGENT_DAILY_MESSAGE_LIMIT": "40"
   },

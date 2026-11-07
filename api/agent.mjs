@@ -7,6 +7,7 @@ import { agentDiagnostics } from './_agent-diagnostics.mjs';
 import { agentAction } from './_agent-actions.mjs';
 import { getAgentPolicy } from './_agent-policy.mjs';
 import { telegramConfigured, telegramSetupAction, verifiedTelegramUsername } from './_agent-telegram-setup.mjs';
+import { reviewStatus } from './_agent-review-state.mjs';
 
 const COOKIE = 'tiger_agent_session', SESSION_TTL = 7 * 86400;
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -30,11 +31,12 @@ function setCookie(res, token, env, expire = false) {
 async function privateStatus(req, store, available, env) {
   const token = cookie(req);
   if (!token || !await store.get('session:' + hash(token))) return { configured: true, authenticated: false, readiness: available };
-  const [settings, messages, alerts, binding, sources, lastCheck, policy] = await Promise.all([
+  const [settings, messages, alerts, binding, sources, lastCheck, policy, review] = await Promise.all([
     getSettings(store), store.get('messages'), store.get('alerts'), store.get('telegram'), store.get('sources'), store.get('lastCheck'), getAgentPolicy(store),
+    reviewStatus(store, env),
   ]);
   return { configured: true, authenticated: true, readiness: available,
-    settings, policy, messages: messages || [], alerts: alerts || [], sources: sources || [], last_check: lastCheck,
+    settings, policy, review, messages: messages || [], alerts: alerts || [], sources: sources || [], last_check: lastCheck,
     telegram: { connected: !!binding, username: env.TELEGRAM_BOT_USERNAME?.replace(/^@/, '') || null } };
 }
 

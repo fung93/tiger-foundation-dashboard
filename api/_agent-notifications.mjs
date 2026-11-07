@@ -142,6 +142,9 @@ export function monitorConditions(context, settings, { policy, previous = {}, de
     }
   }
   for (const decision of decisions) {
+    // Recurring reviews have their own follow-up schedule. Old daily briefs do
+    // not generate an ever-growing set of review-due alerts or retrigger AI.
+    if (decision.kind === 'portfolio_review') continue;
     if (['rejected','invalidated','superseded'].includes(decision.state) || !decision.reviewAt) continue;
     const key = 'review:' + decision.decisionId;
     conditions[key] = { active: Date.parse(decision.reviewAt) <= now, type: 'review', severity: 'info',

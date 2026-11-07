@@ -5,6 +5,10 @@ The owner has confirmed the real database schema, a dashboard inference, Telegra
 connectivity and a scheduled Telegram message. Remaining account checks are tracked
 in `TIGER_AGENT_PROGRESS.md`; research/strategy acceptance is the next phase.
 Use the existing Worker and database below. Keep Cloudflare Workers on Free.
+The recurring analysis update adds the `PORTFOLIO_REVIEWS` Workflow binding through
+the updated Wrangler config; it requires redeploying that configuration. No extra
+secret or SQL migration is required. Follow [AGENT-REVIEW-LOOP.md](AGENT-REVIEW-LOOP.md)
+after the existing connection is working.
 
 Keep access keys and bot tokens in your provider settings or ignored private local
 files. Never paste them into ChatGPT, GitHub files, screenshots or URL address bars.
