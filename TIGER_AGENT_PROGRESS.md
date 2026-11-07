@@ -1,6 +1,6 @@
 # Tiger agent implementation progress
 
-Updated 6 November 2026 (MYT). The owner authorized commit, push and deployment after local review. The dashboard's live Qwen/deterministic lending path is verified; Telegram activation remains pending.
+Updated 7 November 2026 (MYT). The owner authorized commit, push and deployment after local review. Dashboard Qwen/lending, Telegram connectivity and one scheduled Telegram message are confirmed by the owner. Research/strategy/journal account acceptance and account metrics remain pending.
 
 ## Baseline and reconciliation
 
@@ -43,7 +43,7 @@ No test contacts a real AI model or Telegram bot without a separately authorized
 - No production secrets or authenticated Cloudflare account are available here.
 - Publication was subsequently authorized and completed; the owner verified D1 tables/
   triggers and a fresh accepted Qwen/deterministic lending response through the dashboard.
-- Verify real scheduled monitoring and Telegram delivery. Measure CPU, latency,
+- One scheduled Telegram message is confirmed by the owner. Verify continued cadence and measure CPU, latency,
   requests, D1 rows and free-plan usage; these are not established by fixture success.
 - Keep live readiness, real connectivity and local fixture capability distinct.
 - Workflow execution may be deferred only if bounded synchronous research suffices;
@@ -317,10 +317,11 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [x] Owner successfully used the authenticated dashboard and Qwen selection path to
   obtain a server-rendered, deterministic lending-risk calculation. This verifies the
   dashboard path for that request; it does not prove every tool or transport works.
-- [ ] Verify Telegram pairing and an authenticated reply using the same owner store.
-- [ ] Verify an actual scheduled monitor tick and intended Telegram delivery.
+- [x] Owner confirms Telegram works following the runtime fix. A new natural-language
+  calculation and dashboard/Telegram history check remain separate acceptance steps.
+- [x] Owner reports a scheduled Telegram message arrived after the CRON_SECRET setup.
 - [ ] Measure real provider/Worker CPU, latency and account allowance behavior.
-- Strategy policy remains unconfirmed at version 0. Owner preferences must be entered
+- The last reported strategy policy was unconfirmed at version 0. Owner preferences must be entered
   through preview/confirm before treating them as an allocation mandate.
 
 ### Telegram setup state — 6 November 2026
@@ -338,7 +339,8 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   configure bot credentials or register its webhook, and does not affect the working
   Qwen profile, D1 schema, financial calculations or wallet permissions. Cache 153.
 - [x] Owner confirmed the button became available after configuring the Worker.
-- [ ] Register/verify the authenticated webhook, then confirm pairing and a bot reply.
+- [x] Owner subsequently confirmed Telegram works after webhook setup and the
+  Workers compatibility fix; scheduled delivery is tracked separately below.
 
 ### Telegram webhook activation — 6 November 2026
 
@@ -364,9 +366,10 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   including API 110, interface 107, setup 207/45, Worker 60 and rollover 466.
 - [x] Release files and activation guide prepared under the existing publication
   authorization. Cache 154; no database migration or new credential is required.
-- [ ] Verify ready production deployments; owner checks/registers the real webhook
-  and confirms a fresh reply. This workspace has no Cloudflare account credentials.
-- [ ] Verify an actual scheduled Telegram alert and measure account usage/CPU.
+- [x] Owner confirms the deployed Telegram connection works. Direct account inspection
+  is unavailable here; a scheduled message is a separate remaining acceptance check.
+- [x] Owner reports an actual scheduled Telegram message arrived.
+- [ ] Measure actual account usage/CPU and continuing monitor cadence.
 
 ### Telegram runtime compatibility — 6 November 2026
 
@@ -388,6 +391,71 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
   interfaces. Worker dry run passes at 362.94 KiB / gzip 93.97 KiB.
 - [x] Release artifacts prepared under the standing authorization. No new secret,
   migration, AI call or browser asset change; cache 154 remains current.
-- [ ] Confirm a new ready Worker deployment and owner retries setup. Actual
-  credentials/provider response and delivery remain
-  unverified here; the compatibility error does not establish a bad bot token.
+- [x] Owner retried after the new Worker release and confirms Telegram works.
+  No credential values were inspected or shared. Verify an actual question and
+  scheduled delivery separately; the former compatibility error did not prove a bad token.
+
+### Telegram live connection confirmed — 6 November 2026
+
+- [x] Owner reports Telegram works following publication of runtime fix 25e97dd.
+  No credential, invitation, chat identifier or private balance is recorded here.
+- [ ] Ask a fresh natural-language lending question in Telegram and verify its
+  question/reply appear in the authenticated dashboard's shared conversation.
+- [ ] Confirm a real recent monitor success and five-minute Cron scheduling.
+- [x] Owner reports receiving the scheduled message. A second same-day rescheduling
+  did not resend the daily summary, matching the once-per-MYT-date rule.
+- [ ] Owner reviews and explicitly confirms persistent Strategy policy separately
+  from notification preferences and Lending's per-visit settings.
+- [ ] Check real account/free-budget usage and exercise configured research, a
+  conditional comparison and its saved decision-journal entry.
+- [ ] Evaluate the explicit free-model replacement before planned Qwen retirement.
+  Rechecked the official catalog: planned_deprecation_date remains 2026-11-15.
+
+### Scheduled delivery configuration blocker — 6 November 2026
+
+- [x] Owner reports Monitoring unverified, no verified monitor success, no intended
+  next check and no queued Telegram delivery. Owner confirms CRON_SECRET is absent
+  from the Worker's Variables and Secrets. No secret value was requested or shared.
+- [x] Code inspection confirms the scheduled Worker returns before invoking the
+  monitor when CRON_SECRET is missing or shorter than 24 characters. This explains
+  the reported absence of monitor state; interactive Telegram uses separate credentials.
+- [x] Following configuration guidance, the owner reports a scheduled message arrived.
+  The secret value was never inspected or shared.
+- [ ] Confirm the five-minute Cron Trigger and observe a real monitor success.
+- [ ] Confirm daily summaries are enabled at the intended MYT time and receive a
+  scheduled Telegram message. No financial, AI, authentication or scheduling code
+  change is needed for the identified missing configuration.
+
+### Research and strategy acceptance — 7 November 2026
+
+- [x] Reconcile owner-confirmed Telegram/scheduled delivery with the remaining A–F
+  live gates. Preserve the existing local progress edits and all financial ledgers.
+- [x] Review the explicit next-model candidate against current official schemas and
+  pricing. GLM requires a named schema wrapper, max_completion_tokens and its
+  documented thinking switch; corrected its adapter and versioned the GLM profile.
+- [x] Qwen remains selected with the same request/profile version, 800-token cap and
+  shared free usage limits. Only its lifecycle metadata changes: the rechecked catalog
+  now lists planned retirement on 20 November, replacing the prior 15 November date.
+- [x] Native workerd/local D1 regression: 59 assertions across login, webhook setup,
+  owner policy preview/confirmation, immutable cited research, explicit news-coverage
+  limitations, shared integer lending comparison, append-only journal decisions,
+  Telegram /journal, retries and old-policy report invalidation. All outbound traffic
+  is simulated; test preferences are not real owner policy.
+- [x] Actual configured public source checks through this environment's proxy:
+  Morpho ready (1 evidence record), Sushi ready (1), Merkl partial (1 retrieved record
+  plus an unavailable source). Exact evidence references validate. The initial direct
+  Node reads could not use the environment's proxy; proxy-aware reads succeeded.
+  This does not establish deployed Worker egress, latency or CPU.
+- [x] Full npm run check passes: model profiles 130, brain 249, policy 47, evidence 82,
+  research reports 41, comparisons/paper scenarios 39, decisions/jobs 55, private
+  interfaces 107 and automatic reward rollover 466 among the retained suites.
+- [x] Worker dry run passes: 363.37 KiB / gzip 94.10 KiB, same AI/D1 bindings.
+- [x] Prepare docs/AGENT-STRATEGY-ACCEPTANCE.md with the concrete owner UI steps and
+  model test/rollback procedure. No new migration, secret or browser asset is needed.
+- [ ] Owner confirms real strategy preferences in the existing preview/confirm editor.
+  No policy values or allocation mandate are inferred from page or alert defaults.
+- [ ] Owner verifies a real cited report, conditional comparison and shared journal
+  entry. Complete current NAV/allocation sizing stays blocked where coverage is missing.
+- [ ] Verify GLM availability and an accepted answer on the actual Workers Free account
+  before adopting it. No automatic model/provider switch is enabled.
+- [ ] Measure real account inference/Worker CPU, latency, D1 and free-budget behavior.

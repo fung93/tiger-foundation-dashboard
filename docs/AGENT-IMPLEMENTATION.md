@@ -1,15 +1,17 @@
-# Agent implementation review — 6 November 2026
+# Agent implementation review — 7 November 2026
 
 The ordered A–F implementation is complete locally, with the Workflow component
 explicitly deferred because research remains bounded synchronous execution. The
 owner explicitly authorized committing, pushing and deploying after local review. Remote
 migrations were verified by the owner through table/trigger inspection. The owner also
 confirmed a fresh accepted Qwen selection and deterministic lending reply through the
-authenticated dashboard on 6 November at 20:23:54 MYT. Scheduled monitoring and real
-Telegram delivery remain unverified. The
+authenticated dashboard on 6 November at 20:23:54 MYT. The owner subsequently confirmed
+Telegram connectivity and one scheduled Telegram message. Continuing monitor cadence
+and actual account/CPU limits remain unverified here. The
 separately authorized LP rollover fix remains preserved at 6cbb805. The implementation
 was published on main as `ad80012`, with subsequent response compatibility fixes. Follow
 [AGENT-ACTIVATION.md](AGENT-ACTIVATION.md) for the account steps.
+Continue with [AGENT-STRATEGY-ACCEPTANCE.md](AGENT-STRATEGY-ACCEPTANCE.md) for the next live phase.
 
 ## What is implemented
 
@@ -63,6 +65,13 @@ history and queued updates. Registration still needs a fresh bot reply to prove 
   real-SQLite setup now passes 257 and optional context 89. Node-only success alone
   cannot validate Workers Request options. No real bot or account is tested locally.
   Full npm run check and a 362.94 KiB / gzip 93.97 KiB Worker dry run pass.
+- Strategy acceptance follow-up: 59 native workerd/local D1 assertions exercise policy,
+  cited research, lending comparisons, append-only decisions and Telegram journal reads.
+  Actual public source retrieval/evidence checks succeed for Morpho/Sushi; Merkl is
+  partial. The GLM adapter now follows its named-schema/completion-token/thinking
+  contract; Qwen remains selected. Models 130, brain 249 and full npm run check pass.
+  Worker dry run is 363.37 KiB / gzip 94.10 KiB. Neither local native tests nor public
+  document retrieval establish real GLM/account/Worker performance.
 - Real SQLite tests cover reservation races, lost leases, dual-fence rollback, process
   interruption, immutable journal records, stale editors and policy changes mid-answer.
   A suspended provider does not block real deterministic critical monitoring or erase
@@ -99,8 +108,8 @@ plus a recorded Qwen attempt using 262 of 800 output tokens. That verifies progr
 the shared authenticated data path and inference usage storage, while the model answer
 was rejected. The follow-up fixes the response contract and adds metadata-only diagnostics.
 The owner later confirmed the accepted Qwen lending response described above. Free-plan
-CPU/latency/subrequests/rows, scheduled monitoring and Telegram delivery still require
-real-account verification. Production Vercel endpoint
+CPU/latency/subrequests/rows and continuing monitoring need account verification;
+the owner has confirmed one scheduled Telegram message. Production Vercel endpoint
 reads were blocked by this environment's CONNECT403 policy. No accepted live inference
 is inferred from model playground greetings or fixture tests.
 
@@ -158,6 +167,7 @@ implementation. Main was reconciled through 6cbb805 without discarding unrelated
 ### New local files
 
 - `docs/AGENT-ACTIVATION.md`
+- `docs/AGENT-STRATEGY-ACCEPTANCE.md`
 - `api/_agent-output-diagnostics.mjs`
 - `api/_agent-output-schema.mjs`
 - `api/_agent-telegram-setup.mjs`

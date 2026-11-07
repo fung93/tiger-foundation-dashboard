@@ -1,7 +1,9 @@
 # Activate the published agent
 
-The code release is `ad80012` on `main`. Publishing source is complete; the real
-Cloudflare database, inference, scheduling and Telegram path still need verification.
+The initial code release is `ad80012` on `main`, with subsequent activation fixes.
+The owner has confirmed the real database schema, a dashboard inference, Telegram
+connectivity and a scheduled Telegram message. Remaining account checks are tracked
+in `TIGER_AGENT_PROGRESS.md`; research/strategy acceptance is the next phase.
 Use the existing Worker and database below. Keep Cloudflare Workers on Free.
 
 Keep access keys and bot tokens in your provider settings or ignored private local
@@ -202,3 +204,9 @@ Finally review the separate Strategy policy, preview your preferences and confir
 them explicitly. Its persistent settings do not change Lending's per-visit defaults.
 Research covers configured sources, comparisons remain conditional and wallet access
 is read-only. Full reference and rollback instructions are in [AGENT-SETUP.md](AGENT-SETUP.md).
+
+Continue with [research and strategy acceptance](AGENT-STRATEGY-ACCEPTANCE.md) for
+policy persistence, source citations, a conditional comparison and the shared journal.
+The 7 November catalog recheck moved Qwen's planned retirement to 20 November. The
+documented GLM request contract is prepared separately; its real account check remains
+pending before selecting it as a replacement.

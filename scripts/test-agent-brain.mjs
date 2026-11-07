@@ -165,10 +165,11 @@ try {
   });
   check(reply.reply, AGENT_EXPLANATIONS.apr, 'The model selects a reviewed explanation instead of writing financial claims');
   check(reply.action, null, 'Ordinary questions produce no settings action');
-  check(requests[0].max_tokens, 800, 'Each free model output has a fixed token budget');
+  check(requests[0].max_completion_tokens, 800, 'GLM output has a fixed completion-token budget');
+  check(requests[0].chat_template_kwargs, { enable_thinking: false }, 'GLM reasoning is disabled through its documented binding option');
   check(requests[0].temperature, .1, 'Low-variance inference supports the JSON protocol');
   check(requests[0].model, '@cf/zai-org/glm-4.7-flash', 'The server chooses only an explicit supported Workers AI profile');
-  check(requests[0].response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'Both configured profiles use their verified structured-output option');
+  check(requests[0].response_format, { type: 'json_schema', json_schema: { name: 'tiger_agent_selection', schema: AGENT_OUTPUT_SCHEMA, strict: true } }, 'GLM uses the documented named structured-output envelope');
   check(requests[0].messages.length, 7, 'Only four recent chat messages enter the compact model context');
   check(requests[0].messages.filter(row => row.role === 'system').length, 1, 'User history cannot inject a privileged model role');
   check(requests[0].messages[1].content.includes('"raw"'), false, 'Raw amounts are omitted from the model narrative context');

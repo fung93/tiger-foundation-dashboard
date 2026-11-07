@@ -1,22 +1,24 @@
 /* Explicit Workers AI profiles; no family wildcards, paid gateway or auto fallback.
    Catalog/schema and neuron rates checked against Cloudflare's official docs
-   repository on 2026-11-05. Account access still needs the live release gate. */
+   repository on 2026-11-07. Account access still needs the live release gate. */
 import { httpError } from './_agent-http.mjs';
 import { AGENT_OUTPUT_SCHEMA, AGENT_OUTPUT_SCHEMA_VERSION } from './_agent-output-schema.mjs';
 
 export const DEFAULT_AGENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
 export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v4';
-const VERIFIED_AT = '2026-11-05';
+const VERIFIED_AT = '2026-11-07';
 const CATALOG = 'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/workers-ai-models/';
 const PRICING = 'https://developers.cloudflare.com/workers-ai/platform/pricing/';
 const profile = (id, contextTokens, inputNeuronsPerMillion, outputNeuronsPerMillion) => Object.freeze({
-  id, version: id.split('/').at(-1) + ':2026-11-06:v3', verifiedAt: VERIFIED_AT,
+  id, version: id.split('/').at(-1) + (id === DEFAULT_AGENT_MODEL ? ':2026-11-06:v3' : ':2026-11-07:v4'), verifiedAt: VERIFIED_AT,
   verification: 'official_schema_and_pricing; live_account_unverified', freeCompatible: true,
   contextTokens, maxInputTokens: Math.min(30000, contextTokens - 800), maxOutputTokens: 800,
   requestFormat: 'workers-ai-messages', responseFormat: 'json_schema', outputSchemaVersion: AGENT_OUTPUT_SCHEMA_VERSION,
   responseShapes: Object.freeze(['chat-completion', 'workers-json']), tools: Object.freeze([]),
   thinkingHint: id === DEFAULT_AGENT_MODEL ? '/no_think' : null,
-  plannedDeprecationDate: id === DEFAULT_AGENT_MODEL ? '2026-11-15' : null,
+  jsonSchemaFormat: id === DEFAULT_AGENT_MODEL ? 'direct' : 'named',
+  outputTokenParameter: id === DEFAULT_AGENT_MODEL ? 'max_tokens' : 'max_completion_tokens',
+  plannedDeprecationDate: id === DEFAULT_AGENT_MODEL ? '2026-11-20' : null,
   rates: Object.freeze({ inputNeuronsPerMillion, outputNeuronsPerMillion }),
   schemaSource: CATALOG + id.split('/').at(-1) + '.json', pricingSource: PRICING,
 });
@@ -52,8 +54,12 @@ export function createAgentModelRequest(value, messages) {
   if (!Array.isArray(messages) || !messages.length || messages.length > 12 || messages.some(row => !row
     || !['system', 'user', 'assistant', 'tool'].includes(row.role) || typeof row.content !== 'string'))
     throw agentModelError('configuration_missing', 'The AI request could not be verified.');
-  return { messages, max_tokens: p.maxOutputTokens, temperature: .1, stream: false,
-    response_format: { type: p.responseFormat, json_schema: AGENT_OUTPUT_SCHEMA } };
+  // These bindings use different documented JSON-schema envelopes. GLM also
+  // exposes an explicit thinking switch; Qwen has only its prompt hint here.
+  return { messages, [p.outputTokenParameter]: p.maxOutputTokens, temperature: .1, stream: false,
+    ...(p.jsonSchemaFormat === 'named' ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+    response_format: { type: p.responseFormat, json_schema: p.jsonSchemaFormat === 'named'
+      ? { name: 'tiger_agent_selection', schema: AGENT_OUTPUT_SCHEMA, strict: true } : AGENT_OUTPUT_SCHEMA } };
 }
 const invalid = (reason = 'invalid_envelope') => Object.assign(agentModelError('invalid_model_output', 'The AI answer was incomplete. Please try again.'), { modelOutputReason: reason });
 export function readAgentModelUsage(response) {

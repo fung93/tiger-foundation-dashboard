@@ -342,13 +342,20 @@ was not supported by that evidence. The request/response contract was corrected 
 the live outcome still requires a new authenticated test after deployment.
 
 Cloudflare's [Qwen catalog](https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/workers-ai-models/qwen3-30b-a3b-fp8.json)
-lists planned deprecation on 15 November 2026. Diagnostics display that date. Recheck
+lists planned deprecation on 20 November 2026 as rechecked on 7 November. Diagnostics display that date. Recheck
 availability and evaluate the explicit GLM alternate before retirement; no automatic
 model or paid-provider switch is enabled. The prompt hint is documented in
 [Qwen's official README](https://github.com/QwenLM/Qwen3/blob/main/README.md#quickstart).
 
 Only explicit locally tested Qwen and GLM profiles are accepted; there is no automatic
 model switch. The retired Llama identifier is rejected with a model-unavailable category.
+
+The 7 November GLM contract review uses its documented named JSON-schema wrapper,
+`max_completion_tokens: 800` and `chat_template_kwargs: { enable_thinking: false }`.
+Qwen continues using its direct schema, `max_tokens: 800` and prompt hint. Its working
+profile version stays unchanged; only lifecycle metadata is refreshed. GLM's profile
+ends in `2026-11-07:v4` and requires a new live accepted response before use is verified.
+See [strategy acceptance](AGENT-STRATEGY-ACCEPTANCE.md) for the next owner checks.
 
 ### Run the checks
 

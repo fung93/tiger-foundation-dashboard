@@ -14,11 +14,17 @@ check(getAgentModelProfile().id, '@cf/qwen/qwen3-30b-a3b-fp8', 'Evaluate Qwen fi
 check(estimateAgentModelCost(getAgentModelProfile(), 4000, 1000), 48.975, 'Neuron planning matches the documented Qwen example');
 for (const profile of Object.values(AGENT_MODEL_PROFILES)) {
   check(getAgentModelProfile({ AGENT_MODEL: profile.id }), profile, 'Only registered exact model identifiers select a profile');
-  check(profile.verifiedAt, '2026-11-05', 'Profile schema and rates have an explicit verification date');
+  check(profile.verifiedAt, '2026-11-07', 'Profile schema and rates have an explicit verification date');
   check(profile.verification.includes('live_account_unverified'), true, 'A fixture benchmark never claims real account access');
   check(profile.maxOutputTokens, 800, 'Every profile keeps the existing output cap');
   const request = createAgentModelRequest(profile, [{ role: 'user', content: 'Hello' }]);
-  check(request.response_format, { type: 'json_schema', json_schema: AGENT_OUTPUT_SCHEMA }, 'The binding receives the direct Cloudflare planning schema');
+  const qwen = profile.id === DEFAULT_AGENT_MODEL;
+  check(request.response_format, { type: 'json_schema', json_schema: qwen ? AGENT_OUTPUT_SCHEMA
+    : { name: 'tiger_agent_selection', schema: AGENT_OUTPUT_SCHEMA, strict: true } }, 'Each binding receives its documented planning-schema envelope');
+  check(request[qwen ? 'max_tokens' : 'max_completion_tokens'], 800, 'Each provider receives its documented bounded output field');
+  check(Object.hasOwn(request, qwen ? 'max_completion_tokens' : 'max_tokens'), false, 'Conflicting output fields never enter a provider request');
+  check(request.chat_template_kwargs, qwen ? undefined : { enable_thinking: false }, 'Only GLM receives its documented reasoning switch');
+  check(profile.plannedDeprecationDate, qwen ? '2026-11-20' : null, 'Lifecycle metadata matches the rechecked catalog');
   check(request.stream, false, 'Streaming and unbounded partial output are disabled');
   check(Object.hasOwn(request,'tools'), false, 'Native tools do not compete with the closed JSON planning schema');
   const normalized = normalizeAgentModelResponse(profile, completion());

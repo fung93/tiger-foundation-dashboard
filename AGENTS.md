@@ -721,7 +721,12 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   diagnostics must never retain prompts, response text, reasoning or arguments.
   Rejected prose settles as failed even if its JSON syntax is valid. Qwen's /no_think
   is a documented prompt hint, not a guaranteed runtime flag. The provider catalog
-  currently lists planned Qwen deprecation on 15 Nov 2026; review it before that date.
+  rechecked on 7 Nov lists planned Qwen deprecation on 20 Nov 2026; review it before that date.
+- The two allowed model bindings have different JSON-schema contracts. Qwen takes
+  the direct schema and max_tokens; GLM takes a named schema wrapper and
+  max_completion_tokens, with documented chat_template_kwargs.enable_thinking=false.
+  Keep the closed selector and deterministic validation. GLM remains a candidate
+  until a fresh real-account response passes; no automatic model switch is permitted.
 - Workers AI may return both choices and a legacy response alias. Accept a single
   completed selection when aliases match as bounded JSON or the legacy field is
   empty. Empty/null tool-call metadata is not a second request. Reject disagreeing
@@ -990,6 +995,17 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **7 Nov 2026, research/strategy acceptance under the ongoing agent authorization:**
+  owner confirms Telegram and one scheduled message. Native workerd/local D1 now
+  checks the policy/research/comparison/journal lifecycle and Telegram /journal (59
+  assertions). Correct GLM's documented named schema, completion-token field and
+  explicit thinking switch; its candidate profile is v4. Qwen stays selected with
+  the same request/profile version. Rechecked catalog moves its planned retirement
+  to 20 Nov. Public source checks validate Morpho/Sushi; Merkl remains partial.
+  Full npm run check and Worker dry run pass. No new secrets, migrations or browser
+  assets. Real policy confirmation, workflow acceptance, GLM access and CPU/quotas
+  remain owner/account gates; see docs/AGENT-STRATEGY-ACCEPTANCE.md.
 
 - **6 Nov 2026, Telegram setup runtime fix under the existing release approval:**
   native workerd reproduced the published setup check failing before Telegram access:
