@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 47264005,
-  "robinhood": 107957619
+  "katana": 47303962,
+  "robinhood": 108333664
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -320,11 +320,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1794006816,
-    "block": 107957619,
+    "ts": 1794046773,
+    "block": 108333664,
     "in": true,
-    "in_s": 1859477,
-    "all_s": 1859477
+    "in_s": 1899434,
+    "all_s": 1899434
    },
    "claims": [
     {
@@ -1674,15 +1674,15 @@
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {
-    "KAT@katana": 2417.904200159135
+    "KAT@katana": 3749.71696806038
    },
    "unpriced": false,
    "range": {
-    "ts": 1794006816,
-    "block": 47264005,
+    "ts": 1794046773,
+    "block": 47303962,
     "in": true,
-    "in_s": 73057,
-    "all_s": 73057
+    "in_s": 113014,
+    "all_s": 113014
    },
    "claimed_seen": {}
   }
@@ -3576,16 +3576,40 @@
     "katana:493582": 979.2226264163946,
     "katana:493879": 0
    }
+  },
+  {
+   "ts": 1794046778,
+   "tokens": {
+    "WETH@robinhood": 0.00975302,
+    "USDG@robinhood": 22.696062,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 36295.97621001,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -207.59,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.00975302,
+     "USDG@robinhood": 22.310918
+    },
+    "katana:493879": {
+     "KAT@katana": 3749.71696806
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -111.49,
+    "katana:493879": -1.02
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1793209152,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1793224864,
    "behind": {
@@ -3788,6 +3812,13 @@
   },
   {
    "ts": 1794006816,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1794046773,
    "behind": {
     "katana": 0,
     "robinhood": 0
@@ -4027,7 +4058,7 @@
    "claimed": 1831.7009085728987
   },
   "katana:493879": {
-   "earned": 2417.904200159135,
+   "earned": 3749.71696806038,
    "claimed": 0
   }
  },
