@@ -1,5 +1,6 @@
 /* Agent content is scoped so the same stylesheet can safely support its drawer. */
 .agent-content{padding-top:8px;padding-bottom:24px}
+.agent-lp-autofill{padding:13px 0;min-width:0}.agent-lp-autofill>label{display:grid;gap:8px}.agent-lp-autofill select{width:100%;min-width:0}.agent-lp-autofill .agent-settings-actions{margin:12px 0}.agent-lp-autofill p{overflow-wrap:anywhere}#agentCompareLPAdvanced{margin-top:12px}#agentCompareLPAdvanced>.agent-settings-grid{margin-top:14px}.agent-page input[data-basis=observed],.agent-page input[data-basis=derived]{border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
 .agent-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 18px}
 .agent-top h2{font:400 38px/1.15 var(--serif);margin-top:7px;display:flex;align-items:center;gap:13px}
 .agent-readonly{font:500 9px/1 var(--sans);text-transform:uppercase;letter-spacing:.1em;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:6px 8px}

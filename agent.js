@@ -8,6 +8,7 @@ let privateViewVersion=0,statusRequestVersion=0;
 let telegramSetup=null,telegramSetupBusy=false;
 let researchSources=[],researchSourcesLoaded=false,researchLoading=false,researchBusy=false,researchReport=null,pendingResearch=null;
 let pendingComparison=null,comparisonBusy=false,comparisonReport=null;
+let lpAutoSetup=null,lpAutoBusy=false,lpAutoTicket=0,lpAutoRevision=0,lpAutoDirty=new Set(),comparisonTicket=0,comparisonKind='lending',comparisonShared={};
 let reviewState=null,reviewDirty=false,reviewBusy=false,reviewSaving=false,reviewFormRevision=null,pendingReview=null;
 let journalSelection=null,journalCursor=null,journalEventCursor=null,journalBusy=false,journalPending=null;
 const samePrivateView=version=>version===privateViewVersion&&state?.authenticated===true;
@@ -442,10 +443,15 @@ function clearPrivateAnalysis(){
   $('agentJournalForm')?.reset();
   if($('agentJournalSave'))$('agentJournalSave').disabled=false;
   pendingComparison=null;comparisonBusy=false;comparisonReport=null;
+  lpAutoSetup=null;lpAutoBusy=false;lpAutoTicket++;lpAutoRevision++;lpAutoDirty=new Set();comparisonTicket++;comparisonKind='lending';comparisonShared={};
+  for(const id of ['agentCompareAutoState','agentCompareAutoSummary','agentCompareAutoSources'])$(id)?.replaceChildren();
+  if($('agentCompareOpenLP')){$('agentCompareOpenLP').replaceChildren();$('agentCompareOpenLP').disabled=true;}
   for(const id of ['agentCompareMeta','agentCompareReply'])$(id)?.replaceChildren();
   if($('agentComparePanel'))$('agentComparePanel').hidden=true;
   if($('agentCompareUseResearch'))$('agentCompareUseResearch').checked=false;
   $('agentCompareForm')?.reset();
+  for(const id of ['agentComparePosition','agentCompareOwner'])if($(id))$(id).value='';
+  for(const id of Object.values(LP_AUTO_FIELDS))if($(id)){delete $(id).dataset.basis;$(id).removeAttribute('title');}
   if($('agentCompareSend'))$('agentCompareSend').disabled=false;
   document.querySelectorAll('[data-compare-kind]').forEach(el=>el.hidden=el.dataset.compareKind!==$('agentCompareKind')?.value);
   policyState=null;policyDraft=null;policyDirty=false;policyConflict=false;policyFormVersion=null;toolResult=null;
@@ -617,6 +623,7 @@ function comparisonInput(){
       rewardEligible:$('agentCompareEligible').value===''?null:$('agentCompareEligible').value==='true',
       rewardPriceUsd:n('agentCompareRewardPrice'),competingLiquidityMultiplier:n('agentCompareCompetition'),
       borrowingCostUsd:n('agentCompareBorrowCost'),useObservedRates:$('agentCompareObserved').checked});
+    if($('agentCompareOwner')?.value)input.owner=$('agentCompareOwner').value;
   }
   if(kind==='kat')Object.assign(input,{katPriceUsd:n('agentCompareKatPrice'),katAmount:n('agentCompareKatAmount')});
   Object.assign(input,{swapFeeBps:n('agentCompareSwap'),slippageBps:n('agentCompareSlippage'),
@@ -625,27 +632,131 @@ function comparisonInput(){
   if($('agentCompareReview').value)input.reviewAt=$('agentCompareReview').value+'T01:00:00Z';
   return input;
 }
+const LP_AUTO_FIELDS={horizonDays:'agentCompareDays',cashUsd:'agentCompareCash',gasUsd:'agentCompareGas',widenFactor:'agentCompareWiden',
+  lowerPrice:'agentCompareLower',upperPrice:'agentCompareUpper',rewardEligible:'agentCompareEligible',rewardPriceUsd:'agentCompareRewardPrice',
+  competingLiquidityMultiplier:'agentCompareCompetition',borrowingCostUsd:'agentCompareBorrowCost',useObservedRates:'agentCompareObserved',
+  swapFeeBps:'agentCompareSwap',slippageBps:'agentCompareSlippage',thesis:'agentCompareThesis',catalysts:'agentCompareCatalysts',
+  invalidationConditions:'agentCompareInvalidation',reviewAt:'agentCompareReview',evidenceIds:'agentCompareEvidence'};
+const LP_SHARED=['agentCompareDays','agentCompareCash','agentCompareGas','agentCompareSwap','agentCompareSlippage'];
+function automaticLPRequest(){
+  const input=comparisonInput(),overrides={};
+  for(const field of lpAutoDirty)if(Object.hasOwn(input,field))overrides[field]=input[field];
+  if(lpAutoDirty.has('paths')||lpAutoDirty.has('horizonDays')){overrides.paths=input.paths;overrides.horizonDays=input.horizonDays;}
+  return {positionKey:$('agentCompareOpenLP').value,overrides};
+}
+function clearComparisonResult(){
+  comparisonReport=null;pendingComparison=null;$('agentComparePanel').hidden=true;
+  for(const id of ['agentCompareMeta','agentCompareReply','agentCompareChecks'])$(id)?.replaceChildren();
+  updateReviewPlanButton();
+}
+function renderAutomaticLP(value,{keepReport=false}={}){
+  if(!keepReport)clearComparisonResult();
+  lpAutoSetup=value;const picker=$('agentCompareOpenLP'),selected=value.position?.key;
+  picker.replaceChildren();
+  if(!value.positions?.length){const node=element('option','','No current open LPs available');node.value='';picker.append(node);}
+  for(const p of value.positions||[]){const label=p.pair+' · '+p.chain+' #'+p.positionId+' · '+p.owner.slice(0,6)+'…'+p.owner.slice(-4);
+    const node=element('option','',label+(p.available?'':' · unavailable'));node.value=p.key;picker.append(node);}
+  picker.value=selected||'';picker.disabled=!value.positions?.length;
+  const sources=$('agentCompareAutoSources');sources.replaceChildren();
+  const labels={horizonDays:'Horizon',cashUsd:'Available cash',gasUsd:'Gas budget',lowerPrice:'Lower price',upperPrice:'Upper price',
+    swapFeeBps:'Pool swap fee',rewardPriceUsd:'KAT price',paths:'Price scenarios',slippageBps:'Slippage',borrowingCostUsd:'Financing'};
+  for(const [field,source]of Object.entries(value.fieldSources||{})){
+    const adjusted=lpAutoDirty.has(field),label=adjusted?'Your scenario adjustment':source.label;
+    if(LP_AUTO_FIELDS[field]){$(LP_AUTO_FIELDS[field]).dataset.basis=adjusted?'owner':source.basis;$(LP_AUTO_FIELDS[field]).title=label;}
+    if(labels[field])sources.append(element('p','agent-help',labels[field]+' · '+label+(!adjusted&&date(source.observedAt)?' · '+date(source.observedAt):'')));
+  }
+  for(const note of value.notes||[])sources.append(element('p','agent-help',note));
+  $('agentCompareAutoState').textContent=value.inputs?(value.status==='ready'?'Live inputs filled automatically.':'Some live inputs are unavailable. Refresh to retry.'):(value.notes?.[0]||'The LP reading is unavailable.');
+  const price=value=>Number(value).toLocaleString('en-US',{maximumFractionDigits:Math.abs(value)>=1?2:6});
+  $('agentCompareAutoSummary').textContent=value.inputs?'Current price '+price(value.currentPrice)+' · current range '+price(value.currentRange.lowerPrice)+'–'+price(value.currentRange.upperPrice)+' '+(value.priceUnit||'')
+    +'. Price moves and future rates are scenario assumptions. '+(value.inputs.comparisonBasis==='before_financing'?'Values are before borrowing costs.':'Borrowing costs use your adjustment.') :'';
+  const input=value.inputs;
+  if(input){
+    $('agentComparePosition').value=input.positionId;$('agentCompareChain').value=input.chain;$('agentCompareOwner').value=input.owner;
+    for(const [field,id]of Object.entries(LP_AUTO_FIELDS)){
+      const node=$(id),v=input[field];if(!node||lpAutoDirty.has(field))continue;
+      if(node.type==='checkbox')node.checked=v===true;
+      else node.value=v==null?'':Array.isArray(v)?v.join(field==='evidenceIds'?',':'\n'):field==='reviewAt'?String(v).slice(0,10):String(v);
+    }
+    if(!lpAutoDirty.has('paths')){
+      $('agentCompareMoves').value=[...new Set(input.paths.map(path=>Math.round((path.points.at(-1).ratio-1)*10000)/100))].join(', ');
+      $('agentCompareRewardCases').value=[...new Set(input.paths.map(path=>path.rewardFactor??1))].join(', ');
+    }
+  }else for(const id of ['agentComparePosition','agentCompareOwner',...Object.values(LP_AUTO_FIELDS)]){const node=$(id);if(node?.type==='checkbox')node.checked=false;else if(node)node.value='';}
+  $('agentCompareSend').disabled=comparisonBusy||lpAutoBusy||!value.inputs;
+}
+async function loadAutomaticLP({reset=false,changed=false,retry=true}={}){
+  if(!state?.authenticated||$('agentCompareKind').value!=='lp')return;
+  if(reset||changed)lpAutoDirty=new Set();
+  comparisonTicket++;comparisonBusy=false;clearComparisonResult();
+  const view=privateViewVersion,ticket=++lpAutoTicket;lpAutoBusy=true;lpAutoRevision++;
+  $('agentCompareSend').disabled=true;$('agentCompareOpenLP').disabled=true;
+  $('agentCompareAutoState').textContent='Detecting open LPs and reading live inputs…';
+  const selected=$('agentCompareOpenLP').value;
+  const automaticLP=selected?automaticLPRequest():{overrides:{}};
+  try{
+    const value=await request('lpCompareSetup',{automaticLP});
+    if(!samePrivateView(view)||ticket!==lpAutoTicket||$('agentCompareKind').value!=='lp')return;
+    lpAutoBusy=false;renderAutomaticLP(value);
+  }catch(error){
+    if(!samePrivateView(view)||ticket!==lpAutoTicket)return;
+    lpAutoBusy=false;
+    if(error.status===409&&retry){lpAutoSetup=null;$('agentCompareOpenLP').value='';await loadAutomaticLP({reset:true,retry:false});return;}
+    lpAutoSetup=null;$('agentCompareAutoState').textContent=error.message;$('agentCompareAutoSummary').textContent='Live refresh failed. Previous values have not been relabelled current.';
+    $('agentCompareSend').disabled=true;
+  }finally{if(samePrivateView(view)&&ticket===lpAutoTicket){lpAutoBusy=false;$('agentCompareOpenLP').disabled=!lpAutoSetup?.positions?.length;}}
+}
 function initComparisonControls(){
   if(!$('agentCompareForm'))return;
-  const update=()=>document.querySelectorAll('[data-compare-kind]').forEach(el=>el.hidden=el.dataset.compareKind!==$('agentCompareKind').value);
+  const update=()=>{
+    const kind=$('agentCompareKind').value;
+    if(kind!==comparisonKind){comparisonShared[comparisonKind]=Object.fromEntries(LP_SHARED.map(id=>[id,$(id).value]));
+      comparisonTicket++;comparisonBusy=false;lpAutoTicket++;lpAutoBusy=false;
+      clearComparisonResult();
+      if(kind!=='lp'&&comparisonShared[kind])for(const [id,value]of Object.entries(comparisonShared[kind]))$(id).value=value;
+      comparisonKind=kind;pendingComparison=null;
+    }
+    document.querySelectorAll('[data-compare-kind]').forEach(el=>el.hidden=el.dataset.compareKind!==kind);
+    $('agentCompareSend').disabled=false;
+    $('agentCompareSend').textContent=kind==='lp'?'Compare this LP':'Compare conditional outcomes';
+    if(kind==='lp'){if(state?.authenticated)loadAutomaticLP();else $('agentCompareSend').disabled=true;}
+  };
   $('agentCompareKind').addEventListener('change',update);update();
+  $('agentCompareOpenLP').addEventListener('change',()=>{comparisonTicket++;pendingComparison=null;loadAutomaticLP({changed:true});});
+  $('agentCompareRefreshLP').addEventListener('click',()=>loadAutomaticLP());
+  $('agentCompareResetLP').addEventListener('click',()=>loadAutomaticLP({reset:true}));
+  const edited=event=>{
+    if($('agentCompareKind').value!=='lp'||!state?.authenticated)return;
+    // A delayed blur/change from a field edited in another comparison must not
+    // turn a programmatically filled value into an owner override.
+    if(event.type==='change'&&['INPUT','TEXTAREA'].includes(event.target.tagName)&&event.target.type!=='checkbox')return;
+    const field=Object.keys(LP_AUTO_FIELDS).find(key=>LP_AUTO_FIELDS[key]===event.target.id);
+    if(field)lpAutoDirty.add(field);
+    if(event.target.id==='agentCompareUseResearch')lpAutoDirty.add('evidenceIds');
+    if(['agentCompareMoves','agentCompareRewardCases'].includes(event.target.id))lpAutoDirty.add('paths');
+    if(field||lpAutoDirty.has('paths'))lpAutoRevision++;
+  };
+  $('agentCompareForm').addEventListener('input',edited);$('agentCompareForm').addEventListener('change',edited);
   $('agentCompareForm').addEventListener('submit',async event=>{
-    event.preventDefault();if(comparisonBusy||!state?.authenticated)return;
-    const input=comparisonInput(),signature=JSON.stringify(input),view=privateViewVersion;
+    event.preventDefault();if(comparisonBusy||lpAutoBusy||!state?.authenticated)return;
+    const kind=$('agentCompareKind').value,automaticLP=kind==='lp'?automaticLPRequest():null;
+    if(kind==='lp'&&!lpAutoSetup?.inputs){notice('Refresh the open LP inputs before comparing.',true);return;}
+    const input=automaticLP?null:comparisonInput(),signature=JSON.stringify(automaticLP||input),view=privateViewVersion,ticket=++comparisonTicket,revision=lpAutoRevision;
     if(!pendingComparison||pendingComparison.signature!==signature)pendingComparison={signature,requestId:crypto.randomUUID()};
     comparisonBusy=true;$('agentCompareSend').disabled=true;notice('Calculating conditional scenarios…');
     try{
-      const answer=await request('compare',{input,requestId:pendingComparison.requestId});if(!samePrivateView(view))return;
+      const answer=await request('compare',{...(automaticLP?{automaticLP}:{input}),requestId:pendingComparison.requestId});if(!samePrivateView(view)||ticket!==comparisonTicket||automaticLP&&revision!==lpAutoRevision)return;
       if(!answer.report||typeof answer.reply!=='string')throw new Error('The comparison could not be verified.');
       comparisonReport=answer.report;updateComparisonValidity();
+      if(answer.report.autofill&&revision===lpAutoRevision)renderAutomaticLP(answer.report.autofill,{keepReport:true});
       updateReviewPlanButton();
       $('agentCompareReply').textContent=answer.reply;
       const checks=$('agentCompareChecks');checks.replaceChildren();
       checks.append(element('p','agent-help','Uses saved preferences version '+answer.report.policyVersion+'.'));
       for(const text of answer.report.assumptions||[])checks.append(element('p','agent-help',text));
       $('agentComparePanel').hidden=false;pendingComparison=null;notice('');
-    }catch(error){if(samePrivateView(view))notice(error.message,true);}
-    finally{if(samePrivateView(view)){comparisonBusy=false;$('agentCompareSend').disabled=false;}}
+    }catch(error){if(samePrivateView(view)&&ticket===comparisonTicket)notice(error.message,true);}
+    finally{if(samePrivateView(view)&&ticket===comparisonTicket){comparisonBusy=false;$('agentCompareSend').disabled=$('agentCompareKind').value==='lp'&&!lpAutoSetup?.inputs;}}
   });
 }
 function updateComparisonValidity(){

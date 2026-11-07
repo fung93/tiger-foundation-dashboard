@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { reviewPolicy, reviewFixtureFetcher } from './fixtures/agent-review.mjs';
+import { fundingFixture } from './fixtures/agent-lp-autofill.mjs';
 
 if (!process.argv[2]) throw Error('Pass the validation node_modules directory.');
 const requireRuntime = createRequire(join(resolve(process.argv[2]), '__tiger_review_validation__.cjs'));
@@ -63,7 +64,11 @@ const options = { modules: true, script: built.outputFiles[0].text,
       check(url.pathname.endsWith('/sendMessage'), true, 'Native background delivery uses only the fixed send operation');
       sent.push(JSON.parse(await request.text())); return Response.json({ ok: true, result: { message_id: sent.length } });
     }
-    return reviewFixtureFetcher(Date.now(), calls)(request.url);
+    if (url.pathname === '/api/strategy' && url.searchParams.get('view') === 'lp-funding')
+      return Response.json(fundingFixture(url.searchParams.get('owner'), Date.now()));
+    const source = await reviewFixtureFetcher(Date.now(), calls)(request.url);
+    if (url.pathname === '/api/strategy') return Response.json({ ...await source.json(), kat_usd: .01 });
+    return source;
   } };
 const mf = new Miniflare(convertV4MiniflareOptions ? { ...convertV4MiniflareOptions(options), telemetry: { enabled: false } } : options);
 let cookie = '';
@@ -117,5 +122,15 @@ try {
   check((await db.prepare('SELECT COUNT(*) AS count FROM agent_usage').first()).count, 1, 'Native retries spend no extra inference');
   check((await db.prepare("SELECT COUNT(*) AS count FROM agent_state WHERE key LIKE 'tiger:agent:v1:journal:decision:%'").first()).count, 1,
     'The native review writes one proposed decision');
+  response = await request({ action: 'lpCompareSetup' });
+  check(response.status, 200, 'Native Worker detects open LP inputs through the existing private action');
+  check(response.value.status, 'ready', 'Native JSON transport preserves live cash, gas and pool inputs');
+  const positionKey = response.value.position.key;
+  response = await request({ action: 'compare', requestId: 'native-automatic-lp', automaticLP: { positionKey, overrides: {} } });
+  check(response.status, 200, 'Native Worker calculates the automatically selected LP');
+  check(response.value.report.comparisonInput.cashUsd, 150, 'Native comparison uses the bounded funding source');
+  check(response.value.report.autofill.fieldSources.gasUsd.basis, 'estimate', 'Native persistence retains cost-estimate provenance');
+  check(response.value.reply.includes('before borrowing costs'), true, 'Native automatic comparison identifies the financing scope');
+  check((await db.prepare('SELECT COUNT(*) AS count FROM agent_usage').first()).count, 1, 'Automatic LP preparation and comparison spend zero AI calls');
   console.log('Native recurring review Workflows/local D1: ' + assertions + ' assertions passed (max ' + Math.max(...phases.map(row => row.queries)) + ' D1 calls/step).');
 } finally { await mf.dispose(); }

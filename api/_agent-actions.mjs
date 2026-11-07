@@ -9,6 +9,7 @@ import { compareAgentStrategies, validateAgentComparison } from './_agent-scenar
 import { listAgentDecisions, getAgentDecision, recordAgentDecision, observeAgentDecision } from './_agent-decisions.mjs';
 import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { reviewAction } from './_agent-review-actions.mjs';
+import { prepareAutomaticLP, validateAutomaticLP } from './_agent-lp-autofill.mjs';
 
 export function researchQuestion(message) {
   if (typeof message !== 'string' || message.length > 1000) return null;
@@ -20,9 +21,17 @@ export function researchQuestion(message) {
 
 // This dispatcher is called only after the existing owner session and origin
 // checks. Model tool calls have no route to policy confirmation or private writes.
-export async function agentAction(body, { env, store, loadContext = loadAgentContext } = {}) {
+export async function agentAction(body, { env, store, loadContext = loadAgentContext, fetcher = fetch } = {}) {
   const review = await reviewAction(body, { env, store, loadContext });
   if (review !== null) return review;
+  if (body.action === 'lpCompareSetup') {
+    if (env.AGENT_STRATEGY_ENABLED === 'false') throw httpError(503, 'Strategy comparisons are disabled.', 'configuration_missing');
+    const automatic = validateAutomaticLP(body.automaticLP || {}, { optional: true });
+    if (await store.increment('lp-autofill:minute', 60) > 10) throw httpError(429, 'Please wait before refreshing LP inputs again.');
+    const policy = await getAgentPolicy(store), origin = getAgentOrigin(env);
+    const context = await loadContext({ origin, needs: ['strategy'], timeoutMs: 10000 });
+    return prepareAutomaticLP({ context, policy, request: automatic, origin, fetcher });
+  }
   if (body.action === 'decisions') return listAgentDecisions(store, { cursor: body.cursor ?? null, limit: body.limit ?? 10 });
   if (body.action === 'decision') return getAgentDecision(store, body.decisionId, { cursor: body.cursor ?? null });
   if (body.action === 'decisionRecord') return recordAgentDecision(store, body.input, { source: 'owner' });
@@ -36,9 +45,10 @@ export async function agentAction(body, { env, store, loadContext = loadAgentCon
   }
   if(body.action==='compare'){
     if(env.AGENT_STRATEGY_ENABLED==='false')throw httpError(503,'Strategy comparisons are disabled.','configuration_missing');
-    const input=validateAgentComparison(body.input);
+    const automatic = body.automaticLP != null ? validateAutomaticLP(body.automaticLP) : null;
+    let input = automatic ? null : validateAgentComparison(body.input);
     if(body.requestId!=null&&(typeof body.requestId!=='string'||!body.requestId||body.requestId.length>160))throw httpError(400,'Choose a valid comparison reference.');
-    const id='compare:request:'+createHash('sha256').update(body.requestId||randomUUID()).digest('hex'),inputHash=createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    const id='compare:request:'+createHash('sha256').update(body.requestId||randomUUID()).digest('hex'),inputHash=createHash('sha256').update(JSON.stringify(automatic ? ['automatic-lp-v1', automatic] : input)).digest('hex');
     const read=async()=>{const saved=await store.get(id);if(!saved)return null;if(saved.inputHash!==inputHash)throw httpError(409,'Send a new comparison request.');
       const report=await getAgentReport(store,saved.reportId);return {report,result:report.result,reply:renderResearchReport(report)};};
     const previous=await read();if(previous)return previous;
@@ -50,12 +60,25 @@ export async function agentAction(body, { env, store, loadContext = loadAgentCon
       const policy=await getAgentPolicy(store);
       job=await beginAgentJob(store,lease,{id,kind:'comparison',inputHash,policyVersion:policy.version});
       const context=await loadContext({origin:getAgentOrigin(env),timeoutMs:6000,
-        needs:input.kind==='lp'?['strategy']:input.kind==='kat'?['kat','vkat']:[]});
+        needs:automatic || input.kind==='lp'?['strategy']:input.kind==='kat'?['kat','vkat']:[]});
+      const autofill = automatic ? await prepareAutomaticLP({ context, policy, request: automatic, origin: getAgentOrigin(env), fetcher }) : null;
+      if (automatic) {
+        if (!autofill.inputs) throw httpError(409, autofill.notes[0] || 'This LP cannot be refreshed. Reload the detected positions.');
+        input = autofill.inputs;
+      }
       const ids=input.evidenceIds||[],evidence=validateEvidenceReferences(ids,await Promise.all(ids.map(id=>store.get(id))));
       await agentJobPhase(lease,job,'calculating');
       const result=await compareAgentStrategies({context,policy,input});
       await lease.assertOwned();
-      const report=await persistAgentReport(store,{...createStrategyReport({context,policy,result,input,evidence}),jobId:id},context.snapshot);
+      const draft = createStrategyReport({context,policy,result,input,evidence});
+      if (autofill) {
+        draft.autofill = autofill;
+        draft.assumptions = [...draft.assumptions, ...autofill.notes, ...(autofill.funding?.assumptions || [])];
+        if (autofill.funding) draft.sourceCoverage.sources = [...draft.sourceCoverage.sources,
+          { name: 'lp-funding', source: '/api/strategy?view=lp-funding', status: autofill.funding.status,
+            ts: autofill.funding.observedAt, block: autofill.funding.block, owner: input.owner, chain: input.chain }];
+      }
+      const report=await persistAgentReport(store,{...draft,jobId:id},context.snapshot);
       await lease.commit([{key:id,value:{inputHash,reportId:report.reportId},ttlSeconds:86400},jobWrite(job,'completed',{reportId:report.reportId})]);
       return {report,result:{...result,status:report.status},reply:renderResearchReport(report)};
     }catch(error){if(job){try{await lease.commit([jobWrite(job,'failed')]);}catch{}}throw error;}finally{await lease.release();}

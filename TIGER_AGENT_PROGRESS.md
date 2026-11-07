@@ -1,5 +1,43 @@
 # Tiger agent implementation progress
 
+## Automatic LP comparison inputs — 7 November 2026
+
+- [x] Inspect the existing comparison, live LP/pool readers, private routes and
+  standing instructions against the clean c266398 baseline.
+- [x] Detect current open LPs and load identity, range, cash, fees and rewards.
+- [x] Prefill clearly labelled scenario assumptions, retain editable overrides,
+  and preserve unknown/stale readings rather than inventing balances or costs.
+- [x] Validate the selected position again when calculating; retain provenance in
+  saved reports without changing policy, accounting or Lending settings.
+- [x] Verify real calculations, source failures, identity/privacy guards and both
+  responsive themes; run npm run check and native Worker/build checks.
+- [x] Complete release preparation under the existing agent authorization; document
+  configuration and real-account gates.
+- [x] Exercise the read-only funding reader against live Katana RPC: fresh pinned
+  block, complete stablecoin balances and priced gas budget in 1.523 seconds.
+  Only success metadata was printed; no balances, credentials or secrets.
+- [ ] Verify the deployed dashboard and Worker together with actual RPC readings,
+  observed balances/costs and Free account CPU/quotas.
+
+Local evidence: input/funding/scenario 44, actual private action/persistence 33,
+native workerd/Workflow/D1 24 and both-theme Chromium 136 assertions pass. Existing
+recurring-review Chromium 96 and native Telegram 82 checks also pass. The browser
+checks cover no manual ID/number entry, wallet switching, fresh submit-time cash,
+preserved overrides, automatic reset, saved recurring cases, closure, source outages,
+separate Lending drafts, stale-result invalidation and late logout responses.
+Source failures never masquerade as zero. Automatic cases clearly exclude financing;
+explicit borrowing-cost overrides retain the ordinary stated-cost case. No AI calls,
+new secret, binding, database migration, accounting change or financial JSON edit.
+Full npm run check passes; the existing recurring review and Telegram runtime checks
+remain unchanged in behavior. Worker dry run succeeds at 505.52 KiB (132.33 KiB gzip).
+The separate live RPC check validates the reader, not deployed cross-host behavior
+or independent accuracy of the transaction-budget assumption.
+Cache 157. Wrangler whoami confirms that this workspace is not authenticated to
+Cloudflare; no deployment is claimed. Updated Vercel functions/dashboard and the
+existing Worker must both deploy. Actual deployed RPC latency, current balances/gas
+budgets, cross-host rollout and Free CPU/quotas remain account gates.
+See docs/AGENT-LP-AUTOFILL.md.
+
 Updated 7 November 2026 (MYT). The owner authorized commit, push and deployment after local review. Dashboard Qwen/lending, Telegram connectivity, one scheduled Telegram message and a deployed Morpho source retrieval are confirmed by the owner. Clear replies are implemented and tested locally. Strategy/journal account acceptance and account metrics remain pending.
 
 ## Baseline and reconciliation

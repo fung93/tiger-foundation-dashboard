@@ -775,6 +775,17 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   monitor outbox/lease and yields to risk alerts; recheck recipient, pause, policy and
   report expiry for every chunk. Missing Workflow binding is setup-required, never
   an inline fallback. Only actual account checks establish live CPU/quota/readiness.
+- LP comparison inputs are automatic (Alex, 7 Nov 2026). Detect current open LPs,
+  retain chain/wallet/contract/NFT identity and reconstruct inputs at calculation
+  time. Same-wallet stablecoin cash and the gas planning budget use the existing
+  Strategy funding view, configured wallets/RPCs and pinned blocks; partial reads
+  never become zero balances/costs. Historical band selection uses the existing
+  deterministic tool. Future price/rate/slippage defaults are labelled scenarios,
+  and automatic values are explicitly before financing; they do not imply verified
+  zero borrowing cost or change risk policy. Preserve optional owner edits, source
+  provenance, same-reference retries and saved cases. Switching LPs/modes or logging
+  out must invalidate stale responses/results and clear hidden wallet/NFT fields.
+  See docs/AGENT-LP-AUTOFILL.md. No model math, signing or extra paid service.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
   `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
   `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
@@ -1029,6 +1040,22 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **7 Nov 2026, automatic LP comparison inputs under the ongoing agent authorization:**
+  LP ranges vs holding detects current positions, selects a supported open LP and
+  fills wallet, range, same-wallet cash, pool fees and reward inputs. Observed values
+  retain their sources; gas, slippage and future price/rate cases remain labelled
+  estimates/assumptions. Automatic results are before financing unless the owner
+  supplies borrowing costs. Submit refreshes the full position identity and funding;
+  closure, stale/missing reads and switched wallets cannot reuse another LP's result.
+  Explicit edits remain optional and saved reports keep immutable source details.
+  Full npm check, funding/scenario 44, private actions 33, native Workflow 24 and
+  Telegram 82, Chromium 136 plus recurring-review 96 assertions and Worker dry run
+  pass. Cache 157; no new secret, binding, migration, AI call, public accounting or
+  Lending settings change. Current comparison pool support remains configured
+  Katana pools; other detected chains show why pricing is unavailable. Deploy both
+  Vercel and the existing Worker. Actual account RPC latency, balances/costs, rollout
+  and Free CPU/quotas remain live gates; see docs/AGENT-LP-AUTOFILL.md.
 
 - **7 Nov 2026, recurring portfolio strategy reviews under the ongoing authorization:**
   daily/material-event and explicit dashboard/Telegram reviews use eight real

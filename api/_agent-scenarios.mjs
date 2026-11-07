@@ -21,11 +21,12 @@ export function validateAgentComparison(input) {
   const keys=['kind','horizonDays','market','targetHealth','annualRatePct','cashUsd','gasUsd','oracleMovesPct',
     'positionId','chain','owner','widenFactor','lowerPrice','upperPrice','swapFeeBps',
     'slippageBps','borrowingCostUsd','rewardPriceUsd','competingLiquidityMultiplier','rewardEligible','paths',
-    'thesis','catalysts','invalidationConditions','reviewAt','evidenceIds','useObservedRates','katAmount','katPriceUsd'];
+    'thesis','catalysts','invalidationConditions','reviewAt','evidenceIds','useObservedRates','katAmount','katPriceUsd','comparisonBasis'];
   if(!known(input,keys)||!['lending','lp','kat'].includes(input.kind)
     ||!Number.isInteger(input.horizonDays)||input.horizonDays<1||input.horizonDays>365)throw bad();
   for(const k of ['cashUsd','gasUsd','borrowingCostUsd','rewardPriceUsd','katAmount','katPriceUsd'])
     if(input[k]!=null&&!finite(input[k]))throw bad();
+  if(input.comparisonBasis!=null&&(input.kind!=='lp'||input.comparisonBasis!=='before_financing'||input.borrowingCostUsd!==0))throw bad();
   for(const k of ['annualRatePct','swapFeeBps','slippageBps'])if(input[k]!=null&&!finite(input[k],0,1000))throw bad();
   if(input.targetHealth!=null&&!finite(input.targetHealth,1,100))throw bad();
   if(input.competingLiquidityMultiplier!=null&&!finite(input.competingLiquidityMultiplier,.01,100))throw bad();
@@ -84,6 +85,7 @@ function finalize(context,policy,input,detail,now){
     assumptions:detail.assumptions||[],limitations:detail.limitations||[],options:detail.options||[],
     scenarios:detail.scenarios||[],calculationIds:detail.calculationIds||[],calculations:detail.calculations||[],
     capitalBaseUsd:detail.capitalBaseUsd??null,paperBaseline:detail.paperBaseline||null,thesis:input.thesis||null,catalysts:input.catalysts||[],
+    ...(input.comparisonBasis?{comparisonBasis:input.comparisonBasis}:{}),
     evidenceIds:input.evidenceIds||[],invalidationConditions:input.invalidationConditions||[],reviewAt:input.reviewAt||null,
     scope:'Conditional paper scenarios; no probability, forecast, trade or automatic recommendation.',
     createdAt:new Date(now).toISOString()};
@@ -300,12 +302,13 @@ export function renderAgentStrategyResult(result){
   const lines=[result.status==='blocked'?'I need more information to complete this comparison.':'Here is how the options compare over '+result.horizonDays+' days.'];
   if(result.status==='superseded')lines.push('These results use your earlier preferences. Run a new comparison before using them.');
   if(Number.isFinite(result.capitalBaseUsd))lines.push('Each option starts with the same '+agentMoney(result.capitalBaseUsd)+'.');
+  if(result.comparisonBasis==='before_financing')lines.push('These LP scenarios are before borrowing costs; portfolio loans are assessed separately.');
   for(const option of result.options){
     if(result.status==='blocked')continue;
     lines.push('\n'+option.label+(option.status==='outside_policy'?' — outside your saved limits':option.status==='blocked'?' — more information needed':''));
     if(Number.isFinite(option.cashRequiredUsd))lines.push('Extra cash needed: '+agentMoney(option.cashRequiredUsd)+'.');
     for(const out of option.outcomes||[])lines.push(out.scenario!=null?
-      out.scenario+': estimated final value '+agentMoney(out.netUsd)+(Number.isFinite(out.differenceFromHoldUsd)
+      out.scenario+': estimated final value '+(result.comparisonBasis==='before_financing'?'before borrowing costs ':'')+agentMoney(out.netUsd)+(Number.isFinite(out.differenceFromHoldUsd)
         ? out.differenceFromHoldUsd===0?' — the same as holding.':' — '+agentMoney(Math.abs(out.differenceFromHoldUsd))+(out.differenceFromHoldUsd>0?' ahead of holding.':' behind holding.'):''):
       (out.oracleMovePct===0?'If the oracle ratio stays the same':'If the oracle ratio '+(out.oracleMovePct<0?'falls ':'rises ')+agentNumber(Math.abs(out.oracleMovePct),2)+'%')+
       ': '+(out.health==null?'no debt':'health '+agentNumber(out.health))+', LTV '+(out.ltv==null?'unavailable':agentNumber(out.ltv*100,2)+'%')+

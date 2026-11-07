@@ -1,5 +1,9 @@
 # Free-plan dashboard and Telegram agent
 
+LP comparisons now detect open positions and fill live inputs automatically. See
+[AGENT-LP-AUTOFILL.md](AGENT-LP-AUTOFILL.md) for the current sources, scenario defaults,
+supported pools and deployment checks.
+
 The Agent button opens private chat from the dashboard pages. Dashboard and Telegram
 share conversation history, preferences, lending/data alerts and MYT daily reports.
 Wallet access stays read-only. The agent cannot trade, repay, vote, sign or edit code.

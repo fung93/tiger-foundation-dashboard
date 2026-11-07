@@ -17,6 +17,7 @@
    strategy-core.mjs, from the numbers this returns.
    ========================================================================== */
 import { CFG, multi, pad, keccakHex, rpc } from './_core.mjs';
+import { handleLPAutofillFunding } from './_lp-autofill-funding.mjs';
 import { epochOf, amountsPerLiquidity, orientation, priceAtTick, mergeSwapHours, recentRanges, rangePrices,
   swapFromLog, SWAP_TOPIC, RANGE_DAYS, PERP_OF, feesFromGrowth } from '../strategy-core.mjs';
 
@@ -344,6 +345,7 @@ export default async function handler(req, res) {
   /* half a minute at the edge: campaigns change once a fortnight, liquidity slowly */
   res.setHeader('cache-control', 's-maxage=30, stale-while-revalidate=30');
   res.setHeader('content-type', 'application/json; charset=utf-8');
+  if (await handleLPAutofillFunding(req, res)) return;
   /* the job's hourly ranges, fetched from this same site as /api/lpbook fetches its ledger */
   let ranges = null;
   try {
