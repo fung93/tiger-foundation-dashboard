@@ -5,15 +5,17 @@ import { MARKETS, debtAssets, targetMetrics, liquidationMetrics } from '../morph
 import { positionIdentity } from '../portfolio-core.mjs';
 import { httpError } from './_agent-http.mjs';
 import { agentNumber, agentMoney, agentPrice, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
+import { analyzeLPRange, renderLPRangeAnalysis } from './_agent-lp-range.mjs';
 
 export const AGENT_TOOL_SCHEMA_VERSION = 'agent-tool-v1';
-export const AGENT_TOOL_NAMES = Object.freeze(['getPortfolioSnapshot', 'getLendingRisk', 'calculateTargetHealth', 'getLPPosition', 'getKATExposure']);
+export const AGENT_TOOL_NAMES = Object.freeze(['getPortfolioSnapshot', 'getLendingRisk', 'calculateTargetHealth', 'getLPPosition', 'getKATExposure', 'analyzeLPRange']);
 export const AGENT_TOOL_SCHEMAS = Object.freeze({
   getPortfolioSnapshot: { required: [], optional: [] },
   getLendingRisk: { required: [], optional: ['market'] },
   calculateTargetHealth: { required: ['market', 'targetHealth'], optional: [] },
   getLPPosition: { required: ['positionId'], optional: ['chain', 'owner'] },
   getKATExposure: { required: [], optional: [] },
+  analyzeLPRange: { required: [], optional: ['pair', 'positionId', 'chain', 'owner', 'reviewFrequencyDays'] },
 });
 const TTL = 90000, WAD = 10n ** 18n, ORACLE = 10n ** 36n, UINT_MAX = (1n << 256n) - 1n;
 const KAT_TOKEN = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
@@ -34,12 +36,14 @@ const policyVersion = policy => Number.isSafeInteger(policy?.version) && policy.
 function argsFor(name, args) {
   if (!Object.hasOwn(AGENT_TOOL_SCHEMAS, name)) throw badInput('Choose an available read-only agent tool.');
   const schema = AGENT_TOOL_SCHEMAS[name];
-  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > 4
+  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > (name === 'analyzeLPRange' ? 5 : 4)
     || Object.keys(args).some(key => !schema.required.includes(key) && !schema.optional.includes(key))
     || schema.required.some(key => !Object.hasOwn(args, key))) throw badInput('Choose valid inputs for this agent tool.');
-  for (const key of ['market', 'positionId', 'chain', 'owner']) if (Object.hasOwn(args, key)
+  for (const key of ['market', 'positionId', 'chain', 'owner', 'pair']) if (Object.hasOwn(args, key)
     && (typeof args[key] !== 'string' || !args[key].trim() || args[key].length > (key === 'positionId' ? 500 : 200)))
     throw badInput('Choose a specific market or position.');
+  if (name === 'analyzeLPRange' && !args.pair && !args.positionId) throw badInput('Choose a token pair or LP position for the range analysis.');
+  if (Object.hasOwn(args, 'reviewFrequencyDays') && (!Number.isInteger(args.reviewFrequencyDays) || args.reviewFrequencyDays < 1 || args.reviewFrequencyDays > 365)) throw badInput('Choose a review interval from 1 to 365 days.');
   if (Object.hasOwn(args, 'targetHealth') && (!Number.isFinite(args.targetHealth) || args.targetHealth < 1 || args.targetHealth > 100))
     throw badInput('Choose a target health between 1 and 100.');
   if (args.chain && !['katana', 'robinhood', 'arc', 'solana'].includes(args.chain)) throw badInput('Choose a supported position chain.');
@@ -328,11 +332,13 @@ function katExposure(context, now) {
 export async function runAgentTool(name, input = {}, { context = {}, policy = context.policy, now = Date.now } = {}) {
   const args = argsFor(name, input), at = typeof now === 'function' ? now() : now;
   if (!Number.isFinite(at) || at <= 0) throw badInput('The calculation time could not be verified.');
-  const type = ({ getPortfolioSnapshot: 'portfolio', getLendingRisk: 'lending', calculateTargetHealth: 'lending', getLPPosition: 'lp', getKATExposure: 'kat' })[name];
+  const type = ({ getPortfolioSnapshot: 'portfolio', getLendingRisk: 'lending', calculateTargetHealth: 'lending', getLPPosition: 'lp', getKATExposure: 'kat', analyzeLPRange: 'lp' })[name];
   const allowed = policy?.status === 'confirmed' ? policy.constraints?.allowedAnalysisTypes : null;
   if (Array.isArray(allowed) && !allowed.includes(type)) return result(name, args, context, policy, blocked('This analysis type is excluded by the confirmed agent policy.'));
   const detail = name === 'getPortfolioSnapshot' ? portfolio(context, at) : name === 'getLendingRisk' ? lendingRisk(args, context, at)
-    : name === 'calculateTargetHealth' ? targetHealth(args, context, policy, at) : name === 'getLPPosition' ? lpPosition(args, context, at) : katExposure(context, at);
+    : name === 'calculateTargetHealth' ? targetHealth(args, context, policy, at) : name === 'getLPPosition' ? lpPosition(args, context, at)
+      : name === 'analyzeLPRange' ? analyzeLPRange(args, context, policy, at, lpCandidates(context).filter(p => positionIdentity({
+        chain: p.chain, protocolContract: p.contract, positionId: p.positionId, owner: p.owner }))) : katExposure(context, at);
   return result(name, args, context, policy, detail);
 }
 
@@ -344,6 +350,7 @@ function rawText(raw, decimals) {
 export function renderAgentToolResult(output) {
   if (!output || output.schemaVersion !== AGENT_TOOL_SCHEMA_VERSION || !AGENT_TOOL_NAMES.includes(output.toolName))
     throw httpError(503, 'The verified tool result could not be rendered.', 'invalid_model_output');
+  if (output.toolName === 'analyzeLPRange') return renderLPRangeAnalysis(output);
   const d = output.data || {}, lines = [];
   if (output.status === 'blocked') lines.push('I could not complete this check.');
   else if (output.toolName === 'calculateTargetHealth') {

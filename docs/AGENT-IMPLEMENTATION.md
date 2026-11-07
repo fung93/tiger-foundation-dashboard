@@ -39,6 +39,17 @@ retain exact rounding; a missing wallet reading never becomes a zero balance. Re
 Morpho market explanations require the configured official market/position definitions.
 No arbitrary model financial prose, extra AI calls, migration or secret is introduced.
 
+Range-selection chat now has a sixth read-only tool, `analyzeLPRange`, rather than
+falling through to position facts. `api/_agent-lp-range.mjs` uses existing Strategy
+history, tick/quote arithmetic and liquidity-per-capital calculations. It rounds
+historical envelopes outward, retains raw history/pool inputs privately, compares the
+current band and explains a conditional cadence-based starting comparison. The server
+requires explicit latest-message evidence for a question-only cadence and preserves
+saved policy. Optional Strategy retrieval happens only after this tool is selected.
+The same code serves dashboard and Telegram; retries do not repeat inference. Brain/
+answer contracts are v5 and the closed output grammar is v2. This is preliminary range
+guidance, not a future-return ranking, full allocation or automatically saved strategy.
+
 The Telegram card adds explicit owner-only webhook checks and registration from the
 saved Worker secrets. A short-lived preview fixes bot/destination/credential identity;
 replacement consent, drift checks, bounded provider reads, an independent lease and
@@ -48,6 +59,15 @@ history and queued updates. Registration still needs a fresh bot reply to prove 
 
 ## Validation
 
+- LP range follow-up: 108 dedicated geometry, unit/orientation, freshness, ambiguity,
+  policy, inference-routing, on-demand retrieval and shared-chat assertions pass. Native
+  workerd/local D1 now passes 82 assertions, including both chat channels through an
+  explicitly simulated selector, real usage reservations and Telegram retry reuse.
+  Chromium passes 48 checks across both themes at 360/1366, including a free-word cadence
+  follow-up, correct numeric reply, no horizontal overflow/errors and no private browser
+  storage. Full npm run check and Worker dry run pass (393.42 KiB / gzip 103.89 KiB);
+  no real model/bot is contacted.
+  Real account routing/history availability and deployed delivery remain unverified here.
 - Clear-answer follow-up: 47 dedicated language assertions, 63 native workerd/local D1
   assertions and 92 Chromium checks across both themes at 360/1366 pass. They cover
   exact tiny repayments, critical liquidation flags despite rounded health, sub-cent

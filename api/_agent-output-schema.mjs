@@ -1,6 +1,6 @@
 /* The model selects a reviewed explanation or read-only tool. Financial facts,
    calculations and preference authorization remain independently checked in code. */
-export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v1';
+export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v2';
 export const AGENT_EXPLANATIONS = Object.freeze({
   apr: 'APR turns recent earnings into a yearly rate. A short earning period can make it look unusually high or low, so use it as a rough guide. After a top-up, I need a fresh earning baseline before the rate is meaningful.',
   lp_holding: 'Holding means keeping the same token amounts you put into the LP and checking what they would be worth at the same time. LP plus earnings includes the position value and its fees or rewards. The difference is your LP advantage; it is a comparison, not another asset to add to your total.',
@@ -48,5 +48,7 @@ export const AGENT_OUTPUT_SCHEMA = freeze({
     tool('getLPPosition', object({ positionId: text(500), chain: { type: 'string',
       enum: ['katana', 'robinhood', 'arc', 'solana'] }, owner: text(200) }, ['positionId'])),
     tool('getKATExposure', object({})),
+    tool('analyzeLPRange', object({ pair: text(200), positionId: text(500), reviewFrequencyDays: { type: 'integer', minimum: 1, maximum: 365 }, chain: { type: 'string',
+      enum: ['katana', 'robinhood', 'arc', 'solana'] }, owner: text(200) }, [])),
   ],
 });

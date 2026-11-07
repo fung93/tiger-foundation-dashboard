@@ -715,7 +715,7 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   No paid fallback. Fixture success does not establish real account/model readiness.
   Agent policy persists separately from Lending's per-visit 70/35/35 reset. Canonical
   snapshots retain coverage gaps; unknown amounts or missing pinning never become zero.
-- Agent output uses a closed Cloudflare json_schema selector for five deterministic
+- Agent output uses a closed Cloudflare json_schema selector for six deterministic
   tools and reviewed explanations. Do not combine it with a competing native-tool
   request or accept arbitrary generated financial prose. Metadata-only output
   diagnostics must never retain prompts, response text, reasoning or arguments.
@@ -744,6 +744,15 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   and assumptions remain inspectable in optional details. Reviewed research explanations
   require their configured supporting evidence; do not invent coverage or accept
   arbitrary model financial prose to make a response sound more conversational.
+- LP range-selection questions use analyzeLPRange, not the position-value lookup
+  (Alex, 7 Nov 2026). Load the existing first-party Strategy quote/history only when
+  this tool is selected. It compares outward-rounded 7/14/30-day tick envelopes,
+  the verified current band and equal-capital liquidity concentration. Review cadence
+  may be a confirmed policy value or a clearly stated question-only assumption; never
+  save it automatically. The starting comparison is an explicit cadence heuristic,
+  not an optimal range, price forecast, profit ranking or allocation recommendation.
+  Missing/inconsistent history, ambiguous pools and disabled/excluded analysis stay
+  explicit. Complete cost-aware comparisons and saved decisions retain their existing flow.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous job records retain
@@ -1003,6 +1012,17 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **7 Nov 2026, LP range analysis under the ongoing agent authorization:**
+  chat can now answer suitable-range questions with numeric historical candidates,
+  current-band trade-offs and a conditional starting comparison. A known mistaken
+  getLPPosition selection is corrected for range-selection questions; ordinary status
+  lookups stay factual. Source retrieval is on demand, one inference per question;
+  dashboard/Telegram share the same deterministic result. Full npm run check,
+  108 range-analysis/routing assertions, 82 native workerd/local D1 checks and 48
+  Chromium checks across both themes at 360/1366 pass. Worker dry run passes.
+  No new secret, migration or browser asset; cache remains 155. Actual account routing,
+  pool-history availability and new deployed replies remain owner acceptance checks.
 
 - **7 Nov 2026, clear agent replies under the ongoing agent authorization:**
   natural summaries across dashboard/Telegram, readable lending/LP/KAT/comparison and

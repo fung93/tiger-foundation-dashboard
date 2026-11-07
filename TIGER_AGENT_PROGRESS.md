@@ -513,3 +513,38 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [ ] Owner asks fresh portfolio/lending/research questions after deployment in both
   channels. Old saved chat messages are not rewritten; real deployment/model/account
   performance is not inferred from local fixtures or a Worker dry run.
+
+### LP analysis in natural-language chat — 7 November 2026
+
+- [x] Diagnose the owner's range question: the current five-tool selector chose
+  getLPPosition, which reports facts and cannot evaluate a range. The previous release
+  improved wording, not this missing strategy-analysis path.
+- [x] Add analyzeLPRange to the closed output grammar and validated read-only tool
+  registry. Correct the known position-lookup fallback when the actual request is
+  range selection. Leave ordinary in/out-of-range status questions unchanged.
+- [x] Load only the existing first-party Strategy source on demand. Use deterministic
+  7/14/30-day swap-tick extrema, outward usable-tick rounding and correct quote direction.
+  Compare the verified current band and liquidity at equal capital; keep the actual
+  wrapped token identities, fee tier, source time and underlying calculation metadata.
+- [x] Explain a conditional starting comparison with its review-cadence heuristic.
+  Use confirmed preferences or an explicit question-only cadence; a free-word “weekly”
+  follow-up does not mutate persistent policy. No future win rate, optimized range,
+  guaranteed earnings, profit ranking or portfolio allocation is claimed.
+- [x] Preserve stale/incomplete/inconsistent-history guards, token-unit checks,
+  chain/pool ambiguity, the strategy feature flag and confirmed LP/asset/protocol
+  exclusions. Existing full cost-aware comparisons and decision journals stay intact.
+- [x] Range geometry/routing/shared service: 108 assertions. Existing tools: 85.
+  Native workerd/local D1: 82 assertions, including simulated-AI dashboard/Telegram,
+  usage reservation and retry deduplication. No real provider is contacted.
+- [x] Chromium: 48 assertions across both themes at 360/1366, actual deterministic
+  chat replies and free-word follow-up, no overflow/errors or private localStorage.
+- [x] Full npm run check and Worker dry run pass with the existing AI/D1 bindings.
+  No accounting/history writer, chain collector, new configuration, secret or migration.
+  Backend-only change; cache 155 remains current. Qwen/free limits are unchanged.
+- [x] Release prepared under the recorded standing agent authorization. Preserve
+  compatibility with Strategy's integer-tick quote and precise within-tick pool price.
+  The Worker dry run builds at 393.42 KiB / gzip 103.89 KiB.
+- [ ] Verify the actual deployed selector and available price-history windows with
+  a fresh owner question after publication.
+  This workspace has no authenticated Cloudflare account and production URL access
+  has previously been blocked by its CONNECT proxy; fixtures are not live acceptance.

@@ -23,7 +23,7 @@ try {
         cards: { value_usd: 0, pnl_usd: 0, fees_usd: 0, net_usd: 0, unclaimed_usd: 0, open: 0 }, live: [], position_data: [] }
         : new URL(url).pathname === '/data.json' ? snapshot : history) });
   const call = (name, args = {}, opts = {}) => runAgentTool(name, args, { context, now: NOW, ...opts });
-  check(AGENT_TOOL_NAMES.length, 5, 'Only the implemented read-only financial tools are exposed');
+  check(AGENT_TOOL_NAMES.length, 6, 'Only the implemented read-only financial tools are exposed');
   await rejects(() => call('eval', { code: 'transfer()' }), 'Arbitrary code cannot become a financial tool');
   await rejects(() => call('calculateTargetHealth', { market: 'avkat-kat', targetHealth: 2, formula: 'custom' }), 'Caller formulas and unknown arguments are rejected');
   await rejects(() => call('getPortfolioSnapshot', []), 'Tool inputs require a bounded named object');

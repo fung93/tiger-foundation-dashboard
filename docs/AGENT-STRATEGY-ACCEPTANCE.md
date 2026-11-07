@@ -53,6 +53,19 @@ its access is verified. General web search is not configured.
 
 ## 3. Check a conditional comparison
 
+First, try the range-specific chat path in the dashboard and Telegram:
+
+> What is a suitable LP range for BTC/USDC?
+
+The reply should show the actual Katana pair/fee tier, complete 7/14/30-day historical
+ranges, a comparison with your current band when available, and a conditional starting
+choice. It should explain what changes in concentration and price-move room. It must
+not answer with position value alone. If several pools match or history is unavailable,
+it should explain that issue instead of inventing prices. If asked about review cadence,
+reply “weekly”; the next answer should use that question-only assumption without saving
+policy or repeating the same question. This preliminary shortlist is not a net-profit
+winner or a replacement for the cost-aware comparison below.
+
 For the first comparison, choose **Lending** under **Compare strategies**. Select the
 market, your target health and horizon. Supply the cash, gas and interest assumptions
 you actually want to test. Leave unknown assumptions blank and review the resulting

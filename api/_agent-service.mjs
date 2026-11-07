@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { httpError, getAgentOrigin, agentErrorCategory } from './_agent-http.mjs';
-import { loadAgentContext, summarizeAgent } from './_agent-context.mjs';
+import { loadAgentContext, loadAgentSupplementalContext, summarizeAgent } from './_agent-context.mjs';
 import { respondAgent } from './_agent-brain.mjs';
 import { createAgentBudget } from './_agent-budget.mjs';
 import { getAgentModelProfile, AGENT_MODEL_SCHEMA_VERSION } from './_agent-models.mjs';
@@ -10,7 +10,7 @@ import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v4', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v5', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -56,7 +56,7 @@ export function normalizeSettings(input, { partial = false } = {}) {
 export async function getSettings(store) { return normalizeSettings(await store.get('settings') || {}); }
 
 export async function processAgentMessage({ store, message, source = 'dashboard', requestId, env = process.env, context,
-  loadContext = loadAgentContext, respond = respondAgent, budgetFactory = createAgentBudget }) {
+  loadContext = loadAgentContext, loadSupplementalContext = loadAgentSupplementalContext, respond = respondAgent, budgetFactory = createAgentBudget }) {
   if (typeof message !== 'string' || !message.trim() || message.length > 4000) throw httpError(400, 'Ask a question using 1 to 4,000 characters.');
   if (!['dashboard', 'telegram'].includes(source)) throw httpError(400, 'Unknown conversation source.');
   if (requestId !== undefined && (typeof requestId !== 'string' || requestId.length > 160 || !requestId)) throw httpError(400, 'The message reference is invalid.');
@@ -117,7 +117,9 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       const inference = { reserve: async args => { const attempt = await ledger().reserve(args); usedInference = true; return attempt; },
         settle: (attempt, outcome) => ledger().settle(attempt, outcome),
         observe: value => { modelOutput = safeAgentOutputDiagnostic(value); } };
-      result = await respond({ message: message.trim(), messages: messages.slice(-12), settings, context: reading, policy, env, inference });
+      result = await respond({ message: message.trim(), messages: messages.slice(-12), settings, context: reading, policy, env, inference,
+        loadToolContext: (tool, base) => tool === 'analyzeLPRange' && !base.strategy ? loadSupplementalContext({
+          origin: getAgentOrigin(env), needs: ['strategy'], context: base, timeoutMs: 6000 }) : base });
       inferenceSucceeded = usedInference && !result?.errorCategory;
     } catch (error) {
       const category = agentErrorCategory(error);

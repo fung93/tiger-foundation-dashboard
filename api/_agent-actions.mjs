@@ -104,10 +104,11 @@ export async function agentAction(body, { env, store, loadContext = loadAgentCon
     { expectedVersion: body.expectedVersion, source: 'owner' });
   if (body.action === 'policyConfirm') return confirmAgentPolicy(store, body.draftId, { source: 'owner' });
   if (body.action !== 'tool') return null;
+  if (body.tool === 'analyzeLPRange' && env.AGENT_STRATEGY_ENABLED === 'false') throw httpError(503, 'LP range analysis is currently switched off.');
   const args = validateAgentToolInput(body.tool, body.args || {});
   if (await store.increment('tools:minute', 60) > 10)
     throw httpError(429, 'Please wait before requesting another financial reading.', 'rate_limited');
-  const [context, policy] = await Promise.all([loadContext({ origin: getAgentOrigin(env) }), getAgentPolicy(store)]);
+  const [context, policy] = await Promise.all([loadContext({ origin: getAgentOrigin(env), needs: body.tool === 'analyzeLPRange' ? ['strategy'] : [] }), getAgentPolicy(store)]);
   const result = await runAgentTool(body.tool, args, { context, policy });
   return { result, reply: renderAgentToolResult(result), policyVersion: policy.version,
     createdAt: new Date().toISOString(), sources: context.sources || [] };

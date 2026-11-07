@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { targetMetrics } from '../morpho-core.mjs';
+import { tickAtPrice, priceAtTick } from '../strategy-core.mjs';
 
 const runtimeRoot = process.argv[2];
 if (!runtimeRoot) throw Error('Pass the validation node_modules directory as the only argument.');
@@ -22,6 +23,11 @@ const buildResult = await build({ stdin: { contents: `
   export default { async fetch(request, env, context) {
     if (new URL(request.url).pathname === '/fixture/optional') return Response.json(await loadAgentSupplementalContext({
       origin: env.AGENT_ORIGIN, needs: ['strategy', 'kat', 'vkat'] }));
+    // A local-only, explicitly simulated selector exercises native chat and its
+    // D1 inference ledger without invoking an actual AI account/provider.
+    if (request.headers.get('x-fixture-ai') === 'range') env = { ...env, AI: { run: async () => ({
+      response: { tool: { name: 'analyzeLPRange', args: { pair: 'BTC/USDC' } } },
+      usage: { prompt_tokens: 1000, completion_tokens: 30 } }) } };
     return worker.fetch(request, env, context);
   }};`, resolveDir: root, sourcefile: 'telegram-runtime-fixture.mjs' },
   bundle: true, write: false, format: 'esm', platform: 'neutral', external: ['node:*'] });
@@ -37,6 +43,19 @@ const doc = '# Morpho Blue\n\nMorpho Blue is a non-custodial lending protocol im
 const marketDoc = 'struct MarketParams { address loanToken; address collateralToken; address oracle; address irm; uint256 lltv; }\n'
   + 'struct Position { uint256 supplyShares; uint128 borrowShares; uint128 collateral; }\n'
   + 'function position(Id id, address user) external view returns (Position memory);';
+function rangeSource() {
+  const at = Date.now() / 1000, address = n => '0x' + String(n).padStart(40, '0');
+  const pool = { pool: address(71), token0: { address: address(72), symbol: 'vbWBTC', decimals: 8, usd: 100000 },
+    token1: { address: address(73), symbol: 'vbUSDC', decimals: 6, usd: 1 }, baseIndex: 0, base: 'vbWBTC', quote: 'vbUSDC',
+    price: 100000, sqrtPrice: Math.sqrt(1000), tickSpacing: 10, activeLiquidity: 100000, fee: 500,
+    katPerDay: 1000, campaign: { start: Math.floor(at) - 86400, end: Math.floor(at) + 86400 },
+    rules: { weightFees: 10000, weightToken0: 0, weightToken1: 0, outOfRange: false }, eligible: { liquidity: 100000, holders: 1 }, recent: {} };
+  pool.tick = Math.floor(tickAtPrice(pool.price, pool));
+  for (const [days, low, high] of [[7, 90000, 110000], [14, 85000, 120000], [30, 80000, 125000]])
+    pool.recent[days] = { lowTick: Math.floor(tickAtPrice(low, pool)), highTick: Math.ceil(tickAtPrice(high, pool)), swaps: 1000, complete: true };
+  pool.price = priceAtTick(pool.tick, pool);
+  return { at, health: { notes: [] }, pools: [pool], fee_pools: [] };
+}
 const env = { AGENT_ORIGIN: 'https://dashboard.fixture.test', AGENT_ACCESS_KEY: 'fixture-owner-key-for-runtime-at-least-24',
   AGENT_GATEWAY_SECRET: 'fixture-gateway-key-for-runtime-at-least-24', TELEGRAM_BOT_TOKEN: '12345:fixture_bot_token',
   TELEGRAM_WEBHOOK_SECRET: 'fixture_webhook_secret_for_runtime' };
@@ -67,6 +86,7 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
     }
     if (url.origin === env.AGENT_ORIGIN && ['/api/strategy', '/api/kat-trades', '/api/vkat'].includes(url.pathname)) {
       calls.push({ method: url.pathname });
+      if (providerMode === 'range' && url.pathname === '/api/strategy') return Response.json(rangeSource());
       return new Response(null, { status: 302, headers: { location: 'https://redirected.fixture.test/optional' } });
     }
     check(url.origin, 'https://api.telegram.org', 'Worker requests stay on the approved bot provider');
@@ -83,15 +103,16 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
 const mf = new Miniflare(convertV4MiniflareOptions
   ? { ...convertV4MiniflareOptions(options), telemetry: { enabled: false } } : options);
 let cookie = '';
-async function request(body, authenticated = true) {
+async function request(body, authenticated = true, rangeAI = false) {
   const response = await mf.dispatchFetch('https://worker.fixture.test/api/agent', { method: 'POST',
     headers: { 'content-type': 'application/json', origin: env.AGENT_ORIGIN,
-      'x-agent-gateway-secret': env.AGENT_GATEWAY_SECRET, ...(authenticated && cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+      'x-agent-gateway-secret': env.AGENT_GATEWAY_SECRET, ...(authenticated && cookie ? { cookie } : {}),
+      ...(rangeAI ? { 'x-fixture-ai': 'range' } : {}) }, body: JSON.stringify(body) });
   return { status: response.status, headers: response.headers, value: await response.json() };
 }
 try {
   const db = await mf.getD1Database('AGENT_DB');
-  for (const name of ['0001_agent.sql', '0003_agent_storage.sql']) {
+  for (const name of ['0001_agent.sql', '0002_agent_usage.sql', '0003_agent_storage.sql']) {
     // D1 exec accepts one statement per line; prepare/run handles whole trigger
     // definitions. Use the migration statement boundaries, including BEGIN/END.
     const sql = readFileSync(join(root, 'cloudflare/migrations', name), 'utf8').replace(/^\s*--.*$/gm, '');
@@ -195,5 +216,34 @@ try {
   check(explained.value.report.assessment.includes('separate lending pool'), true, 'The native answer explains the requested concept');
   check(explained.value.reply.includes('struct MarketParams'), false, 'Native replies keep source code out of the main explanation');
   check(explained.value.report.explanationEvidenceIds.length, 1, 'The explanation retains its actual supporting evidence');
+  providerMode = 'range';
+  response = await request({ action: 'policyDraft', expectedVersion: 2, patch: {
+    allowedAnalysisTypes: ['lp', 'lending', 'research', 'strategy'], eligibleAssets: ['vbWBTC', 'vbUSDC'], eligibleProtocols: ['Sushi V3'] } });
+  await request({ action: 'policyConfirm', draftId: response.value.draftId });
+  const rangeRead = calls.length;
+  const analyzed = await request({ action: 'tool', tool: 'analyzeLPRange', args: { pair: 'BTC/USDC', reviewFrequencyDays: 7 } });
+  check(analyzed.status, 200, 'The authenticated native Worker executes range analysis');
+  check(analyzed.value.result.status, 'ready', 'Fresh configured history supports numeric range geometry');
+  check(analyzed.value.result.data.windows.length, 3, 'The actual Worker preserves all three observed windows');
+  check(analyzed.value.reply.includes('My starting point') && analyzed.value.reply.includes('14-day history'), true, 'The Worker renders range analysis rather than a position-value answer');
+  check(analyzed.value.result.data.reviewBasis, 'request', 'One-question cadence stays separate from saved policy');
+  check(calls.slice(rangeRead).some(call => call.method === '/api/strategy'), true, 'The selected tool fetches configured strategy history on demand');
+  check(analyzed.value.sources.some(source => source.name === 'strategy'), true, 'The reply retains its actual strategy source metadata');
+  check(analyzed.value.result.data.profitRankingAvailable, false, 'The native tool does not invent future returns or a net-profit winner');
+  check((await request({ action: 'policy' })).value.constraints.reviewFrequencyDays, 7, 'Range analysis cannot mutate persistent review policy');
+  const rangeChat = await request({ action: 'chat', message: 'What is a suitable LP range for BTC/USDC?', requestId: 'native:range-chat' }, true, true);
+  check(rangeChat.status, 200, 'Native private chat can plan and calculate ranges with a simulated AI binding');
+  check(rangeChat.value.reply.includes('14-day history'), true, 'The complete Worker chat service returns range analysis');
+  check(rangeChat.value.result?.toolName, 'analyzeLPRange', 'Chat retains the deterministic range calculation');
+  const rangeUpdate = { update_id: 103, message: { text: 'Suggest a suitable LP range for BTC/USDC', chat: { id: 42, type: 'private' }, from: { id: 42, is_bot: false } } };
+  const rangeTelegram = () => mf.dispatchFetch('https://worker.fixture.test/api/agent-telegram', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': env.TELEGRAM_WEBHOOK_SECRET, 'x-fixture-ai': 'range' }, body: JSON.stringify(rangeUpdate) });
+  check((await rangeTelegram()).status, 200, 'Native linked Telegram chat executes the same range analysis');
+  check(calls.filter(row => row.method === 'sendMessage').at(-1).body.text.includes('My starting point'), true, 'The Telegram delivery contains analysis and a conditional starting point');
+  const usageCount = async () => (await db.prepare('SELECT COUNT(*) AS attempts FROM agent_usage').first()).attempts;
+  check(await usageCount(), 2, 'Both native chat channels reserve exactly one simulated inference each');
+  check((await rangeTelegram()).status, 200, 'Telegram retry completes without another logical question');
+  check(await usageCount(), 2, 'The Telegram retry does not consume another AI reservation');
+  check((await request({ action: 'status' })).value.messages.at(-1).content.includes('14-day history'), true, 'The shared dashboard history contains Telegram range analysis');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed. No real provider was contacted.');
 } finally { await mf.dispose(); }

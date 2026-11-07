@@ -201,6 +201,26 @@ render trusted results on the server. Missing accrued-interest or block provenan
 actionable lending amounts. An unrelated failed source does not invalidate a separately
 verified market. Current incomplete portfolio coverage blocks allocation sizing.
 
+Chat also supports **LP range analysis**. Ask, for example, “What is a suitable LP range
+for BTC/USDC?” The separate analysis tool loads the configured Katana pool quote and
+recent history on demand. It compares 7-, 14- and 30-day observed price envelopes with
+your current band and shows liquidity concentration at equal capital. It identifies the
+actual wrapped tokens and fee tier; ambiguous pools require a choice.
+
+The starting comparison uses an explicit heuristic: daily review starts with a 7-day
+lookback, review within a week with 14 days, and less frequent review with 30 days. This
+does not claim an optimal range or future probability. With no chosen cadence, the
+14-day starting comparison is conditional on checking at least weekly. The agent asks
+how often you want to review. You can answer “weekly” in chat; that assumption applies
+to the question and does not update saved policy. Missing or inconsistent history does
+not produce invented numeric suggestions. A longer history is not a future price forecast.
+
+Preliminary range guidance does not rank future net profit, size a portfolio allocation
+or create an executable plan. Use **Compare strategies** with explicit costs, paths and
+earning assumptions for the full conditional comparison and saved decision brief.
+The existing AGENT_STRATEGY_ENABLED flag and confirmed LP analysis/eligibility preferences
+also govern this capability. No new configuration, migration, secret or paid service is needed.
+
 Free-word questions select a closed verified tool or a server-authored conceptual
 explanation. Arbitrary model-written financial prose is not treated as a verified answer.
 Lending targets require explicit owner intent or an exact confirmed market-policy target.
@@ -326,7 +346,7 @@ labeled deterministic factual fallback may enter shared conversation history.
 
 The model uses Cloudflare's documented direct JSON Schema format:
 `response_format: {type: 'json_schema', json_schema: <closed planning schema>}`.
-One schema permits five read-only tool selectors or reviewed explanation/preferences
+One schema permits six read-only tool selectors or reviewed explanation/preferences
 selectors. No competing native-tool declaration is sent. JSON strings and structured
 response objects still pass the same strict intent and financial-calculation validation.
 Qwen receives its documented `/no_think` prompt hint; no unsupported binding flag is
