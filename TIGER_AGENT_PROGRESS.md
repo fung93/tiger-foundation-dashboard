@@ -1,6 +1,6 @@
 # Tiger agent implementation progress
 
-Updated 7 November 2026 (MYT). The owner authorized commit, push and deployment after local review. Dashboard Qwen/lending, Telegram connectivity and one scheduled Telegram message are confirmed by the owner. Research/strategy/journal account acceptance and account metrics remain pending.
+Updated 7 November 2026 (MYT). The owner authorized commit, push and deployment after local review. Dashboard Qwen/lending, Telegram connectivity, one scheduled Telegram message and a deployed Morpho source retrieval are confirmed by the owner. Clear replies are implemented and tested locally. Strategy/journal account acceptance and account metrics remain pending.
 
 ## Baseline and reconciliation
 
@@ -404,8 +404,8 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [ ] Confirm a real recent monitor success and five-minute Cron scheduling.
 - [x] Owner reports receiving the scheduled message. A second same-day rescheduling
   did not resend the daily summary, matching the once-per-MYT-date rule.
-- [ ] Owner reviews and explicitly confirms persistent Strategy policy separately
-  from notification preferences and Lending's per-visit settings.
+- [x] Owner reports completing Strategy policy after preview/confirm guidance.
+  Exact version and persistence after refresh still need confirmation.
 - [ ] Check real account/free-budget usage and exercise configured research, a
   conditional comparison and its saved decision-journal entry.
 - [ ] Evaluate the explicit free-model replacement before planned Qwen retirement.
@@ -452,10 +452,64 @@ preserving all local work. Do not overwrite or revert the rollover fix when resu
 - [x] Worker dry run passes: 363.37 KiB / gzip 94.10 KiB, same AI/D1 bindings.
 - [x] Prepare docs/AGENT-STRATEGY-ACCEPTANCE.md with the concrete owner UI steps and
   model test/rollback procedure. No new migration, secret or browser asset is needed.
-- [ ] Owner confirms real strategy preferences in the existing preview/confirm editor.
-  No policy values or allocation mandate are inferred from page or alert defaults.
+- [x] Owner reports completing the policy editor after preview/confirm guidance.
+  No policy values or version number were supplied; none are inferred from page or
+  alert defaults. Verify the saved version on the next real report.
 - [ ] Owner verifies a real cited report, conditional comparison and shared journal
   entry. Complete current NAV/allocation sizing stays blocked where coverage is missing.
 - [ ] Verify GLM availability and an accepted answer on the actual Workers Free account
   before adopting it. No automatic model/provider switch is enabled.
 - [ ] Measure real account inference/Worker CPU, latency, D1 and free-budget behavior.
+
+### Owner policy setup completed — 7 November 2026
+
+- [x] Owner says done after the Strategy policy explanation and save/confirm steps.
+  Record completion as owner-reported; no personal risk values are copied here.
+- [ ] Verify a real Morpho research report, its source excerpt/link, retrieval time,
+  status and confirmed policy version. This is the next owner acceptance step.
+- [ ] Follow with an explicit-assumption comparison and the same journal brief in
+  the dashboard and Telegram. Private account access remains with the owner.
+
+### Live research output review — 7 November 2026
+
+- [x] Owner supplied a real Morpho report showing the configured official README,
+  its excerpt and retrieval time of 7 November at 10:27 MYT. This establishes a
+  successful deployed retrieval/display, not complete coverage of the asked topic.
+- [ ] Confirm the report's policy version/status; these labels were not included.
+- [x] Improve explanation quality: the owner finds the metadata/excerpt report
+  confusing. The quoted introduction does not itself explain isolated markets.
+  The new reviewed explanation is supported by configured official market/position
+  definitions. Source dates and optional details retain provenance without a metadata dump.
+
+### Clear agent replies — 7 November 2026
+
+- [x] Reconcile existing agent renderers with the owner's requested natural language.
+  Use shared display helpers across dashboard/Telegram and daily/fallback summaries.
+  Portfolio, lending, LP, KAT, comparisons and journal responses omit internal IDs,
+  raw reason codes, policy footers and repetitive limitation lists.
+- [x] Keep one short partial-total note, material stale/missing-data warnings, critical
+  liquidation flags and exact actionable repayment/borrowing amounts. Unknown wallets
+  cannot become zero balances; sub-cent token prices keep useful precision.
+- [x] Research leads with a supported explanation. Add only the fixed official Morpho
+  interface source for market questions; preserve immutable evidence/citation validation,
+  retrieval bounds, source dates and no-policy-mutation rules. Research uses zero AI calls.
+  Sources & details and calculation/assumption panels are optional. A checkbox attaches
+  the latest research to a comparison without copying technical evidence IDs.
+- [x] Full npm run check passes, including financial/accounting/466 rollover assertions.
+  Targeted clear-answer checks: 47; tools 85; evidence 83; interface 108; reports 41.
+- [x] Native workerd/local D1: 63 assertions with closed fake providers. Chromium: 92
+  assertions across both themes at 360/1366, optional details, no overflow or console
+  errors, latest-source attachment and delayed-response privacy after logout.
+- [x] Real public Morpho source check returns ready with two valid citations and one
+  supporting market-definition source. This checks public documents only, not owner
+  data or the deployed Cloudflare account.
+- [x] Worker deployment dry run passes; cache 155. Qwen, free usage limits, auth,
+  read-only wallet access, accounting and Lending's per-visit reset remain unchanged.
+  No new configuration, secret, migration, paid provider or extra inference is required.
+- [x] Release prepared under the recorded standing agent-build authorization, with
+  a successful Worker dry run (374.25 KiB / gzip 97.93 KiB).
+- [ ] Verify the deployed asset version and fresh real replies. This workspace lacks
+  an authenticated Cloudflare account; local tests do not establish deployment status.
+- [ ] Owner asks fresh portfolio/lending/research questions after deployment in both
+  channels. Old saved chat messages are not rewritten; real deployment/model/account
+  performance is not inferred from local fixtures or a Worker dry run.

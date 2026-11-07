@@ -102,7 +102,7 @@ try {
   check(failed.portfolio.total_usd, null, 'A failed portfolio is unknown, never zero');
   check(failed.lp.cards, null, 'A failed LP source cannot fabricate a zero portfolio');
   check(summarizeAgent(failed).includes('current readings unavailable'), true, 'Scheduled summaries explain unavailable readings');
-  check(summarizeAgent(context).includes('Saved portfolio'), true, 'Scheduled summaries identify recorded portfolio values');
+  check(summarizeAgent(context).includes('Last saved portfolio value:'), true, 'Scheduled summaries identify recorded portfolio values');
   for (const origin of ['file:///tmp/secret', 'https://user:password@fixture.test', 'https://fixture.test/path', 'http://external.test']) {
     await rejects(loadAgentContext({ origin, fetcher: () => { throw Error('Must not fetch'); } }), /valid dashboard origin/, 'Untrusted origin shapes are rejected before reading');
   }

@@ -5,6 +5,7 @@ import { processAgentMessage } from './_agent-service.mjs';
 import { sendTelegram, telegramRequest } from './_agent-notifications.mjs';
 import { forwardAgentRequest } from './_agent-gateway.mjs';
 import { listAgentDecisions } from './_agent-decisions.mjs';
+import { agentLabel, agentReadingTime } from '../agent-language.mjs';
 
 const approved = (binding, chat, sender) => binding && String(binding.chatId) === String(chat.id)
   && String(binding.userId) === String(sender.id);
@@ -72,9 +73,9 @@ export function createTelegramHandler({ env = process.env, storeFactory = create
           } else if (/^\/(?:decisions|journal)(?:@[a-zA-Z0-9_]+)?$/i.test(text)) {
             const page = await listAgentDecisions(store, { limit: 5 });
             pending = { chatId: binding.chatId, userId: binding.userId, sentParts: 0,
-              reply: 'Decision journal (dated, review only)\n' + (page.items.length ? page.items.map(item =>
-                item.thesis + '\n' + item.state + ' · policy ' + item.policyVersion + ' · ' + item.createdAt + '\n' + item.reportId).join('\n\n') : 'No saved briefs yet.')
-                + '\nReview decisions: ' + getAgentOrigin(env) + '/agent.html#agentJournal' };
+              reply: (page.items.length ? 'Here are your latest saved reviews:\n\n' + page.items.map(item =>
+                item.thesis + '\n' + agentLabel(item.state) + ' · ' + agentReadingTime(item.createdAt)).join('\n\n') : 'Your journal is empty. A research report or comparison will create your first entry.')
+                + '\n\nOpen your journal: ' + getAgentOrigin(env) + '/agent.html#agentJournal' };
           } else if (/^\/start(?:@[a-zA-Z0-9_]+)?(?:\s|$)/i.test(text)) {
             pending = { chatId: binding.chatId, userId: binding.userId, sentParts: 0,
               reply: 'You are already connected. Ask me a question, or choose Summary, Lending health or LP performance below.' };

@@ -38,8 +38,8 @@ try {
   let output = await request(store, { fetcher: async (url, options) => { calls.push({ url, options }); return plain(); } });
   check(output.status, 'ready', 'A successfully retrieved configured source produces current evidence');
   check(output.scope, 'configured_sources', 'Research never claims discovery search coverage');
-  check(output.evidence.length, 1, 'Only configured protocol documents are retrieved');
-  check(calls.length, 1, 'One research job does not scan unrelated protocol sources');
+  check(output.evidence.length, 2, 'The collateral question uses the overview and market-definition sources');
+  check(calls.length, 2, 'One research job does not scan unrelated protocol sources');
   check(calls[0].options.redirect, 'manual', 'The transport cannot silently follow redirects');
   check(calls[0].options.method, 'GET', 'Source evidence is read-only');
   check(calls[0].options.headers.authorization, undefined, 'No user credentials are forwarded to sources');
@@ -104,12 +104,13 @@ try {
   check(output.status, 'blocked', 'An unverified disabled protocol remains visibly unavailable');
   check(output.sources[0].reason, 'development_proxy_403_unverified', 'Source verification limitations remain explicit');
 
-  let redirects = 0;
-  output = await request(new Store(), { fetcher: async () => {
-    redirects++; return new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/private' } });
+  let redirects = 0; const attempted = [];
+  output = await request(new Store(), { fetcher: async url => {
+    redirects++; attempted.push(url); return new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/private' } });
   } });
   check(output.status, 'blocked', 'A redirect to private infrastructure fails closed');
-  check(redirects, 1, 'Rejected redirect targets are never requested');
+  check(redirects, 2, 'Each configured source stops at its unapproved redirect');
+  check(attempted.every(url => AGENT_EVIDENCE_SOURCES.some(source => source.protocol === 'morpho' && source.url === url)), true, 'No redirect reaches private infrastructure');
   output = await request(new Store(), { fetcher: async () => ({ ok: true, status: 200, redirected: true, url: 'https://evil.invalid/' }) });
   check(output.status, 'blocked', 'A transport that ignored manual redirects cannot inject an unverified final URL');
   output = await request(new Store(), { fetcher: async () => plain('x'.repeat(configured.maxBytes + 1)) });
@@ -147,6 +148,6 @@ try {
   await assert.rejects(() => request(down, { fetcher: async () => plain() })); checks++;
   const brokenWrites = new Store(); brokenWrites.set = async () => { throw Error('private database write outage'); };
   await assert.rejects(() => request(brokenWrites, { fetcher: async () => plain() })); checks++;
-  check(calls.every(row => row.url === configured.url), true, 'Normal research contacted only the exact configured public document');
+  check(calls.every(row => AGENT_EVIDENCE_SOURCES.some(source => source.protocol === 'morpho' && source.enabled && source.url === row.url)), true, 'Research contacted only the exact configured public documents');
   console.log('Configured research evidence: ' + checks + ' assertions passed.');
 } finally { globalThis.fetch = realFetch; }

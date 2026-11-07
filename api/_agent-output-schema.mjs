@@ -2,19 +2,19 @@
    calculations and preference authorization remain independently checked in code. */
 export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v1';
 export const AGENT_EXPLANATIONS = Object.freeze({
-  apr: 'APR is an annualized observation of recent earnings. It is not a guaranteed return or forecast. A short observation period or a missing post-deposit baseline can make the rate unstable or unavailable.',
-  lp_holding: 'Holding means retaining the verified token amounts placed into the LP, valued at the same comparison time. LP plus earnings includes the position value and its attributed fees or rewards. The difference is the LP advantage; it is not added to portfolio wealth again.',
-  fee_routing: 'Trading fees from staked Sushi LPs on Katana go to the DAO. The position earns its attributed Merkl KAT instead. Other LPs follow their actual fee-routing rules.',
-  reward_carry: 'Unclaimed KAT may follow a verified replacement LP in the same wallet. It remains part of rewards and net wealth, but inherited rewards are excluded from the replacement position’s APR.',
-  health_lltv: 'Health equals oracle collateral value multiplied by market LLTV, divided by debt. Health exactly one is the liquidation boundary and remains healthy; strictly below it permits liquidation. A personal target does not change the protocol’s LLTV.',
-  oracle_ratio: 'For avKAT/KAT, the relevant lending variable is the avKAT-to-KAT oracle ratio. A common KAT dollar-price move on both sides does not create a single KAT dollar liquidation price. Ratio sensitivity holds debt, collateral and the other oracle inputs fixed; it is not a forecast.',
-  coverage: 'A saved portfolio snapshot is historical. When current coverage is incomplete, only verified subtotals are available and portfolio-wide allocation sizing is blocked. A failed read is unavailable, not a zero balance.',
-  readonly: 'I can review verified readings and run read-only calculations. I cannot sign, trade, repay, vote or move funds. You make the investment decisions.',
-  policy: 'The persistent agent strategy policy is separate from alert preferences and the Lending page’s per-visit settings. Policy changes require a preview and your explicit confirmation in the policy editor.',
-  greeting: 'Hello. I can review your portfolio coverage, lending risk, LP positions and KAT exposure, or explain the dashboard’s accounting.',
-  clarify_market_target: 'Which lending market and target health should I use? You can also enter them in the verified lending tool.',
+  apr: 'APR turns recent earnings into a yearly rate. A short earning period can make it look unusually high or low, so use it as a rough guide. After a top-up, I need a fresh earning baseline before the rate is meaningful.',
+  lp_holding: 'Holding means keeping the same token amounts you put into the LP and checking what they would be worth at the same time. LP plus earnings includes the position value and its fees or rewards. The difference is your LP advantage; it is a comparison, not another asset to add to your total.',
+  fee_routing: 'For staked Sushi LPs on Katana, trading fees go to the DAO. The LP earns its attributed Merkl KAT rewards instead. Each other LP follows its own fee rules.',
+  reward_carry: 'When a Katana LP closes, its unclaimed KAT can follow a verified replacement LP in the same wallet. It counts in rewards and net value, but does not inflate the new LP’s APR.',
+  health_lltv: 'Health shows your loan’s borrowing buffer. A health of 1 is the liquidation boundary; below 1, the position can be liquidated. It uses the market’s oracle value and LLTV, divided by your debt. Your personal target guides your review; the protocol’s limit stays the same.',
+  oracle_ratio: 'For avKAT/KAT, your collateral and debt both move with KAT’s dollar price. The avKAT-to-KAT oracle ratio is what matters for this loan. A ratio sensitivity shows what could happen if that ratio changes while your balances and other inputs stay the same; it is a what-if calculation.',
+  coverage: 'Some portfolio values may come from a saved reading. I will show the amounts I can verify and flag a partial total when something is missing. I need a complete current picture before suggesting how much to allocate.',
+  readonly: 'I can explain your positions, check lending risk and compare what-if choices. You make the decisions and carry out any wallet transactions.',
+  policy: 'Strategy policy saves the preferences used for your reviews and monitoring. To change them, open Strategy policy, preview the changes and confirm. Your notification preferences and the Lending page keep their own controls.',
+  greeting: 'Hi. Ask me about your portfolio, loans, LP earnings or KAT holdings. I can also explain how the dashboard works.',
+  clarify_market_target: 'Which loan should I check, and what health target would you like to use?',
   clarify_position: 'Which LP position and chain should I review?',
-  clarify_request: 'Please specify the position or topic you want to review. I can show verified portfolio coverage, lending risk, LP positions or KAT exposure.',
+  clarify_request: 'What would you like to check: your portfolio, a loan, an LP position or your KAT holdings?',
 });
 
 const preferenceKeys = ['healthThreshold', 'ltvThreshold', 'alertsEnabled', 'dailyEnabled', 'dailyTime', 'pausedUntil'];

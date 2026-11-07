@@ -10,7 +10,7 @@ import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v3', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v4', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -34,7 +34,7 @@ function datedContext(context, at) {
 }
 export function factualAgentAnswer(context, category) {
   const current = datedContext(context, Date.now());
-  return { reply: 'AI explanation unavailable (' + category + '). Verified readings only; no strategy recommendation or settings change.\n\n'
+  return { reply: 'I could not finish the full request this time. Here are the readings I can check:\n\n'
     + summarizeAgent(current), action: null, sources: current.sources, status: 'partial', mode: 'facts_only', errorCategory: category };
 }
 

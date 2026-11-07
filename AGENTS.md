@@ -736,6 +736,14 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   and paper marks use shared deterministic code; arbitrary model financial prose has
   no authority. Saved briefs create append-only decisions, and owner acceptance means
   review only. Actual transaction notes are explicitly owner-reported and unverified.
+- Agent replies lead with a clear answer in ordinary language (Alex, 7 Nov 2026).
+  Keep calculation/snapshot/evidence IDs, policy versions and raw limitation codes in
+  structured private records rather than appending them to conversation. Use one short
+  note for incomplete totals; preserve missing/stale data and liquidation warnings.
+  Actionable lending amounts retain exact integer rounding. Sources, dates, quotations
+  and assumptions remain inspectable in optional details. Reviewed research explanations
+  require their configured supporting evidence; do not invent coverage or accept
+  arbitrary model financial prose to make a response sound more conversational.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous job records retain
@@ -995,6 +1003,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **7 Nov 2026, clear agent replies under the ongoing agent authorization:**
+  natural summaries across dashboard/Telegram, readable lending/LP/KAT/comparison and
+  journal text, one brief coverage note and optional source/check details. Structured
+  provenance, exact repayment amounts and stale/critical guards remain. A fixed official
+  Morpho interface source supports the isolated-market explanation. Research still
+  uses zero AI calls; Qwen and existing free limits are unchanged. Full npm run check,
+  47 readable-answer assertions, 63 native workerd/local D1 checks, 92 Chromium checks
+  in both themes at 360/1366 and Worker dry run pass. Cache 155. No new secret or
+  migration; fresh real dashboard/Telegram answers after deployment remain to verify.
 
 - **7 Nov 2026, research/strategy acceptance under the ongoing agent authorization:**
   owner confirms Telegram and one scheduled message. Native workerd/local D1 now

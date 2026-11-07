@@ -31,6 +31,14 @@ shares the same owner policy, conversation, reports and budget. `/journal` and
 read-only. Lending's per-visit 70/35/35 reset is unchanged. Financial JSON/history files
 and the published rollover helper have no local modifications.
 
+Replies now lead with ordinary explanations and useful figures. Raw limitation codes,
+calculation/snapshot IDs and policy versions no longer clutter chat replies. Incomplete
+totals get one brief coverage note; source/check details remain expandable in the
+dashboard and full provenance remains in private structured data. Actionable amounts
+retain exact rounding; a missing wallet reading never becomes a zero balance. Reviewed
+Morpho market explanations require the configured official market/position definitions.
+No arbitrary model financial prose, extra AI calls, migration or secret is introduced.
+
 The Telegram card adds explicit owner-only webhook checks and registration from the
 saved Worker secrets. A short-lived preview fixes bot/destination/credential identity;
 replacement consent, drift checks, bounded provider reads, an independent lease and
@@ -40,6 +48,15 @@ history and queued updates. Registration still needs a fresh bot reply to prove 
 
 ## Validation
 
+- Clear-answer follow-up: 47 dedicated language assertions, 63 native workerd/local D1
+  assertions and 92 Chromium checks across both themes at 360/1366 pass. They cover
+  exact tiny repayments, critical liquidation flags despite rounded health, sub-cent
+  prices, incomplete totals, immutable evidence, source-supported explanations, optional
+  details and logout/privacy guards. Public Morpho retrieval validates two configured
+  citations and the supporting market explanation; this is separate from simulated
+  provider tests. Full npm run check and Worker dry run pass (374.25 KiB / gzip
+  97.93 KiB). Cache 155; real deployed answers remain
+  an owner/account acceptance check.
 - Full `npm run check` passes, including existing financial/accounting suites, identical
   Portfolio copies and the retained 466-assertion automatic reward-rollover regression.
 - New/extended agent suites: models78, brain229, budget54, context89, decisions/jobs55,

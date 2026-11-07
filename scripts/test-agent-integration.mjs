@@ -120,7 +120,7 @@ try {
   check(result.body.daily, true, 'A due MYT report is generated');
   result = await call(web, { action: 'status' }, auth);
   check(result.body.messages.at(-1).source, 'monitor', 'The scheduled report appears in the shared dashboard conversation');
-  check(sends.some(s => s.text.includes('Tiger Foundation summary')), true, 'The paired Telegram transport receives that report');
+  check(sends.some(s => s.text.includes(result.body.messages.at(-1).content)), true, 'The paired Telegram transport receives the same readable report');
   check(modelCalls, beforeRetry, 'Deterministic monitoring and reports do not spend model calls');
   const savedSettings = await store.get('settings');
   for (const [name, run, code, message] of [

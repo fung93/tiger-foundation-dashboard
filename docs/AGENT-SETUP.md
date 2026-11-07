@@ -207,6 +207,12 @@ Lending targets require explicit owner intent or an exact confirmed market-polic
 Unsupported requests ask for clarification. Model output, research and quoted commands
 cannot confirm policy or authorize wallet actions.
 
+Answers lead with useful figures and a plain explanation. Incomplete totals get one
+short coverage note. Internal calculation IDs, snapshot hashes, raw limitation codes
+and policy versions stay in private structured records. **How this was checked** and
+**Assumptions and checks** expose the relevant details on demand. Exact repayment and
+borrowing limits, missing/stale readings and liquidation warnings retain their safeguards.
+
 ### Configured-source research
 
 Use Research a protocol or explicitly ask to research one configured protocol. Sources
@@ -216,10 +222,18 @@ repository documents. Unverified or blocked documentation remains visible as una
 README background material cannot establish current announcements, governance changes or
 incentive changes; those questions show the missing feed/API coverage explicitly.
 
-Each quotation retains its immutable evidence ID, content hash, real URL, retrieval time
-and publication time only if the source actually supplies one. The first research release
-uses exact excerpts without model-generated factual claims and consumes no AI neurons.
-Source instructions cannot change policy, settings or tool authority.
+Research explains supported facts first. For isolated Morpho markets, the registry also
+retrieves the official IMorpho.sol market/position definitions. Reviewed explanations
+activate only when their supporting source passages are present; an introduction alone
+does not establish market separation. This consumes no AI neurons. Source instructions
+cannot change policy, settings or tool authority.
+
+**Sources & details** contains direct links, quotations, original retrieval/publication
+dates and the saved preference version. Publication time appears only if supplied by
+the source. Immutable evidence IDs and content hashes remain in private records. Telegram
+keeps direct source links without dumping all the metadata. To attach the latest research
+to a comparison, open **Costs and thesis** and select **Use sources from your latest
+research**; copying evidence IDs is unnecessary.
 
 Reports and their source snapshots are private immutable D1 records. A retry of the same
 request reference reuses one report. Older reports retain their original dates; policy

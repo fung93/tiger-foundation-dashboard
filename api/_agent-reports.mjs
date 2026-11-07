@@ -6,6 +6,7 @@ import { getAgentPolicy } from './_agent-policy.mjs';
 import { validateEvidenceReferences } from './_agent-evidence.mjs';
 import { renderAgentStrategyResult } from './_agent-scenarios.mjs';
 import { proposeAgentDecision } from './_agent-decisions.mjs';
+import { researchExplanation, agentReadingTime } from '../agent-language.mjs';
 
 export const AGENT_REPORT_SCHEMA = 'agent-report-v1';
 const bounded = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
@@ -36,9 +37,9 @@ export function createResearchReport({ context, policy, research, query, now = D
   });
   const limits = facts.map(fact => Date.parse(fact.validUntil)).filter(Number.isFinite);
   const sources = Array.isArray(research.sources) ? research.sources.slice(0, 8) : [];
-  return { schemaVersion: AGENT_REPORT_SCHEMA, reportId: 'report:' + new Date(at).toISOString() + ':' + randomUUID(),
+  const report = { schemaVersion: AGENT_REPORT_SCHEMA, reportId: 'report:' + new Date(at).toISOString() + ':' + randomUUID(),
     jobId: null, createdAt: new Date(at).toISOString(), snapshotId: context?.snapshot?.snapshotId || null,
-    policyVersion: policy?.version || 0, modelProfileVersion: 'deterministic-evidence-v1',
+    policyVersion: policy?.version || 0, modelProfileVersion: 'deterministic-evidence-v2',
     status: facts.length ? research.status === 'ready' ? 'ready' : 'partial' : 'blocked',
     kind: 'research', objective: bounded(query, 1000), horizon: policy?.constraints?.horizonDays ?? null,
     sourceCoverage: { scope: 'configured_sources', protocol: research.protocol, sources,
@@ -52,18 +53,21 @@ export function createResearchReport({ context, policy, research, query, now = D
       'Scope is limited to configured sources; no general web search was performed.',
       'No financial recommendation or transaction is authorized by this research.'])],
     conflicts: Array.isArray(research.conflicts) ? research.conflicts.slice(0, 8) : [] };
+  const explanation = researchExplanation(report);
+  return { ...report, assessment: explanation.text, explanationEvidenceIds: explanation.evidenceIds,
+    status: report.status === 'ready' && (!explanation.evidenceIds.length || explanation.complete === false) ? 'partial' : report.status };
 }
 
 export function renderResearchReport(report) {
-  if(report.kind==='strategy')return renderAgentStrategyResult({...report.result,status:report.status})+'\nReport '+report.reportId+'\nCreated '+report.createdAt+' · '+report.status+'\n'+report.limitations.slice(-2).join('\n');
-  const lines = ['Configured-source research · ' + report.status, report.objective,
-    'Prepared ' + report.createdAt + ' · policy ' + report.policyVersion];
-  report.facts.forEach((fact, index) => lines.push('\n[' + (index + 1) + '] ' + fact.title,
-    bounded(fact.passage, 1600) + (fact.passage.length > 1600 ? '…' : ''), fact.url,
-    'Retrieved ' + fact.retrievedAt + (fact.publishedAt ? ' · published ' + fact.publishedAt : ' · publication time unavailable')));
-  if (!report.facts.length) lines.push('No current supporting evidence is available.');
-  lines.push('\n' + report.assessment, ...report.limitations.slice(0, 8).map(limit => '• ' + bounded(limit, 200)),
-    'Report ' + report.reportId);
+  if(report.kind==='strategy')return renderAgentStrategyResult({...report.result,status:report.status});
+  const explanation = researchExplanation(report), lines = [explanation.text];
+  if (report.status === 'superseded') lines.push('Your saved preferences changed after this report. Run a new review before using it.');
+  const referenced = new Set(report.sourceIds || []);
+  const facts = (report.facts || []).filter(fact => referenced.has(fact.evidenceId));
+  const cited = explanation.evidenceIds.length ? facts.filter(fact => explanation.evidenceIds.includes(fact.evidenceId)) : facts;
+  if (cited.length) lines.push('\nSources:', ...cited.slice(0, 4).map(fact => fact.title + '\n' + fact.url));
+  if (facts.some(fact => Date.parse(fact.validUntil) <= Date.now())) lines.push('These sources need a fresh check.');
+  const stamp = agentReadingTime(report.createdAt); if (stamp) lines.push('\nSources checked: ' + stamp + '.');
   return lines.join('\n');
 }
 

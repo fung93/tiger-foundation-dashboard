@@ -1,5 +1,6 @@
 /* Dashboard and Telegram share the server-owned conversation and preferences.
    Session credentials stay in the HttpOnly cookie; no chat or key is stored here. */
+import { researchExplanation, friendlyAgentNotes, agentLabel } from '/agent-language.mjs';
 const $=id=>document.getElementById(id);
 let state=null,busy=false,loading=false,settingsDirty=false,lastMessages='',sources=[],pendingChat=null;
 let policyState=null,policyDraft=null,policyDirty=false,policyFormVersion=null,policyConflict=false,policyLoading=false,toolBusy=false,toolResult=null;
@@ -386,10 +387,11 @@ async function confirmPolicy(){
 function renderToolResult(answer){
   const result=answer?.result||answer?.toolResult;if(!result||typeof result!=='object')throw new Error('The verified result could not be read.');
   toolResult=result;const panel=$('agentToolPanel'),meta=$('agentToolMeta');meta.replaceChildren();
-  for(const text of [result.status||'unavailable',Number.isSafeInteger(result.policyVersion)?'Policy '+result.policyVersion:null,date(result.observedAt)?'Observed '+date(result.observedAt):'Observation time unavailable',result.calculationId?'Calculation '+result.calculationId:null,result.snapshotId?'Snapshot '+result.snapshotId:null])if(text)meta.append(element('span','agent-source',text));
+  meta.append(element('span','agent-source',agentLabel(result.status)||'Reading unavailable'));
   $('agentToolResult').textContent=typeof answer.reply==='string'?answer.reply:'A verified explanation is unavailable.';
   const limits=$('agentToolLimits');limits.replaceChildren();
-  for(const [label,values] of [['Assumptions',result.assumptions],['Limitations',result.limitations]])if(Array.isArray(values)&&values.length){limits.append(element('h4','',label));const list=element('ul');for(const value of values)list.append(element('li','',typeof value==='string'?value:policyDescription(value)));limits.append(list);}
+  if(Number.isSafeInteger(result.policyVersion))limits.append(element('p','agent-help','Uses saved preferences version '+result.policyVersion+'.'));
+  for(const [label,values] of [['Assumptions',result.assumptions],['What to keep in mind',friendlyAgentNotes(result.limitations,{partial:result.status==='partial',blocked:result.status==='blocked'})]])if(Array.isArray(values)&&values.length){limits.append(element('h4','',label));const list=element('ul');for(const value of values)list.append(element('li','',typeof value==='string'?value:policyDescription(value)));limits.append(list);}
   if(result.roundingPolicy)limits.append(element('p','agent-help','Rounding: '+policyDescription(result.roundingPolicy)));
   panel.hidden=false;updateToolValidity();
 }
@@ -397,7 +399,7 @@ function updateToolValidity(){
   if(!toolResult||!$('agentToolValidity'))return;const expires=epoch(toolResult.validUntil),expired=Number.isFinite(expires)&&expires<=Date.now();
   $('agentToolState').textContent=expired?'Stale result':toolResult.status==='ready'?'Ready':toolResult.status==='blocked'?'Unavailable':'Partial data';
   $('agentToolState').dataset.state=!expired&&toolResult.status==='ready'?'ready':'';
-  $('agentToolValidity').textContent=expired?'This dated result has expired. Refresh the tool before using its amounts.':Number.isFinite(expires)?'Valid until '+date(toolResult.validUntil)+'. Refresh for a newer reading.':'No current validity window is available; review the limitations.';
+  $('agentToolValidity').textContent=expired?'This reading needs a refresh before you use its amounts.':toolResult.status==='blocked'?'Refresh the reading or add the missing information to try again.':'';
 }
 async function runVerifiedTool(name,args={}){
   if(toolBusy||!state?.authenticated)return;const view=privateViewVersion;toolBusy=true;const buttons=document.querySelectorAll('.agent-tools button');buttons.forEach(button=>{button.disabled=true;});$('agentToolState').textContent='Collecting data…';notice('Reading verified data…');
@@ -423,6 +425,8 @@ function clearPrivateAnalysis(){
   $('agentPair')?.setAttribute('aria-busy','false');
   $('agentUnlink')?.setAttribute('aria-busy','false');
   clearTelegramSetup();
+  for(const id of ['agentToolDetails','agentResearchDetails','agentCompareDetails'])if($(id))$(id).open=false;
+  $('agentCompareChecks')?.replaceChildren();
   journalSelection=null;journalCursor=null;journalEventCursor=null;journalBusy=false;journalPending=null;
   for(const id of ['agentJournalList','agentJournalMeta','agentJournalBaseline','agentJournalEvents','agentJournalReportText'])$(id)?.replaceChildren();
   for(const id of ['agentJournalDetail','agentJournalMore','agentJournalEventsMore'])if($(id))$(id).hidden=true;
@@ -431,6 +435,7 @@ function clearPrivateAnalysis(){
   pendingComparison=null;comparisonBusy=false;comparisonReport=null;
   for(const id of ['agentCompareMeta','agentCompareReply'])$(id)?.replaceChildren();
   if($('agentComparePanel'))$('agentComparePanel').hidden=true;
+  if($('agentCompareUseResearch'))$('agentCompareUseResearch').checked=false;
   $('agentCompareForm')?.reset();
   if($('agentCompareSend'))$('agentCompareSend').disabled=false;
   document.querySelectorAll('[data-compare-kind]').forEach(el=>el.hidden=el.dataset.compareKind!==$('agentCompareKind')?.value);
@@ -523,26 +528,23 @@ function renderResearchReport(answer){
     ||typeof report.reportId!=='string'||report.reportId.length>300)throw new Error('The research report could not be read. The previous report remains dated.');
   researchReport=report;
   const meta=$('agentResearchMeta');meta.replaceChildren();
-  for(const text of [researchStatusLabel(report),'Configured sources',researchDate(report.createdAt)?'Created '+researchDate(report.createdAt):'Creation time unavailable',
-    Number.isSafeInteger(report.policyVersion)?'Policy '+report.policyVersion:null,'Report '+report.reportId,report.snapshotId?'Snapshot '+String(report.snapshotId):null])
+  for(const text of [researchStatusLabel(report)])
     if(text)meta.append(element('span','agent-source',text));
   $('agentResearchState').textContent=researchStatusLabel(report);$('agentResearchState').dataset.state=report.status==='ready'?'ready':'';
-  const assessment=typeof report.assessment==='string'?report.assessment:typeof answer.reply==='string'?answer.reply:'Review the retrieved excerpts, source dates and coverage below.';
-  $('agentResearchReply').textContent=(report.objective?'Focus: '+String(report.objective).slice(0,1000)+'\n\n':'')+assessment.slice(0,5000);
+  $('agentResearchReply').textContent=researchExplanation(report).text;
   const coverage=$('agentResearchCoverage');coverage.replaceChildren();
   const sources=Array.isArray(report.sourceCoverage)?report.sourceCoverage:Array.isArray(report.sourceCoverage?.sources)?report.sourceCoverage.sources:[];
   if(!sources.length)coverage.append(element('p','agent-help','Coverage is limited to the configured sources in this report.'));
   for(const source of sources.slice(0,12)){
     if(!source||typeof source!=='object')continue;
-    const label=typeof source.title==='string'?source.title:typeof source.sourceId==='string'?source.sourceId:typeof source.id==='string'?source.id:'Configured source';
+    const label=typeof source.title==='string'?source.title:(report.facts||[]).find(fact=>fact.sourceId===source.sourceId)?.title||'Official source';
     const status=typeof source.status==='string'?source.status:'unavailable';
-    const row=element('p','agent-help',label+' · '+status+(researchDate(source.retrievedAt)?' · retrieved '+researchDate(source.retrievedAt):''));row.dataset.state=status;coverage.append(row);
+    const row=element('p','agent-help',label+' · '+(({fresh:'Checked',stale:'Older copy',unavailable:'Could not read this source'})[status]||'Not checked')+(researchDate(source.retrievedAt)?' · '+researchDate(source.retrievedAt):''));row.dataset.state=status;coverage.append(row);
   }
   const limits=$('agentResearchLimits');limits.replaceChildren();
-  for(const [label,values] of [['Limitations',report.limitations],['Conflicting sources',report.conflicts]])if(Array.isArray(values)&&values.length){
-    limits.append(element('h4','',label));const list=element('ul');for(const value of values.slice(0,20))list.append(element('li','',typeof value==='string'?value:policyDescription(value)));limits.append(list);
-  }
-  if(researchDate(report.nextReviewAt))limits.append(element('p','agent-help','Review by '+researchDate(report.nextReviewAt)+'.'));
+  if(Number.isSafeInteger(report.policyVersion))limits.append(element('p','agent-help','Uses saved preferences version '+report.policyVersion+'.'));
+  if(report.conflicts?.length)limits.append(element('p','agent-help','The sources disagree on part of this question. Check the excerpts before drawing a conclusion.'));
+  if(researchDate(report.nextReviewAt))limits.append(element('p','agent-help','Check these sources again after '+researchDate(report.nextReviewAt)+'.'));
   const facts=$('agentResearchFacts');facts.replaceChildren();
   const ids=new Set(Array.isArray(report.sourceIds)?report.sourceIds.filter(id=>typeof id==='string'):[]);let omitted=0;
   for(const fact of (Array.isArray(report.facts)?report.facts:[]).slice(0,4)){
@@ -552,13 +554,13 @@ function renderResearchReport(answer){
     link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.referrerPolicy='no-referrer';
     item.append(link,element('blockquote','',fact.passage.slice(0,4000)));
     const dates=[];if(researchDate(fact.retrievedAt))dates.push('Retrieved '+researchDate(fact.retrievedAt));
-    dates.push(researchDate(fact.publishedAt)?'Published '+researchDate(fact.publishedAt):'Publication time not supplied');
-    item.append(element('p','agent-help',dates.join(' · ')),element('p','agent-research-reference','Evidence '+id));facts.append(item);
+    if(researchDate(fact.publishedAt))dates.push('Published '+researchDate(fact.publishedAt));
+    item.append(element('p','agent-help',dates.join(' · ')));facts.append(item);
   }
   const empty=!facts.children.length;
   if(empty)facts.append(element('p','agent-help','No supported source excerpts are available for this report.'));
   if(omitted)limits.append(element('p','agent-help','Unsupported citation details were omitted. No claim is supported by those omitted references.'));
-  if((omitted||empty)&&report.status!=='blocked'&&report.status!=='superseded'){
+  if((omitted||empty||!researchExplanation(report).evidenceIds.length||researchExplanation(report).complete===false)&&report.status!=='blocked'&&report.status!=='superseded'){
     $('agentResearchState').textContent='Partial research';$('agentResearchState').dataset.state='';if(meta.firstElementChild)meta.firstElementChild.textContent='Partial research';}
   $('agentResearchPanel').hidden=false;updateResearchValidity();
 }
@@ -568,7 +570,7 @@ function updateResearchValidity(){
   const hasVersions=Number.isSafeInteger(policyState?.version)&&Number.isSafeInteger(researchReport.policyVersion);
   const superseded=researchReport.status==='superseded'||hasVersions&&policyState.version>researchReport.policyVersion;
   const editorBehind=hasVersions&&policyState.version<researchReport.policyVersion;
-  $('agentResearchValidity').textContent=superseded?'This report used an earlier strategy policy. Request a new review.':researchReport.status==='blocked'?'Research is unavailable. Review the missing source coverage and limitations.':expired?'This dated report is due for refresh. Its source dates have not been renewed.':editorBehind?'This report used a newer policy than the editor. Reload the saved policy before preparing changes.':'This is a dated report from configured sources. Review coverage and source dates before relying on it.';
+  $('agentResearchValidity').textContent=superseded?'Your preferences changed after this answer. Run the research again.':researchReport.status==='blocked'?'I could not retrieve enough source information. Please try again.':expired?'These sources need a fresh check. Their dates have not been renewed.':editorBehind?'Reload the saved policy to see the preferences used for this answer.':'';
   if(superseded||expired&&researchReport.status!=='blocked'){const label=superseded?'Superseded policy':'Refresh due';$('agentResearchState').textContent=label;$('agentResearchState').dataset.state='';const first=$('agentResearchMeta').firstElementChild;if(first)first.textContent=label;}
 }
 async function runResearch(event){
@@ -610,7 +612,7 @@ function comparisonInput(){
   if(kind==='kat')Object.assign(input,{katPriceUsd:n('agentCompareKatPrice'),katAmount:n('agentCompareKatAmount')});
   Object.assign(input,{swapFeeBps:n('agentCompareSwap'),slippageBps:n('agentCompareSlippage'),
     thesis:$('agentCompareThesis').value.trim(),catalysts:lines('agentCompareCatalysts'),invalidationConditions:lines('agentCompareInvalidation'),
-    evidenceIds:$('agentCompareEvidence').value.split(',').map(x=>x.trim()).filter(Boolean)});
+    evidenceIds:$('agentCompareUseResearch')?.checked?(researchReport?.sourceIds||[]):$('agentCompareEvidence').value.split(',').map(x=>x.trim()).filter(Boolean)});
   if($('agentCompareReview').value)input.reviewAt=$('agentCompareReview').value+'T01:00:00Z';
   return input;
 }
@@ -627,7 +629,11 @@ function initComparisonControls(){
       const answer=await request('compare',{input,requestId:pendingComparison.requestId});if(!samePrivateView(view))return;
       if(!answer.report||typeof answer.reply!=='string')throw new Error('The comparison could not be verified.');
       comparisonReport=answer.report;updateComparisonValidity();
-      $('agentCompareReply').textContent=answer.reply;$('agentComparePanel').hidden=false;pendingComparison=null;notice('');
+      $('agentCompareReply').textContent=answer.reply;
+      const checks=$('agentCompareChecks');checks.replaceChildren();
+      checks.append(element('p','agent-help','Uses saved preferences version '+answer.report.policyVersion+'.'));
+      for(const text of answer.report.assumptions||[])checks.append(element('p','agent-help',text));
+      $('agentComparePanel').hidden=false;pendingComparison=null;notice('');
     }catch(error){if(samePrivateView(view))notice(error.message,true);}
     finally{if(samePrivateView(view)){comparisonBusy=false;$('agentCompareSend').disabled=false;}}
   });
@@ -636,8 +642,8 @@ function updateComparisonValidity(){
   if(!comparisonReport||!state?.authenticated)return;
   const report=comparisonReport,newPolicy=Number.isSafeInteger(policyState?.version)&&policyState.version!==report.policyVersion,
     expired=Number.isFinite(epoch(report.nextReviewAt))&&epoch(report.nextReviewAt)<=Date.now();
-  const status=newPolicy?'Superseded by newer policy':expired?'Dated scenario · fresh review required':report.status;
-  $('agentCompareMeta').textContent=status+' · created '+researchDate(report.createdAt)+' · policy '+report.policyVersion+' · '+report.reportId;
+  const status=newPolicy?'Your saved preferences changed. Run a new comparison.':expired?'Refresh this comparison before using its amounts.':agentLabel(report.status);
+  $('agentCompareMeta').textContent=status+(researchDate(report.createdAt)?' · '+researchDate(report.createdAt):'');
 }
 initComparisonControls();
 setInterval(updateComparisonValidity,5000);
@@ -647,7 +653,7 @@ async function loadJournal(older=false){
   try{const page=await request('decisions',{cursor:older?journalCursor:null});if(!samePrivateView(view))return;
     const box=$('agentJournalList');if(!older)box.replaceChildren();
     if(!page.items?.length&&!older)box.append(element('p','agent-help','No saved briefs yet. Research or compare a strategy to begin a prospective record.'));
-    for(const item of page.items||[]){const row=element('article','agent-alert');row.append(element('p','',item.thesis||'Saved brief'),element('p','agent-help',item.state+' · '+item.reviewStatus+' · '+date(item.createdAt)+' · policy '+item.policyVersion));
+    for(const item of page.items||[]){const row=element('article','agent-alert');row.append(element('p','',item.thesis||'Saved brief'),element('p','agent-help',agentLabel(item.state)+' · '+agentLabel(item.reviewStatus)+' · '+date(item.createdAt)));
       const button=element('button','agent-button agent-quiet','Review entry');button.type='button';button.addEventListener('click',()=>openJournal(item.decisionId));row.append(button);box.append(row);}
     journalCursor=page.cursor||null;$('agentJournalMore').hidden=!journalCursor;
   }catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view))journalBusy=false;}
@@ -656,12 +662,12 @@ async function openJournal(id,more=false){
   const view=privateViewVersion;
   try{const value=await request('decision',{decisionId:id,cursor:more?journalEventCursor:null});if(!samePrivateView(view))return;
     journalSelection=value.decision;journalEventCursor=value.cursor||null;
-    $('agentJournalMeta').textContent=value.decision.state+' · version '+value.decision.version+' · original '+date(value.decision.createdAt)+' · policy '+value.decision.policyVersion;
-    $('agentJournalBaseline').textContent=value.decision.thesis+'\n'+value.decision.assessment+'\nInvalidation: '+(value.decision.invalidationConditions||[]).join('; ')+'\nReview: '+(date(value.decision.reviewAt)||'Unspecified');
+    $('agentJournalMeta').textContent=agentLabel(value.decision.state)+' · saved '+date(value.decision.createdAt);
+    $('agentJournalBaseline').textContent=value.decision.thesis+'\n'+(/^Retrieved excerpts/.test(value.decision.assessment||'')?'':value.decision.assessment)+'\nWhen to reconsider: '+(value.decision.invalidationConditions||[]).join('; ')+'\nNext review: '+(date(value.decision.reviewAt)||'Not set');
     if(!more){$('agentJournalEvents').replaceChildren();$('agentJournalReportText').replaceChildren();$('agentJournalForm').reset();journalPending=null;
       const choice=$('agentJournalChoice'),unset=element('option','','No option chosen');unset.value='';choice.replaceChildren(unset);
       for(const option of value.decision.options||[]){const node=element('option','',option.label+' · '+option.status);node.value=option.id;choice.append(node);}}
-    for(const event of value.events||[]){const row=element('article','agent-alert');row.append(element('p','agent-help',date(event.ts)+' · '+event.type+' · '+event.provenance),element('p','',event.rationale||event.measurement||'Original proposal recorded.'),element('p','',event.outcome||''));
+    for(const event of value.events||[]){const row=element('article','agent-alert');row.append(element('p','agent-help',date(event.ts)+' · '+agentLabel(event.type)),element('p','',event.rationale||event.measurement||'Original review saved.'),element('p','',event.outcome||''));
       if(event.transaction)row.append(element('p','', 'Owner-reported transaction · unverified: '+event.transaction.description));
       for(const mark of event.marks||[])if(Number.isFinite(mark.paperMarkBeforeEarningsUsd))row.append(element('p','',mark.optionId+' · paper mark before earnings $'+mark.paperMarkBeforeEarningsUsd.toFixed(2)+' · versus hold $'+mark.differenceBeforeEarningsUsd.toFixed(2)));
       if(event.earningsLimit)row.append(element('p','agent-help',event.earningsLimit));

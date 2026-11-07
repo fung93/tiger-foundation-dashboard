@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { MARKETS, debtAssets, targetMetrics, liquidationMetrics } from '../morpho-core.mjs';
 import { positionIdentity } from '../portfolio-core.mjs';
 import { httpError } from './_agent-http.mjs';
+import { agentNumber, agentMoney, agentPrice, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
 
 export const AGENT_TOOL_SCHEMA_VERSION = 'agent-tool-v1';
 export const AGENT_TOOL_NAMES = Object.freeze(['getPortfolioSnapshot', 'getLendingRisk', 'calculateTargetHealth', 'getLPPosition', 'getKATExposure']);
@@ -209,7 +210,9 @@ function portfolio(context, now) {
   const incomplete = expired || [...assets, ...liabilities].some(row => row.status !== 'fresh') || snapshot.allocationBlocked !== false;
   const subtotal = scope => assets.filter(row => row.status === 'fresh' && Number.isFinite(row.valueUsd) && (scope === 'combined' || row.scope === scope)).reduce((n, row) => n + row.valueUsd, 0)
     - liabilities.filter(row => row.status === 'fresh' && Number.isFinite(row.valueUsd) && (scope === 'combined' || row.scope === scope)).reduce((n, row) => n + row.valueUsd, 0);
+  const cards = context.lp?.status === 'fresh' && fresh(context.lp.ts, now) ? context.lp.cards : null;
   const data = { ...snapshot, assets, liabilities, verifiedSubtotalUsd: subtotal('combined'),
+    lpSummary: cards ? { open: cards.open, valueUsd: cards.value_usd, netUsd: cards.net_usd, unclaimedUsd: cards.unclaimed_usd } : null,
     scopes: Object.fromEntries(['main', 'vault', 'combined'].map(scope => [scope, { ...snapshot.scopes?.[scope], verifiedSubtotalUsd: subtotal(scope) }])),
     navUsd: incomplete ? null : snapshot.navUsd, allocationBlocked: incomplete,
     status: expired ? 'stale' : incomplete && snapshot.status === 'complete' ? 'partial' : snapshot.status };
@@ -338,52 +341,57 @@ function rawText(raw, decimals) {
   const digits = raw.padStart(decimals + 1, '0');
   return decimals ? (digits.slice(0, -decimals) + '.' + digits.slice(-decimals)).replace(/\.?0+$/, '') || '0' : digits;
 }
-const number = (n, places = 6) => Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: places }) : 'unavailable';
-const dollars = n => Number.isFinite(n) ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'unavailable';
-const timeLabel = stamp => atTime(stamp) === null ? 'unavailable' : new Date(atTime(stamp)).toLocaleString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour12: false }) + ' MYT';
 export function renderAgentToolResult(output) {
   if (!output || output.schemaVersion !== AGENT_TOOL_SCHEMA_VERSION || !AGENT_TOOL_NAMES.includes(output.toolName))
     throw httpError(503, 'The verified tool result could not be rendered.', 'invalid_model_output');
   const d = output.data || {}, lines = [];
-  if (output.status === 'blocked') lines.push('This calculation is unavailable.');
+  if (output.status === 'blocked') lines.push('I could not complete this check.');
   else if (output.toolName === 'calculateTargetHealth') {
-    lines.push(d.market + ' · target health ' + number(d.target_health));
-    if (d.status === 'repay') lines.push('Required repayment: ' + rawText(d.repay_raw, d.loan_decimals) + ' ' + d.loan_token + '.');
-    else if (d.status === 'borrow') lines.push('Maximum additional borrowing at this target: ' + rawText(d.max_borrow_raw, d.loan_decimals) + ' ' + d.loan_token + '.');
-    else lines.push('The position is at the requested target.');
-    lines.push('Current health ' + number(d.current_health) + '; market LLTV ' + number(d.lltv * 100) + '%.');
-    if (d.policyCheck?.status === 'unconfirmed') lines.push('Agent strategy policy is unconfirmed; this is an informational estimate.');
+    lines.push('For your ' + d.market + ' loan, your chosen target health is ' + agentNumber(d.target_health) + '.');
+    if (d.status === 'repay') lines.push('To reach it, repay at least ' + rawText(d.repay_raw, d.loan_decimals) + ' ' + d.loan_token + '.');
+    else if (d.status === 'borrow') lines.push('At that target, you could borrow up to ' + rawText(d.max_borrow_raw, d.loan_decimals) + ' more ' + d.loan_token + ', subject to the available market liquidity.');
+    else lines.push('Your position is already at that target.');
+    lines.push('Your current health is ' + agentNumber(d.current_health) + '.');
+    if (d.policyCheck?.status === 'outside_market_limits') lines.push('This target falls outside your saved lending limits.');
   } else if (output.toolName === 'getLendingRisk') {
     for (const row of d.markets || []) {
-      if (row.status !== 'ready') lines.push((row.market || 'Market') + ': unavailable (' + row.limitation + ').');
-      else if (row.noPosition) lines.push(row.market + ': verified inactive; no debt.');
+      if (row.status !== 'ready') lines.push((row.market || 'This market') + ': I could not get a reliable current reading.');
+      else if (row.noPosition) lines.push(row.market + ': no open loan.');
       else {
-        lines.push(row.market + ': health ' + number(row.health) + ', LTV ' + number(row.ltv * 100) + '%, debt ' + rawText(row.debtRaw, row.loanDecimals) + ' ' + row.loanToken + '.');
-        if (row.liquidatable) lines.push('The raw oracle/debt check permits liquidation at this observation; a rounded health display may hide the smallest-unit difference.');
-        if (row.sensitivity?.kind === 'kat-ratio' && Number.isFinite(row.sensitivity.oracleLiquidationPrice)) lines.push('Sensitivity: avKAT/KAT oracle ratio may reach ' + number(row.sensitivity.oracleLiquidationPrice, 12)
-          + ' at the boundary with fixed debt/collateral. This is not a KAT/USD forecast.');
+        const exactDebt = rawText(row.debtRaw, row.loanDecimals), debt = Number(exactDebt);
+        lines.push(row.market + ': health ' + agentNumber(row.health) + ', LTV ' + agentNumber(row.ltv * 100, 2) + '%, with ' + (debt >= 0.000001 ? agentNumber(debt) : exactDebt) + ' ' + row.loanToken + ' borrowed.');
+        if (row.liquidatable) lines.push('This loan is below its liquidation boundary at this reading. The exact on-chain calculation takes priority over the rounded health number.');
+        if (row.sensitivity?.kind === 'kat-ratio' && Number.isFinite(row.sensitivity.oracleLiquidationPrice)) lines.push('With your balances unchanged, the liquidation boundary is an avKAT/KAT oracle ratio of ' + agentNumber(row.sensitivity.oracleLiquidationPrice, 6) + '. This is not a KAT dollar-price forecast.');
         else if (Number.isFinite(row.sensitivity?.conditionalKatUsdBoundary)) {
-          lines.push('Conditional KAT/USD boundary: ' + dollars(row.sensitivity.conditionalKatUsdBoundary) + '; all other oracle inputs and balances fixed.');
-          if (row.sensitivity.katPriceBasis === 'pool') lines.push('Pool-price proxy; the Morpho oracle remains the liquidation trigger.');
+          lines.push('With your balances and other oracle inputs unchanged, the estimated KAT price at liquidation is ' + agentPrice(row.sensitivity.conditionalKatUsdBoundary) + '.');
+          if (row.sensitivity.katPriceBasis === 'pool') lines.push('That estimate uses the pool price as a proxy. Morpho’s oracle controls actual liquidation.');
         }
       }
     }
   } else if (output.toolName === 'getPortfolioSnapshot') {
-    lines.push(output.status === 'ready' ? 'Complete portfolio NAV: ' + dollars(d.navUsd) + '.' : 'Verified portfolio subtotal: ' + dollars(d.verifiedSubtotalUsd) + '.');
-    lines.push('Main ' + dollars(d.scopes?.main?.verifiedSubtotalUsd) + '; Tiger Vault ' + dollars(d.scopes?.vault?.verifiedSubtotalUsd) + '.');
-    if (d.allocationBlocked) lines.push('Complete NAV and portfolio allocation sizing are unavailable because coverage is incomplete.');
+    const hasReading = output.status === 'ready' || [...(d.assets || []), ...(d.liabilities || [])].some(row => row.status === 'fresh' && Number.isFinite(row.valueUsd));
+    lines.push(!hasReading ? 'I could not verify your current portfolio value.' : output.status === 'ready' ? 'Your portfolio is worth ' + agentMoney(d.navUsd) + '.' : 'I can currently account for ' + agentMoney(d.verifiedSubtotalUsd) + ' in your portfolio.');
+    if (hasReading) for (const [scope, label] of [['main', 'Main wallet'], ['vault', 'Tiger Vault']]) {
+      const verified = output.status === 'ready' || [...(d.assets || []), ...(d.liabilities || [])].some(row => row.scope === scope && row.status === 'fresh' && Number.isFinite(row.valueUsd));
+      lines.push(label + ': ' + (verified ? agentMoney(d.scopes?.[scope]?.verifiedSubtotalUsd) : 'not available in this reading') + '.');
+    }
+    if (d.lpSummary && Number.isSafeInteger(d.lpSummary.open)) lines.push('You have ' + d.lpSummary.open + ' open LP position' + (d.lpSummary.open === 1 ? '' : 's')
+      + (Number.isFinite(d.lpSummary.netUsd) ? ', with a net result of ' + agentMoney(d.lpSummary.netUsd) : '')
+      + (Number.isFinite(d.lpSummary.unclaimedUsd) ? ' and ' + agentMoney(d.lpSummary.unclaimedUsd) + ' still to claim' : '') + '.');
   } else if (output.toolName === 'getLPPosition') {
-    lines.push((d.chain || 'LP') + ' position ' + d.positionId + ': principal ' + dollars(d.principalUsd) + ', excluding fees and rewards.');
-    if (d.raw) lines.push('Range ticks ' + d.raw.lowerTick + ' to ' + d.raw.upperTick + '; ' + (d.inRange === true ? 'in range' : d.inRange === false ? 'out of range' : 'range status unavailable') + '.');
+    const label = String(d.id || d.positionId || '');
+    lines.push('Your ' + (d.chain || '') + ' LP' + (label.length <= 80 ? ' #' + label : '') + ' is worth ' + agentMoney(d.principalUsd) + ' before fees and rewards.');
+    if (typeof d.inRange === 'boolean') lines.push(d.inRange ? 'The price is inside your chosen range.' : 'The price is outside your chosen range.');
     if (d.accounting?.stakedTradingFeesToDao) lines.push('Staked Sushi trading fees go to the DAO; they are not owner earnings.');
   } else if (output.toolName === 'getKATExposure') {
-    if (!d.verifiedComponentCount && output.status !== 'ready') lines.push('No current KAT quantity has been verified; historical holdings remain separate.');
-    else lines.push((output.status === 'ready' ? 'KAT exposure' : 'Verified KAT exposure subtotal') + ': ' + number(d.verifiedNetKat) + ' KAT after ' + number(d.verifiedDebtKat) + ' KAT debt.');
-    lines.push('Liquid ' + number(d.liquidKat) + '; locked ' + number(d.lockedKat) + '; encumbered ' + number(d.encumberedKat) + '; claimable ' + number(d.claimableKat) + ' KAT.');
-    if (d.allocationBlocked) lines.push('Complete exposure and allocation sizing remain unavailable.');
+    if (!d.verifiedComponentCount && output.status !== 'ready') lines.push('I could not verify your current KAT holdings.');
+    else {
+      lines.push('Your ' + (output.status === 'ready' ? '' : 'currently verified ') + 'net exposure is ' + agentNumber(d.verifiedNetKat) + ' KAT after subtracting ' + agentNumber(d.verifiedDebtKat) + ' KAT of debt.');
+      lines.push('Available in your wallet: ' + agentNumber(d.liquidKat) + ' KAT.\nLocked: ' + agentNumber(d.lockedKat) + ' KAT.\nCommitted to positions: ' + agentNumber(d.encumberedKat) + ' KAT.\nRewards to claim: ' + agentNumber(d.claimableKat) + ' KAT.');
+    }
   }
-  for (const limitation of output.limitations || []) lines.push('Limitation: ' + limitation);
-  lines.push('Observed ' + timeLabel(output.observedAt) + ' · policy v' + output.policyVersion + ' · ' + output.status + '.');
-  lines.push('Calculation ' + output.calculationId + ' · snapshot ' + output.snapshotId + '.');
+  lines.push(...friendlyAgentNotes(output.limitations, { partial: output.status === 'partial', blocked: output.status === 'blocked',
+    kind: ({ getPortfolioSnapshot: 'portfolio', getKATExposure: 'kat' })[output.toolName] || '' }));
+  const stamp = agentReadingTime(output.observedAt); if (stamp) lines.push('\nReading: ' + stamp + '.');
   return lines.join('\n');
 }

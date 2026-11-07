@@ -38,10 +38,12 @@ Under **Research a protocol**, choose **Morpho** and ask:
 
 > Explain Morpho Blue's isolated lending markets using the configured official documentation.
 
-Choose **Research configured sources**. Check that the report contains a source URL,
-an excerpt, its retrieval time and the confirmed policy version. Open the source and
-check that the quotation exists there. Publication time may be unavailable; retrieval
-time does not establish when a document was published.
+Choose **Research configured sources**. The main answer should explain a separate lending
+pool and why collateral in one market does not automatically protect another loan.
+Open **Sources & details** to check the official IMorpho.sol quotation, source link,
+retrieval time and saved preference version. Check that the quotation exists at the
+source. Publication time may be unavailable; retrieval time does not establish when
+a document was published. The introduction alone cannot support the detailed explanation.
 
 Research currently covers configured official background documents. A question about
 the latest governance proposal, announcement or incentive change must disclose missing
@@ -59,11 +61,14 @@ limitations; an omitted future rate must not silently become zero.
 For avKAT/KAT, **Oracle ratio moves · %** changes the collateral-to-debt oracle ratio.
 It is not a KAT dollar-price forecast. The result should compare maintaining debt,
 reducing debt and adding collateral using the shared deterministic lending calculations.
-Check the observation time, policy version, cash required and assumptions.
+Check the observation time and cash required. Open **Assumptions and checks** for the
+saved preference version and assumptions. To reuse research evidence, select **Use
+sources from your latest research** under **Costs and thesis**.
 
-Current incomplete portfolio coverage can keep the comparison **Partial**, even when a
+Current incomplete portfolio coverage can keep the comparison marked **Some details
+need checking**, even when a
 verified individual market is calculable. That status blocks portfolio-wide allocation
-claims. A **Blocked** result should explain the missing input. The comparison is a
+claims. A result needing more information should explain the missing input. The comparison is a
 conditional paper calculation; it does not perform a repayment or another transaction.
 
 LP and KAT comparisons use the same review flow, with their own explicit assumptions.

@@ -41,7 +41,8 @@ try {
   check(Date.parse(calculated.validUntil), Date.parse(row.ts) + TTL, 'Calculation validity is tied to the original observation');
   check((await call('calculateTargetHealth', { market: row.id, targetHealth: 2.3 })).data.repay_raw, expected.repay_raw, 'An exact market ID resolves to the same shared calculation as its key');
   check((await call('calculateTargetHealth', { market: row.key, targetHealth: 2.3 })).calculationId, calculated.calculationId, 'Repeated equal inputs do not invent a new calculation identity');
-  check(renderAgentToolResult(calculated).includes('Calculation ' + calculated.calculationId), true, 'The trusted rendering carries its calculation reference');
+  check(renderAgentToolResult(calculated).includes(calculated.calculationId), false, 'The reply hides internal references while the structured result retains them');
+  check(calculated.calculationId.startsWith('calc:'), true, 'Calculation provenance is preserved outside the conversational text');
   const stale = await runAgentTool('calculateTargetHealth', { market: row.key, targetHealth: 2 }, { context, now: Date.parse(row.ts) + TTL });
   check(stale.status, 'blocked', 'A market expires at the freshness boundary');
   check(stale.data.repay_raw, undefined, 'A stale result does not carry a hidden actionable repayment');
@@ -63,7 +64,7 @@ try {
   check(movedRisk.data.markets[0].health, baseRisk.data.markets[0].health, 'A common USD move does not change fixed-ratio avKAT/KAT health');
   check(movedRisk.data.markets[0].sensitivity.oracleMoveToBoundaryPct, baseRisk.data.markets[0].sensitivity.oracleMoveToBoundaryPct, 'Oracle-ratio sensitivity is independent of a common USD repricing');
   check(baseRisk.data.markets[0].sensitivity.conditionalKatUsdBoundary, null, 'avKAT/KAT is never given a fictitious KAT/USD liquidation price');
-  check(renderAgentToolResult(baseRisk).includes('not a KAT/USD forecast'), true, 'The sensitivity variable is described accurately');
+  check(renderAgentToolResult(baseRisk).includes('avKAT/KAT oracle ratio')&&renderAgentToolResult(baseRisk).includes('not a KAT dollar-price forecast'), true, 'The sensitivity variable is explained without presenting a KAT dollar forecast');
   const policy = { version: 7, status: 'confirmed', constraints: { marketLimits: { 'avkat-kat': { targetHealth: 3, maxLtvPct: 25 } } } };
   const outside = await call('calculateTargetHealth', { market: row.key, targetHealth: 2 }, { policy });
   check(outside.policyVersion, 7, 'The result records the exact confirmed policy version');

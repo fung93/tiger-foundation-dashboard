@@ -145,7 +145,7 @@ export function monitorConditions(context, settings, { policy, previous = {}, de
     if (['rejected','invalidated','superseded'].includes(decision.state) || !decision.reviewAt) continue;
     const key = 'review:' + decision.decisionId;
     conditions[key] = { active: Date.parse(decision.reviewAt) <= now, type: 'review', severity: 'info',
-      title: 'Strategy review due', message: (decision.thesis || 'Saved strategy').slice(0,160) + '\nReview ' + decision.decisionId + '. Acceptance never executes a trade.', sourceTs: decision.updatedAt };
+      title: 'Strategy review due', message: (decision.thesis || 'Saved strategy').slice(0,160) + '\nOpen your Decision journal to review it.', sourceTs: decision.updatedAt };
   }
   return conditions;
 }

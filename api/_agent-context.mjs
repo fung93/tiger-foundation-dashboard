@@ -3,6 +3,7 @@
 import { MARKETS, WALLET, targetMetrics, liquidationMetrics } from '../morpho-core.mjs';
 import { buildPortfolioSnapshot, comparablePortfolioPerformance } from '../portfolio-core.mjs';
 import { summary as katTradeSummary, reconcile as reconcileKatTrades } from '../kat-core.mjs';
+import { agentMoney, agentNumber, agentReadingTime } from '../agent-language.mjs';
 
 const numeric = value => Number.isFinite(value) ? value : null;
 const text = (value, limit = 160) => typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b-\u001f]/g, '').slice(0, limit) : null;
@@ -383,24 +384,30 @@ export function calculateAgentLending(context, { market, targetHealth }, { now =
 const dollars = value => Number.isFinite(value) ? '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'unavailable';
 const readingTime = ts => ts ? new Date(ts).toLocaleString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour12: false }) + ' MYT' : 'no verified reading';
 export function summarizeAgent(context) {
-  const lines = ['Tiger Foundation summary', 'Checked ' + readingTime(context?.asOf)];
+  const lines = ['Here is your portfolio update.'];
+  const snapshot = context?.snapshot;
+  const freshRows = [...(snapshot?.assets || []), ...(snapshot?.liabilities || [])].filter(row => row.status === 'fresh');
+  const current = freshRows.every(row => freshAt(row.observedAt, Date.now()));
+  if (current && snapshot?.status === 'complete' && Number.isFinite(snapshot.navUsd)) lines.push('Your portfolio is worth ' + agentMoney(snapshot.navUsd) + '.');
+  else if (current && freshRows.length && Number.isFinite(snapshot?.verifiedSubtotalUsd)) lines.push('I can currently verify ' + agentMoney(snapshot.verifiedSubtotalUsd) + ' of your portfolio. Some positions are not fully verified, so this is a partial total.');
   const lending = context?.lending;
   if (lending?.markets?.length) {
-    lines.push('Lending (' + lending.status + ', ' + readingTime(lending.ts) + '):');
+    lines.push('\nYour loans:');
     for (const row of lending.markets) {
-      if (row.status !== 'fresh' || row.error) { lines.push(row.label + ': current reading unavailable.'); continue; }
-      if (row.no_position) { lines.push(row.label + ': inactive.'); continue; }
-      lines.push(row.label + ': ' + (row.debt_amount === 0 ? 'no debt' : 'health ' + (Number.isFinite(row.health) ? row.health.toFixed(3) : 'unavailable'))
-        + ', borrowed ' + dollars(row.debt_usd) + '.');
+      if (row.status !== 'fresh' || row.error) { lines.push(row.label + ': I could not refresh this loan.'); continue; }
+      if (row.no_position) continue;
+      lines.push(row.label + ': ' + (row.debt_amount === 0 ? 'no debt' : 'health ' + agentNumber(row.health))
+        + ', with ' + agentMoney(row.debt_usd) + ' borrowed.');
+      if (Number.isFinite(row.health) && row.health < 1) lines.push('This loan is below its liquidation boundary.');
     }
-  } else lines.push('Lending: current readings unavailable.');
+  } else lines.push('Lending: current readings unavailable. Please refresh to check your loans.');
   if (context?.lp?.status === 'fresh' && context.lp.cards) {
     const cards = context.lp.cards;
-    lines.push('Open LPs: ' + cards.open + ', principal ' + dollars(cards.value_usd) + ', net ' + dollars(cards.net_usd)
-      + ', still to claim ' + dollars(cards.unclaimed_usd) + '.');
-  } else lines.push('LPs: a complete current valuation is unavailable.');
-  if (context?.portfolio?.ts) lines.push('Saved portfolio ' + dollars(context.portfolio.total_usd) + '; Tiger Vault '
-    + dollars(context.portfolio.vault_usd) + ' (' + readingTime(context.portfolio.ts) + ').');
-  else lines.push('Saved portfolio: unavailable.');
+    lines.push('\nYour ' + cards.open + ' open LP position' + (cards.open === 1 ? ' is' : 's are') + ' worth ' + agentMoney(cards.value_usd)
+      + ', with a net result of ' + agentMoney(cards.net_usd) + ' and ' + agentMoney(cards.unclaimed_usd) + ' still to claim.');
+  } else lines.push('I could not get a complete current LP valuation.');
+  if (context?.portfolio?.ts) lines.push('\nLast saved portfolio value: ' + agentMoney(context.portfolio.total_usd) + '; Tiger Vault '
+    + agentMoney(context.portfolio.vault_usd) + ' (' + agentReadingTime(context.portfolio.ts) + ').');
+  const stamp = agentReadingTime(context?.asOf); if (stamp) lines.push('\nChecked ' + stamp + '.');
   return lines.join('\n');
 }

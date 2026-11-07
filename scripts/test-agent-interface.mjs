@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { randomUUID } from 'node:crypto';
+import { researchExplanation, friendlyAgentNotes, agentLabel } from '../agent-language.mjs';
 
 const source=readFileSync(new URL('../agent.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../agent.html',import.meta.url),'utf8');
@@ -36,7 +37,7 @@ get('agentPolicyExposures').querySelectorAll=()=>exposures;
 get('agentPolicyMarkets').querySelectorAll=()=>markets;
 get('agentPolicyAnalysisTypes').querySelectorAll=()=>analyses;
 const calls=[],notices=[];
-const context=vm.createContext({$,Date,Number,Set,Object,Array,String,JSON,Error,Math,URL,crypto:{randomUUID},
+const context=vm.createContext({$,Date,Number,Set,Object,Array,String,JSON,Error,Math,URL,crypto:{randomUUID},researchExplanation,friendlyAgentNotes,agentLabel,
   state:{authenticated:true},policyState:{version:0,status:'unconfirmed',constraints:{}},policyFormVersion:0,
   privateViewVersion:0,
   policyDirty:true,policyConflict:false,policyDraft:null,
@@ -129,19 +130,20 @@ for(const value of ['javascript:alert(1)','data:text/html,x','http://docs.exampl
 check(helpers.researchCitationUrl('https://docs.example/protocol#risk'),'https://docs.example/protocol#risk','A source HTTPS citation retains its canonical path');
 const now=Date.now(),report={schemaVersion:'agent-report-v1',reportId:'report:fixture:1',status:'ready',createdAt:new Date(now).toISOString(),
   policyVersion:1,snapshotId:'portfolio:fixture',objective:'Review risk',assessment:'Quoted configured-source excerpts.',sourceIds:['evidence:verified'],
-  sourceCoverage:[{sourceId:'official-docs',status:'fresh'}],facts:[{evidenceId:'evidence:verified',title:'Official docs <script>ignored</script>',
-    url:'https://docs.example/protocol',passage:'Source excerpt <img src=x onerror=alert(1)>',retrievedAt:new Date(now).toISOString(),publishedAt:null}],
+  sourceCoverage:[{sourceId:'morpho-blue-readme',status:'fresh'}],facts:[{evidenceId:'evidence:verified',sourceId:'morpho-blue-readme',title:'Official docs <script>ignored</script>',
+    url:'https://raw.githubusercontent.com/morpho-org/morpho-blue/main/README.md',passage:'Morpho is a non-custodial lending protocol. Source excerpt <img src=x onerror=alert(1)>',retrievedAt:new Date(now).toISOString(),publishedAt:null}],
   limitations:[],nextReviewAt:new Date(now+60000).toISOString()};
 helpers.renderResearchReport({report});
 check(get('agentResearchPanel').hidden,false,'A server report opens the research result panel');
 check(get('agentResearchState').textContent,'Report ready','Supported report status is visible');
-check(get('agentResearchMeta').textContent.includes('Policy 1'),true,'Reports retain the policy version used');
+check(get('agentResearchLimits').textContent.includes('preferences version 1'),true,'Optional details retain the policy version used');
+check(get('agentResearchMeta').textContent.includes('portfolio:fixture'),false,'The main answer hides internal snapshot identifiers');
 check(get('agentResearchFacts').textContent.includes('<img src=x onerror=alert(1)>'),true,'Source passages are rendered as inert quoted text');
-check(get('agentResearchFacts').textContent.includes('Publication time not supplied'),true,'Retrieval time never becomes an invented publication time');
+check(get('agentResearchFacts').textContent.includes('Published'),false,'An unknown publication time is never invented');
 const citation=get('agentResearchFacts').children[0].children[0];
-check(citation.href,'https://docs.example/protocol','A referenced fact links to its server-supplied safe canonical URL');
+check(citation.href,'https://raw.githubusercontent.com/morpho-org/morpho-blue/main/README.md','A referenced fact links to its server-supplied safe canonical URL');
 check(citation.rel,'noopener noreferrer','External citations do not receive an opener');
-check(get('agentResearchMeta').textContent.includes(new Date(now).toLocaleString('en-GB',{timeZone:'Asia/Kuala_Lumpur',year:'numeric'})),true,'Research dates include their year');
+check(get('agentResearchFacts').textContent.includes(new Date(now).toLocaleString('en-GB',{timeZone:'Asia/Kuala_Lumpur',year:'numeric'})),true,'Source details retain the full research dates');
 helpers.renderResearchReport({report:{...report,sourceIds:[]}});
 check(get('agentResearchFacts').textContent.includes('Source excerpt'),false,'A fact without a referenced evidence ID cannot render a citation or claim');
 check(get('agentResearchState').textContent,'Partial research','Missing citation references cannot look like complete research');
@@ -149,7 +151,7 @@ helpers.renderResearchReport({report:{...report,facts:[{...report.facts[0],url:'
 check(get('agentResearchFacts').textContent.includes('Source excerpt'),false,'An unsafe citation URL also omits its unsupported fact');
 helpers.renderResearchReport({report:{...report,status:'blocked',facts:[],sourceIds:[],limitations:['The official source could not be retrieved.']}});
 check(get('agentResearchState').textContent,'Research unavailable','Unavailable retrieval cannot masquerade as current research');
-check(get('agentResearchLimits').textContent.includes('could not be retrieved'),true,'Missing source coverage remains visible');
+check(get('agentResearchReply').textContent.includes('could not retrieve'),true,'Missing source coverage is explained in the main answer');
 helpers.renderResearchReport({report:{...report,nextReviewAt:new Date(now-1).toISOString()}});
 check(get('agentResearchState').textContent,'Refresh due','An expired report retains its original date and asks for a refresh');
 check(get('agentResearchValidity').textContent.includes('have not been renewed'),true,'Expiry does not relabel retained evidence as fresh');

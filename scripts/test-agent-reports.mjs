@@ -34,7 +34,7 @@ try {
   check(report.facts[0].publishedAt, null, 'A retrieval time is never invented as a publication date');
   check(report.facts[0].supportedClaim.text, report.facts[0].passage, 'Every external claim is the exact retrieved quotation');
   check(report.calculationIds, [], 'Extractive research invents no financial calculation reference');
-  check(report.modelProfileVersion, 'deterministic-evidence-v1', 'A report without inference is labeled deterministically');
+  check(report.modelProfileVersion, 'deterministic-evidence-v2', 'A reviewed explanation without inference is labeled deterministically');
   check(report.policyVersion, 0, 'Unconfirmed policy remains explicit in the report');
   check((await getAgentPolicy(store)).version, 0, 'Malicious instructions in source text have no policy authority');
   check(await store.get('messages'), null, 'Research document instructions cannot manufacture conversation commands');

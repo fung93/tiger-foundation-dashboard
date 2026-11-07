@@ -4,16 +4,18 @@ import { createHash } from 'node:crypto';
 import { httpError } from './_agent-http.mjs';
 
 export const AGENT_EVIDENCE_SCHEMA_VERSION = 'agent-evidence-v1';
-const VERIFIED_AT = '2026-11-06';
-const source = (id, protocol, label, url, enabled, verificationStatus) => Object.freeze({
+const VERIFIED_AT = '2026-11-07';
+const source = (id, protocol, label, url, enabled, verificationStatus, options = {}) => Object.freeze({
   id, protocol, label, url, kind: 'documentation', assets: Object.freeze(protocol === 'morpho' ? ['KAT', 'avKAT', 'vbUSDC'] : ['LP', 'KAT']),
   type: url.startsWith('https://raw.githubusercontent.com/') ? 'markdown' : 'html', accessMethod: 'GET', expectedUpdateHours: 24, maxBytes: 65536,
   timeoutMs: 5000, cacheMs: 3600000, maxAgeMs: 86400000, enabled,
-  approvedRedirects: Object.freeze([]), verification: Object.freeze({ checkedAt: VERIFIED_AT, status: verificationStatus }),
+  approvedRedirects: Object.freeze([]), verification: Object.freeze({ checkedAt: VERIFIED_AT, status: verificationStatus }), ...options,
 });
 export const AGENT_EVIDENCE_SOURCES = Object.freeze([
   source('morpho-blue-readme', 'morpho', 'Morpho Blue official protocol overview',
     'https://raw.githubusercontent.com/morpho-org/morpho-blue/main/README.md', true, 'http_200'),
+  source('morpho-blue-markets', 'morpho', 'Morpho Blue market definitions',
+    'https://raw.githubusercontent.com/morpho-org/morpho-blue/main/src/interfaces/IMorpho.sol', true, 'http_200', { type: 'source_code', topic: 'isolated_markets' }),
   source('sushi-v3-readme', 'sushi', 'Sushi V3 official periphery overview',
     'https://raw.githubusercontent.com/sushiswap/v3-periphery/master/README.md', true, 'http_200'),
   source('merkl-contracts-readme', 'merkl', 'Merkl official core contracts overview',
@@ -71,6 +73,8 @@ function publication(raw, at) {
   return Number.isFinite(date) && date > 0 && date <= at + 30000 ? new Date(date).toISOString() : null;
 }
 function extract(raw, configured, at) {
+  if (configured.type === 'source_code') return { title: configured.label,
+    text: raw.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, MAX_EXTRACTED), publishedAt: null };
   const title = raw.match(/<title\b[^>]*>([^<]{1,240})<\/title>/i)?.[1]
     || raw.match(/^#\s+(.{1,240})$/m)?.[1] || configured.label;
   const text = entities(raw.replace(/<!--[\s\S]*?-->/g, ' ')
@@ -87,6 +91,12 @@ function passageFor(text, query) {
   for (const row of lines) row.score = terms.reduce((n, term) => n + (row.value.toLowerCase().includes(term) ? 1 : 0), 0);
   const selected = [...lines].sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 3).sort((a, b) => a.index - b.index);
   return (selected.map(row => row.value).join('\n\n') || text).slice(0, MAX_PASSAGE);
+}
+function marketPassage(text) {
+  const params = text.match(/struct MarketParams\s*\{[\s\S]*?\}/)?.[0];
+  const position = text.match(/struct Position\s*\{[\s\S]*?\}/)?.[0];
+  const getter = text.match(/function position\s*\([\s\S]{0,200}?\)[\s\S]{0,180}?;/)?.[0];
+  return params && position && getter ? [params, position, getter].join('\n\n').slice(0, MAX_PASSAGE) : null;
 }
 async function boundedText(response, maxBytes, signal) {
   if (Number(response.headers?.get?.('content-length')) > maxBytes) throw category('The configured source is too large for this research request.', 503);
@@ -128,6 +138,7 @@ async function fetchSource(configured, cached, fetcher, at) {
       if (!response.ok) throw category('The configured source is unavailable.', 503);
       const contentType = response.headers?.get?.('content-type') || '';
       if (!/^text\/(?:plain|markdown|html)(?:;|$)/i.test(contentType)) throw category('The configured source format is unsupported.', 503);
+      if (configured.type === 'source_code' && !/^text\/plain(?:;|$)/i.test(contentType)) throw category('The configured source format is unsupported.', 503);
       const raw = await boundedText(response, configured.maxBytes, controller.signal), extracted = extract(raw, configured, at);
       return { ...extracted, contentHash: hash(extracted.text), retrievedAt: new Date(at).toISOString(), checkedAt: at,
         canonicalUrl: destination, etag: response.headers?.get?.('etag')?.slice(0, 240) || null,
@@ -157,7 +168,7 @@ async function collect(configured, { store, query, fetcher, at }) {
   }
   if (!observed) return { source: { sourceId: configured.id, protocol: configured.protocol, status: 'unavailable', reason: 'retrieval_failed' }, limitation: configured.label + ': ' + failure };
   const retrieved = Date.parse(observed.retrievedAt), expired = at >= retrieved + configured.maxAgeMs;
-  const passage = passageFor(observed.text, query), observationHash = hash(configured.id + '\n' + observed.contentHash + '\n' + passage + '\n' + observed.retrievedAt);
+  const passage = (configured.topic === 'isolated_markets' ? marketPassage(observed.text) : null) || passageFor(observed.text, query), observationHash = hash(configured.id + '\n' + observed.contentHash + '\n' + passage + '\n' + observed.retrievedAt);
   const evidence = { schemaVersion: AGENT_EVIDENCE_SCHEMA_VERSION, evidenceId: 'evidence:' + observationHash,
     sourceId: configured.id, protocol: configured.protocol, canonicalUrl: observed.canonicalUrl, title: observed.title,
     publishedAt: observed.publishedAt || null, retrievedAt: observed.retrievedAt, contentHash: observed.contentHash,
@@ -180,7 +191,8 @@ export async function researchProtocol({ store, protocol, query = '', fetcher = 
   if (!AGENT_RESEARCH_PROTOCOLS.includes(protocol) || typeof query !== 'string' || !query.trim() || query.length > 1000)
     throw category('Choose a configured protocol and a focused question of up to 1,000 characters.');
   if (!store || !['get', 'set', 'putImmutable'].every(method => typeof store[method] === 'function')) throw category('Private research storage is unavailable.', 503);
-  const at = time(now), configured = AGENT_EVIDENCE_SOURCES.filter(row => row.protocol === protocol).slice(0, MAX_DOCUMENTS);
+  const needsMarkets = /isolated|markets?|collateral|loans?|独立.*市场|隔离/iu.test(query);
+  const at = time(now), configured = AGENT_EVIDENCE_SOURCES.filter(row => row.protocol === protocol && (!row.topic || needsMarkets)).slice(0, MAX_DOCUMENTS);
   // Sequential fetches bound active connections and aggregate memory/CPU.
   const results = [];
   for (const item of configured) results.push(await collect(item, { store, query: query.trim(), fetcher, at }));

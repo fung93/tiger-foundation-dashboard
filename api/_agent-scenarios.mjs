@@ -6,6 +6,7 @@ import { orientation, priceAtTick, tickAtPrice, snapRange, amountsPerLiquidity,
   liquidityForCapital } from '../strategy-core.mjs';
 import { runAgentTool } from './_agent-tools.mjs';
 import { httpError } from './_agent-http.mjs';
+import { agentMoney, agentNumber, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
 
 export const AGENT_SCENARIO_SCHEMA = 'agent-scenarios-v1';
 const DAY = 86400000, WAD = 10n ** 18n, ORACLE = 10n ** 36n;
@@ -296,18 +297,25 @@ export async function compareAgentStrategies({context={},policy=context.policy,i
   return finalize(context,policy,input,detail,at);
 }
 export function renderAgentStrategyResult(result){
-  const lines=['Conditional '+result.kind+' comparison · '+result.status,
-    'Horizon '+result.horizonDays+' days · policy '+result.policyVersion,
-    'Same starting capital '+usd(result.capitalBaseUsd),'Observed '+(result.observedAt||'unavailable')];
+  const lines=[result.status==='blocked'?'I need more information to complete this comparison.':'Here is how the options compare over '+result.horizonDays+' days.'];
+  if(result.status==='superseded')lines.push('These results use your earlier preferences. Run a new comparison before using them.');
+  if(Number.isFinite(result.capitalBaseUsd))lines.push('Each option starts with the same '+agentMoney(result.capitalBaseUsd)+'.');
   for(const option of result.options){
-    lines.push('\n'+option.label+' · '+option.status,'Cash required '+usd(option.cashRequiredUsd));
+    if(result.status==='blocked')continue;
+    lines.push('\n'+option.label+(option.status==='outside_policy'?' — outside your saved limits':option.status==='blocked'?' — more information needed':''));
+    if(Number.isFinite(option.cashRequiredUsd))lines.push('Extra cash needed: '+agentMoney(option.cashRequiredUsd)+'.');
     for(const out of option.outcomes||[])lines.push(out.scenario!=null?
-      out.scenario+': terminal net '+usd(out.netUsd)+'; versus hold '+usd(out.differenceFromHoldUsd):
-      'Oracle '+out.oracleMovePct+'%: health '+(out.health==null?'no debt':out.health.toFixed(4))+
-      ', LTV '+(out.ltv==null?'unavailable':(out.ltv*100).toFixed(2)+'%')+', projected debt '+out.projectedDebtAmount+' '+out.loanToken);
-    lines.push(...[...new Set(option.limitations||[])].map(x=>'• '+x));
+      out.scenario+': estimated final value '+agentMoney(out.netUsd)+(Number.isFinite(out.differenceFromHoldUsd)
+        ? out.differenceFromHoldUsd===0?' — the same as holding.':' — '+agentMoney(Math.abs(out.differenceFromHoldUsd))+(out.differenceFromHoldUsd>0?' ahead of holding.':' behind holding.'):''):
+      (out.oracleMovePct===0?'If the oracle ratio stays the same':'If the oracle ratio '+(out.oracleMovePct<0?'falls ':'rises ')+agentNumber(Math.abs(out.oracleMovePct),2)+'%')+
+      ': '+(out.health==null?'no debt':'health '+agentNumber(out.health))+', LTV '+(out.ltv==null?'unavailable':agentNumber(out.ltv*100,2)+'%')+
+      ', estimated debt '+agentNumber(out.projectedDebtAmount)+' '+out.loanToken+'.');
   }
-  lines.push('\nAssumptions:',...result.assumptions.map(x=>'• '+x),'Limitations:',...result.limitations.map(x=>'• '+x),result.scope,
-    'Calculation '+result.calculationId);
+  if(result.status!=='blocked')lines.push('\nThese are what-if estimates using the costs and assumptions you entered.');
+  if(result.kind==='lp'&&result.status!=='blocked')lines.push('Projected earnings depend on the assumed rates and campaign end; they are not future facts.');
+  if(result.kind==='lending'&&result.options.some(option=>option.outcomes?.some(out=>out.oracleVariable==='avKAT/KAT ratio')))
+    lines.push('For avKAT/KAT, these changes affect the collateral-to-debt oracle ratio, not a KAT dollar-price forecast.');
+  lines.push(...friendlyAgentNotes(result.limitations,{partial:result.status==='partial',blocked:result.status==='blocked',kind:'strategy'}));
+  const stamp=agentReadingTime(result.observedAt);if(stamp)lines.push('\nReading: '+stamp+'.');
   return lines.join('\n').slice(0,11500);
 }
