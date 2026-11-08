@@ -45,6 +45,8 @@ async function readBook(origin) {
   view.generated = new Date().toISOString();
   view.position_data = compactLPPositions(now, live.rows, { generated: view.generated,
     contracts: { ...Object.fromEntries(V3.map(chain => [chain.key, chain.npm])), fables: FABLES.ramp } });
+  for (const position of view.position_data) position.performance = (view.position_metrics || []).find(metric => metric.chain === position.chain
+    && metric.owner === position.owner && metric.id === String(position.id)) || null;
   return view;
 }
 

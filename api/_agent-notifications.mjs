@@ -25,7 +25,7 @@ export async function telegramRequest(method, body, { env = process.env, fetcher
   try {
     return await Promise.race([(async () => {
       const response = await fetcher('https://api.telegram.org/bot' + token + '/' + method, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body), signal: controller.signal,
       });
       if (!response.ok) throw new Error('Telegram delivery is temporarily unavailable.');

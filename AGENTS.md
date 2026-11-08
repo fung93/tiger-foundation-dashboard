@@ -794,6 +794,24 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   the LP Book's historical accounting is unchanged. Exclude failed-policy/unpriced
   options from the lead and never turn tested cases into a probability or forecast.
   Keep unknowns, ties, financing scope and private-evidence cleanup explicit.
+- Automatic portfolio/LP watch (Alex, 8 Nov 2026) is the default Agent view and
+  requires no investment form or confirmed policy. Run read-only observations
+  through `mode: observe` on the existing Workflow; add no D1 work to the risk
+  Cron. Keep operational tracking controls separate from investment policy and
+  Lending's visit reset. Fixed wallet/pool adapters must preserve native amounts,
+  decimals, ownership, source blocks/dates and unavailable readings. Known
+  staking/DeFi observations never become duplicate wealth. Monitor sampled range,
+  volatility, liquidity/incentives and campaign endings; retain alert checkpoints,
+  risk-delivery priority and current-human/preferences/policy/expiry checks.
+  Ordinary observations spend zero AI calls. Default historical/cost cases are
+  labelled paper assumptions before financing, never invented owner limits or a
+  guaranteed-safe/optimal range. Original bands/outcomes are durable; only later,
+  sufficiently covered pool/day evidence can change the comparison heuristic,
+  including across replacement LPs. Journal rejection suppresses the relevant
+  position idea under that policy, not critical facts. Complete ownership absence
+  is not realised P&L; preserve LP Book accounting and Katana rewards/rollover.
+  Keep the short brief first, full evidence/manual tools collapsed, explicit
+  coverage/cadence limits and logout cleanup. See docs/AGENT-AUTOMATION.md.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
   `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
   `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
@@ -1048,6 +1066,28 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, automatic portfolio/LP watch under the ongoing agent authorization:**
+  The default Agent view detects tracked holdings, LPs, loans, claimable rewards
+  and known staking references without investment forms. The existing five-minute
+  Cron queues bounded observational Workflow steps; a conservative cadence estimate
+  slows larger portfolios. Current range/volatility/liquidity/incentive signals,
+  automatic cost-aware cases and dated proposals/outcomes are stored privately.
+  Qualified prospective pool/day containment evidence can select wider historical
+  comparisons across replacement NFTs; no policy/model auto-training or future
+  return guarantee. Short shared dashboard/Telegram briefs keep evidence/manual
+  tools collapsed. Daily handoff avoids duplicate summaries; the risk monitor
+  remains the fallback and keeps priority. Original accounting, Katana fees/reward
+  rollover, authentication and Lending's visit reset remain intact. All 58 portable
+  suites pass, including new reader 53, risk/learning 33, workflow 199 (max 40 D1
+  calls), delivery 21 and risk-Cron/handoff 23 (existing max 48). Native automatic
+  Workflow/D1 23, advanced Workflow 24 and Telegram 82 checks, Chromium 128 automatic
+  plus 204 existing-comparison checks across both responsive themes and Worker dry
+  run pass. Cache 159, bundle 595.77 KiB. No new secret, binding, migration, dependency
+  or observational AI call. Both Vercel and existing Worker need updating. Local
+  Cloudflare authentication and live RPC reachability are unavailable; actual
+  deployment/source freshness/Free CPU/quotas/Cron/Telegram remain account acceptance
+  gates. See docs/AGENT-AUTOMATION.md and TIGER_AGENT_PROGRESS.md.
 
 - **8 Nov 2026, concise LP analysis under the ongoing agent authorization:**
   LP ranges vs holding shows a short conditional takeaway, dollar advantage versus

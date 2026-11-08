@@ -33,8 +33,8 @@ export function detectedLPPositions(context, now = Date.now()) {
     if (!p || /closed|exited/i.test(row.status || '') || p.status !== 'observed' || !finite(p.principalUsd) || p.principalUsd <= 0
       || !/^0x[0-9a-f]{40}$/i.test(p.owner || '') || !/^\d+$/.test(String(p.positionId || p.id))) continue;
     const key = keyFor(p); if (seen.has(key)) continue; seen.add(key);
-    const pool = pools.find(item => item.pool?.toLowerCase() === p.pool?.toLowerCase());
-    const available = context.lp.status === 'fresh' && fresh(p.observedAt, now) && p.chain === 'katana'
+    const pool = pools.find(item => item.pool?.toLowerCase() === p.pool?.toLowerCase() && (item.chain || 'katana') === p.chain);
+    const available = context.lp.status === 'fresh' && fresh(p.observedAt, now) && (p.chain === 'katana' || pool?.accounting?.valuationBlockPinned === true)
       && !!pool && pool.status === 'fresh' && fresh(pool.ts, now) && !!p.raw && /^\d+$/.test(p.raw.liquidity || '') && BigInt(p.raw.liquidity) > 0n;
     rows.push({ key, positionId: String(p.positionId || p.id), chain: p.chain, owner: p.owner, pair: row.pair || p.protocol || 'LP',
       principalUsd: p.principalUsd, available, reason: available ? null : p.chain !== 'katana'
@@ -57,7 +57,7 @@ export async function prepareAutomaticLP({ context, policy, request = {}, origin
   if (!selected.available) return { ...base, status: 'unavailable', notes: [selected.reason] };
   const positionResult = await runAgentTool('getLPPosition', { positionId: selected.positionId, chain: selected.chain, owner: selected.owner }, { context, policy, now });
   if (positionResult.status === 'blocked') return { ...base, status: 'unavailable', notes: positionResult.limitations };
-  const p = positionResult.data, pool = [...context.strategy.pools, ...(context.strategy.fee_pools || [])].find(row => row.pool?.toLowerCase() === p.pool?.toLowerCase());
+  const p = positionResult.data, pool = [...context.strategy.pools, ...(context.strategy.fee_pools || [])].find(row => row.pool?.toLowerCase() === p.pool?.toLowerCase() && (row.chain || 'katana') === p.chain);
   if (![p.raw.lowerTick,p.raw.upperTick].every(tick => Number.isInteger(tick) && Math.abs(tick) <= 887272)
     || p.raw.lowerTick >= p.raw.upperTick || ![0,1].includes(pool.baseIndex)
     || ![0,1].every(index => p.raw['token'+index]?.address?.toLowerCase() === pool['token'+index]?.address?.toLowerCase()

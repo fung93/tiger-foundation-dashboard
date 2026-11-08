@@ -1,6 +1,6 @@
 /* Dashboard and Telegram share the server-owned conversation and preferences.
    Session credentials stay in the HttpOnly cookie; no chat or key is stored here. */
-import { researchExplanation, friendlyAgentNotes, agentLabel } from '/agent-language.mjs';
+import { researchExplanation, friendlyAgentNotes, agentLabel, agentMoney, agentNumber } from '/agent-language.mjs';
 import { summarizeLPComparison } from '/agent-lp-summary.mjs';
 const $=id=>document.getElementById(id);
 let state=null,busy=false,loading=false,settingsDirty=false,lastMessages='',sources=[],pendingChat=null;
@@ -12,6 +12,7 @@ let pendingComparison=null,comparisonBusy=false,comparisonReport=null;
 let lpAutoSetup=null,lpAutoBusy=false,lpAutoTicket=0,lpAutoRevision=0,lpAutoDirty=new Set(),comparisonTicket=0,comparisonKind='lending',comparisonShared={};
 let reviewState=null,reviewDirty=false,reviewBusy=false,reviewSaving=false,reviewFormRevision=null,pendingReview=null;
 let journalSelection=null,journalCursor=null,journalEventCursor=null,journalBusy=false,journalPending=null;
+let automaticState=null,automaticLoading=false,automaticTicket=0,automaticHistoryCursor=null,automaticHistoryTicket=0;
 const samePrivateView=version=>version===privateViewVersion&&state?.authenticated===true;
 const embedded=document.documentElement.classList.contains('agent-embedded');
 const epoch=value=>{
@@ -184,6 +185,7 @@ async function loadStatus({quiet=false}={}){
     }
     if(state.authenticated&&!policyState&&!policyLoading)await loadPolicy({quiet:true});
     if(state.authenticated&&!researchSourcesLoaded&&!researchLoading)await loadResearchSources({quiet:true});
+    if(state.authenticated)await loadAutomatic({quiet:true});
   }catch(error){
     if(view!==privateViewVersion)return;
     if(!quiet)notice(error.message,true);
@@ -444,6 +446,10 @@ function clearPrivateAnalysis(){
   $('agentJournalForm')?.reset();
   if($('agentJournalSave'))$('agentJournalSave').disabled=false;
   pendingComparison=null;comparisonBusy=false;comparisonReport=null;
+  automaticState=null;automaticLoading=false;automaticTicket++;automaticHistoryTicket++;automaticHistoryCursor=null;
+  for(const id of ['agentAutomaticBrief','agentAutomaticPositions','agentAutomaticHoldings','agentAutomaticEvidence','agentAutomaticHistoryList','agentAutomaticSchedule','agentAutomaticNotice'])$(id)?.replaceChildren();
+  for(const id of ['agentAutomaticDetails','agentAutomaticHistory','agentAdvanced'])if($(id))$(id).open=false;
+  if($('agentAutomaticHistoryMore'))$('agentAutomaticHistoryMore').hidden=true;
   lpAutoSetup=null;lpAutoBusy=false;lpAutoTicket++;lpAutoRevision++;lpAutoDirty=new Set();comparisonTicket++;comparisonKind='lending';comparisonShared={};
   for(const id of ['agentCompareAutoState','agentCompareAutoSummary','agentCompareAutoSources'])$(id)?.replaceChildren();
   if($('agentCompareOpenLP')){$('agentCompareOpenLP').replaceChildren();$('agentCompareOpenLP').disabled=true;}
@@ -844,6 +850,110 @@ function initJournal(){
   });
 }
 initJournal();
+
+function renderAutomatic(value){
+  if(!state?.authenticated||!value?.controls||!$('agentAutomatic'))return;
+  if(automaticState&&value.controls.revision<automaticState.controls.revision)return;
+  const unchanged=automaticState?.latest?.checkedAt===value.latest?.checkedAt&&automaticState?.controls?.revision===value.controls.revision;
+  automaticState=value;
+  $('agentAutomaticState').textContent=({ready:'Observations updated',partial:'Some readings pending',paused:'Tracking paused',disabled:'Switched off',
+    setup_required:'Background setup required',waiting_first_reading:'Waiting for first check',stale:'Latest check is overdue'})[value.status]||agentLabel(value.status);
+  $('agentAutomaticState').dataset.state=value.status==='ready'?'ready':'';
+  $('agentAutomaticSchedule').textContent='Automatic checks about every '+(value.intervalMinutes||5)+' minutes'
+    +(value.lastSuccess?' · last successful reading '+date(value.lastSuccess):'')
+    +(!value.schedulerConfigured?' · scheduled checks need the existing Cron connection':value.lastScheduledAttempt
+      ?' · last scheduled attempt '+date(value.lastScheduledAttempt):' · first scheduled attempt not yet verified')
+    +(value.nextIntendedCheck?' · next intended '+date(value.nextIntendedCheck):'');
+  $('agentAutomaticPause').textContent=value.controls.enabled?'Pause tracking':'Resume tracking';
+  $('agentAutomaticRun').disabled=['paused','disabled','setup_required'].includes(value.status);
+  if(unchanged)return;
+  const latest=value.latest;
+  $('agentAutomaticBrief').textContent=latest?.reply||(!value.configured?'The existing background Worker needs the current deployment. Your dashboard still works.':'Your live positions will be detected automatically on the first scheduled check.');
+  if(latest&&!latest.current)$('agentAutomaticBrief').textContent='The last check is overdue. These are recorded observations from '+date(latest.checkedAt)+'. New suggestions are waiting for fresh readings.';
+  const positions=$('agentAutomaticPositions');positions.replaceChildren();$('agentAutomaticEvidence').replaceChildren();
+  for(const item of latest?.positions||[]){
+    const row=element('article','agent-automatic-position');row.append(element('p','',item.summaryText||'LP #'+item.position.positionId),
+      element('p','agent-help','Observed '+date(item.market?.ts||item.position.observedAt)
+        +(Number.isFinite(item.position.performance?.netUsd)?' · LP Book net '+agentMoney(item.position.performance.netUsd):'')));
+    const button=element('button','agent-text-button','Recorded calculations and learning');button.type='button';
+    button.addEventListener('click',async()=>{
+      const view=privateViewVersion,readingAt=automaticState?.latest?.checkedAt;button.disabled=true;
+      try{const answer=await request('automaticEvidence',{key:item.key});if(!samePrivateView(view)||readingAt!==automaticState?.latest?.checkedAt)return;
+        const record=answer.record,box=$('agentAutomaticEvidence');box.replaceChildren();
+        box.append(element('p','agent-comparison-title','Recorded evidence for LP #'+record.position.positionId),
+          element('p','agent-help','Position read '+date(record.position.observedAt)+' · pool quote '+date(record.market?.ts)
+            +(record.market?.block?' · source block '+record.market.block:'. The source does not independently pin a valuation block.')),
+          element('p','agent-help','Learning: '+(record.lessons?.completedProposals||0)+' evaluated earlier bands; '+(record.proposal?.observations||0)+' later sampled checks of the current idea.'));
+        for(const text of [record.range?.reason,record.range?.learningBasis,...(record.comparison?.setup?.notes||[])].filter(Boolean))box.append(element('p','agent-help',text));
+        if(record.comparison?.result){const summary=summarizeLPComparison(record.comparison.result);
+          box.append(element('p','agent-help','Paper comparison recorded '+date(record.comparison.createdAt)+'. Its original prices and assumptions are retained.'),
+            ...(record.policyVersion!==automaticState?.latest?.policyVersion?[element('p','agent-help','This evidence used an earlier policy; it is a historical record, not a current range suggestion.')]:[]),
+            comparisonTable(['Option','Vs holding','Upfront cost'],summary.rows.map(row=>[row.label+(row.statusText?' · '+row.statusText:''),row.advantageText,row.costText])));
+        }
+      }catch(error){if(samePrivateView(view))$('agentAutomaticNotice').textContent=error.message;}
+      finally{if(samePrivateView(view))button.disabled=false;}
+    });row.append(button);positions.append(row);
+  }
+  const holdings=$('agentAutomaticHoldings');holdings.replaceChildren();
+  for(const source of latest?.wallets||[]){
+    holdings.append(element('p','agent-comparison-title',source.chain+' holdings · '+agentLabel(source.status)),
+      element('p','agent-help','Observed '+date(source.observedAt)+(source.coverage?' · '+source.coverage:'')));
+    const tokens=(source.balances||[]).filter(row=>row.amount>0||row.status!=='observed').slice(0,40);
+    if(tokens.length)holdings.append(comparisonTable(['Asset / wallet','Amount','Observed USD'],tokens.map(row=>[
+      (row.symbol||'Unavailable asset')+' · '+(row.owner||'').slice(0,6)+'…'+(row.owner||'').slice(-4),
+      Number.isFinite(row.amount)?agentNumber(row.amount,6):'Unavailable',Number.isFinite(row.valueUsd)?agentMoney(row.valueUsd):'Unpriced'])));
+    else holdings.append(element('p','agent-help',source.status==='fresh'?'Configured balances are verified zero.':'Balances could not be refreshed.'));
+  }
+  const defi=latest?.otherDefi;
+  if(defi){holdings.append(element('p','agent-comparison-title','Staking and other DeFi'));
+    if(defi.vkat)holdings.append(element('p','agent-help','vKAT locks · observed '+date(defi.vkat.observedAt)+(defi.vkat.retained?' · retained reading':'')),
+      comparisonTable(['Position','Locked KAT','Voting power'],(defi.vkat.locks||[]).map(lock=>['vKAT #'+lock.id,agentNumber(lock.kat,4),agentNumber(lock.power,4)])));
+    if(defi.fables)holdings.append(element('p','agent-help','veFABLES · observed '+date(defi.fables.observedAt)+(defi.fables.retained?' · retained reading':'')),
+      comparisonTable(['Position','Locked amount','Observed USD'],(defi.fables.locks||[]).map(lock=>[lock.market||'veFABLES',agentNumber(lock.locked?.amount,4),agentMoney(lock.value_usd)])));
+    if(!defi.vkat&&!defi.fables)holdings.append(element('p','agent-help','Fresh staking readings are pending; saved references retain their original dates.'));
+  }
+}
+async function loadAutomatic({quiet=false}={}){
+  if(!state?.authenticated||automaticLoading||!$('agentAutomatic'))return;
+  const view=privateViewVersion,ticket=++automaticTicket;automaticLoading=true;
+  try{const value=await request('automaticStatus',{});if(samePrivateView(view)&&ticket===automaticTicket)renderAutomatic(value);}
+  catch(error){if(samePrivateView(view)&&ticket===automaticTicket){$('agentAutomaticState').textContent='Automatic tracking unavailable';
+    $('agentAutomaticNotice').textContent=quiet?'The existing Worker may need the latest deployment.':error.message;}}
+  finally{if(samePrivateView(view)&&ticket===automaticTicket)automaticLoading=false;}
+}
+async function loadAutomaticHistory(more=false){
+  if(!state?.authenticated)return;const view=privateViewVersion,ticket=++automaticHistoryTicket;
+  try{const page=await request('automaticHistory',{kind:'closed',cursor:more?automaticHistoryCursor:null});
+    if(!samePrivateView(view)||ticket!==automaticHistoryTicket)return;
+    const box=$('agentAutomaticHistoryList');if(!more)box.replaceChildren();
+    if(!page.items?.length&&!more)box.append(element('p','agent-help','Historical LP results will be recorded after the first scheduled check.'));
+    for(const {value:row}of page.items||[]){const record=element('article','agent-automatic-position');
+      record.append(element('p','',row.pair+' · '+row.chain+' #'+row.id),element('p','agent-help','Closed '+date(row.closed)),
+        element('p','', 'Fees/rewards '+agentMoney(row.fee_usd)+' · realised net '+agentMoney(row.net_usd)),
+        element('p','agent-help','Uses the LP Book’s recorded closing and claim prices.'));box.append(record);}
+    automaticHistoryCursor=page.cursor||null;$('agentAutomaticHistoryMore').hidden=!automaticHistoryCursor;
+  }catch(error){if(samePrivateView(view))$('agentAutomaticNotice').textContent=error.message;}
+}
+function initAutomatic(){
+  if(!$('agentAutomatic'))return;
+  $('agentAutomaticRun').addEventListener('click',async()=>{
+    if(!state?.authenticated)return;const view=privateViewVersion,button=$('agentAutomaticRun');button.disabled=true;
+    try{const value=await request('automaticRun',{});if(!samePrivateView(view))return;
+      $('agentAutomaticNotice').textContent=value.reply||'The next check is queued.';if(value.automatic)renderAutomatic(value.automatic);await loadAutomatic({quiet:true});
+    }catch(error){if(samePrivateView(view))$('agentAutomaticNotice').textContent=error.message;}
+    finally{if(samePrivateView(view))button.disabled=['paused','disabled','setup_required'].includes(automaticState?.status);}
+  });
+  $('agentAutomaticPause').addEventListener('click',async()=>{
+    if(!state?.authenticated||!automaticState)return;const view=privateViewVersion,button=$('agentAutomaticPause');button.disabled=true;
+    try{const value=await request('automaticSettings',{enabled:!automaticState.controls.enabled,expectedRevision:automaticState.controls.revision});
+      if(samePrivateView(view)){renderAutomatic(value);$('agentAutomaticNotice').textContent=value.controls.enabled?'Automatic tracking resumed.':'Automatic tracking paused.';}}
+    catch(error){if(samePrivateView(view))$('agentAutomaticNotice').textContent=error.message;}
+    finally{if(samePrivateView(view))button.disabled=false;}
+  });
+  $('agentAutomaticHistory').addEventListener('toggle',()=>{if($('agentAutomaticHistory').open)loadAutomaticHistory();});
+  $('agentAutomaticHistoryMore').addEventListener('click',()=>loadAutomaticHistory(true));
+}
+initAutomatic();
 
 function reviewLabel(status){return ({completed:'Review ready',verified_checks:'Verified checks ready',queued:'Review queued',collecting:'Reading positions…',research:'Checking official sources…',paper:'Revisiting saved comparisons…',
   ready_for_inference:'Comparing choices…',inference_started:'Reviewing the choices…',inference_finished:'Saving the review…',publishing:'Saving the review…',

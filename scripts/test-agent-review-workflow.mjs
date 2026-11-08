@@ -23,7 +23,7 @@ const fixture = createAgentSQLiteFixture({ usage: true }), aiCalls = [], sourceC
 const db = { prepare(sql) { const p = fixture.db.prepare(sql); return { bind(...values) {
   const s = p.bind(...values); return { ...s, ...Object.fromEntries(['first', 'all', 'run'].map(method => [method, async () => { queries++; return s[method](); }])) };
 } }; }, batch: async statements => { queries++; return fixture.db.batch(statements); } };
-const env = { AGENT_DB: db, AI: reviewAI(aiCalls), AGENT_ORIGIN: 'https://review.fixture.test' };
+const env = { AGENT_DB: db, AI: reviewAI(aiCalls), AGENT_ORIGIN: 'https://review.fixture.test', AGENT_AUTOMATION_ENABLED: 'false' };
 const store = createAgentStore(env, { now: () => now });
 let ambiguousCreate = false;
 env.PORTFOLIO_REVIEWS = { create: async ({ id, params }) => {
@@ -79,7 +79,8 @@ try {
   check((await store.get('review:plans')).items.length, 3, 'Owner-confirmed cases fill the bounded recurring-plan allowance');
   now += 1000;
 
-  // The shared chat routes full portfolio analysis into the very same runner.
+  // With ordinary automatic observations disabled, the existing advanced
+  // full portfolio review retains its shared asynchronous runner.
   const reply = await processAgentMessage({ env, store, message: 'Review my portfolio', requestId: 'chat-review',
     loadContext: () => { throw Error('Chat must queue before reading financial APIs'); } });
   check(reply.status, 'queued', 'Natural language dashboard/Telegram reviews use asynchronous delivery');

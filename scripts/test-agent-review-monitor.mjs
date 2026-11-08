@@ -68,5 +68,23 @@ try {
   check((await store.get('alerts')).some(alert => alert.severity === 'critical'), true, 'New critical dashboard alarms are recorded even while older Telegram delivery fails');
   check((await store.get('monitor:pending')).items[0].severity, 'critical', 'New critical notices go before an older failed daily notice');
   check(queries <= 50, true, 'An outage/recovery pass also remains within the Free D1 ceiling');
+  failDelivery=false;now+=86400000;
+  await store.del('monitor:pending');await store.set('monitor:state',{policyVersion:1,conditions:{},dailyDate:null});
+  await store.set('automation:schedule',{checkedAt:new Date(now).toISOString(),lastSuccess:new Date(now).toISOString(),intervalMinutes:5,positions:1});
+  queries=0;res=response();await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
+  check(res.value.daily,false,'An active automatic runner owns the daily summary instead of sending a duplicate old brief');
+  check((await store.get('alerts')).some(alert=>alert.severity==='critical'),true,'Daily-summary handoff never hides independent lending alarms');
+  check(queries<=50,true,'Daily ownership uses the existing batched reads and keeps the Free query ceiling');
+  await store.del('monitor:pending');now+=900000;queries=0;res=response();
+  await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
+  check(res.value.daily,true,'If automatic tracking stops reporting, the original daily-summary fallback resumes');
+  check(queries<=50,true,'The daily fallback remains bounded too');
+  now+=86400000;const nextDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur'}).format(now);
+  await store.del('monitor:pending');await store.set('monitor:state',{policyVersion:1,conditions:{},dailyDate:null});
+  await store.set('automation:schedule',{checkedAt:new Date(now-900000).toISOString(),lastSuccess:new Date(now-900000).toISOString(),
+    intervalMinutes:5,positions:1,telegramDailyDate:nextDay});
+  queries=0;res=response();await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
+  check(res.value.daily,false,'A daily brief already queued by automation is not duplicated by the overdue fallback');
+  check(queries<=50,true,'Daily deduplication adds no query to the bounded risk pass');
   console.log('Independent bounded review/risk Cron: ' + assertions + ' assertions passed (max ' + Math.max(firstQueries,queries) + ' D1 calls/invocation).');
 } finally { globalThis.fetch = oldFetch; fixture.close(); }

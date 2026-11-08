@@ -18,6 +18,7 @@
    ========================================================================== */
 import { CFG, multi, pad, keccakHex, rpc } from './_core.mjs';
 import { handleLPAutofillFunding } from './_lp-autofill-funding.mjs';
+import { handleAgentObservation } from './_agent-observation-reader.mjs';
 import { epochOf, amountsPerLiquidity, orientation, priceAtTick, mergeSwapHours, recentRanges, rangePrices,
   swapFromLog, SWAP_TOPIC, RANGE_DAYS, PERP_OF, feesFromGrowth } from '../strategy-core.mjs';
 
@@ -346,6 +347,7 @@ export default async function handler(req, res) {
   res.setHeader('cache-control', 's-maxage=30, stale-while-revalidate=30');
   res.setHeader('content-type', 'application/json; charset=utf-8');
   if (await handleLPAutofillFunding(req, res)) return;
+  if (await handleAgentObservation(req, res)) return;
   /* the job's hourly ranges, fetched from this same site as /api/lpbook fetches its ledger */
   let ranges = null;
   try {

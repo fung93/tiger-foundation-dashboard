@@ -9,7 +9,7 @@ const check = (actual, expected, note) => { assert.deepEqual(actual, expected, n
 const env = { AGENT_GATEWAY_SECRET: 'fixture-gateway-secret-at-least-24', CRON_SECRET: 'fixture-cron-secret-at-least-24',
   TELEGRAM_BOT_TOKEN: 'fixture-bot-token', TELEGRAM_WEBHOOK_SECRET: 'fixture-webhook-secret-at-least-24',
   AGENT_ORIGIN: 'https://dashboard.fixture.test', AI: { run() { throw Error('No model call is permitted'); } }, AGENT_DB: {} };
-const calls = [], reports = [];
+const calls = [], reports = [], observations = [];
 let broken = false;
 const factory = name => options => async (req, res) => {
   check(options.env, env, 'The Worker passes its actual AI/database bindings to the handler');
@@ -26,7 +26,8 @@ const factory = name => options => async (req, res) => {
     json(res, name === 'monitor' ? 202 : 200, { ok: true });
   }
 };
-const worker = createAgentWorker({ agentFactory: factory('agent'), telegramFactory: factory('telegram'), monitorFactory: factory('monitor'), report: message => reports.push(message) });
+const worker = createAgentWorker({ agentFactory: factory('agent'), telegramFactory: factory('telegram'), monitorFactory: factory('monitor'),
+  observationRunner: async options => { observations.push(options); return {status:'queued'}; }, report: message => reports.push(message) });
 const request = (path = '/api/agent', { method = 'POST', body = JSON.stringify({ action: 'status' }), gateway = true, headers = {} } = {}) => new Request('https://worker.fixture.test' + path, {
   method, headers: { 'content-type': 'application/json', origin: env.AGENT_ORIGIN,
     ...(gateway ? { 'x-agent-gateway-secret': env.AGENT_GATEWAY_SECRET } : {}), ...headers },
@@ -94,13 +95,17 @@ try {
   check(calls.at(-1).name, 'monitor', 'Cron invokes the existing shared monitor');
   check(calls.at(-1).req.headers.authorization, 'Bearer ' + env.CRON_SECRET, 'Internal Cron calls authenticate exactly like external checks');
   check(calls.at(-1).req.method, 'POST', 'Cron uses an explicit authenticated POST');
+  check(observations.length,1,'Scheduled observations are only dispatched after the independent risk invocation');
+  check(Object.keys(observations[0]),['env'],'Observation dispatch adds no D1 store or query to the risk Cron');
   const previous = calls.length;
   await worker.scheduled({}, { ...env, CRON_SECRET: '' }, { waitUntil: promise => pending.push(promise) });
   check(calls.length, previous, 'Missing scheduler configuration performs no model or database work');
+  check(observations.length,1,'Missing Cron authentication never starts new observations');
   check(reports.at(-1), 'Agent monitoring is not configured.', 'Unconfigured schedules report a generic operator message');
   broken = true;
   await assert.rejects(worker.scheduled({}, env, { waitUntil: promise => pending.push(promise) }), /did not complete/); checks++;
   await assert.rejects(pending.at(-1), /did not complete/); checks++;
+  check(observations.length,2,'A thrown risk monitor or bot error cannot stop independent wallet observations');
   check(reports.at(-1).includes('fixture-private-secret'), false, 'Cron failure reports are sanitized too');
 
   const config = JSON.parse(readFileSync(new URL('../cloudflare/wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''));

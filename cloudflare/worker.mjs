@@ -5,6 +5,7 @@ import { createTelegramHandler } from '../api/agent-telegram.mjs';
 import { createMonitorHandler } from '../api/agent-monitor.mjs';
 import { safeEqual } from '../api/_agent-http.mjs';
 import { dispatchPortfolioReview } from '../api/_agent-review-dispatch.mjs';
+import { dispatchAutomaticObservation } from '../api/_agent-auto-state.mjs';
 
 const MAX_BODY_BYTES = 16384;
 function reply(status, message) {
@@ -69,7 +70,7 @@ export async function invokeAgentHandler(handler, request) {
 }
 
 export function createAgentWorker({ agentFactory = createAgentHandler, telegramFactory = createTelegramHandler,
-  monitorFactory = createMonitorHandler, reviewRunner = dispatchPortfolioReview, report = message => console.error(message) } = {}) {
+  monitorFactory = createMonitorHandler, reviewRunner = dispatchPortfolioReview, observationRunner = dispatchAutomaticObservation, report = message => console.error(message) } = {}) {
   return {
     async fetch(request, env) {
       try {
@@ -112,8 +113,14 @@ export function createAgentWorker({ agentFactory = createAgentHandler, telegramF
         // external self-fetch or a separate paid scheduler/runner.
         const request = new Request('https://agent.internal/api/agent-monitor', { method: 'POST',
           headers: { authorization: 'Bearer ' + env.CRON_SECRET, 'content-type': 'application/json' }, body: '{}' });
-        const response = await invokeAgentHandler(monitorFactory({ env }), request);
-        if (!response.ok) throw Error('Agent monitoring did not complete.');
+        let response;
+        try { response = await invokeAgentHandler(monitorFactory({ env }), request); }
+        catch { /* Dispatch independent observations even if the monitor throws. */ }
+        // Pure dispatch uses no D1 query in this invocation. A bot delivery
+        // outage must not stop independently collected portfolio observations.
+        try { await observationRunner({env}); }
+        catch { report('Automatic observation dispatch needs recovery on the next tick.'); }
+        if (!response?.ok) throw Error('Agent monitoring did not complete.');
         // Only queue here. Full analysis runs in separate bounded Workflow
         // invocations, keeping both CPU and D1 calls out of the risk tick.
         try { await reviewRunner({ env, monitoringSucceeded: true }); }

@@ -8,6 +8,7 @@ import { monitorConditions, mytDayAndTime, sendTelegram } from './_agent-notific
 import { forwardAgentRequest } from './_agent-gateway.mjs';
 import { getAgentPolicy } from './_agent-policy.mjs';
 import { yieldReviewOutbox } from './_agent-review-delivery.mjs';
+import { automationEnabled, AUTO_SCHEMA } from './_agent-auto-state.mjs';
 
 const COOLDOWN = 6 * 3600000;
 const paused = (settings, timestamp) => settings.pausedUntil && Date.parse(settings.pausedUntil) > timestamp;
@@ -42,11 +43,19 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
         } finally { await owner.release(); }
       };
       const preferences = async () => {
-        const saved = await readAgentState(store, ['settings', 'policy:current', 'telegram']);
+        const saved = await readAgentState(store, ['settings', 'policy:current', 'telegram', 'automation:schedule', 'automation:controls']);
         const view = { get: async name => saved[name] };
-        return { settings: await getSettings(view), policy: await getAgentPolicy(view), binding: saved.telegram };
+        const schedule=saved['automation:schedule'],controls=saved['automation:controls'];
+        // Reuse this batched read: never add a D1 call to the bounded risk Cron.
+        // A stale/paused automatic runner yields the daily summary back here.
+        const automaticDaily=automationEnabled(env)&&typeof env.PORTFOLIO_REVIEWS?.create==='function'
+          &&(!controls||controls.schemaVersion===AUTO_SCHEMA&&controls.enabled===true)
+          &&schedule&&now()-Date.parse(schedule.lastSuccess)>=-30000
+          &&now()-Date.parse(schedule.lastSuccess)<Math.max(600000,(schedule.intervalMinutes||5)*120000);
+        return { settings: await getSettings(view), policy: await getAgentPolicy(view), binding: saved.telegram,
+          automaticDaily,automaticDailyDate:schedule?.telegramDailyDate||null };
       };
-      let { settings, policy, binding } = await preferences();
+      let { settings, policy, binding, automaticDaily, automaticDailyDate } = await preferences();
       if (paused(settings, timestamp)) {
         await commit([{ key: 'lastCheck', value: { ts: iso, status: 'paused', sources: [] } }]);
         return json(res, 200, { ok: true, skipped: 'paused' });
@@ -55,7 +64,7 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
       const triggers = policy.constraints?.lpReviewTriggers || {};
       const needs = triggers.rewardChangePct != null || triggers.priceMovePct != null ? ['strategy'] : [];
       const context = await loadContext({ origin, fetcher, now, needs });
-      ({ settings, policy } = await preferences());
+      ({ settings, policy, automaticDaily, automaticDailyDate } = await preferences());
       if (paused(settings, timestamp)) {
         await commit([{key:'lastCheck',value:{ts:iso,status:'paused',sources:[]}}]);
         return json(res,200,{ok:true,skipped:'paused'});
@@ -159,7 +168,7 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           : { active: false, notifiedAt: 0 };
         Object.assign(next.conditions[key], { consecutive, firstSeen: condition.firstSeen ?? null, anchor: condition.anchor ?? null });
       }
-      const dailyDue = !!(settings.dailyEnabled && day.time >= settings.dailyTime && state.dailyDate !== day.day);
+      const dailyDue = !!(!automaticDaily && automaticDailyDate !== day.day && settings.dailyEnabled && day.time >= settings.dailyTime && state.dailyDate !== day.day);
       if (dailyDue) {
         const text = summarize(context);
         events.push({ id: randomUUID(), key: 'daily:' + day.day, type: 'daily', severity: 'info',

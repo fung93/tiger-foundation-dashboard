@@ -12,6 +12,8 @@ import { getSettings, normalizeSettings } from './_agent-settings.mjs';
 export { DEFAULT_SETTINGS, getSettings, normalizeSettings } from './_agent-settings.mjs';
 import { isPortfolioReviewQuestion } from './_agent-review-state.mjs';
 import { dispatchPortfolioReview } from './_agent-review-dispatch.mjs';
+import { automaticAction } from './_agent-auto-actions.mjs';
+import { automationEnabled } from './_agent-auto-state.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
 const ANSWER_SCHEMA = 'agent-answer-v5', CURRENT_TTL = 90000;
@@ -95,7 +97,9 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       result = { reply: prepared.reply, report: prepared.report, status: prepared.report.status,
         action: null, mode: 'research', sources: reading.sources || [] };
     } else if (fullReview) {
-      result = await dispatchPortfolioReview({ env, store, manual: true, requestId: jobId });
+      result = automationEnabled(env) && typeof env.PORTFOLIO_REVIEWS?.create === 'function'
+        ? await automaticAction({action:'automaticRun'},{env,store})
+        : await dispatchPortfolioReview({ env, store, manual: true, requestId: jobId });
     } else {
     try {
       if (env.AGENT_INFERENCE_ENABLED === 'false') throw httpError(503, 'AI explanations are disabled.', 'configuration_missing');

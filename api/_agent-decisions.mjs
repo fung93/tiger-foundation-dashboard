@@ -27,6 +27,8 @@ export async function proposeAgentDecision(store, report) {
       invalidationConditions: report.invalidationConditions || [], reviewAt: report.result?.reviewAt || report.nextReviewAt,
       options: (report.options || []).map(option => ({ id: option.id, label: option.label, status: option.status, ...(option.key ? { key: option.key } : {}) })),
       assessment: report.assessment, sourceIds: report.sourceIds, calculationIds: report.calculationIds,
+      ...(report.automation?.positionIdentity ? { automation: {
+        positionIdentity: report.automation.positionIdentity, rangeProposalId: report.automation.rangeProposalId || null } } : {}),
       execution: 'No transaction recorded. Acceptance is for review only.' };
     const event = { schemaVersion: SCHEMA, eventId: eventPrefix(id) + '000001', decisionId: id,
       version: 1, type: 'proposal', state: 'proposed', provenance: 'validated_report', ts: report.createdAt, baseline: record };
@@ -95,6 +97,13 @@ export async function recordAgentDecision(store, input, { source = 'owner', now 
           retained.push({ decisionId: record.decisionId, key: option.key, state: input.state, policyVersion: record.policyVersion,
             rationale: rationale.slice(0, 500), updatedAt: ts });
         entries.push({ key: 'review:feedback', value: retained.slice(-64) });
+      } else if (record.automation?.positionIdentity) {
+        const feedbackKey = 'automation:feedback:' + hash(JSON.stringify([record.automation.positionIdentity, record.policyVersion]));
+        feedbackLease = await store.lock(feedbackKey, 15);
+        if (!feedbackLease) throw httpError(409, 'Automatic range feedback is being saved. Retry the same decision reference.');
+        entries.push({ key: feedbackKey, value: { decisionId: record.decisionId, policyVersion: record.policyVersion,
+          positionIdentity: record.automation.positionIdentity, state: input.state,
+          rationale: rationale.slice(0, 500), updatedAt: ts } });
       }
       await lease.commit(entries, { alsoOwned: feedbackLease ? [feedbackLease] : [] });
     } finally { await feedbackLease?.release(); }

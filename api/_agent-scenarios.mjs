@@ -167,7 +167,7 @@ async function lp(context,policy,input,now){
       'Observed pool rates and competing liquidity are conditional assumptions, not future facts.',
       'Existing accrued/carried rewards are common pre-existing assets, excluded from projected new earnings.',
       'Terminal LP valuation already includes divergence from holding; no second impermanent-loss subtraction is made.'],limitations:[...(source.limitations||[])]};
-  const pool=[...(context.strategy?.pools||[]),...(context.strategy?.fee_pools||[])].find(row=>row.pool?.toLowerCase()===p.pool?.toLowerCase());
+  const pool=[...(context.strategy?.pools||[]),...(context.strategy?.fee_pools||[])].find(row=>row.pool?.toLowerCase()===p.pool?.toLowerCase()&&(row.chain||'katana')===p.chain);
   if(source.status==='blocked'||!pool||pool.status!=='fresh'||!current(pool.ts,now)||!p.raw||!finite(p.principalUsd,Number.MIN_VALUE)
     ||!Number.isInteger(p.raw.lowerTick)||!Number.isInteger(p.raw.upperTick)||!input.paths?.length||input.cashUsd==null)
     return {...base,status:'blocked',limitations:[...base.limitations,'Fresh identified LP/pool metadata, cash and explicit price paths are required.']};
@@ -188,6 +188,7 @@ async function lp(context,policy,input,now){
   const ownRange={tickLower:p.raw.lowerTick,tickUpper:p.raw.upperTick,
     lowerPrice:Math.min(priceAtTick(p.raw.lowerTick,pool),priceAtTick(p.raw.upperTick,pool)),
     upperPrice:Math.max(priceAtTick(p.raw.lowerTick,pool),priceAtTick(p.raw.upperTick,pool))};
+  const lpProtocol=p.chain==='katana'?'Sushi V3':'Uniswap V3';
   const ranges=[{id:'maintain',label:'Keep current range',range:ownRange,liquidity:L,deposit:initial,cost:0}];
   const addRange=(id,label,lower,upper)=>{
     if(!finite(lower,Number.MIN_VALUE)||!finite(upper,Number.MIN_VALUE)||input.gasUsd==null||input.swapFeeBps==null||input.slippageBps==null){
@@ -203,7 +204,7 @@ async function lp(context,policy,input,now){
   else base.options.push({id:'widen',label:'Widen range',status:'blocked',outcomes:[],limitations:['Choose an explicit widening factor.']});
   addRange('reposition','Reposition range',input.lowerPrice,input.upperPrice);
   const hold={id:'hold',label:'Hold underlying tokens',status:input.gasUsd==null?'blocked':'conditional',cashRequiredUsd:input.gasUsd??null,
-    policyChecks:policyChecks(context,policy,input,input.gasUsd||0,{assets:[pool.token0.symbol,pool.token1.symbol],protocol:'Sushi V3'}),outcomes:[],limitations:input.gasUsd==null?['Closing gas cost is required.']:[]};
+    policyChecks:policyChecks(context,policy,input,input.gasUsd||0,{assets:[pool.token0.symbol,pool.token1.symbol],protocol:lpProtocol}),outcomes:[],limitations:input.gasUsd==null?['Closing gas cost is required.']:[]};
   if(hold.status!=='blocked'&&hold.policyChecks.some(check=>check.status==='fail'))hold.status='outside_policy';
   const baseSide=orientation(pool).base,quoteUsd=baseSide===0?pool.token1.usd:pool.token0.usd;
   for(const path of input.paths){
@@ -220,7 +221,7 @@ async function lp(context,policy,input,now){
   for(const option of ranges){
     const out={id:option.id,label:option.label,status:'conditional',cashRequiredUsd:option.cost,range:option.range,
       initialCapitalUsd:C,initialLiquidity:option.liquidity,swapNotionalUsd:option.swapNotionalUsd||0,
-      policyChecks:policyChecks(context,policy,input,option.cost,{assets:[pool.token0.symbol,pool.token1.symbol],protocol:'Sushi V3'}),outcomes:[],limitations:[]};
+      policyChecks:policyChecks(context,policy,input,option.cost,{assets:[pool.token0.symbol,pool.token1.symbol],protocol:lpProtocol}),outcomes:[],limitations:[]};
     for(const path of input.paths){
       const last=pool.price*path.points.at(-1).ratio,tick=tickAtPrice(last,pool);
       if(!Number.isFinite(tick)||Math.abs(tick)>887272)throw bad();

@@ -10,6 +10,7 @@ import { listAgentDecisions, getAgentDecision, recordAgentDecision, observeAgent
 import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { reviewAction } from './_agent-review-actions.mjs';
 import { prepareAutomaticLP, validateAutomaticLP } from './_agent-lp-autofill.mjs';
+import { automaticAction } from './_agent-auto-actions.mjs';
 
 export function researchQuestion(message) {
   if (typeof message !== 'string' || message.length > 1000) return null;
@@ -22,6 +23,8 @@ export function researchQuestion(message) {
 // This dispatcher is called only after the existing owner session and origin
 // checks. Model tool calls have no route to policy confirmation or private writes.
 export async function agentAction(body, { env, store, loadContext = loadAgentContext, fetcher = fetch } = {}) {
+  const automatic = await automaticAction(body,{env,store});
+  if(automatic!==null)return automatic;
   const review = await reviewAction(body, { env, store, loadContext });
   if (review !== null) return review;
   if (body.action === 'lpCompareSetup') {

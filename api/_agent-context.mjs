@@ -338,7 +338,7 @@ function portfolioView(sample) {
     summary: boundedMetric(sample.summary) };
 }
 
-export async function loadAgentContext({ origin, fetcher = fetch, now = Date.now, timeoutMs = 15000, needs = [] } = {}) {
+export async function loadAgentContext({ origin, fetcher = fetch, now = Date.now, timeoutMs = 15000, needs = [], tracking = false } = {}) {
   const selected = requestedNeeds(needs), base = validOrigin(origin);
   const at = clockValue(now);
   if (!Number.isFinite(at)) throw new Error('A valid agent reading time is required.');
@@ -361,6 +361,14 @@ export async function loadAgentContext({ origin, fetcher = fetch, now = Date.now
   const last = history.days.at(-1), prior = history.days.at(-2);
   history.performance = comparablePortfolioPerformance({ before: { valueUsd: prior?.total_usd }, after: { valueUsd: last?.total_usd } });
   const context = { asOf: new Date(at).toISOString(), timezone: 'Asia/Kuala_Lumpur', sources, lending, lp, portfolio, history, snapshot };
+  if (tracking) {
+    const sample = value(1), rows = Array.isArray(sample?.position_data) ? sample.position_data : [];
+    context.tracking = { positions: rows.slice(0, 60),
+      enumerationComplete: lp.status === 'fresh' && rows.length <= 60 && rows.length === sample?.cards?.open,
+      closed: (Array.isArray(sample?.alltime?.history) ? sample.alltime.history : []).slice(0, 100),
+      closedOmitted: (sample?.alltime?.history?.length || 0) > 100,
+      claims: (Array.isArray(sample?.claims) ? sample.claims : []).slice(0, 100) };
+  }
   return selected.length ? loadAgentSupplementalContext({ origin: base, needs: selected, context, fetcher, now, timeoutMs }) : context;
 }
 

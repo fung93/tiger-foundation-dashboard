@@ -1818,7 +1818,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const touch = (c) => chains[c] || (chains[c] = { value_usd: 0, pnl_usd: 0, fees_usd: 0, open: 0, owed: {}, owing: 0 });
   V3.forEach((c) => touch(c.key));
   let value = 0, unrealised = 0;
-  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {}, liveComparisons = [];
+  const live = [], unread = [], feeTokens = {}, claimList = [], pnlNow = {}, pending = {}, liveComparisons = [], positionMetrics = [];
   for (const P of open) {
     const C = touch(P.chain);
     C.open++;
@@ -1827,6 +1827,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     C.fees_usd += usdOf(got).usd;
     for (const c of P.claims || []) for (const [k, a] of Object.entries(c.tokens)) {
       claimList.push({ ts: c.ts, chain: P.chain, pair: P.pair, token: sym(k), amount: a,
+        wallet_address: lc(P.wallet), position_id: String(P.id), contract: P.kind === 'fables' ? FABLES.ramp : chainOf(P.chain)?.npm || null,
         usd_now: prices[k] === undefined ? null : r2(a * prices[k]) });
     }
     const row = rows[P.key];
@@ -1873,6 +1874,20 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
        kept for the whole book and for its chain (the Fees claimed card's record, Alex 3 Nov) */
     const owed = {};
     for (const [k, a] of Object.entries(tokens)) if (a - (got[k] || 0) > 0) owed[k] = a - (got[k] || 0);
+    // Additive numeric observation for the private agent. Reuse the card's own
+    // calculations; never parse formatted dollars or introduce a second ledger.
+    const earnedMetric = usdOf(tokens), owedMetric = usdOf(owed), claimedMetric = usdOf(got);
+    positionMetrics.push({ key: P.key, chain: P.chain, id: String(P.id), owner: lc(P.wallet),
+      openedAt: P.opened_ts ? new Date(P.opened_ts * 1000).toISOString() : null,
+      costUsd: P.cost_usd, withdrawnUsd: P.out_usd, principalUsd: row.liquidity_usd,
+      pnlUsd: u, earnedUsd: earnedMetric.missing.length ? null : earnedMetric.usd,
+      claimedUsd: claimedMetric.missing.length ? null : claimedMetric.usd,
+      unclaimedUsd: owedMetric.missing.length ? null : owedMetric.usd,
+      netUsd: earnedMetric.missing.length ? null : r2(u + earnedMetric.usd),
+      complete: !issue && !earnedMetric.missing.length && !owedMetric.missing.length,
+      claimedTokens: Object.fromEntries(Object.entries(got).map(([key,amount]) => [key,String(amount)])),
+      unclaimedTokens: Object.fromEntries(Object.entries(owed).map(([key,amount]) => [key,String(amount)])),
+      basis: 'LP Book live valuation; claimed and unclaimed earnings retain existing rollover rules.' });
     sumInto(pending, owed); sumInto(C.owed, owed);
     if (Object.keys(owed).length) C.owing++;
   }
@@ -1962,6 +1977,8 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     closedComparisons.push(comparison);
     history.push({
       chain: P.chain, id: P.id, pair: P.pair, wallet: walletLabel(P.wallet),
+      wallet_address: lc(P.wallet), pool: P.pool || P.pool_id || null, kind: P.kind || 'v3',
+      contract: P.kind === 'fables' ? FABLES.ramp : chainOf(P.chain)?.npm || null,
       opened: P.opened_ts ? new Date(P.opened_ts * 1000).toISOString() : null,
       closed: P.closed_ts ? new Date(P.closed_ts * 1000).toISOString() : null,
       held_hours: days ? r2(days * 24) : null,
@@ -2024,7 +2041,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
       comparison: aggregateComparisons(liveComparisons, open.length),
     },
     claims: claimList,
-    series, live, prices,
+    series, live, prices, position_metrics: positionMetrics,
     /* the ALL-TIME page */
     alltime: {
       cards: {

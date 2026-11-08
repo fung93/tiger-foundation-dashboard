@@ -1,5 +1,73 @@
 # Tiger agent implementation progress
 
+## Automatic portfolio and LP monitoring — 8 November 2026 (MYT)
+
+Owner authorized the proposed automatic tracking, market monitoring, range review
+and outcome-learning build. Normal operation must require no investment forms.
+Existing confirmed policy and notification choices remain authoritative; automatic
+observational defaults are labelled separately and never saved as owner risk limits.
+
+- [x] Reconcile the existing monitor, Workflow, private store, readers and review UI
+  against clean 490f09b. Confirm the current review policy/form gate and saved-wallet
+  coverage gap. Preserve public ledgers, authentication and Lending's visit reset.
+- [x] A: Collect fresh tracked-wallet/LP/loan/reward observations on the five-minute
+  schedule, with source dates, complete identities, durable history and bounded storage.
+- [x] B: Monitor LP prices, range proximity, sampled volatility, liquidity and
+  incentives; persist material alerts with independent retry/delivery checkpoints.
+- [x] C: Automatically prepare cost-aware range cases from live positions and
+  labelled defaults, using confirmed limits when present and no required forms.
+- [x] D: Record original proposals and later matching observations; improve range
+  selection from measured containment evidence, separating actual and simulated P&L.
+- [x] E: Put a concise automatic brief first in Agent and Telegram, with advanced
+  manual controls collapsed; validate privacy, pauses and both responsive themes.
+- [x] F: Run local/native/account-independent checks and npm run check, preserve
+  updater commits, prepare publication and document real-account acceptance gates.
+
+All wallet access stays read-only. Calculations remain deterministic. The existing
+free Worker/Workflow, private D1 and Telegram connection are reused. No extra model
+call is required for a five-minute observation. Production account CPU/quotas,
+scheduling and actual delivery must be checked separately from local fixture success.
+
+Completed local evidence: closed RPC adapters 53, risk/learning 33, real-SQLite
+tracking/workflow 199 (including publication restart, four qualified closures,
+original/updated realised-accounting versions and owner rejection), Telegram retry
+21 and risk-Cron/daily-handoff 23 assertions pass. Largest closure batch uses 40
+D1 calls; the original risk stress case remains 48. Native workerd/Workflow/local
+D1 passes 23 assertions for automatic observations (maximum 22 queries/stage),
+24 for advanced reviews and 82 for Telegram. Chromium passes 128 automatic-view
+and 204 existing-comparison checks across Classy/Tiger at 360/1366 px, including
+zero required forms, current/history evidence, pause/resume, no overflow and
+late private responses after logout. Worker dry run passes; cache 159.
+
+The existing Free Worker/Workflow/D1 and bot are reused; no new secret, binding,
+migration or dependency is needed. `AGENT_AUTOMATION_ENABLED=true` is an explicit
+rollback control. Current Vercel APIs/assets and the existing Worker must both
+update. Last scheduled attempt is separate from manual success. Cloudflare
+authentication is unavailable locally, so actual deployment, source/account
+CPU/quotas, Cron and human Telegram acceptance remain outstanding. Full rollout,
+sampling/cost assumptions, coverage caps and free-cadence rules are documented in
+docs/AGENT-AUTOMATION.md. The supplied implementation plan is unchanged.
+
+Final `npm run check` passes all 58 portable suites, including existing portfolio,
+lending, reward-rollover and accounting regressions. Worker build is 595.77 KiB
+(154.38 KiB gzip), below the configured Free artifact size limit. Live wallet
+preflight requests on all four chains were unavailable from this workspace; only
+status/timing metadata was printed. No production model or Telegram was contacted.
+
+- [ ] Real account: deploy both current Vercel assets/APIs and existing Worker;
+  verify actual RPC readings, advancing scheduled attempts, Free CPU/D1/Workflow
+  usage and Telegram delivery to the linked owner. These are deployment/acceptance
+  gates, not missing local implementation or a request for paid services.
+
+Changed file groups: `agent.html`, `agent.js`, `agent.css`, `sw.js`; new private
+`api/_agent-auto-{actions,analysis,delivery,learning,observations,state,workflow}.mjs`
+and `api/_agent-observation-reader.mjs`; the existing agent actions/context/journal,
+LP autofill/scenario/service/notification modules and `api/agent-monitor.mjs`;
+additive LP Book numeric metadata in `api/_core.mjs` and `api/lpbook.mjs`, plus
+the existing Strategy route; Worker dispatch/Workflow/configuration; five new
+test/native-check scripts and three existing regression scripts; AGENTS.md and
+this progress/rollout documentation. Public financial JSON files are unchanged.
+
 ## Concise LP comparison analysis — 8 November 2026 (MYT)
 
 - [x] Inspect the existing LP calculations, reply renderer, saved reports and private
