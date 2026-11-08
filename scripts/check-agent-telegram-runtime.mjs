@@ -86,7 +86,8 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
       const result=body.method==='initialize'?{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'Katana native fixture',version:'test'}}
         :body.method==='tools/list'?{tools:[{name:'get_kat_gauges',inputSchema:{type:'object',properties:{},required:[]}},
           {name:'transfer_tokens',annotations:{readOnlyHint:true},inputSchema:{type:'object'}}]}
-          :{content:[{type:'text',text:JSON.stringify({gauges:[{pool:incomeSources().strategy.pools[0].pool,katPerDay:0,votes:0}]})}]};
+          :mcpMode==='unknown-format'?{content:[{type:'text',text:'# Public gauge reference\nPool address: 0x'+'9'.repeat(40)+'\nVotes: 35600000\nPRIVATE_PROVIDER_TEXT'}]}
+            :{content:[{type:'text',text:'```json\n'+JSON.stringify({result:{data:{pools:[{pool:incomeSources().strategy.pools[0].pool,katPerDay:0,votes:0}]}}})+'\n```'}]};
       if(body.method==='tools/call')check(body.params,{name:'get_kat_gauges',arguments:{}},'Native MCP never receives wallet data or a transaction tool');
       return Response.json({jsonrpc:'2.0',id:body.id,result},{headers:body.method==='initialize'?{'mcp-session-id':'native-fixture-session'}:{}});
     }
@@ -183,11 +184,17 @@ try {
   const mcpCheck=await request({action:'katanaMcpCheck'});
   check(mcpCheck.value.katanaMCP.status,'ready','The real Worker can negotiate and read MCP with local D1 diagnostics');
   check(mcpCheck.value.katanaMCP.parsedGaugeCount,1,'Native transport retains an explicitly identified supplemental pool reference');
+  check(mcpCheck.value.katanaMCP.responseFormat.document,'text_fenced_json','Native workerd accepts the nested fenced result adapter');
   check(JSON.stringify(calls.filter(row=>row.method.startsWith('mcp:'))).includes(env.TELEGRAM_BOT_TOKEN),false,'Native MCP calls never receive bot credentials');
   mcpMode='denied';
   const mcpDenied=await request({action:'katanaMcpCheck'});
   check(mcpDenied.value.katanaMCP.errorCategory,'http_403','A native MCP outage has bounded diagnostics');
   check(JSON.stringify(mcpDenied.value).includes('PRIVATE'),false,'Raw MCP errors remain private');
+  mcpMode='unknown-format';
+  const unknownMCP=await request({action:'katanaMcpCheck'});
+  check(unknownMCP.value.katanaMCP.responseFormat.reason,'not_json','An unrecognized real-runtime layout has actionable metadata');
+  check(JSON.stringify(unknownMCP.value).includes('PRIVATE_PROVIDER_TEXT')||JSON.stringify(unknownMCP.value).includes('35600000'),false,'Native format diagnostics contain no provider text or values');
+  check((await request({action:'diagnostics'})).value.katanaMCP.responseFormat.reason,'not_json','The safe format survives native D1 reload');
   mcpMode='success';
 
   // Full private strategy lifecycle using actual Worker routes/local D1. All

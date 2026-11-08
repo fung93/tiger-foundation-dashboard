@@ -784,6 +784,16 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   live connectivity and Free CPU remain account acceptance checks. Operational
   Check Katana MCP is owner-authenticated and separate from passive diagnostics;
   logout invalidates late results. See docs/AGENT-KATANA-MCP.md.
+- MCP response formats (8 Nov 2026 follow-up): the owner reports the deployed
+  Check connected but extracted no rows. This is real connection evidence, not
+  proof of an empty or usable dataset. Use bounded known nested/fenced/encoded
+  JSON/address-map adapters with explicit pool/chain/unit/time checks. Distinguish
+  empty collections, logical tool errors and unsupported structure. Private
+  responseFormat diagnostics contain only bounded keys/types/paths/counts, never
+  provider values, prose, instructions, sessions or credentials. Copy MCP format
+  is an explicit owner browser action; logout invalidates late results. Do not
+  invent numeric parsers for unseen Markdown or claim fixture success identifies
+  the live payload. The execution proxy still blocks direct provider reads.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous chat/research records
@@ -1101,6 +1111,23 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, MCP response-format follow-up:** the owner confirms the new
+  deployed MCP check connects but its narrow JSON adapter extracts zero rows.
+  Add a bounded payload interpreter for known nested collections, fenced/encoded
+  JSON, explicit address aliases and address maps, preserving strict identity,
+  chain, numeric units and source times. Empty, logical-error and unknown layouts
+  have distinct states. Persist/share field-name/type-only diagnostics through
+  the authenticated connection UI, without source values or extra provider/AI
+  requests. Account-specific payload verification remains pending; direct reads
+  are proxy-blocked and fixtures are not captured live responses. Cache 161;
+  answer cache v8 invalidates old resource results. No new config, credential,
+  binding, migration, financial calculation or wallet capability. See progress
+  and docs/AGENT-KATANA-MCP.md for test and live acceptance evidence.
+  All 63 portable suites, formats 166/transport 86, native private/Telegram 175
+  (max 34 D1 calls / 62 batched SQL statements), Chromium 52 and Worker dry run
+  pass; bundle 676.14 KiB / 175.88 KiB gzip. Actual payload compatibility remains
+  an owner/account acceptance gate; use the copied diagnostic if still unsupported.
 
 - **8 Nov 2026, flexible LP judgment and remote Katana MCP:** expand income
   analysis into a concise evidence-based keep/reset assessment, actual token-mix

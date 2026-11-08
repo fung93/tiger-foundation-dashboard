@@ -1,9 +1,10 @@
 /* Owner-requested remote MCP, server side only. The model never receives an
    arbitrary remote tool, URL, credentials or authority to execute transactions. */
 import { createHash } from 'node:crypto';
+import { inspectKatanaMCPResult } from './_agent-katana-mcp-format.mjs';
 
 export const KATANA_MCP_URL = 'https://mcp.katana.network/mcp';
-export const KATANA_MCP_SCHEMA = 'katana-mcp-v1';
+export const KATANA_MCP_SCHEMA = 'katana-mcp-v2';
 // This exact read tool was already used and documented in AGENTS.md (1 Nov).
 // A discovered tool's description/readOnlyHint does not authorize new tools.
 export const KATANA_MCP_READ_TOOLS = Object.freeze(['get_kat_gauges']);
@@ -13,13 +14,6 @@ const object = value => !!value && typeof value === 'object' && !Array.isArray(v
 const fail = category => { throw Object.assign(new Error('Katana MCP reading unavailable.'), { category }); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const clean = (value, max = 100) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max) : null;
-const number = value => (typeof value === 'number' || typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value))
-  && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1e12 ? Number(value) : null;
-const address = value => typeof value === 'string' && /^0x[0-9a-f]{40}$/i.test(value) ? value.toLowerCase() : null;
-const stamp = value => {
-  const n = typeof value === 'number' ? value < 1e12 ? value * 1000 : value : Date.parse(value);
-  return Number.isFinite(n) && n > 0 && n < 8640000000000000 ? new Date(n).toISOString() : null;
-};
 export const katanaMCPEnabled = env => env?.AGENT_KATANA_MCP_ENABLED === 'true';
 
 async function boundedBody(response, signal, requestId) {
@@ -72,34 +66,11 @@ function rpcResult(text, contentType, id) {
   return replies[0].result;
 }
 
-function gaugeEvidence(result) {
-  let data = result.structuredContent;
-  if (!object(data) && !Array.isArray(data)) {
-    const content = Array.isArray(result.content) ? result.content : [];
-    const text = content.filter(row => row?.type === 'text' && typeof row.text === 'string').map(row => row.text).join('\n');
-    try { data = JSON.parse(text); } catch { data = null; }
-  }
-  const lists = [Array.isArray(data) ? data : null, data?.gauges, data?.data?.gauges].filter(Array.isArray);
-  const rows = lists.length === 1 ? lists[0] : [];
-  const gauges = rows.slice(0, 40).flatMap(row => {
-    if (!object(row) || row.chainId != null && Number(row.chainId) !== 747474) return [];
-    const identities = [row.pool, row.poolAddress, row.pool?.address, row.address].map(address).filter(Boolean);
-    if (!identities.length || new Set(identities).size !== 1) return [];
-    const rates = [row.katPerDay, row.kat_per_day].filter(value => value != null).map(number);
-    const katPerDay = rates.length && rates.every(value => value !== null && value === rates[0]) ? rates[0] : null;
-    return [{ pool: identities[0], katPerDay, votes: number(row.votes),
-      observedAt: stamp(row.observedAt ?? row.updatedAt ?? row.timestamp ?? data?.observedAt ?? data?.updatedAt),
-      raw: clean(JSON.stringify(row), 1600) }];
-  });
-  // Duplicate/conflicting pool rows are not a usable financial reference.
-  return gauges.filter(row => gauges.filter(other => other.pool === row.pool).length === 1).slice(0, 20);
-}
-
 export async function readKatanaMCP({ env = {}, fetcher = fetch, now = Date.now, timeoutMs = 4500 } = {}) {
   const clock = () => typeof now === 'function' ? now() : now;
   const base = { schemaVersion: KATANA_MCP_SCHEMA, endpoint: KATANA_MCP_URL,
     checkedAt: new Date(clock()).toISOString(), status: 'disabled', calls: 0,
-    availableToolCount: 0, readOnlyTools: [], gauges: [], evidence: null, errorCategory: null,
+    availableToolCount: 0, readOnlyTools: [], gauges: [], evidence: null, responseFormat:null,errorCategory: null,
     authority: 'Supplemental indexed reference; existing chain and Merkl observations take priority.' };
   if (!katanaMCPEnabled(env)) return base;
   const controller = new AbortController(); let timer, session, version, id = 0;
@@ -143,7 +114,9 @@ export async function readKatanaMCP({ env = {}, fetcher = fetch, now = Date.now,
     if (result.isError === true) fail('tool_error');
     const raw = JSON.stringify(result);
     base.status = 'ready'; base.checkedAt = new Date(clock()).toISOString();
-    base.gauges = gaugeEvidence(result);
+    const parsed=inspectKatanaMCPResult(result);
+    base.gauges=parsed.gauges;base.responseFormat=parsed.format;
+    if(parsed.format.reason==='tool_reported_error')return {...base,status:'unavailable',errorCategory:'tool_data_error'};
     base.evidence = { id: 'mcp:' + hash(raw), tool: tool.name, retrievedAt: base.checkedAt,
       sourceObservedAtVerified: false, source: KATANA_MCP_URL,
       contentHash: hash(raw), untrustedReference: true, parsedGaugeCount: base.gauges.length };
@@ -167,5 +140,6 @@ export function katanaMCPDiagnostic(reading, env = {}) {
     checkedAt: reading?.checkedAt || null, availableToolCount: reading?.availableToolCount || 0,
     readOnlyTools: (reading?.readOnlyTools || []).filter(name => KATANA_MCP_READ_TOOLS.includes(name)),
     parsedGaugeCount:reading?.evidence?.parsedGaugeCount??reading?.parsedGaugeCount??0,
+    responseFormat:reading?.responseFormat||null,
     evidenceId: reading?.evidence?.id || reading?.evidenceId || null, errorCategory: reading?.errorCategory || null };
 }

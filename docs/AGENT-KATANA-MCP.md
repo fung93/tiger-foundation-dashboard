@@ -8,9 +8,12 @@ The owner supplied that exact endpoint on 8 November 2026 after the workspace
 proxy blocked the linked [Katana setup document](https://docs.katana.network/katana/get-started/setup-mcp-server/#what-can-you-build).
 Direct documentation and MCP initialize requests received proxy HTTP 403,
 including outside the sandbox. The complete documentation, current real catalog,
-provider format/authentication and live connectivity have **not** been verified
-from this workspace. Local fixtures test the protocol contract, not a captured
-real server. Do not describe fixture success as production connection success.
+provider format/authentication and live connectivity were not verified from this
+workspace at the original release. The owner subsequently reports a completed
+real Check Katana MCP showing “Connected · response format needs verification.”
+That establishes a deployed handshake/catalog/approved-read success, with zero
+rows extracted by the old adapter; the exact live payload is still unseen here.
+Local fixtures test the protocol contract, not a captured real server.
 
 ## What changes in conversation
 
@@ -85,9 +88,34 @@ does not prove source freshness. Indexed votes never imply staking eligibility o
 campaign income. Chain/Merkl observations always win when MCP disagrees; an MCP
 outage does not fail the first-party readers or erase existing portfolio data.
 
+### Response-format follow-up
+
+The initial adapter accepted an array, `gauges` or `data.gauges` containing plain
+JSON. The same zero-row status represented unsupported structure and a genuine
+empty result. The follow-up adds bounded known JSON wrappers (`result`, `data`,
+`pools`, `gauges`, `rows`, and related collection wrappers), one fenced/encoded
+JSON document, explicit `pool_address`/nested pool identity, and address-keyed
+collections. Traversal has depth/node/row budgets. Unknown wrapper semantics and
+undocumented Markdown figures are diagnosed rather than numerically guessed.
+Conflicting identities/duplicate pools and explicit foreign chains remain
+excluded. Source timestamps can be inherited only when explicitly supplied.
+
+An upstream logical error is distinct from a transport failure, unknown format
+and empty collection. Private diagnostics retain schema keys/types, collection
+paths/counts and a reason, with their own 6,000-character ceiling. They never copy
+the provider's data values, error prose, model/server instructions or session.
+The owner can expand **MCP format details → Copy MCP format** and share that
+diagnostic if the actual response is still unsupported. Copy has no provider or
+AI side effect; logout clears the details and invalidates late responses.
+
+Before/after tests demonstrate the actual previous adapter returning zero and the
+new adapter returning one reference for nested, fenced and address-map fixtures.
+Those tests do not identify the owner's unseen real layout. Recheck against the
+deployed provider and use its safe diagnostic when adding further adapters.
+
 ## Configuration and live acceptance
 
-Deploy current Vercel assets/APIs and the existing Worker. Browser cache is 160.
+Deploy current Vercel assets/APIs and the existing Worker. Browser cache is 161.
 Wrangler includes `AGENT_KATANA_MCP_ENABLED=true`; set it to `false` to disable the
 extra resource. No new D1 migration, binding, dependency, configured credential or
 paid fallback is added. Existing Qwen, budgets, authentication, Telegram linking,
@@ -100,9 +128,10 @@ scheduled observations still make zero AI/MCP requests.
    Katana MCP**. This private action checks the actual provider and records only
    bounded metadata. “Check connection” itself makes no provider request.
 3. A connected catalog alone is distinct from a successful approved read. A
-   successful read with zero usable parsed references says the response format
-   needs verification. An error category/date stays visible; no raw errors or
-   session headers are exposed.
+   successful read with zero usable parsed references distinguishes empty data,
+   a logical upstream failure and unknown format. If verification is still needed,
+   share **MCP format details → Copy MCP format**. Only schema metadata is copied.
+   An error category/date stays visible; no raw errors or session headers are exposed.
 4. Ask the original question through dashboard and Telegram, then a reset and
    price-case follow-up. Cross-check the selected LP, KAT quote, campaign and
    recorded native reward interval against the current dashboard. Inspect the

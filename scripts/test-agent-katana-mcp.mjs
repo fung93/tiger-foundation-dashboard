@@ -83,6 +83,18 @@ const badUnits=provider({result:{structuredContent:{gauges:[{pool,rate:1000000},
 const parsed=await readKatanaMCP({env,fetcher:badUnits.fetcher,now});
 check(parsed.gauges.length,1,'An explicit foreign-chain row is excluded');
 check(parsed.gauges[0].katPerDay,null,'An unqualified rate is never assumed to be KAT/day');
+const fenced=provider({result:{content:[{type:'text',text:'Gauge reference\n```json\n'+JSON.stringify({result:{data:{pools:[{pool_address:pool,kat_per_day:1000}]}}})+'\n```'}]}});
+const wrapped=await readKatanaMCP({env,fetcher:fenced.fetcher,now});
+check(wrapped.gauges[0].pool,pool,'The complete protocol adapter accepts nested fenced JSON');
+check(wrapped.responseFormat.document,'text_fenced_json','Private diagnostics identify the real wrapper');
+check(katanaMCPDiagnostic(wrapped,env).responseFormat.reason,'pool_references_found','The format diagnosis survives transport and private metadata normalization');
+check(JSON.stringify(katanaMCPDiagnostic(wrapped,env)).includes(pool),false,'Connection metadata exposes no returned data values');
+const dataError=provider({result:{content:[{type:'text',text:JSON.stringify({error:'PRIVATE_UPSTREAM_FAILURE'})}]}});
+const errored=await readKatanaMCP({env,fetcher:dataError.fetcher,now});
+check(errored.errorCategory,'tool_data_error','A logical upstream error is separate from a connection or format error');
+check(errored.evidence,null,'Logical tool failures do not acquire successful data receipts');
+check(errored.responseFormat.reason,'tool_reported_error','Useful failure metadata is retained');
+check(JSON.stringify(errored).includes('PRIVATE_UPSTREAM_FAILURE'),false,'Provider failure prose is never exposed');
 
 const sqlite=createAgentSQLiteFixture(),store=createAgentStore({AGENT_DB:sqlite.db});
 try{
@@ -90,6 +102,7 @@ try{
   const result=await agentAction({action:'katanaMcpCheck'},{env,store,fetcher:p.fetcher});
   check(result.katanaMCP.status,'ready','The authenticated dispatcher can verify MCP with the same protocol');
   check((await store.get('diagnostics:katanaMCP')).status,'ready','Private diagnostic metadata is saved under a fenced lease');
+  check((await store.get('diagnostics:katanaMCP')).responseFormat.reason,'pool_references_found','Saved owner diagnostics retain the value-free response shape');
   check(await store.get('settings'),before,'Checking resources changes no notification or investment setting');
   await assert.rejects(()=>agentAction({action:'katanaMcpCheck',url:'https://evil.invalid'},{env,store,fetcher:p.fetcher}),e=>e.status===400);checks++;
 }finally{sqlite.close();}

@@ -1,5 +1,37 @@
 # Tiger agent implementation progress
 
+## Katana MCP response-format follow-up — 8 November 2026 (MYT)
+
+- [x] Owner reports “Connected · response format needs verification.” This proves
+  a real deployed handshake, catalog and approved read completed; the old adapter
+  extracted no pool rows. It does not prove the response was empty or usable.
+- [x] Reproduce narrow-format gaps locally and add bounded nested/fenced/encoded
+  JSON and address-map adapters, with explicit identity/unit/time validation.
+- [x] Add field-name/type-only diagnostics and distinguish empty collections
+  from unrecognized content. No raw provider values or instructions are exposed.
+- [x] Validate formats, private/native paths, browser copy/logout behavior,
+  npm run check and the Worker dry run; prepare the publication.
+- [ ] Confirm a new actual check. If its format is still unsupported, use the
+  safe format diagnostic to build an adapter against evidence, not guessed values.
+
+Direct MCP reads still receive workspace proxy HTTP 403. Real connection success
+is owner-reported; the precise live payload layout has not yet been supplied.
+Primary chain/Merkl calculations, free-model accounting and wallet access remain
+unchanged. No additional MCP request, new credential, model call or paid service.
+
+Evidence: the actual previous adapter returns zero for the nested, fenced and
+address-map contract fixtures; the new adapter returns one. **166 format and 86
+transport/private-action assertions** pass, alongside all **63 portable suites**.
+Native workerd/local D1 passes **175 assertions**, including nested fenced data,
+unknown text, persisted value-free diagnostics and unchanged financial authority
+(max 34 D1 binding calls / 62 batched SQL statements). Chromium passes **52 checks**
+across both themes at 360/1366 px: JSON copy, no source values/prose in the copied
+metadata, empty/error distinction, no overflow/browser storage and logout races.
+Worker dry run passes at **676.14 KiB / 175.88 KiB gzip**. Cache is 161; no new
+configuration, database migration, secret, dependency or paid fallback. The source
+plan hash is unchanged. These fixtures do not establish the owner's live layout;
+the remaining account check is explicit above and in docs/AGENT-KATANA-MCP.md.
+
 ## Flexible LP judgment and Katana MCP — 8 November 2026 (MYT)
 
 - [x] Reconcile the requested example with existing income calculations and the

@@ -433,11 +433,22 @@ function renderDiagnostics(value){
 }
 function renderKatanaMCP(value){
   const box=$('agentKatanaMCPResult');if(!box)return;box.replaceChildren();
-  const status=value.enabled===false?'Disabled':value.status==='ready'?(value.parsedGaugeCount>0?'Connected · indexed pool references available':'Connected · response format needs verification')
-    :({connected:'Connected · approved data not verified',unavailable:'Connection unavailable',unverified:'Not checked yet'})[value.status]||'Not checked yet';
+  const status=value.enabled===false?'Disabled':value.status==='ready'?(value.parsedGaugeCount>0?'Connected · indexed pool references available'
+    :value.responseFormat?.reason==='empty_collection'?'Connected · server returned an empty collection':'Connected · response format needs verification')
+    :value.errorCategory==='tool_data_error'?'Connected · resource returned an error'
+      :({connected:'Connected · approved data not verified',unavailable:'Connection unavailable',unverified:'Not checked yet'})[value.status]||'Not checked yet';
   const rows=[['Katana MCP',status],['Last MCP check',date(value.checkedAt)||'No verified check']];
   if(value.errorCategory)rows.push(['MCP check detail',String(value.errorCategory)]);
+  if(value.responseFormat)rows.push(['MCP response format',value.responseFormat.document+' · '+value.responseFormat.reason]);
   for(const [label,text]of rows){const row=element('div','agent-diagnostic-row');row.append(element('span','',label),element('span','',text));box.append(row);}
+  if(value.responseFormat){
+    const details=element('details','agent-answer-details'),payload=JSON.stringify(value.responseFormat,null,2),copy=element('button','agent-button','Copy MCP format');copy.type='button';
+    details.append(element('summary','','MCP format details'),element('p','agent-help','Field names and types only. No response values, wallet data or credentials.'));
+    copy.addEventListener('click',async()=>{if(!state?.authenticated)return;const view=privateViewVersion;copy.disabled=true;
+      try{await navigator.clipboard.writeText(payload);if(samePrivateView(view))notice('MCP format copied. You can share this diagnostic.');}
+      catch{if(samePrivateView(view))notice('Select and copy the format details below.',true);}finally{if(samePrivateView(view))copy.disabled=false;}});
+    details.append(copy,element('div','agent-result-text',payload));box.append(details);
+  }
 }
 function clearPrivateAnalysis(){
   reviewState=null;reviewDirty=false;reviewBusy=false;reviewSaving=false;reviewFormRevision=null;pendingReview=null;
