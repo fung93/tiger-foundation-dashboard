@@ -786,6 +786,14 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   provenance, same-reference retries and saved cases. Switching LPs/modes or logging
   out must invalidate stale responses/results and clear hidden wallet/NFT fields.
   See docs/AGENT-LP-AUTOFILL.md. No model math, signing or extra paid service.
+- LP comparison results are concise (Alex, 8 Nov 2026): a short takeaway, current
+  LP dollar advantage interval, key risk and four-option table. Full scenario values
+  stay under a collapsed disclosure; dashboard/Telegram use the same deterministic
+  summary. Compare the matching calculated final values after costs, including the
+  holding option's closing gas. Here holding uses the LP's current token amounts;
+  the LP Book's historical accounting is unchanged. Exclude failed-policy/unpriced
+  options from the lead and never turn tested cases into a probability or forecast.
+  Keep unknowns, ties, financing scope and private-evidence cleanup explicit.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
   `scripts/test-agent-telegram.mjs`, `scripts/test-agent-integration.mjs`,
   `scripts/test-agent-store.mjs`, `scripts/test-agent-worker.mjs`,
@@ -1040,6 +1048,20 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, concise LP analysis under the ongoing agent authorization:**
+  LP ranges vs holding shows a short conditional takeaway, dollar advantage versus
+  holding, a concrete risk and four-row cost/advantage table. Full original scenario
+  values are collapsed by default. Dashboard and replies share deterministic summary
+  code. Advantages match final values after each option's costs, including closing
+  gas for holding; no financial formulas or LP Book accounting change. Unknown or
+  failed-policy cases cannot supply an unqualified lead; ties and case-dependent
+  choices remain explicit. Full npm check, summary 39, scenario 39, autofill 44,
+  private actions 33, interface 110, native Workflow 24/Telegram 82 and Chromium 204
+  checks across both themes at 360/1366 pass. Worker dry run passes. Cache 158;
+  no new secret, binding, migration, dependency or AI call. Update Vercel assets and
+  the existing Worker; actual account deployment/CPU/quotas remain acceptance gates.
+  See docs/AGENT-LP-AUTOFILL.md and TIGER_AGENT_PROGRESS.md.
 
 - **7 Nov 2026, automatic LP comparison inputs under the ongoing agent authorization:**
   LP ranges vs holding detects current positions, selects a supported open LP and

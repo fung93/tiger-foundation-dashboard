@@ -5,6 +5,18 @@ current open positions and selects the largest position with supported fresh poo
 data. Choose another position in **Open LP position** to switch wallets/LPs without
 typing an NFT ID, chain or address. Click **Compare this LP** to calculate.
 
+The result starts with three short points: the tested takeaway, your current LP's
+dollar difference versus holding, and the main risk. A four-row table compares
+keeping the range, widening it, choosing the proposed range and holding tokens,
+including upfront costs. Open **Full scenario breakdown** for every original case.
+Detailed definitions and assumptions remain under **Assumptions and checks**.
+
+The holding benchmark closes this LP now and keeps its current token amounts,
+including closing gas. The advantage is the difference between the two calculated
+final values in the same case. Positive values favor the LP option; negative values
+favor holding. A lead applies only to the tested cases. Missing values, ties and
+options outside your saved limits stay explicit; no chance of winning is inferred.
+
 The existing comparison has verified pool inputs for configured Katana pools. Other
 detected chains remain visible with an unavailable explanation; the form does not
 invent missing fee, reward or pool observations to enable an unsupported comparison.
@@ -82,3 +94,10 @@ readers listed above, `scripts/test-agent-lp-autofill.mjs`,
 `scripts/test-agent-lp-autofill-api.mjs`, `scripts/fixtures/agent-lp-autofill.mjs`,
 `scripts/check-agent-review-runtime.mjs`, `AGENTS.md`, `TIGER_AGENT_PROGRESS.md`,
 `docs/AGENT-SETUP.md` and this guide. No new dependencies are required.
+
+The concise-analysis follow-up also adds `agent-lp-summary.mjs` and
+`scripts/test-agent-lp-summary.mjs`, and registers the shared module in
+`scripts/check-project.mjs` and the service-worker shell. Cache 158 replaces 157.
+The shared renderer reads existing outcomes without rewriting saved calculations.
+Update Vercel for the dashboard view and the existing Worker for concise replies;
+there are no additional configuration values, bindings or migrations.

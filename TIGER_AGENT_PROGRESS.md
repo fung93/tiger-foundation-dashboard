@@ -1,5 +1,38 @@
 # Tiger agent implementation progress
 
+## Concise LP comparison analysis — 8 November 2026 (MYT)
+
+- [x] Inspect the existing LP calculations, reply renderer, saved reports and private
+  dashboard flow against the clean 8d82fcb baseline.
+- [x] Replace LP scenario paragraphs with a deterministic short takeaway, current
+  LP advantage interval, key risk and upfront costs; use the same summary in replies.
+- [x] Show four options in a compact table and retain all original scenario values
+  under a collapsed Full scenario breakdown. Clear hidden evidence on LP changes,
+  refreshes and logout. Lending/KAT comparison replies remain unchanged.
+- [x] Compare final values against the matching after-closing-cost holding case;
+  retain policy exclusions, missing-data guards, ties and before-financing scope.
+- [x] Validate actual calculations, source gaps, responsive themes and privacy;
+  run npm run check, native Worker checks and the Worker build.
+- [x] Prepare publication under the existing agent authorization, with automatic
+  data-update commits preserved and real-account deployment gates documented.
+- [ ] Verify the deployed dashboard summary and concise replies against the real
+  Cloudflare account; production credentials are unavailable in this workspace.
+
+No financial formula, wallet capability, source policy, accounting record, persistent
+policy or Lending per-visit reset is changed. The helper summarizes existing results;
+it never introduces future probabilities, averages, earnings or a transaction.
+No extra model call, secret, binding, database migration or dependency is required.
+Local evidence: 39 summary/calculation assertions, the existing 39 scenario and 44
+autofill assertions, 33 private action/persistence checks and 110 interface checks
+pass. Chromium checks 204 assertions across Classy/Tiger at 360/1366 px, including
+collapsed/expanded evidence, unchanged final values, saved recurring cases, missing
+funding, LP changes and hidden-data cleanup on logout. Full npm run check, native
+Workflow/local D1 24 and Telegram 82 checks and Worker dry run pass. Cache 158.
+The final publication preflight rebases over automatic data updates and reruns the
+project checks. Updated Vercel assets provide the concise dashboard view; the
+existing Worker must update for concise reply text. Real deployment/CPU/quotas and
+actual owner acceptance remain unverified; no production model/bot was contacted.
+
 ## Automatic LP comparison inputs — 7 November 2026
 
 - [x] Inspect the existing comparison, live LP/pool readers, private routes and

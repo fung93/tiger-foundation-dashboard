@@ -7,6 +7,7 @@ import { orientation, priceAtTick, tickAtPrice, snapRange, amountsPerLiquidity,
 import { runAgentTool } from './_agent-tools.mjs';
 import { httpError } from './_agent-http.mjs';
 import { agentMoney, agentNumber, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
+import { renderLPComparisonSummary } from '../agent-lp-summary.mjs';
 
 export const AGENT_SCENARIO_SCHEMA = 'agent-scenarios-v1';
 const DAY = 86400000, WAD = 10n ** 18n, ORACLE = 10n ** 36n;
@@ -299,6 +300,7 @@ export async function compareAgentStrategies({context={},policy=context.policy,i
   return finalize(context,policy,input,detail,at);
 }
 export function renderAgentStrategyResult(result){
+  if(result.kind==='lp')return renderLPComparisonSummary(result);
   const lines=[result.status==='blocked'?'I need more information to complete this comparison.':'Here is how the options compare over '+result.horizonDays+' days.'];
   if(result.status==='superseded')lines.push('These results use your earlier preferences. Run a new comparison before using them.');
   if(Number.isFinite(result.capitalBaseUsd))lines.push('Each option starts with the same '+agentMoney(result.capitalBaseUsd)+'.');
