@@ -7,7 +7,7 @@ const positive=n=>Number.isFinite(n)&&n>0;
 export function requestedLPDailyRewardGoal(message) {
   if(typeof message!=='string')return null;
   const text=message.replace(/```[\s\S]*?```|`[^`]*`|"[^"\r\n]*"|“[^”]*”/g,' ');
-  if(!/\b(?:earn|make|generate|receive|target|goal|aim|want|income|rewards?|profits?|yield)\b/i.test(text))return null;
+  if(!/\b(?:earn|make|generate|receive|target|goal|aim|want|income|rewards?|profits?|yield)\b|^\s*(?:what about|how about|could it|can it|instead)\b/i.test(text))return null;
   const number='(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
   const money=new RegExp('(?:\\$\\s*|USD\\s*)('+number+')|('+number+')\\s*(?:USD|dollars?)\\b','gi'),values=[];
   for(const match of text.matchAll(money)){
@@ -25,14 +25,26 @@ export function requestedLPDailyRewardGoal(message) {
   return {usdPerDay:values[0]};
 }
 export function isLPIncomeQuestion(message) {
-  return !!requestedLPDailyRewardGoal(message)&&/\bLP\b|liquidity|pool|\b[a-z][a-z0-9]{1,11}\s*\/\s*[a-z][a-z0-9]{1,11}\b/i.test(message||'');
+  return !!requestedLPIncomeGoal(message)&&/\bLP\b|liquidity|pool|\b[a-z][a-z0-9]{1,11}\s*\/\s*[a-z][a-z0-9]{1,11}\b/i.test(message||'');
+}
+export function requestedLPIncomeGoal(message){
+  const explicit=requestedLPDailyRewardGoal(message);if(explicit)return explicit;
+  if(typeof message!=='string'||!/\bLP\b|liquidity|pool|\b[a-z][a-z0-9]{1,11}\s*\/\s*[a-z][a-z0-9]{1,11}\b/i.test(message))return null;
+  const text=message.replace(/```[\s\S]*?```|`[^`]*`|"[^"\r\n]*"|“[^”]*”/g,' ').trim();
+  // The owner's shorthand example omits the period. Offer a clearly labelled
+  // daily scenario; never reinterpret an explicitly different time horizon.
+  if(/\b(?:days?|daily|weeks?|weekly|months?|monthly|total|epochs?|campaign|hours?|years?)\b/i.test(text)||!/\bKAT\s*[?.!]*$/i.test(text)
+    ||!/\b(?:suggest|recommend|suitable|target|goal|want|aim|let me earn)\b|\bcan (?:I|it|my)\b/i.test(text))return null;
+  const assumed=requestedLPDailyRewardGoal(text.replace(/[?.!]+$/,'')+' per day');
+  return assumed&&!assumed.error?{...assumed,periodAssumption:'daily'}:assumed;
 }
 const unavailable=(targetUsd,reason,message)=>({status:'unavailable',targetUsdPerDay:targetUsd,reason,message});
 const quotedRange=(lo,hi,pool)=>{const a=priceAtTick(lo,pool),b=priceAtTick(hi,pool);
   return {tickLower:lo,tickUpper:hi,lowerPrice:Math.min(a,b),upperPrice:Math.max(a,b)};};
 
 export function analyzeLPIncomeTarget({targetUsd,pool,position,rangeData,katUsd,katObservedAt,now}) {
-  if(!positive(targetUsd)||targetUsd<.000001||targetUsd>1e9)return unavailable(targetUsd,'invalid_target','Choose one positive daily reward target in USD.');
+  const hasTarget=targetUsd!==null;
+  if(hasTarget&&(!positive(targetUsd)||targetUsd<.000001||targetUsd>1e9))return unavailable(targetUsd,'invalid_target','Choose one positive daily reward target in USD.');
   if(!rangeData.withinAssetPreferences)return unavailable(targetUsd,'outside_policy','This pair or protocol is outside your saved limits; I can’t suggest a range change for that target.');
   if(!position||!rangeData.currentRange||!positive(position.principalUsd))return unavailable(targetUsd,'position_unavailable','I need one verified current LP and its capital to check that income goal.');
   if(pool.kind!=='rewards')return unavailable(targetUsd,'no_kat_campaign','This pool does not have a verified KAT reward campaign for that target.');
@@ -58,8 +70,8 @@ export function analyzeLPIncomeTarget({targetUsd,pool,position,rangeData,katUsd,
   // all current liquidity as competition would count the owner's position twice.
   const others=Math.max(0,pool.eligible.liquidity-(ownInRange?ownerL:0));
   const poolBudgetUsd=pool.katPerDay*katUsd;
-  if(!Number.isFinite(poolBudgetUsd)||!Number.isFinite(targetUsd/katUsd))return unavailable(targetUsd,'invalid_rate','The dollar reward rate could not be validated.');
-  const finiteTargetPossible=targetUsd<poolBudgetUsd||others===0&&targetUsd<=poolBudgetUsd;
+  if(!Number.isFinite(poolBudgetUsd)||hasTarget&&!Number.isFinite(targetUsd/katUsd))return unavailable(targetUsd,'invalid_rate','The dollar reward rate could not be validated.');
+  const finiteTargetPossible=hasTarget&&(targetUsd<poolBudgetUsd||others===0&&targetUsd<=poolBudgetUsd);
   // Only fee/liquidity scoring is supported above. Zero-weight token terms do
   // not need token-balance observations (avoid 0 * NaN in the general engine).
   const counterfactual={...pool,eligible:{...pool.eligible,liquidity:others,amount0:0,amount1:0}};
@@ -73,7 +85,7 @@ export function analyzeLPIncomeTarget({targetUsd,pool,position,rangeData,katUsd,
   const currentKat=ownInRange&&pool.eligible.liquidity>0?pool.katPerDay*Math.min(1,ownerL/pool.eligible.liquidity):0;
   const current={...own,katPerDay:currentKat,usdPerDay:currentKat*katUsd,reachesTarget:finiteTargetPossible&&currentKat*katUsd>=targetUsd};
   const candidates=rangeData.windows.map(row=>evaluate(row)).filter(Boolean),preferred=candidates.find(row=>row.days===rangeData.preferredDays)||null;
-  const historicalChoice=candidates.filter(row=>row.days>=rangeData.preferredDays&&row.reachesTarget).sort((a,b)=>b.days-a.days)[0]||null;
+  const historicalChoice=hasTarget?candidates.filter(row=>row.days>=rangeData.preferredDays&&row.reachesTarget).sort((a,b)=>b.days-a.days)[0]||null:null;
   const spacing=pool.tickSpacing,edge=Math.floor(887272/spacing)*spacing,lo=Math.floor(pool.tick/spacing)*spacing,hi=lo+spacing;
   const minimum=lo>=-edge&&hi<=edge?evaluate(quotedRange(lo,hi,pool)):null;
   let targetOnlyRange=null;
@@ -86,13 +98,13 @@ export function analyzeLPIncomeTarget({targetUsd,pool,position,rangeData,katUsd,
     targetOnlyRange.coversPreferredHistory=history?targetOnlyRange.tickLower<=history.historyLowTick&&targetOnlyRange.tickUpper>history.historyHighTick:null;
   }
   let capitalRequiredForPreferredUsd=null;
-  if(preferred&&others>0&&poolBudgetUsd>targetUsd){
+  if(hasTarget&&preferred&&others>0&&poolBudgetUsd>targetUsd){
     const perDollar=liquidityForCapital(1,preferred.tickLower,preferred.tickUpper,pool)?.liquidity;
     const amount=others*targetUsd/(poolBudgetUsd-targetUsd)/perDollar;
     if(positive(amount)&&amount<=1e12){const rounded=Math.ceil(amount*100)/100,check=evaluate(preferred,rounded);
       if(check?.reachesTarget)capitalRequiredForPreferredUsd=rounded;}
   }
-  return {schemaVersion:'agent-lp-income-v1',status:'ready',targetUsdPerDay:targetUsd,targetKatPerDay:targetUsd/katUsd,
+  return {schemaVersion:'agent-lp-income-v2',status:'ready',targetUsdPerDay:targetUsd,targetKatPerDay:hasTarget?targetUsd/katUsd:null,
     capitalUsd:capital,bookCapitalUsd:position.principalUsd,positionId:position.positionId,katUsd,
     observation:{position:{chain:position.chain,owner:position.owner,contract:position.contract,positionId:position.positionId,
       observedAt:position.observedAt,staked:position.staked,feesMine:position.feesMine},rawOwnerLiquidity:position.raw.liquidity,

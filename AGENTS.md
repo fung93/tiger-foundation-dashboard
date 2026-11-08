@@ -764,6 +764,26 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   required capital is a verified algebraic scenario, not an available balance or
   allocation mandate. Keep net-profit requests distinct, bounded native model
   selection/accounting and no writes/signing. See docs/AGENT-LP-INCOME.md.
+- Flexible LP judgment and Katana MCP (Alex, 8 Nov 2026): normal-language
+  goals/follow-ups combine deterministic range/capital math, current campaign
+  share, carry-adjusted native APR reward pace, inventory/reset cost cases and
+  KAT/base-price sensitivities. Answer a focused case concisely; never adopt the
+  sample answer's prices, analyst support levels or personal-loss narrative as
+  facts. Contextual owner goals/floors/cadence stay separate from persistent policy
+  and Lending's visit reset. Label an assumed daily period explicitly. Costs
+  reduce replacement capital before static incremental-reward recovery; missing
+  gas/competition never becomes zero. Six closed tools and one accounted inference.
+  The shared private Worker connects to the owner-supplied exact remote endpoint
+  https://mcp.katana.network/mcp, gated by AGENT_KATANA_MCP_ENABLED. Only the
+  reviewed no-argument get_kat_gauges read is enabled; discovered descriptions or
+  readOnlyHint cannot authorize more methods. No wallet, transcript, model prompt
+  or secrets go to MCP. Bound HTTP/SSE/session/protocol/body/time/request handling;
+  reject redirects and preserve primary readers on failure. Retain private source
+  receipts and indexed conflicts; chain/Merkl wins. The setup document and actual
+  server are workspace-proxy blocked, so current catalog/schema/authentication,
+  live connectivity and Free CPU remain account acceptance checks. Operational
+  Check Katana MCP is owner-authenticated and separate from passive diagnostics;
+  logout invalidates late results. See docs/AGENT-KATANA-MCP.md.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous chat/research records
@@ -1081,6 +1101,27 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, flexible LP judgment and remote Katana MCP:** expand income
+  analysis into a concise evidence-based keep/reset assessment, actual token-mix
+  changes, current versus recorded native KAT pace, indicative reset costs and
+  price-only sensitivities. Related free-word follow-ups retain owner scenarios,
+  including revised goals/floors; unrelated loans/notifications do not. New one-day
+  LP history and approximately 24-hour KAT trend reuse existing sources. Carry
+  exclusion, accounting and source gaps remain intact. Shared dashboard/Telegram
+  context can read the fixed official MCP endpoint using the reviewed
+  get_kat_gauges resource; no dynamic tool authority, signing, wallet/transcript
+  sharing, paid dependency or extra inference. Add a private connection check and
+  bounded diagnostic metadata, preserve source receipts/conflicts and fail
+  independently from the financial readers. Cache 160; Wrangler adds the regular
+  AGENT_KATANA_MCP_ENABLED flag, no new secret/binding/migration. See
+  TIGER_AGENT_PROGRESS.md and docs/AGENT-KATANA-MCP.md for validation and remaining
+  actual-account acceptance. The original linked document and live MCP are proxy
+  blocked here; a simulated server is never described as a real connection.
+  All 62 portable suites, analysis 121/MCP 77, native private/Telegram 164, automatic
+  Workflow 26 and Chromium 92 checks pass. Worker dry run: 666.58 KiB / 173.16 KiB
+  gzip. Native private paths record max 34 D1 calls (62 batched SQL statements);
+  actual account CPU, usage and remote schema/connection remain live gates.
 
 - **8 Nov 2026, daily KAT income-goal LP analysis:** the owner's $10/day question
   was reduced to historical range geometry because the target was not an input.

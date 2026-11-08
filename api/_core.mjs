@@ -1653,7 +1653,8 @@ function positionApr(book, P, cashflows, tokensNow, prices, now) {
     basis: 'Earned tokens at the same current prices; simple annualised estimate',
     start_ts: start, end_ts: now, elapsed_hours: hours,
     period_label: base ? 'Last ' + hours.toFixed(1) + ' hours' : 'Since opened (' + hours.toFixed(1) + ' hours)',
-    earned_usd: r2(gained.usd), capital_usd: r2(P.cost_usd), pct: gained.usd / P.cost_usd / (hours / 24) * 36500 };
+    earned_usd: r2(gained.usd), earned_tokens: { ...delta },
+    capital_usd: r2(P.cost_usd), pct: gained.usd / P.cost_usd / (hours / 24) * 36500 };
 }
 const pctText = (p) => (p >= 100 ? Math.round(p).toLocaleString('en-US') : p.toFixed(1)) + '%';
 

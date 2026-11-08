@@ -167,7 +167,7 @@ async function addRecentRanges(pools, ranges, now, notes) {
     const gap = head - e.last_block > TAIL, from = gap ? head - TAIL : e.last_block + 1;
     const logs = from <= head ? await swapLogs(p.pool, from, head) : [];
     const hours = mergeSwapHours(e.hours, logs.map(swapFromLog));
-    const r = recentRanges(hours, now, p.tick, RANGE_DAYS, e.recorded_from);
+    const r = recentRanges(hours, now, p.tick, [1, ...RANGE_DAYS], e.recorded_from);
     p.recent = Object.fromEntries(Object.entries(r).map(([d, x]) => [d, x && { ...x, ...rangePrices(x, p), complete: x.complete && !gap }]));
     if (gap) notes.push(`${p.base}/${p.quote}: the recorded price history is more than four days behind, so its recent ranges may miss some prices.`);
   }));

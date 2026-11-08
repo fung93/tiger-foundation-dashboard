@@ -6,6 +6,7 @@ import { positionIdentity } from '../portfolio-core.mjs';
 import { httpError } from './_agent-http.mjs';
 import { agentNumber, agentMoney, agentPrice, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
 import { analyzeLPRange, renderLPRangeAnalysis } from './_agent-lp-range.mjs';
+import { LP_ADVICE_FOCUSES } from './_agent-lp-advice.mjs';
 
 export const AGENT_TOOL_SCHEMA_VERSION = 'agent-tool-v1';
 export const AGENT_TOOL_NAMES = Object.freeze(['getPortfolioSnapshot', 'getLendingRisk', 'calculateTargetHealth', 'getLPPosition', 'getKATExposure', 'analyzeLPRange']);
@@ -15,7 +16,7 @@ export const AGENT_TOOL_SCHEMAS = Object.freeze({
   calculateTargetHealth: { required: ['market', 'targetHealth'], optional: [] },
   getLPPosition: { required: ['positionId'], optional: ['chain', 'owner'] },
   getKATExposure: { required: [], optional: [] },
-  analyzeLPRange: { required: [], optional: ['pair', 'positionId', 'chain', 'owner', 'reviewFrequencyDays', 'dailyRewardTargetUsd'] },
+  analyzeLPRange: { required: [], optional: ['pair', 'positionId', 'chain', 'owner', 'reviewFrequencyDays', 'dailyRewardTargetUsd', 'analysisFocus', 'dailyRewardFloorUsd','priceCase','dailyRewardPeriodAssumed'] },
 });
 const TTL = 90000, WAD = 10n ** 18n, ORACLE = 10n ** 36n, UINT_MAX = (1n << 256n) - 1n;
 const KAT_TOKEN = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
@@ -36,7 +37,7 @@ const policyVersion = policy => Number.isSafeInteger(policy?.version) && policy.
 function argsFor(name, args) {
   if (!Object.hasOwn(AGENT_TOOL_SCHEMAS, name)) throw badInput('Choose an available read-only agent tool.');
   const schema = AGENT_TOOL_SCHEMAS[name];
-  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > (name === 'analyzeLPRange' ? 6 : 4)
+  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > (name === 'analyzeLPRange' ? 10 : 4)
     || Object.keys(args).some(key => !schema.required.includes(key) && !schema.optional.includes(key))
     || schema.required.some(key => !Object.hasOwn(args, key))) throw badInput('Choose valid inputs for this agent tool.');
   for (const key of ['market', 'positionId', 'chain', 'owner', 'pair']) if (Object.hasOwn(args, key)
@@ -46,6 +47,17 @@ function argsFor(name, args) {
   if (Object.hasOwn(args, 'reviewFrequencyDays') && (!Number.isInteger(args.reviewFrequencyDays) || args.reviewFrequencyDays < 1 || args.reviewFrequencyDays > 365)) throw badInput('Choose a review interval from 1 to 365 days.');
   if(Object.hasOwn(args,'dailyRewardTargetUsd')&&(!Number.isFinite(args.dailyRewardTargetUsd)||args.dailyRewardTargetUsd<.000001||args.dailyRewardTargetUsd>1e9))
     throw badInput('Choose one positive daily reward target in USD.');
+  if(Object.hasOwn(args,'dailyRewardFloorUsd')&&(!Number.isFinite(args.dailyRewardFloorUsd)||args.dailyRewardFloorUsd<.000001||args.dailyRewardFloorUsd>1e9))
+    throw badInput('Choose one positive daily reward floor in USD.');
+  if(Object.hasOwn(args,'analysisFocus')&&!LP_ADVICE_FOCUSES.includes(args.analysisFocus))throw badInput('Choose a supported LP analysis focus.');
+  if(Object.hasOwn(args,'dailyRewardPeriodAssumed')&&(args.dailyRewardPeriodAssumed!==true||!Object.hasOwn(args,'dailyRewardTargetUsd')))throw badInput('Choose a labelled daily reward scenario.');
+  if(Object.hasOwn(args,'priceCase')){
+    const c=args.priceCase;
+    if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(key=>!['symbol','changePct','priceUsd'].includes(key))
+      ||!['KAT','BTC','ETH'].includes(c.symbol)||Object.hasOwn(c,'changePct')===Object.hasOwn(c,'priceUsd')
+      ||Object.hasOwn(c,'changePct')&&(!Number.isFinite(c.changePct)||c.changePct<=-100||c.changePct>1000)
+      ||Object.hasOwn(c,'priceUsd')&&(c.symbol!=='KAT'||!Number.isFinite(c.priceUsd)||c.priceUsd<=0||c.priceUsd>1e6))throw badInput('Choose one supported price scenario.');
+  }
   if (Object.hasOwn(args, 'targetHealth') && (!Number.isFinite(args.targetHealth) || args.targetHealth < 1 || args.targetHealth > 100))
     throw badInput('Choose a target health between 1 and 100.');
   if (args.chain && !['katana', 'robinhood', 'arc', 'solana'].includes(args.chain)) throw badInput('Choose a supported position chain.');

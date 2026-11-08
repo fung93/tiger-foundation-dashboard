@@ -3,8 +3,9 @@
 import { priceAtTick, liquidityForCapital } from '../strategy-core.mjs';
 import { agentPrice, agentNumber, agentReadingTime } from '../agent-language.mjs';
 import { analyzeLPIncomeTarget,renderLPIncomeTarget } from './_agent-lp-income.mjs';
+import { buildLPAdvice, renderLPAdvice } from './_agent-lp-advice.mjs';
 
-export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v2';
+export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v3';
 export function isLPRangeQuestion(message) {
   const selecting = /suitable|best|recommend|suggest|choose|widen|narrow|adjust|change|select|合适|合適|建议|建議|sesuai/iu.test(message || '');
   return typeof message === 'string' && (selecting || !/\b(?:in|out(?: of)?|outside)\s+(?:the\s+)?range\b/iu.test(message))
@@ -25,8 +26,9 @@ export function requestedLPPair(message) {
   return match ? match[1] + '/' + match[2] : null;
 }
 const asset = symbol => ({ WBTC: 'BTC', VBWBTC: 'BTC', BITCOIN: 'BTC', WETH: 'ETH', VBETH: 'ETH', VBUSDC: 'USDC', VBUSDT: 'USDT' })[String(symbol).toUpperCase()] || String(symbol).toUpperCase();
-const pairKey = value => typeof value === 'string' && value.split('/').length === 2
+export const lpPairKey = value => typeof value === 'string' && value.split('/').length === 2
   ? value.split('/').map(part => asset(part.trim())).sort().join('/') : null;
+const pairKey=lpPairKey;
 const current = (ts, now) => Number.isFinite(Date.parse(ts)) && now - Date.parse(ts) >= -30000 && now - Date.parse(ts) < 90000;
 const positive = n => Number.isFinite(n) && n > 0;
 const tick = n => Number.isInteger(n) && Math.abs(n) <= 887272;
@@ -72,7 +74,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
     return unavailable('price_mismatch', 'The pool price and tick disagree. I need a consistent reading before comparing ranges.');
   const owned=positions.filter(p=>p.chain==='katana'&&p.pool?.toLowerCase()===pool.pool?.toLowerCase()
     &&(!args.owner||p.owner?.toLowerCase()===args.owner.toLowerCase()));
-  if(args.dailyRewardTargetUsd!==undefined&&!args.positionId&&owned.length>1)return unavailable('choose_position',
+  if((args.dailyRewardTargetUsd!==undefined||args.analysisFocus)&&!args.positionId&&owned.length>1)return unavailable('choose_position',
     'You have several LPs in this pool. Which position should I use for the daily income target?');
   const position = selected[0] || owned[0];
   const own = position?.raw, sameTokens = own && [0, 1].every(i => own['token' + i]?.address?.toLowerCase() === pool['token' + i].address.toLowerCase()
@@ -102,7 +104,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       upsidePct: (range.upperPrice - price) / price * 100,
       concentrationVsCurrent: ownRange?.inRange && positive(perDollar(ownRange)) ? liquidity / perDollar(ownRange) : null });
   }
-  if (!windows.length&&args.dailyRewardTargetUsd===undefined) return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
+  if (!windows.length&&args.dailyRewardTargetUsd===undefined&&!args.analysisFocus) return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
   const constraints = policy?.status === 'confirmed' ? policy.constraints || {} : {};
   const review = args.reviewFrequencyDays ?? (Number.isInteger(constraints.reviewFrequencyDays) ? constraints.reviewFrequencyDays : null);
   const horizon = Number.isInteger(constraints.horizonDays) ? constraints.horizonDays : null;
@@ -124,10 +126,11 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       'Lookback selection is a review-cadence heuristic, not an optimized range or calibrated probability of remaining in range.',
       'No future fees, rewards, return, net-profit ranking or portfolio allocation is inferred. Rebalancing costs are not supplied.',
       'The pool quote has its original time; the source does not independently pin a valuation block.'], limitations: [] };
-  if(args.dailyRewardTargetUsd!==undefined){
-    output.data.incomeGoal=analyzeLPIncomeTarget({targetUsd:args.dailyRewardTargetUsd,pool,position,rangeData:output.data,
+  if(args.dailyRewardTargetUsd!==undefined||args.analysisFocus){
+    output.data.incomeGoal=analyzeLPIncomeTarget({targetUsd:args.dailyRewardTargetUsd??null,pool,position,rangeData:output.data,
       katUsd:context.strategy?.kat_usd,katObservedAt:context.strategy?.ts,now});
     const goal=output.data.incomeGoal;
+    if(args.dailyRewardPeriodAssumed)goal.periodAssumption='daily';
     output.status=goal.status==='ready'?'ready':'partial';
     if(goal.status==='ready'){
       output.stamps.push(context.strategy.ts);
@@ -139,6 +142,11 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       output.assumptions.push('New gross KAT reward rates assume current price, emissions and competing liquidity; gas, swaps, borrowing costs and actual capital availability are not verified by this rate calculation.');
     }
     output.assumptions.push(goal.basis||goal.message);
+    output.data.advice=buildLPAdvice({data:output.data,context,position,pool,args,now});
+    if(output.data.advice.priceCaseUnavailable)output.status='partial';
+    if(output.data.advice.market.kat)output.stamps.push(output.data.advice.market.kat.observedAt);
+    if(output.data.advice.reset?.funding)output.stamps.push(output.data.advice.reset.funding.observedAt,context.lpAdviceFunding.priceObservedAt);
+    output.assumptions.push('Reset token mix uses the same LP capital before costs; 0.5% slippage is an illustrative allowance, not a live route quote. Recorded native rewards and current campaign-share rates are different observations.');
   }
   return output;
 }
@@ -146,6 +154,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
 export function renderLPRangeAnalysis(output) {
   const d = output.data || {};
   if (output.status === 'blocked') return d.message || 'Your saved preferences do not include LP analysis. You can change that in Strategy policy.';
+  if(d.advice)return renderLPAdvice(d);
   if(d.incomeGoal)return renderLPIncomeTarget(d);
   const format = price => (['USDC', 'USDT', 'DAI', 'USDG'].includes(asset(d.quote)) && d.quoteUsd === 1 ? agentPrice(price) : agentNumber(price, 6) + ' ' + d.quote);
   const range = row => format(row.lowerPrice) + '–' + format(row.upperPrice);

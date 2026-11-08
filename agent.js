@@ -66,7 +66,7 @@ function renderSources(){
   for(const source of sources){
     if(!source||typeof source.name!=='string')continue;
     const status=typeof source.status==='string'?source.status:'unavailable',stamp=date(source.ts);
-    const name=({lending:'Lending',lp:'LP Book',portfolio:'Portfolio',history:'Recorded history'})[source.name]||source.name;
+    const name=({lending:'Lending',lp:'LP Book',portfolio:'Portfolio',history:'Recorded history',strategy:'Strategy pools',kat:'KAT market','katana-mcp':'Katana MCP reference'})[source.name]||source.name;
     const chip=element('span','agent-source',name+' · '+status+(stamp?' · '+stamp:''));chip.dataset.state=status.toLowerCase();box.append(chip);
   }
   box.hidden=!box.children.length;
@@ -416,6 +416,7 @@ async function runVerifiedTool(name,args={}){
 function renderDiagnostics(value){
   const box=$('agentDiagnosticsResult');box.replaceChildren();const rows=[];
   const components=value.components||{},model=value.model||{},budget=value.budget||{};
+  if(value.katanaMCP)renderKatanaMCP(value.katanaMCP);
   const output=value.lastModelOutput;
   if(output)rows.push(['Model output check',output.stage+' · '+output.reason],['Model response format',output.envelope+' · '+output.contentType+'/'+output.jsonShape],['Model finish',output.finishReason||'Not reported'],['Model output tokens',Number.isSafeInteger(output.usage?.outputTokens)?String(output.usage.outputTokens):'Not reported']);
   if(model.profileVersion)rows.push(['Model profile',model.profileVersion]);
@@ -429,6 +430,14 @@ function renderDiagnostics(value){
     ['Next intended review',date(review.nextIntendedReview)||'Not scheduled']);}
   rows.push(['Telegram delivery',value.delivery?.pending?'Pending · '+String(value.delivery.remainingItems||0)+' item(s)':'No queued delivery reported']);
   for(const [label,text] of rows){const row=element('div','agent-diagnostic-row');row.append(element('span','',label),element('span','',text));box.append(row);}
+}
+function renderKatanaMCP(value){
+  const box=$('agentKatanaMCPResult');if(!box)return;box.replaceChildren();
+  const status=value.enabled===false?'Disabled':value.status==='ready'?(value.parsedGaugeCount>0?'Connected · indexed pool references available':'Connected · response format needs verification')
+    :({connected:'Connected · approved data not verified',unavailable:'Connection unavailable',unverified:'Not checked yet'})[value.status]||'Not checked yet';
+  const rows=[['Katana MCP',status],['Last MCP check',date(value.checkedAt)||'No verified check']];
+  if(value.errorCategory)rows.push(['MCP check detail',String(value.errorCategory)]);
+  for(const [label,text]of rows){const row=element('div','agent-diagnostic-row');row.append(element('span','',label),element('span','',text));box.append(row);}
 }
 function clearPrivateAnalysis(){
   reviewState=null;reviewDirty=false;reviewBusy=false;reviewSaving=false;reviewFormRevision=null;pendingReview=null;
@@ -464,7 +473,7 @@ function clearPrivateAnalysis(){
   document.querySelectorAll('[data-compare-kind]').forEach(el=>el.hidden=el.dataset.compareKind!==$('agentCompareKind')?.value);
   policyState=null;policyDraft=null;policyDirty=false;policyConflict=false;policyFormVersion=null;toolResult=null;
   policyLoading=false;toolBusy=false;researchSources=[];researchSourcesLoaded=false;researchLoading=false;researchBusy=false;researchReport=null;pendingResearch=null;
-  for(const id of ['agentToolMeta','agentToolValidity','agentToolResult','agentToolLimits','agentDiagnosticsResult','agentPolicyChanges'])$(id)?.replaceChildren();
+  for(const id of ['agentToolMeta','agentToolValidity','agentToolResult','agentToolLimits','agentDiagnosticsResult','agentKatanaMCPResult','agentPolicyChanges'])$(id)?.replaceChildren();
   for(const id of ['agentResearchMeta','agentResearchValidity','agentResearchReply','agentResearchCoverage','agentResearchLimits','agentResearchFacts'])$(id)?.replaceChildren();
   if($('agentToolPanel'))$('agentToolPanel').hidden=true;if($('agentPolicyPreviewPanel'))$('agentPolicyPreviewPanel').hidden=true;
   if($('agentResearchPanel'))$('agentResearchPanel').hidden=true;
@@ -482,7 +491,7 @@ function clearPrivateAnalysis(){
   if($('agentPairExpiry'))$('agentPairExpiry').textContent='';
   $('agentPairLink')?.removeAttribute('href');
   for(const button of document.querySelectorAll('.agent-tools button'))button.disabled=false;
-  policyButtons(false);if($('agentDiagnosticsRefresh'))$('agentDiagnosticsRefresh').disabled=false;
+  policyButtons(false);if($('agentDiagnosticsRefresh'))$('agentDiagnosticsRefresh').disabled=false;if($('agentKatanaMCPCheck'))$('agentKatanaMCPCheck').disabled=false;
   if($('agentPolicyForm')){$('agentPolicyForm').reset();$('agentPolicyExposures').replaceChildren();addExposureRow();}
 }
 function initVerifiedControls(){
@@ -499,6 +508,7 @@ function initVerifiedControls(){
   $('agentTargetForm')?.addEventListener('submit',event=>{event.preventDefault();if(!event.currentTarget.reportValidity())return;runVerifiedTool('calculateTargetHealth',{market:$('agentTargetMarket').value,targetHealth:Number($('agentTargetHealth').value)});});
   $('agentPositionForm')?.addEventListener('submit',event=>{event.preventDefault();if(!event.currentTarget.reportValidity())return;const args={positionId:$('agentPositionId').value.trim()};if($('agentPositionChain').value)args.chain=$('agentPositionChain').value;if($('agentPositionOwner')?.value.trim())args.owner=$('agentPositionOwner').value.trim();runVerifiedTool('getLPPosition',args);});
   $('agentDiagnosticsRefresh')?.addEventListener('click',async()=>{const view=privateViewVersion,button=$('agentDiagnosticsRefresh');button.disabled=true;try{const value=await request('diagnostics',{});if(samePrivateView(view))renderDiagnostics(value);}catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(view===privateViewVersion)button.disabled=false;}});
+  $('agentKatanaMCPCheck')?.addEventListener('click',async()=>{const view=privateViewVersion,button=$('agentKatanaMCPCheck');button.disabled=true;try{const value=await request('katanaMcpCheck',{});if(samePrivateView(view)){renderKatanaMCP(value.katanaMCP);notice(value.katanaMCP?.status==='ready'?'Katana MCP read verified.':'Katana MCP check finished; see the connection details.');}}catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(view===privateViewVersion)button.disabled=false;}});
   setInterval(()=>{if(!document.hidden){updateToolValidity();updateResearchValidity();}},15000);
   initResearchControls();
 }

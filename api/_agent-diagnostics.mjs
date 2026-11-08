@@ -3,13 +3,15 @@ import { createAgentBudget } from './_agent-budget.mjs';
 import { agentErrorCategory } from './_agent-http.mjs';
 import { safeAgentOutputDiagnostic } from './_agent-output-diagnostics.mjs';
 import { loadReviewInputs, nextReviewTime, reviewFeatureEnabled } from './_agent-review-state.mjs';
+import { katanaMCPDiagnostic } from './_agent-katana-mcp.mjs';
 
 // Called only after the normal owner session check. No provider request, secret,
 // transcript, wallet amount or raw database/provider error belongs in this view.
 export async function agentDiagnostics({ env, store, budgetFactory = createAgentBudget }) {
-  const [lastRequest, lastInference, monitor, pending, monitorSuccess, jobs] = await Promise.all([
+  const [lastRequest, lastInference, monitor, pending, monitorSuccess, jobs, mcp] = await Promise.all([
     store.get('diagnostics:lastRequest'), store.get('diagnostics:lastInference'), store.get('lastCheck'), store.get('monitor:pending'),
     store.get('monitor:lastSuccess'), store.list ? store.list('job:', { limit: 10 }) : null,
+    store.get('diagnostics:katanaMCP'),
   ]);
   let profile, modelError, budget, storageUsage;
   try { storageUsage = await store.storageUsage?.() || { status: 'unverified' }; } catch { storageUsage = { status: 'migration_or_storage_unavailable' }; }
@@ -36,7 +38,7 @@ export async function agentDiagnostics({ env, store, budgetFactory = createAgent
     nextIntendedMonitorCheck: monitor?.ts ? new Date(Date.parse(monitor.ts) + 300000).toISOString() : null,
     lastErrorCategory: lastRequest?.errorCategory || null,
     lastModelOutput: safeAgentOutputDiagnostic(lastRequest?.modelOutput),
-    monitorSources: monitor?.sources || [], storageUsage,
+    monitorSources: monitor?.sources || [], storageUsage, katanaMCP: katanaMCPDiagnostic(mcp, env),
     jobs: { execution: 'bounded_synchronous_and_workflows', backgroundRunner: typeof env.PORTFOLIO_REVIEWS?.create === 'function',
       researchExecution: 'bounded_synchronous', sampled: jobs?.items?.map(({value}) => ({kind:value.kind,state:value.state,phase:value.phase,updatedAt:value.updatedAt})) || [], hasMore: !!jobs?.cursor },
     strategyReview: { enabled: reviewFeatureEnabled(env) && reviewControls.enabled,

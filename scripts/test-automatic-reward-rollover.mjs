@@ -244,6 +244,7 @@ try {
   const aprResult = await advance(aprBook, native), apr = view(aprResult).live.find(P => P.id === '#' + B).apr_detail;
   check(apr.available, true, 'A legacy native-only baseline supports APR on the effective reward basis');
   check(apr.earned_usd, .1, 'Recent APR includes only the ten newly earned native KAT');
+  check(apr.earned_tokens[KAT], 10, 'Agent reward-pace evidence reuses native APR accrual and excludes inherited KAT');
   const markedBook = clone(aprResult.book);
   markedBook.fee_series[0].reward_attribution_version = 2;
   markedBook.fee_series[0].reward_rollover_basis = { [key(B)]: 80 };

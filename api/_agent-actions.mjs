@@ -11,6 +11,7 @@ import { beginAgentJob, jobWrite, agentJobPhase } from './_agent-jobs.mjs';
 import { reviewAction } from './_agent-review-actions.mjs';
 import { prepareAutomaticLP, validateAutomaticLP } from './_agent-lp-autofill.mjs';
 import { automaticAction } from './_agent-auto-actions.mjs';
+import { readKatanaMCP, katanaMCPDiagnostic } from './_agent-katana-mcp.mjs';
 
 export function researchQuestion(message) {
   if (typeof message !== 'string' || message.length > 1000) return null;
@@ -23,6 +24,17 @@ export function researchQuestion(message) {
 // This dispatcher is called only after the existing owner session and origin
 // checks. Model tool calls have no route to policy confirmation or private writes.
 export async function agentAction(body, { env, store, loadContext = loadAgentContext, fetcher = fetch } = {}) {
+  if(body.action==='katanaMcpCheck'){
+    if(Object.keys(body).some(key=>key!=='action'))throw httpError(400,'The Katana MCP destination is fixed.');
+    if(await store.increment('katana-mcp:minute',60)>3)throw httpError(429,'Please wait before checking Katana MCP again.');
+    const lease=await store.lock('katana-mcp:check',15);
+    if(!lease)throw httpError(409,'Katana MCP is already being checked.');
+    try{
+      const reading=await readKatanaMCP({env,fetcher}),diagnostic=katanaMCPDiagnostic(reading,env);
+      await lease.commit([{key:'diagnostics:katanaMCP',value:diagnostic,ttlSeconds:604800}]);
+      return {katanaMCP:diagnostic};
+    }finally{await lease.release();}
+  }
   const automatic = await automaticAction(body,{env,store});
   if(automatic!==null)return automatic;
   const review = await reviewAction(body, { env, store, loadContext });

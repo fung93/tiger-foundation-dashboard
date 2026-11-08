@@ -1,5 +1,45 @@
 # Tiger agent implementation progress
 
+## Flexible LP judgment and Katana MCP — 8 November 2026 (MYT)
+
+- [x] Reconcile the requested example with existing income calculations and the
+  closed model selector. Keep sample prices/payouts/support levels out of live facts.
+- [x] Read repository instructions; owner supplied the exact remote MCP endpoint
+  https://mcp.katana.network/mcp after the linked setup document was proxy-blocked.
+- [x] Add a bounded, read-only MCP connection through the shared private Worker;
+  expose connection verification and retain source evidence separately from authority.
+- [x] Add concise keep-versus-reset judgment, token rebalancing, recorded reward
+  pace, KAT sensitivity and useful natural-language follow-ups without forms.
+- [x] Validate arithmetic, provenance/failure cases, both chat channels, native
+  Worker behavior and responsive UI; run npm run check and Worker dry run.
+- [x] Prepare code publication under the standing agent authorization; preserve
+  original plan, financial JSON, authentication, accounting and Lending behavior.
+- [ ] Confirm the new production deployments and real MCP/model/account behavior.
+
+Direct setup-doc and MCP initialize reads receive workspace proxy HTTP 403, even
+outside the sandbox. No real MCP tool catalog/response has yet been verified.
+The integration must distinguish installed configuration, verified connection and
+usable read-only evidence; tests cannot establish live connectivity. No new paid
+host, credentials, wallet access, ledger edits or Lending setting persistence.
+
+Validation: all **62 portable suites** pass (`npm run check`), including 121
+flexible-analysis, 77 MCP transport/authority and the existing 109 income/108 range
+assertions. The carry-adjusted native-token delta is checked by the existing
+rollover regression. Native workerd/local D1 passes **164 assertions** through
+actual owner/Telegram routes, resource verification, MCP conflicts/outage, six
+accounted simulated inferences and deduplicated retries. Maximum 34 D1 binding
+calls / 62 batched SQL statements are recorded separately; actual account CPU,
+subrequests/rows and quotas remain production acceptance checks. Native automatic
+Workflow retains **26 checks, max 22 D1 calls/stage**, with zero AI/MCP calls.
+Chromium passes **92 checks** across Classy/Tiger at 360/1366 px: concise goal and
+focused follow-ups, connection success/failure, no sideways scroll/private browser
+storage, and logout blocking late responses. Worker dry run passes at **666.58 KiB
+/ 173.16 KiB gzip** using the same Free AI/D1/Workflow configuration. Cache is 160;
+the regular `AGENT_KATANA_MCP_ENABLED=true` variable is the only added config.
+No new migration, secret, binding, model, paid fallback or project dependency.
+Cloudflare API token/key are absent locally, so production deployment is not
+performed or claimed. The setup/acceptance path is in docs/AGENT-KATANA-MCP.md.
+
 ## LP range planning for a daily KAT income goal — 8 November 2026 (MYT)
 
 - [x] Reconcile the reported $10/day question with the current six-tool selector,

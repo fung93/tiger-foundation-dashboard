@@ -2,7 +2,7 @@
    the same Morpho functions as Lending; failed sources never become zeroes. */
 import { MARKETS, WALLET, targetMetrics, liquidationMetrics } from '../morpho-core.mjs';
 import { buildPortfolioSnapshot, comparablePortfolioPerformance } from '../portfolio-core.mjs';
-import { summary as katTradeSummary, reconcile as reconcileKatTrades } from '../kat-core.mjs';
+import { summary as katTradeSummary, reconcile as reconcileKatTrades, usdAtTick } from '../kat-core.mjs';
 import { agentMoney, agentNumber, agentReadingTime } from '../agent-language.mjs';
 
 const numeric = value => Number.isFinite(value) ? value : null;
@@ -75,7 +75,7 @@ function compactStrategyPool(row, kind, ts, sourceCurrent, now) {
     || rules.outOfRange === null)) limitations.push('Campaign eligibility or reward-rate inputs are incomplete.');
   if (campaign && !campaign.active) limitations.push('The reported reward period is not active at this reading.');
   if (kind === 'fees' && (nonnegative(fees.usd_per_day) === null || positive(fees.window_days) === null)) limitations.push('Observed trading fee inputs are incomplete.');
-  const recent = Object.fromEntries([7, 14, 21, 30].map(days => [days, record(row.recent?.[days]) ? {
+  const recent = Object.fromEntries([1, 7, 14, 21, 30].map(days => [days, record(row.recent?.[days]) ? {
     ...pickNumbers(row.recent[days], ['low', 'high', 'lowTick', 'highTick', 'swaps']), complete: row.recent[days].complete === true,
   } : null]));
   return { pool: address(row.pool), kind, status: sourceCurrent ? limitations.length ? 'partial' : 'fresh' : 'stale', ts,
@@ -115,6 +115,20 @@ function katView(sample, now) {
   out.price_usd = positive(sample?.price_usd); out.wallet_kat = nonnegative(sample?.wallet_kat);
   out.priceCoverage = { status: out.price_usd === null ? 'unavailable' : out.status === 'fresh' ? 'observed' : 'stale',
     basis: 'Latest KAT/vbUSDC pool quote; no pinned price block is supplied.', block: null };
+  out.market = null;
+  const hours = sample?.hours;
+  if (out.priceCoverage.status === 'observed' && Array.isArray(hours) && hours.length <= 2000
+    && hours.every((row, i) => Array.isArray(row) && row.length === 2 && Number.isSafeInteger(row[0])
+      && row[0] % 3600 === 0 && Number.isInteger(row[1]) && Math.abs(row[1]) <= 887272
+      && (!i || row[0] > hours[i - 1][0]) && row[0] <= sample.head_ts)) {
+    const target = sample.head_ts - 86400, prior = hours.findLast(row => row[0] <= target);
+    if (prior && target - prior[0] < 3600) {
+      const price = usdAtTick(prior[1]);
+      if (positive(price)) out.market = { priorUsd: price, priorHour: new Date(prior[0] * 1000).toISOString(),
+        currentUsd: out.price_usd, change24hPct: (out.price_usd / price - 1) * 100,
+        observedAt: out.ts, basis: 'Latest pool quote versus the closing tick of the hour approximately 24 hours earlier.' };
+    }
+  }
   out.walletCoverage = { complete: false, balanceObserved: out.status === 'fresh' && out.wallet_kat !== null,
     rawAmountsAvailable: false, valuationBlockPinned: false, scope: 'combined_wallets',
     basis: 'Latest aggregate wallet balance; separate from the tracked trade-book quantity.',
@@ -310,6 +324,10 @@ function lpView(sample, now) {
     ...Object.fromEntries(positionFields.map(key => [key, text(row[key])])),
     in_range: typeof row.in_range === 'boolean' ? row.in_range : null,
     apr_detail: boundedMetric(row.apr_detail), comparison: boundedMetric(row.comparison),
+    rewardPace: row.apr_detail?.available === true && row.apr_detail.complete === true && record(row.apr_detail.earned_tokens)
+      ? { start: row.apr_detail.start_ts, end: row.apr_detail.end_ts, hours: row.apr_detail.elapsed_hours,
+        katEarned: nonnegative(row.apr_detail.earned_tokens['KAT@katana']),
+        carryExcluded: true, source: '/api/lpbook', basis: 'Same carry-adjusted native token delta used by the LP Book APR.' } : null,
     canonical: (Array.isArray(sample.position_data) ? sample.position_data : []).find(position => position?.chain === row.chain
       && String(position.id) === String(row.id).replace(/^#/, '')) || null,
   }));

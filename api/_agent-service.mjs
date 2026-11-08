@@ -15,9 +15,11 @@ import { dispatchPortfolioReview } from './_agent-review-dispatch.mjs';
 import { automaticAction } from './_agent-auto-actions.mjs';
 import { automationEnabled } from './_agent-auto-state.mjs';
 import { isLPIncomeQuestion } from './_agent-lp-income.mjs';
+import { loadLPAdviceContext } from './_agent-lp-advice-context.mjs';
+import { readKatanaMCP,katanaMCPDiagnostic,katanaMCPEnabled } from './_agent-katana-mcp.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v6', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v7', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -46,7 +48,8 @@ export function factualAgentAnswer(context, category) {
 }
 
 export async function processAgentMessage({ store, message, source = 'dashboard', requestId, env = process.env, context,
-  loadContext = loadAgentContext, loadSupplementalContext = loadAgentSupplementalContext, respond = respondAgent, budgetFactory = createAgentBudget }) {
+  loadContext = loadAgentContext, loadSupplementalContext = loadAgentSupplementalContext, readMCP=readKatanaMCP,
+  respond = respondAgent, budgetFactory = createAgentBudget }) {
   if (typeof message !== 'string' || !message.trim() || message.length > 4000) throw httpError(400, 'Ask a question using 1 to 4,000 characters.');
   if (!['dashboard', 'telegram'].includes(source)) throw httpError(400, 'Unknown conversation source.');
   if (requestId !== undefined && (typeof requestId !== 'string' || requestId.length > 160 || !requestId)) throw httpError(400, 'The message reference is invalid.');
@@ -60,6 +63,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     profileVersion: profile?.version || null, modelSchema: AGENT_MODEL_SCHEMA_VERSION, answerSchema: ANSWER_SCHEMA,
     inferenceEnabled: env.AGENT_INFERENCE_ENABLED !== 'false', bindingConfigured: typeof env.AI?.run === 'function',
     policyVersion: policy.version,
+    katanaMCPEnabled:katanaMCPEnabled(env),
   })).digest('hex');
   const cachedAnswer = async () => {
     if (!cacheKey) return null;
@@ -88,7 +92,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
     const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message);
     const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
-    let result, inferenceSucceeded = false, modelOutput = null;
+    let result, inferenceSucceeded = false, modelOutput = null,mcpReading=null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());
     const research = researchQuestion(message);
     await agentJobPhase(lock, handle, research ? 'retrieving' : 'inference');
@@ -112,9 +116,12 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       const inference = { reserve: async args => { const attempt = await ledger().reserve(args); usedInference = true; return attempt; },
         settle: (attempt, outcome) => ledger().settle(attempt, outcome),
         observe: value => { modelOutput = safeAgentOutputDiagnostic(value); } };
-      result = await respond({ message: message.trim(), messages: messages.slice(-12), settings, context: reading, policy, env, inference,
-        loadToolContext: (tool, base) => tool === 'analyzeLPRange' && !base.strategy ? loadSupplementalContext({
-          origin: getAgentOrigin(env), needs: ['strategy'], context: base, timeoutMs: 6000 }) : base });
+      result = await respond({ message: message.trim(), messages: messages.slice(-24), settings, context: reading, policy, env, inference,
+        loadToolContext: async (tool, base, args) => {
+          if(tool!=='analyzeLPRange')return base;
+          const enhanced=await loadLPAdviceContext({context:base,args,env,origin:getAgentOrigin(env),loadSupplementalContext,readMCP});
+          mcpReading=enhanced.katanaMCP;return enhanced;
+        } });
       inferenceSucceeded = usedInference && !result?.errorCategory;
     } catch (error) {
       const category = agentErrorCategory(error);
@@ -164,6 +171,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     if (result.report) answer.report = result.report;
     const writes = [{ key: 'messages', value: next }, { key: 'settings', value: settings }, { key: 'sources', value: answer.sources }];
     writes.push({ key: 'diagnostics:lastRequest', value: { ts, mode: answer.mode, errorCategory: answer.errorCategory, modelOutput } });
+    if(mcpReading&&katanaMCPEnabled(env))writes.push({key:'diagnostics:katanaMCP',value:katanaMCPDiagnostic(mcpReading,env),ttlSeconds:604800});
     if (inferenceSucceeded && profile) writes.push({ key: 'diagnostics:lastInference', value: { ts, status: 'succeeded',
       modelId: profile.id, profileVersion: profile.version } });
     const completedAt = Date.now();

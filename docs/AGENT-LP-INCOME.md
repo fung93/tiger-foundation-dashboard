@@ -12,6 +12,11 @@ exists, and a conditional capital requirement. It ends with a short trade-off
 and the current campaign end. A history-based candidate must match the saved or
 question-only review cadence. Incomplete relevant history remains incomplete.
 
+The subsequent [flexible-analysis and MCP extension](AGENT-KATANA-MCP.md) adds
+keep/reset judgment, recorded native reward pace, costs, price cases and contextual
+follow-ups. That extension uses browser cache 160 and an optional MCP enable flag;
+the original rollout notes below describe the earlier income-only release.
+
 ## Calculation
 
 `api/_agent-lp-income.mjs` reuses `strategy-core.mjs` for range valuation and
