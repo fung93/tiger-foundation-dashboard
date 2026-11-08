@@ -794,6 +794,15 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   is an explicit owner browser action; logout invalidates late results. Do not
   invent numeric parsers for unseen Markdown or claim fixture success identifies
   the live payload. The execution proxy still blocks direct provider reads.
+- The owner's subsequent MCP diagnostic identifies forty `gauges` rows with
+  `gauge` address, `votes`/`sharePercent` strings and `isAlive` boolean. Use the
+  existing Katana voter gauge-to-pool lookup mapping (vkat-core / gaugeVotes(pool))
+  and an exact primary LP pool match. Retain all forty within an eighty-reference
+  cap, not just the leading twenty. Preserve huge vote strings and lifecycle as
+  reference data with unspecified vote units. Votes/vote allocation are never
+  KAT/day or owner liquidity share; an inactive voting gauge cannot erase an active
+  funded Merkl campaign. Reject conflicts/foreign identities and invent no source
+  timestamp. Fixtures follow the supplied schema but their values are hypothetical.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous chat/research records
@@ -1111,6 +1120,21 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, exact Katana voting-gauge adapter:** the owner-supplied format
+  diagnostic pinpoints the absent `gauge` address alias in forty JSON rows.
+  Normalize the existing voter-to-pool identity mapping, retain opaque voting
+  strings/lifecycle and keep the whole catalog under a bounded eighty-reference
+  ceiling. Select a reference by the primary LP pool; vote shares and isAlive
+  never replace verified campaign/eligible-liquidity data. The exact schema
+  regression fails before the fix (0 versus 40), then passes; values are synthetic,
+  not captured account data. MCP schema v3 / format v2 / answer cache v9 preserve
+  interpretation provenance. This is server-only: browser cache stays 161 and no
+  configuration, secret, binding, migration, paid service or extra inference is
+  added. See progress and docs/AGENT-KATANA-MCP.md for test/live acceptance evidence.
+  All 63 portable suites, formats 182/protocol 86, native Worker/Telegram 180
+  (max 34 D1 calls / 62 batched SQL statements) and Worker dry run pass; bundle
+  676.64 KiB / 176.03 KiB gzip. Confirm the next deployed MCP check with the owner.
 
 - **8 Nov 2026, MCP response-format follow-up:** the owner confirms the new
   deployed MCP check connects but its narrow JSON adapter extracts zero rows.

@@ -11,6 +11,7 @@ const stamp=v=>{const n=typeof v==='number'?(v<1e12?v*1000:v):typeof v==='string
 const type=v=>v===null?'null':Array.isArray(v)?'array':typeof v==='string'?(address(v)?'address_string':'string'):typeof v;
 const key=v=>/^[a-z][a-z0-9_ -]{0,39}$/i.test(v)?v:address(v)?'<address-key>':'<other-key>';
 const WRAPPERS=new Set(['gauges','pools','data','result','results','items','records','rows','entries','response','output']);
+const MAX_REFERENCES=80;
 const chains=v=>[v?.chainId,v?.chain_id,v?.chain?.id].filter(n=>n!=null);
 function shape(value,depth=0,budget={nodes:0}){
   if(++budget.nodes>60)return {type:'omitted'};
@@ -71,7 +72,10 @@ function parseDocument(document){
       for(const row of value.slice(0,80))visit(row,path+'[]',depth+1,{time,chainValid},null,true);
       return;
     }
-    const ids=[value.pool,value.poolAddress,value.pool_address,value.pool?.address,value.pool?.id,
+    // The approved Katana voting tool calls the pool address `gauge` (the same
+    // mapping used by VOTER.gaugeVotes(pool) in strategy.mjs and vkat-core.mjs).
+    const gauge=address(value.gauge);
+    const ids=[value.pool,value.poolAddress,value.pool_address,value.pool?.address,value.pool?.id,gauge,
       rowContext?value.address:null].map(address).filter(Boolean);
     if(!ids.length&&implicit)ids.push(implicit);
     if(ids.length){
@@ -79,7 +83,11 @@ function parseDocument(document){
       if(new Set(ids).size!==1){invalid++;return;}
       const rates=[value.katPerDay,value.kat_per_day].filter(v=>v!=null).map(number);
       rows.push({pool:ids[0],katPerDay:rates.length&&rates.every(n=>n!==null&&n===rates[0])?rates[0]:null,
-        votes:number(value.votes),observedAt:time,raw:clean(JSON.stringify(value))});
+        gauge,identityBasis:gauge?'katana_voting_gauge_is_pool':'explicit_pool',
+        votes:number(value.votes),votesText:typeof value.votes==='string'?clean(value.votes,120):null,
+        voteSharePercentText:typeof value.sharePercent==='string'?clean(value.sharePercent,120):null,
+        isAlive:typeof value.isAlive==='boolean'?value.isAlive:null,
+        voteUnits:'not_supplied_by_source',observedAt:time,raw:clean(JSON.stringify(value))});
       return;
     }
     const entries=Object.entries(value);
@@ -100,15 +108,15 @@ function parseDocument(document){
   const seen=new Map();for(const row of rows)seen.set(row.pool,(seen.get(row.pool)||0)+1);
   const unique=rows.filter(row=>seen.get(row.pool)===1);
   invalid+=rows.length-unique.length;
-  if(unique.length>20)limited=true;
-  return {gauges:unique.slice(0,20),collections,recognized,limited,invalid,upstreamErrors,
+  if(unique.length>MAX_REFERENCES)limited=true;
+  return {gauges:unique.slice(0,MAX_REFERENCES),collections,recognized,limited,invalid,upstreamErrors,
     reason:unique.length?'pool_references_found':upstreamErrors?'tool_reported_error':invalid?'conflicting_or_foreign_identity':empty?'empty_collection':recognized?'pool_identity_unrecognized':'collection_unrecognized'};
 }
 
 export function inspectKatanaMCPResult(result){
   const content=Array.isArray(result?.content)?result.content.slice(0,12):[];
   const texts=content.filter(row=>row?.type==='text'&&typeof row.text==='string').map(row=>row.text);
-  const format={schemaVersion:'katana-mcp-format-v1',document:'unknown',reason:'content_unrecognized',
+  const format={schemaVersion:'katana-mcp-format-v2',document:'unknown',reason:'content_unrecognized',
     contentTypes:[...new Set(content.map(row=>['text','image','audio','resource','resource_link'].includes(row?.type)?row.type:'other'))],
     structuredShape:result?.structuredContent==null?null:shape(result.structuredContent),dataShape:null,collections:[]};
   const finish=gauges=>{

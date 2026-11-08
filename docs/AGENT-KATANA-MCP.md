@@ -12,8 +12,10 @@ provider format/authentication and live connectivity were not verified from this
 workspace at the original release. The owner subsequently reports a completed
 real Check Katana MCP showing “Connected · response format needs verification.”
 That establishes a deployed handshake/catalog/approved-read success, with zero
-rows extracted by the old adapter; the exact live payload is still unseen here.
-Local fixtures test the protocol contract, not a captured real server.
+rows extracted by the old adapter. The owner then supplied its actual field/type
+diagnostic: forty gauge rows with `gauge`, `votes`, `sharePercent` and `isAlive`.
+This identifies the missing address alias. Actual response values are not captured
+here; regression fixtures use hypothetical addresses and voting data.
 
 ## What changes in conversation
 
@@ -110,12 +112,36 @@ AI side effect; logout clears the details and invalidates late responses.
 
 Before/after tests demonstrate the actual previous adapter returning zero and the
 new adapter returning one reference for nested, fenced and address-map fixtures.
-Those tests do not identify the owner's unseen real layout. Recheck against the
-deployed provider and use its safe diagnostic when adding further adapters.
+Those initial tests did not identify the owner's then-unseen layout. The actual
+diagnostic subsequently identified the voting-gauge layout described below.
+
+### Katana voting-gauge identity
+
+The reported rows use `gauge` for the address. In this Katana voter integration,
+the gauge address is the vote target used for a pool: see `vkat-core.mjs` and the
+existing `gaugeVotes(pool)` calls in `api/strategy.mjs`. Normalize that address as
+the pool lookup key and require an exact match to the independently read LP pool
+before attaching its reference to an LP analysis. Other gauges are not additional
+owner positions. Reject malformed addresses, conflicting pool/gauge identities
+and explicitly foreign chains.
+
+The adapter retains all forty reported references, with an eighty-reference cap;
+the selected LP can be at the end of the catalog. Only its matching reference is
+retained in a private LP answer. Large voting-power and vote-share strings remain
+source text with unspecified units. `isAlive` remains a voting lifecycle flag.
+None supplies KAT/day, the owner's liquidity share, a new reward price or a reason
+to erase an existing funded Merkl campaign. No timestamp is invented when absent.
+
+The exact field-schema regression failed with zero rows before this fix and
+passes with forty after it. Native Worker/chat tests use that reported schema
+with hypothetical values, including a matching inactive gauge at row forty and a
+separately active reward campaign. Direct live access and actual Free CPU remain
+account checks; the owner can confirm the new deployed check's positive state.
 
 ## Configuration and live acceptance
 
 Deploy current Vercel assets/APIs and the existing Worker. Browser cache is 161.
+The voting-gauge identity fix is server-only and retains that browser cache.
 Wrangler includes `AGENT_KATANA_MCP_ENABLED=true`; set it to `false` to disable the
 extra resource. No new D1 migration, binding, dependency, configured credential or
 paid fallback is added. Existing Qwen, budgets, authentication, Telegram linking,

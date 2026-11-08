@@ -1,5 +1,37 @@
 # Tiger agent implementation progress
 
+## Katana voting-gauge identity adapter — 8 November 2026 (MYT)
+
+- [x] Owner supplies the real format diagnostic: JSON with forty `gauges`, each
+  containing `gauge` address, `votes` string, `sharePercent` string and `isAlive`
+  boolean. No actual votes/amounts were supplied or copied as project facts.
+- [x] Reproduce the exact field schema with hypothetical values: the previous
+  adapter extracts zero rows because `gauge` is not an accepted pool identity.
+- [x] Apply the existing Katana voter mapping (gauge = pool), preserve voting
+  strings/lifecycle separately from reward rates, and retain all forty references
+  under an eighty-reference cap. Conflicting/foreign/malformed identities still fail.
+- [x] Run format, protocol, native Worker/Telegram and full project checks plus
+  the Worker dry run, then prepare publication under the standing authorization.
+- [ ] Confirm the deployed Check Katana MCP now reports available indexed pool
+  references; the execution proxy still prevents an independent live call here.
+
+The regression includes a current LP's reference at row forty and an inactive
+voting gauge with a separately verified active reward campaign. Neither voting
+power, vote allocation nor gauge lifecycle may replace Merkl emissions or the
+owner's eligible-liquidity share. No source timestamp is invented. This is a
+server-only change: cache 161 remains current, with no new configuration/secret.
+
+Validation: all **63 portable suites** pass (`npm run check`), including **182
+format / 86 protocol** assertions. Native workerd/local D1 passes **180 checks**
+through the real owner/Telegram entry paths (max 34 D1 calls / 62 batched SQL
+statements). The reported forty-row schema matches its last-row LP, retains only
+that reference in the private answer, and leaves verified income unchanged when
+the voting gauge is inactive or has large voting/share strings. Worker dry run
+passes at **676.64 KiB / 176.03 KiB gzip**. Source field schema is owner-supplied;
+fixture values are hypothetical. Actual deployment/Free CPU and the next live
+Check remain account acceptance gates. No new model request, data writer or
+wallet operation is introduced.
+
 ## Katana MCP response-format follow-up — 8 November 2026 (MYT)
 
 - [x] Owner reports “Connected · response format needs verification.” This proves
@@ -11,11 +43,11 @@
   from unrecognized content. No raw provider values or instructions are exposed.
 - [x] Validate formats, private/native paths, browser copy/logout behavior,
   npm run check and the Worker dry run; prepare the publication.
-- [ ] Confirm a new actual check. If its format is still unsupported, use the
-  safe format diagnostic to build an adapter against evidence, not guessed values.
+- [x] Owner supplies the new actual diagnostic. It identifies the `gauge` address
+  field; the concrete adapter/acceptance work is recorded above.
 
-Direct MCP reads still receive workspace proxy HTTP 403. Real connection success
-is owner-reported; the precise live payload layout has not yet been supplied.
+Direct MCP reads still receive workspace proxy HTTP 403. The initial layout was
+unseen at this release; the owner's later field/type diagnostic is recorded above.
 Primary chain/Merkl calculations, free-model accounting and wallet access remain
 unchanged. No additional MCP request, new credential, model call or paid service.
 

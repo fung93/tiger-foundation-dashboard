@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { inspectKatanaMCPResult } from './_agent-katana-mcp-format.mjs';
 
 export const KATANA_MCP_URL = 'https://mcp.katana.network/mcp';
-export const KATANA_MCP_SCHEMA = 'katana-mcp-v2';
+export const KATANA_MCP_SCHEMA = 'katana-mcp-v3';
 // This exact read tool was already used and documented in AGENTS.md (1 Nov).
 // A discovered tool's description/readOnlyHint does not authorize new tools.
 export const KATANA_MCP_READ_TOOLS = Object.freeze(['get_kat_gauges']);

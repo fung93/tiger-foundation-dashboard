@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { targetMetrics } from '../morpho-core.mjs';
 import { tickAtPrice, priceAtTick } from '../strategy-core.mjs';
 import { incomeSources } from './fixtures/agent-lp-income.mjs';
+import { katanaGaugeSource } from './fixtures/katana-mcp-gauges.mjs';
 
 const runtimeRoot = process.argv[2];
 if (!runtimeRoot) throw Error('Pass the validation node_modules directory as the only argument.');
@@ -87,6 +88,7 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
         :body.method==='tools/list'?{tools:[{name:'get_kat_gauges',inputSchema:{type:'object',properties:{},required:[]}},
           {name:'transfer_tokens',annotations:{readOnlyHint:true},inputSchema:{type:'object'}}]}
           :mcpMode==='unknown-format'?{content:[{type:'text',text:'# Public gauge reference\nPool address: 0x'+'9'.repeat(40)+'\nVotes: 35600000\nPRIVATE_PROVIDER_TEXT'}]}
+            :mcpMode==='voting-gauges'?{content:[{type:'text',text:JSON.stringify(katanaGaugeSource(incomeSources().strategy.pools[0].pool))}]}
             :{content:[{type:'text',text:'```json\n'+JSON.stringify({result:{data:{pools:[{pool:incomeSources().strategy.pools[0].pool,katPerDay:0,votes:0}]}}})+'\n```'}]};
       if(body.method==='tools/call')check(body.params,{name:'get_kat_gauges',arguments:{}},'Native MCP never receives wallet data or a transaction tool');
       return Response.json({jsonrpc:'2.0',id:body.id,result},{headers:body.method==='initialize'?{'mcp-session-id':'native-fixture-session'}:{}});
@@ -292,14 +294,18 @@ try {
   check((await rangeTelegram()).status, 200, 'Telegram retry completes without another logical question');
   check(await usageCount(), 2, 'The Telegram retry does not consume another AI reservation');
   check((await request({ action: 'status' })).value.messages.at(-1).content.includes('14-day history'), true, 'The shared dashboard history contains Telegram range analysis');
-  providerMode='income';
+  providerMode='income';mcpMode='voting-gauges';
   const incomeQuestion='what is the suitable LP range for katana vbUSDC/WBTC to earn $10 worth of KAT daily?';
   const incomeChat=await request({action:'chat',message:incomeQuestion,requestId:'native:income-chat'},true,true);
   check(incomeChat.status,200,'The native owner chat accepts a daily-income question without a financial form');
   check(incomeChat.value.result?.data.incomeGoal?.targetUsdPerDay,10,'The exact owner question retains its earning target in native workerd');
   check(incomeChat.value.result?.data.incomeGoal?.status,'ready','Live-position source adapters provide the inputs for actual goal arithmetic');
-  check(incomeChat.value.result.data.advice.mcpComparison.campaignRateDiffers,true,'The native result preserves the MCP discrepancy without trusting its zero emission');
+  check(incomeChat.value.result.data.advice.mcpComparison.campaignRateDiffers,null,'A gauge voting response does not contain a campaign emission rate to compare');
   check(incomeChat.value.result.data.incomeGoal.current.usdPerDay,1,'An MCP index cannot override verified campaign arithmetic');
+  check(incomeChat.value.result.data.advice.mcpComparison.pool,incomeSources().strategy.pools[0].pool,'The native chat finds the matching LP pool at row forty of the reported gauge schema');
+  check(incomeChat.value.result.data.advice.mcpComparison.isAlive,false,'Gauge lifecycle metadata does not erase a funded campaign');
+  check(incomeChat.value.result.data.advice.mcpComparison.katPerDay,null,'The actual-layout adapter cannot confuse voting power with daily KAT rewards');
+  check(incomeChat.value.result.data.advice.mcp.gauges.length,1,'The private answer retains only the selected LP reference from the larger catalog');
   check(incomeChat.value.reply.includes('$10.00/day'),true,'The native answer addresses the dollar goal');
   check(incomeChat.value.reply.includes('target-only band'),true,'The goal answer distinguishes a narrow target band from historical coverage');
   check(incomeChat.value.reply.includes('borrowing costs'),true,'Native goal answers retain gross-income scope');
@@ -329,6 +335,7 @@ try {
   check((await sensitivityTelegram()).status,200,'The contextual Telegram retry remains idempotent');
   check(calls.filter(row=>row.method.startsWith('mcp:')).length,mcpCalls,'A retry repeats neither AI nor MCP work');
   check((await request({action:'diagnostics'})).value.katanaMCP.status,'ready','Connection & usage retains the last actual MCP check metadata');
+  check((await request({action:'diagnostics'})).value.katanaMCP.parsedGaugeCount,40,'The native connection metadata reports all forty valid gauge references');
   check(Math.max(...queryCounts)<=50,true,'All native dashboard/Telegram/resource invocations fit the D1 call ceiling');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed; max '+Math.max(...queryCounts)+' D1 calls / '+Math.max(...statementCounts)+' batched SQL statements. No real provider was contacted.');
 } finally { await mf.dispose(); }

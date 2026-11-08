@@ -2,11 +2,30 @@
    Flexible structure must not imply flexible identity, units or source authority. */
 import assert from 'node:assert/strict';
 import { inspectKatanaMCPResult } from '../api/_agent-katana-mcp-format.mjs';
+import {katanaGaugeSource} from './fixtures/katana-mcp-gauges.mjs';
 let checks=0;
 const check=(a,b,n)=>{assert.deepEqual(a,b,n);checks++;};
 const pool='0x'+'8'.repeat(40),other='0x'+'7'.repeat(40),stamp='2026-11-08T12:00:00.000Z';
 const row={pool,katPerDay:16560,votes:35600000,observedAt:stamp};
 const text=value=>({content:[{type:'text',text:typeof value==='string'?value:JSON.stringify(value)}]});
+const actualShape=inspectKatanaMCPResult(text(katanaGaugeSource(pool)));
+check(actualShape.gauges.length,40,'The exact owner-reported gauge field schema is recognized without truncating forty references');
+check(actualShape.gauges.at(-1).pool,pool,'The owner’s matching reference remains available even at the end of the catalog');
+check(actualShape.gauges.at(-1).gauge,pool,'The original gauge address is retained');
+check(actualShape.gauges.at(-1).identityBasis,'katana_voting_gauge_is_pool','Gauge normalization records its protocol-specific identity basis');
+check(actualShape.gauges.at(-1).votes,null,'Large voting-power strings are not rounded into inaccurate JavaScript quantities');
+check(actualShape.gauges.at(-1).votesText,'35600000000000000000000000','The source voting-power string is retained exactly');
+check(actualShape.gauges.at(-1).voteSharePercentText,'15.6','Gauge vote allocation remains a source string, separate from the LP reward share');
+check(actualShape.gauges.at(-1).isAlive,false,'Inactive voting gauges remain available as context for an existing funded campaign');
+check(actualShape.gauges.at(-1).katPerDay,null,'Voting power and vote allocation never become KAT/day emissions');
+check(actualShape.gauges.at(-1).observedAt,null,'This source shape supplies no observation timestamp');
+check(actualShape.format.reason,'pool_references_found','The real reported layout no longer receives an identity-format failure');
+check(actualShape.format.limited,false,'The complete forty-gauge response fits the bounded reference budget');
+check(inspectKatanaMCPResult(text({gauges:[{gauge:pool,pool:other}]})).gauges.length,0,'Conflicting explicit gauge and pool addresses are rejected');
+check(inspectKatanaMCPResult(text({chainId:1,gauges:[{gauge:pool}]})).gauges.length,0,'The Katana gauge-to-pool mapping is never applied to an explicitly foreign chain');
+check(inspectKatanaMCPResult(text({gauges:[{gauge:'not-an-address',votes:'1',sharePercent:'100',isAlive:true}]})).gauges.length,0,'A voting tally cannot repair a malformed gauge identity');
+const diagnostic=JSON.stringify(actualShape.format);
+check(diagnostic.includes(pool)||diagnostic.includes('35600000000000000000000000')||diagnostic.includes('15.6'),false,'The new gauge adapter retains value-free diagnostic copying');
 const forms=[['array',[row]],['gauges',{gauges:[row]}],['nested data',{data:{gauges:[row]}}],
   ['pools',{pools:[row]}],['nested result',{result:{data:{pools:[row]}}}],['rows',{data:{rows:[row]}}],
   ['JSON child',{result:JSON.stringify({gauges:[row]})}],['address map',{gauges:{[pool]:{katPerDay:16560,votes:35600000,observedAt:stamp}}}],
@@ -79,7 +98,7 @@ let deep={gauges:[row]};for(let i=0;i<20;i++)deep={data:deep};
 check(inspectKatanaMCPResult(text(deep)).format.limited,true,'Structural recursion has an explicit depth budget');
 const large={data:{pools:Array.from({length:100},(_,i)=>({pool:'0x'+String(i+1).padStart(40,'0'),...Object.fromEntries(Array.from({length:20},(_,j)=>['Field_'+j,'PRIVATE_VALUE_'+i+'_'+j]))}))}};
 const capped=inspectKatanaMCPResult({structuredContent:large});
-check(capped.gauges.length,20,'The private source retains a bounded number of pool references');
+check(capped.gauges.length,80,'The private source retains a bounded number of pool references, covering the forty-gauge catalog');
 check(capped.format.limited,true,'Omitted rows are explicit');
 check(JSON.stringify(capped.format).length<=6000,true,'Format diagnostics have their own storage/payload ceiling');
 check(JSON.stringify(capped.format).includes('PRIVATE_VALUE_'),false,'Large diagnostics contain schema metadata only');

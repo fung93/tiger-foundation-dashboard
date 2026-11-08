@@ -19,7 +19,7 @@ import { loadLPAdviceContext } from './_agent-lp-advice-context.mjs';
 import { readKatanaMCP,katanaMCPDiagnostic,katanaMCPEnabled } from './_agent-katana-mcp.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v8', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v9', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
