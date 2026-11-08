@@ -5,12 +5,11 @@ import { getAgentOrigin } from './_agent-http.mjs';
 import { loadAgentContext, readAgentJSON } from './_agent-context.mjs';
 import { AUTO_SCHEMA, AUTO_LIMITS, automaticInputs, automationEnabled, autoPaused, autoHash, autoFresh } from './_agent-auto-state.mjs';
 import { poolKey, positionKey, recordAutomatic, recordWalletObservation, recordPoolObservation, recordPositionObservation, markAbsentPositions } from './_agent-auto-observations.mjs';
-import { trackedIdentity, observedFeeRate, renderPositionSuggestion } from './_agent-auto-analysis.mjs';
+import { trackedIdentity, observedFeeRate, renderPositionSuggestion, renderAutomaticPortfolioBrief } from './_agent-auto-analysis.mjs';
 import { prepareAutomaticLP, detectedLPPositions } from './_agent-lp-autofill.mjs';
 import { compareAgentStrategies } from './_agent-scenarios.mjs';
 import { summarizeLPComparison } from '../agent-lp-summary.mjs';
 import { createStrategyReport, persistAgentReport } from './_agent-reports.mjs';
-import { agentMoney, agentReadingTime } from '../agent-language.mjs';
 import { mytDayAndTime, monitorConditions } from './_agent-notifications.mjs';
 import { deliverAutomaticNotices } from './_agent-auto-delivery.mjs';
 import { mergeRangeOutcome } from './_agent-auto-learning.mjs';
@@ -60,23 +59,6 @@ async function caseForPosition({store,context,item,policy,origin,fetcher,now,rea
   return {setup,result,input:setup.inputs,marketObservation:current,summary:reposition?.status==='outside_policy'?'A range change is outside your cash or saved limits.'
     :view.points.find(point=>point.label==='Your LP vs holding')?.text||'Waiting for complete fee and cost observations.',
     upfrontCostUsd:reposition?.cashRequiredUsd??null,source:'automatic_observational_defaults_v1',createdAt:new Date(now).toISOString()};
-}
-function briefFor(latest) {
-  const lines=['Your automatic portfolio check'];
-  const loan=latest.loanAttention?.find(item=>item.severity==='critical')||latest.loanAttention?.[0];
-  if(loan)lines.push('• Lending priority: '+loan.message.replace(/ Reading:.*$/,''));
-  if(latest.lp)lines.push('• LPs: '+latest.lp.open+' open · '+agentMoney(latest.lp.value_usd)+' value · '
-    +agentMoney(latest.lp.net_usd)+' net · '+agentMoney(latest.lp.unclaimed_usd)+' fees/rewards still to claim.');
-  const active=latest.positions.filter(p=>p.current!==false&&p.risk?.status==='watch');
-  if(active.length)lines.push('• Attention: '+active.length+' LP'+(active.length===1?' needs':'s need')+' a closer watch.');
-  else lines.push('• Attention: '+(latest.lp&&latest.positions.every(p=>p.current!==false)?'No new LP risk trigger in the verified readings.':'Waiting for a complete LP reading.'));
-  const first=[...latest.positions].sort((a,b)=>Number(b.risk?.status==='watch')-Number(a.risk?.status==='watch')||(a.risk?.edgePct??100)-(b.risk?.edgePct??100))[0];
-  if(first)lines.push('\n'+renderPositionSuggestion(first));
-  if(latest.positions.length>1)lines.push('\nAll '+latest.positions.length+' positions and recorded outcomes are available in Agent.');
-  if(latest.coverage?.truncated)lines.push('Market monitoring currently covers '+latest.positions.length+' of '+latest.coverage.totalOpenPositions+' open LPs.');
-  if(latest.status!=='ready')lines.push('Some sources are still being verified; retained values keep their original dates.');
-  lines.push('Checked '+agentReadingTime(latest.checkedAt)+'.');
-  return lines.join('\n').slice(0,3000);
 }
 function compactItem(item,current,policyVersion,intervalMinutes) {
   const p=item.position,m=item.market,comparison=item.comparison;
@@ -254,7 +236,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
         sources:job.context.sources||[],dailyDate:prior?.dailyDate||null,telegramDailyDate:prior?.telegramDailyDate||null,delivery:prior?.delivery||null,
         learning:{proposals:positions.filter(item=>item.proposal).length,observations:positions.reduce((n,item)=>n+(item.proposal?.observations||0)+(item.lessons?.observations||0),0),
           completed:uniqueLessons.reduce((n,item)=>n+(item?.completedProposals||0),0)}};
-      latest.reply=briefFor(latest);
+      latest.reply=renderAutomaticPortfolioBrief(latest);
       const publishedSignals={},events=[];
       for(const item of positions)for(const event of Object.values(item.pendingSignals)){
         const key=item.key+':'+event.kind,published=prior?.publishedSignals?.[key];

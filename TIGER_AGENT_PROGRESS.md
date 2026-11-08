@@ -1,5 +1,31 @@
 # Tiger agent implementation progress
 
+## Include every tracked LP in the brief — 8 November 2026 (MYT)
+
+- [x] Reconcile the owner's missing Katana WBTC/USDC report against the saved
+  roster: Katana #493879 and Robinhood #1458357 are both open. The brief counted
+  two positions but selected only the leading position for its detailed text.
+- [x] Reproduce the omission in real workerd/Workflow/local D1 with a staked
+  Katana LP and Robinhood LP; both were stored but Katana was absent from the reply.
+- [x] Render a compact suggestion for each LP in the shared dashboard/Telegram
+  brief, keep lending priority first, retain verified range/cost scope and share
+  one next-check line. Large portfolios get an explicit shown/total count.
+- [x] Validate 29 focused assertions and 26 native Workflow assertions, including
+  both chain/NFT identities in the outgoing test Telegram body (max 22 D1 calls).
+- [x] Verify both themes at 360/1366 px with 136 Chromium assertions: both LPs
+  appear in the default brief, while evidence, no-form operation and logout
+  cleanup remain correct. Worker dry run passes (596.59 KiB / 154.59 KiB gzip).
+- [x] Run npm run check across all 59 portable suites, including a full rerun
+  after preserving/rebasing the automatic data update 362d15b. Complete release
+  preparation under the standing agent authorization; preserve earlier live-test notes.
+- [ ] Confirm the new Cloudflare release and next real brief show both LPs.
+
+This changes summary presentation only. Read-only discovery, LP Book accounting,
+reward rollover, policy, monitoring cadence and Lending settings are unchanged.
+The earlier owner-supplied deployment/Telegram evidence below remains preserved.
+No browser asset, secret, migration, binding, model call or new D1 query is needed.
+Cache 159 remains current; the existing Cloudflare Worker needs the new release.
+
 ## Automatic portfolio and LP monitoring — 8 November 2026 (MYT)
 
 Owner authorized the proposed automatic tracking, market monitoring, range review
@@ -43,8 +69,12 @@ The existing Free Worker/Workflow/D1 and bot are reused; no new secret, binding,
 migration or dependency is needed. `AGENT_AUTOMATION_ENABLED=true` is an explicit
 rollback control. Current Vercel APIs/assets and the existing Worker must both
 update. Last scheduled attempt is separate from manual success. Cloudflare
-authentication is unavailable locally, so actual deployment, source/account
-CPU/quotas, Cron and human Telegram acceptance remain outstanding. Full rollout,
+authentication is unavailable locally. The owner confirmed Cloudflare production
+commit 25858fe is Ready, and supplied automatic briefs showing successful readings
+advancing from 15:15 to 15:35 MYT, with a later scheduled attempt at 15:40 MYT.
+The owner then supplied the requested Telegram reply containing a 15:40 MYT live
+reading. Account CPU/quotas and scheduled daily Telegram delivery remain outstanding.
+Full rollout,
 sampling/cost assumptions, coverage caps and free-cadence rules are documented in
 docs/AGENT-AUTOMATION.md. The supplied implementation plan is unchanged.
 
@@ -54,10 +84,23 @@ lending, reward-rollover and accounting regressions. Worker build is 595.77 KiB
 preflight requests on all four chains were unavailable from this workspace; only
 status/timing metadata was printed. No production model or Telegram was contacted.
 
-- [ ] Real account: deploy both current Vercel assets/APIs and existing Worker;
-  verify actual RPC readings, advancing scheduled attempts, Free CPU/D1/Workflow
-  usage and Telegram delivery to the linked owner. These are deployment/acceptance
-  gates, not missing local implementation or a request for paid services.
+- [x] Owner-reported Cloudflare production deployment: commit 25858fe is Ready.
+- [x] Owner-reported current Vercel assets/APIs: Automatic portfolio watch displays
+  the new short brief and detects both current LPs.
+- [x] First live scheduled observation reported: last successful reading and last
+  scheduled attempt 8 Nov 15:15 MYT; next intended check 15:20 MYT. The displayed
+  Robinhood position is gathering history before a numeric band is offered.
+- [x] Owner-reported background continuity after the dashboard-closed test:
+  successful reading advanced from 15:15 to 15:35 MYT. Last scheduled attempt
+  reached 15:40 MYT; a successful 15:40 result was not yet present in that report.
+- [x] Owner-reported Telegram reply: "Review my portfolio" returned the updated
+  automatic portfolio brief checked at 8 Nov 15:40 MYT.
+- [ ] Verify scheduled daily delivery to the linked owner. Daily summaries are
+  limited to one per MYT day; a reply to a question is a separate delivery path.
+  Owner expects the next summary at 8 Nov 22:50 MYT. The saved setting and actual
+  arrival at/after that scheduled time have not been independently verified.
+- [ ] Review Free CPU/D1/Workflow usage. Workspace-independent account access
+  remains unavailable; the live evidence above was supplied by the owner.
 
 Changed file groups: `agent.html`, `agent.js`, `agent.css`, `sw.js`; new private
 `api/_agent-auto-{actions,analysis,delivery,learning,observations,state,workflow}.mjs`

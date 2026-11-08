@@ -810,6 +810,10 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   including across replacement LPs. Journal rejection suppresses the relevant
   position idea under that policy, not critical facts. Complete ownership absence
   is not realised P&L; preserve LP Book accounting and Katana rewards/rollover.
+  The short shared brief names every tracked LP that fits, with one compact
+  suggestion each; never describe just the leading LP while claiming all are
+  covered. Keep critical lending first and explicit shown/total counts for
+  large portfolios rather than cutting off text mid-position.
   Keep the short brief first, full evidence/manual tools collapsed, explicit
   coverage/cadence limits and logout cleanup. See docs/AGENT-AUTOMATION.md.
 - Run `scripts/test-agent-api.mjs`, `scripts/test-agent-brain.mjs` and
@@ -1066,6 +1070,21 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, include every tracked LP in automatic briefs:** the owner reported
+  Katana WBTC/USDC missing. Both current LPs were in the saved roster and private
+  observations, but the brief rendered only the first ranked LP. The shared brief
+  now gives each LP a compact suggestion and preserves lending priority, range
+  evidence, financing scope and one next-check line. Explicit shown/total counts
+  replace silent truncation for large portfolios. No discovery, accounting, reward
+  rollover, policy or Lending-setting change. Regression fails before the fix in
+  real workerd and passes after it: 29 focused assertions, 26 native Workflow/D1
+  checks (including both chains in the outgoing test Telegram body, max 22 queries),
+  136 Chromium checks across both responsive themes, all 59 portable suites and
+  Worker dry run pass. The full suite also passes after rebasing data update 362d15b.
+  Worker bundle 596.59 KiB; cache stays 159 because browser assets are unchanged.
+  No new secret, migration, binding, AI call or D1 query. Update the existing Worker;
+  confirmation of the new live brief remains an account acceptance check.
 
 - **8 Nov 2026, automatic portfolio/LP watch under the ongoing agent authorization:**
   The default Agent view detects tracked holdings, LPs, loans, claimable rewards

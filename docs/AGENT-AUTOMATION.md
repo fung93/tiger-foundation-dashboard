@@ -61,9 +61,12 @@ reviews keep the Qwen model and shared inference limits.
 ## Default dashboard and Telegram behavior
 
 Open **Agent → Automatic portfolio watch**. The first brief gives the current
-LP value/net/unclaimed summary, highest-priority lending/LP issue, a range to
-compare when evidence permits, and the next check. All positions, holdings,
-calculations and learning evidence are collapsed below it. Historical LP
+LP value/net/unclaimed summary, highest-priority lending issue, a short update
+for each tracked LP, ranges to compare when evidence permits, and the next check.
+Higher-risk LPs come first without hiding the other positions. Large portfolios
+that exceed the brief's length budget show an explicit shown/total count.
+Full position details, holdings, calculations and learning evidence are
+collapsed below it. Historical LP
 performance is read-only. Existing manual tools/research/comparisons/journal
 are retained under **Advanced analysis and journal**.
 

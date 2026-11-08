@@ -3,7 +3,7 @@
 import { priceAtTick, liquidityForCapital } from '../strategy-core.mjs';
 import { AUTO_LIMITS, autoFresh, autoHash } from './_agent-auto-state.mjs';
 import { positionIdentity } from '../portfolio-core.mjs';
-import { agentNumber, agentPrice } from '../agent-language.mjs';
+import { agentNumber, agentPrice, agentMoney, agentReadingTime } from '../agent-language.mjs';
 
 const positive=n=>Number.isFinite(n)&&n>0;
 export function trackedIdentity(p) { return positionIdentity({chain:p.chain,protocolContract:p.contract,positionId:String(p.positionId||p.id||''),owner:p.owner}); }
@@ -134,7 +134,7 @@ export function chooseAutomaticRange({position,market,history,risk,lessons={},po
     basis:policy?.status==='confirmed'?'confirmed_policy_and_observational_defaults':'observational_defaults',
     defaultHorizonDays:constraints.horizonDays??7};
 }
-export function renderPositionSuggestion(item) {
+export function renderPositionSuggestion(item,{compact=false}={}) {
   const p=item.position,risk=item.current===false?{status:'unavailable'}:item.risk,selected=item.current===false?null:item.range?.selected;
   const action=risk?.status==='unavailable'?'Waiting for a current reading':risk?.status==='watch'?'Monitor closely':'Keep monitoring';
   const reason=risk?.signals?.[0]?.message||item.range?.reason||'The latest checked price is inside your range.';
@@ -143,8 +143,39 @@ export function renderPositionSuggestion(item) {
   const range=selected?'\n• Compare range: '+quoted(selected.lowerPrice)+'–'+quoted(selected.upperPrice)+' '+(item.market?.quote||'')
     +' ('+selected.days+'-day '+(selected.historyBasis==='verified_swap_history'?'price history':'sampled history')+').':'';
   return (p.pair||[p.raw?.token0?.symbol,p.raw?.token1?.symbol].filter(Boolean).join('/'))+' · '+p.chain+' #'+p.positionId
-    +'\n• Suggestion: '+action+'.\n• Why: '+reason+range
+    +'\n• Suggestion: '+action+'.'+(compact?' ':'\n• Why: ')+reason+range
     +(item.comparisonSummary&&item.current!==false?'\n• Costs/cases: '+item.comparisonSummary
       +((item.comparison?.financingBasis||item.comparison?.result?.comparisonBasis)==='before_financing'?' Values are before borrowing costs.':''):'')
-    +'\n• Next: '+(risk?.status==='unavailable'?'Retry the live reading.':'Check again in about '+(item.intervalMinutes||5)+' minutes.');
+    +(compact?'':'\n• Next: '+(risk?.status==='unavailable'?'Retry the live reading.':'Check again in about '+(item.intervalMinutes||5)+' minutes.'));
+}
+
+export function renderAutomaticPortfolioBrief(latest) {
+  const lines=['Your automatic portfolio check'];
+  const loan=latest.loanAttention?.find(item=>item.severity==='critical')||latest.loanAttention?.[0];
+  if(loan)lines.push('• Lending priority: '+loan.message.replace(/ Reading:.*$/,''));
+  if(latest.lp)lines.push('• LPs: '+latest.lp.open+' open · '+agentMoney(latest.lp.value_usd)+' value · '
+    +agentMoney(latest.lp.net_usd)+' net · '+agentMoney(latest.lp.unclaimed_usd)+' fees/rewards still to claim.');
+  const positions=latest.positions||[],active=positions.filter(p=>p.current!==false&&p.risk?.status==='watch');
+  if(active.length)lines.push('• Attention: '+active.length+' LP'+(active.length===1?' needs':'s need')+' a closer watch.');
+  else lines.push('• Attention: '+(latest.lp&&positions.every(p=>p.current!==false)?'No new LP risk trigger in the verified readings.':'Waiting for a complete LP reading.'));
+  const ordered=[...positions].sort((a,b)=>Number(b.current!==false&&b.risk?.status==='watch')-Number(a.current!==false&&a.risk?.status==='watch')
+    ||(a.risk?.edgePct??100)-(b.risk?.edgePct??100));
+  const footer=[];
+  if(latest.coverage?.truncated)footer.push('Market monitoring currently covers '+positions.length+' of '+latest.coverage.totalOpenPositions+' open LPs.');
+  if(latest.status!=='ready')footer.push('Some sources are still being verified; retained values keep their original dates.');
+  footer.push('Next check in about '+(latest.intervalMinutes||5)+' minutes.','Checked '+agentReadingTime(latest.checkedAt)+'.');
+  let shown=0;
+  for(const item of ordered){
+    // Render every position that fits, rather than describing only the leading
+    // LP. Reserve space for an explicit count if a large portfolio cannot fit.
+    const available=3000-lines.join('\n').length-footer.join('\n').length-180;
+    const alternatives=[renderPositionSuggestion(item,{compact:true}),
+      renderPositionSuggestion({...item,comparisonSummary:null},{compact:true})];
+    const text=alternatives.find(value=>value.length<=available);if(!text)break;
+    lines.push('\n'+text);shown++;
+  }
+  if(shown<positions.length)lines.push('\nShowing '+shown+' of '+positions.length+' tracked LPs; all positions and recorded outcomes are available in Agent.');
+  else if(positions.length)lines.push('\nDetails and recorded outcomes are available in Agent.');
+  lines.push(...footer);
+  return lines.join('\n');
 }
