@@ -9,6 +9,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { targetMetrics } from '../morpho-core.mjs';
 import { tickAtPrice, priceAtTick } from '../strategy-core.mjs';
+import { incomeSources } from './fixtures/agent-lp-income.mjs';
 
 const runtimeRoot = process.argv[2];
 if (!runtimeRoot) throw Error('Pass the validation node_modules directory as the only argument.');
@@ -77,6 +78,7 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
     }
     if (url.origin === env.AGENT_ORIGIN && ['/api/morpho', '/api/lpbook', '/data.json', '/history.json'].includes(url.pathname)) {
       calls.push({ method: url.pathname });
+      if(providerMode==='income'&&url.pathname==='/api/lpbook')return Response.json(incomeSources().lp);
       const stamp = new Date().toISOString();
       return Response.json(url.pathname === '/api/morpho' ? { ...observation, ts: Date.now() / 1000,
         full: true, markets: observation.markets.map(row => ({ ...row, ts: Date.now() / 1000 })) }
@@ -87,6 +89,7 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
     if (url.origin === env.AGENT_ORIGIN && ['/api/strategy', '/api/kat-trades', '/api/vkat'].includes(url.pathname)) {
       calls.push({ method: url.pathname });
       if (providerMode === 'range' && url.pathname === '/api/strategy') return Response.json(rangeSource());
+      if(providerMode==='income'&&url.pathname==='/api/strategy')return Response.json(incomeSources().strategy);
       return new Response(null, { status: 302, headers: { location: 'https://redirected.fixture.test/optional' } });
     }
     check(url.origin, 'https://api.telegram.org', 'Worker requests stay on the approved bot provider');
@@ -245,5 +248,23 @@ try {
   check((await rangeTelegram()).status, 200, 'Telegram retry completes without another logical question');
   check(await usageCount(), 2, 'The Telegram retry does not consume another AI reservation');
   check((await request({ action: 'status' })).value.messages.at(-1).content.includes('14-day history'), true, 'The shared dashboard history contains Telegram range analysis');
+  providerMode='income';
+  const incomeQuestion='what is the suitable LP range for katana vbUSDC/WBTC to earn $10 worth of KAT daily?';
+  const incomeChat=await request({action:'chat',message:incomeQuestion,requestId:'native:income-chat'},true,true);
+  check(incomeChat.status,200,'The native owner chat accepts a daily-income question without a financial form');
+  check(incomeChat.value.result?.data.incomeGoal?.targetUsdPerDay,10,'The exact owner question retains its earning target in native workerd');
+  check(incomeChat.value.result?.data.incomeGoal?.status,'ready','Live-position source adapters provide the inputs for actual goal arithmetic');
+  check(incomeChat.value.reply.includes('$10.00/day'),true,'The native answer addresses the dollar goal');
+  check(incomeChat.value.reply.includes('target-only band'),true,'The goal answer distinguishes a narrow target band from historical coverage');
+  check(incomeChat.value.reply.includes('borrowing costs'),true,'Native goal answers retain gross-income scope');
+  check(incomeChat.value.reply.length<1700,true,'Native goal advice remains concise');
+  const incomeUpdate={update_id:104,message:{text:incomeQuestion,chat:{id:42,type:'private'},from:{id:42,is_bot:false}}};
+  const incomeTelegram=()=>mf.dispatchFetch('https://worker.fixture.test/api/agent-telegram',{method:'POST',headers:{'content-type':'application/json',
+    'x-telegram-bot-api-secret-token':env.TELEGRAM_WEBHOOK_SECRET,'x-fixture-ai':'range'},body:JSON.stringify(incomeUpdate)});
+  check((await incomeTelegram()).status,200,'The linked Telegram owner can request the same goal analysis');
+  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('$10.00/day'),true,'The real Telegram delivery path renders the goal answer');
+  check(await usageCount(),4,'Each new goal question makes one accounted simulated inference');
+  check((await incomeTelegram()).status,200,'A Telegram retry returns the same goal result');
+  check(await usageCount(),4,'The same Telegram update never repeats goal inference');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed. No real provider was contacted.');
 } finally { await mf.dispose(); }

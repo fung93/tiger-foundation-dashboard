@@ -1,6 +1,6 @@
 /* The model selects a reviewed explanation or read-only tool. Financial facts,
    calculations and preference authorization remain independently checked in code. */
-export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v2';
+export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v3';
 export const AGENT_EXPLANATIONS = Object.freeze({
   apr: 'APR turns recent earnings into a yearly rate. A short earning period can make it look unusually high or low, so use it as a rough guide. After a top-up, I need a fresh earning baseline before the rate is meaningful.',
   lp_holding: 'Holding means keeping the same token amounts you put into the LP and checking what they would be worth at the same time. LP plus earnings includes the position value and its fees or rewards. The difference is your LP advantage; it is a comparison, not another asset to add to your total.',
@@ -15,6 +15,8 @@ export const AGENT_EXPLANATIONS = Object.freeze({
   clarify_market_target: 'Which loan should I check, and what health target would you like to use?',
   clarify_position: 'Which LP position and chain should I review?',
   clarify_request: 'What would you like to check: your portfolio, a loan, an LP position or your KAT holdings?',
+  clarify_daily_reward_target: 'What single daily KAT reward value in USD would you like me to check?',
+  lp_net_income_goal: 'Your target is after costs. I can estimate gross KAT rewards, but net profit also depends on price moves, transaction costs and borrowing. Use the strategy comparison for those scenarios.',
 });
 
 const preferenceKeys = ['healthThreshold', 'ltvThreshold', 'alertsEnabled', 'dailyEnabled', 'dailyTime', 'pausedUntil'];
@@ -48,7 +50,8 @@ export const AGENT_OUTPUT_SCHEMA = freeze({
     tool('getLPPosition', object({ positionId: text(500), chain: { type: 'string',
       enum: ['katana', 'robinhood', 'arc', 'solana'] }, owner: text(200) }, ['positionId'])),
     tool('getKATExposure', object({})),
-    tool('analyzeLPRange', object({ pair: text(200), positionId: text(500), reviewFrequencyDays: { type: 'integer', minimum: 1, maximum: 365 }, chain: { type: 'string',
+    tool('analyzeLPRange', object({ pair: text(200), positionId: text(500), reviewFrequencyDays: { type: 'integer', minimum: 1, maximum: 365 },
+      dailyRewardTargetUsd:{type:'number',minimum:.000001,maximum:1e9},chain: { type: 'string',
       enum: ['katana', 'robinhood', 'arc', 'solana'] }, owner: text(200) }, [])),
   ],
 });

@@ -1,5 +1,43 @@
 # Tiger agent implementation progress
 
+## LP range planning for a daily KAT income goal — 8 November 2026 (MYT)
+
+- [x] Reconcile the reported $10/day question with the current six-tool selector,
+  historical-range renderer and deterministic reward/scenario engine. The goal
+  was not an accepted input, so the answer could only report price history.
+- [x] Parse an explicit daily USD reward goal independently of the model; detect
+  the live LP/capital, current KAT price and active campaign without a form.
+- [x] Compare current/historical ranges and a clearly conditional target-only band;
+  calculate required capital with existing-position dilution handled correctly.
+- [x] Lead with goal feasibility and a short recommendation/trade-off. Keep missing
+  data, campaign expiry, policy, fees-to-DAO and financing scope explicit.
+- [x] Validate deterministic math, free-word routing, both chat channels, privacy
+  and native Worker behavior; run npm run check and the Worker build.
+- [x] Complete release preparation under the standing agent authorization and
+  identify real-account verification remaining for the owner's original question.
+- [ ] Confirm the new deployed Worker and a fresh real answer to the original
+  income-goal question, including current source availability and Free usage.
+
+All amounts remain deterministic, all wallet access read-only. Historical bands
+are evidence, not a calibrated forecast. No guaranteed $10/day, automatic trade,
+silent risk-policy change, extra paid service or unaccounted model call is allowed.
+
+Evidence: 109 goal/routing/persistence assertions, all 60 portable suites and
+native Telegram/Worker/local-D1 95 assertions pass. The exact owner question works
+through both real chat entry paths with closed providers; each new question makes
+one accounted simulated inference and same-reference retries make none. Native
+automatic observations retain their 26 checks and maximum 22 D1 queries/stage.
+Chromium passes 68 checks across Classy/Tiger at 360/1366 px, including the original
+question, detected capital/identity, target-vs-history distinction, a weekly
+follow-up, no template fields, no horizontal overflow and no private localStorage.
+Worker dry run passes (617.12 KiB / 160.05 KiB gzip). No public financial JSON,
+browser asset, migration, binding, secret, dependency or model configuration changes.
+Cache remains 159; existing Worker/API code needs updating. Raw calculation inputs,
+campaign expiry and conditional assumptions stay in private results. See
+docs/AGENT-LP-INCOME.md. Actual current account data/CPU/allowance and a fresh Qwen
+answer to the original question remain live acceptance gates; no production bot
+or model was contacted during tests.
+
 ## Include every tracked LP in the brief — 8 November 2026 (MYT)
 
 - [x] Reconcile the owner's missing Katana WBTC/USDC report against the saved

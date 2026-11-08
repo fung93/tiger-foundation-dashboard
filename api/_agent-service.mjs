@@ -14,9 +14,10 @@ import { isPortfolioReviewQuestion } from './_agent-review-state.mjs';
 import { dispatchPortfolioReview } from './_agent-review-dispatch.mjs';
 import { automaticAction } from './_agent-auto-actions.mjs';
 import { automationEnabled } from './_agent-auto-state.mjs';
+import { isLPIncomeQuestion } from './_agent-lp-income.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v5', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v6', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -85,7 +86,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     let settings = await getSettings(store);
     const messages = await store.get('messages') || [];
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
-    const fullReview = isPortfolioReviewQuestion(message);
+    const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message);
     const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
     let result, inferenceSucceeded = false, modelOutput = null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());

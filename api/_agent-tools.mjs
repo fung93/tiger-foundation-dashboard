@@ -15,7 +15,7 @@ export const AGENT_TOOL_SCHEMAS = Object.freeze({
   calculateTargetHealth: { required: ['market', 'targetHealth'], optional: [] },
   getLPPosition: { required: ['positionId'], optional: ['chain', 'owner'] },
   getKATExposure: { required: [], optional: [] },
-  analyzeLPRange: { required: [], optional: ['pair', 'positionId', 'chain', 'owner', 'reviewFrequencyDays'] },
+  analyzeLPRange: { required: [], optional: ['pair', 'positionId', 'chain', 'owner', 'reviewFrequencyDays', 'dailyRewardTargetUsd'] },
 });
 const TTL = 90000, WAD = 10n ** 18n, ORACLE = 10n ** 36n, UINT_MAX = (1n << 256n) - 1n;
 const KAT_TOKEN = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
@@ -36,7 +36,7 @@ const policyVersion = policy => Number.isSafeInteger(policy?.version) && policy.
 function argsFor(name, args) {
   if (!Object.hasOwn(AGENT_TOOL_SCHEMAS, name)) throw badInput('Choose an available read-only agent tool.');
   const schema = AGENT_TOOL_SCHEMAS[name];
-  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > (name === 'analyzeLPRange' ? 5 : 4)
+  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length > (name === 'analyzeLPRange' ? 6 : 4)
     || Object.keys(args).some(key => !schema.required.includes(key) && !schema.optional.includes(key))
     || schema.required.some(key => !Object.hasOwn(args, key))) throw badInput('Choose valid inputs for this agent tool.');
   for (const key of ['market', 'positionId', 'chain', 'owner', 'pair']) if (Object.hasOwn(args, key)
@@ -44,6 +44,8 @@ function argsFor(name, args) {
     throw badInput('Choose a specific market or position.');
   if (name === 'analyzeLPRange' && !args.pair && !args.positionId) throw badInput('Choose a token pair or LP position for the range analysis.');
   if (Object.hasOwn(args, 'reviewFrequencyDays') && (!Number.isInteger(args.reviewFrequencyDays) || args.reviewFrequencyDays < 1 || args.reviewFrequencyDays > 365)) throw badInput('Choose a review interval from 1 to 365 days.');
+  if(Object.hasOwn(args,'dailyRewardTargetUsd')&&(!Number.isFinite(args.dailyRewardTargetUsd)||args.dailyRewardTargetUsd<.000001||args.dailyRewardTargetUsd>1e9))
+    throw badInput('Choose one positive daily reward target in USD.');
   if (Object.hasOwn(args, 'targetHealth') && (!Number.isFinite(args.targetHealth) || args.targetHealth < 1 || args.targetHealth > 100))
     throw badInput('Choose a target health between 1 and 100.');
   if (args.chain && !['katana', 'robinhood', 'arc', 'solana'].includes(args.chain)) throw badInput('Choose a supported position chain.');
@@ -60,7 +62,8 @@ function result(name, args, context, policy, detail) {
   const observed = stamps.length ? Math.min(...stamps) : null;
   const body = { schemaVersion: AGENT_TOOL_SCHEMA_VERSION, toolName: name, snapshotId: sourceSnapshot(context),
     policyVersion: policyVersion(policy), status: detail.status, observedAt: iso(observed),
-    validUntil: detail.status === 'blocked' || !stamps.length ? null : iso(Math.min(...stamps) + TTL),
+    validUntil: detail.status === 'blocked' || !stamps.length ? null : iso(Math.min(Math.min(...stamps) + TTL,
+      atTime(detail.validUntil)??Infinity)),
     units: detail.units || {}, assumptions: detail.assumptions || [],
     roundingPolicy: detail.roundingPolicy || 'Source raw units retained; display values are not transaction instructions.',
     data: detail.data || {}, limitations: [...new Set(detail.limitations || [])] };

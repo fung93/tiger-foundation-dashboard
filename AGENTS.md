@@ -753,6 +753,17 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   not an optimal range, price forecast, profit ranking or allocation recommendation.
   Missing/inconsistent history, ambiguous pools and disabled/excluded analysis stay
   explicit. Complete cost-aware comparisons and saved decisions retain their existing flow.
+- Daily KAT income goals (Alex, 8 Nov 2026) use the same tool's optional
+  `dailyRewardTargetUsd`, independently parsed from the owner message. Detect
+  current capital/staking and verify the KAT quote/campaign before estimating
+  gross rewards. Exclude the existing eligible owner liquidity when replacing
+  it; never count it twice, include carry in new earnings or count DAO fees.
+  Lead with feasibility and concise current/historical/target-only comparisons.
+  A tight band that reaches a spot income target is not thereby a suitable or
+  safe range. Check observed coverage, total campaign budget, expiry and policy;
+  required capital is a verified algebraic scenario, not an available balance or
+  allocation mandate. Keep net-profit requests distinct, bounded native model
+  selection/accounting and no writes/signing. See docs/AGENT-LP-INCOME.md.
 - Slow work has per-job leases; owner/policy locks protect short fenced commits only.
   The independent five-minute monitor consumes zero AI calls. Keep outbox checkpoints and
   current recipient/preferences/policy revalidation. Synchronous chat/research records
@@ -1070,6 +1081,24 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **8 Nov 2026, daily KAT income-goal LP analysis:** the owner's $10/day question
+  was reduced to historical range geometry because the target was not an input.
+  `analyzeLPRange` now accepts a server-verified `dailyRewardTargetUsd`, detects
+  current LP capital and uses current campaign/KAT inputs for gross reward rates,
+  historical alternatives, a clearly conditional target-only band and verified
+  capital requirements. Exclude current owner liquidity before replacing it;
+  test campaign-budget limits, expiry, missing/stale data, policy, token order,
+  multiple positions and carried-reward exclusion. Replies lead with goal
+  feasibility and a short trade-off; net-profit goals retain their separate scope.
+  Owner goals cannot become invented model targets, notification settings or a
+  generic portfolio review. Six tools, the same Qwen profile and one accounted
+  inference remain; no policy/signing/accounting/Lending changes. All 60 portable
+  suites, goal/routing 109, native chat/Telegram 95, native automatic Workflow 26
+  (max 22 D1 queries), responsive Chromium 68 and Worker dry run pass. Bundle
+  617.12 KiB, cache stays 159, no new migration/binding/secret/dependency. Update
+  existing Worker/API code and verify a new real-account answer. See
+  docs/AGENT-LP-INCOME.md and TIGER_AGENT_PROGRESS.md.
 
 - **8 Nov 2026, include every tracked LP in automatic briefs:** the owner reported
   Katana WBTC/USDC missing. Both current LPs were in the saved roster and private

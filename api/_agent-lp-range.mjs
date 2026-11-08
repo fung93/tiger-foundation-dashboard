@@ -1,9 +1,10 @@
-/* Preliminary LP range analysis. Prices, history envelopes and concentration use
-   deterministic pool arithmetic. No forecasts, trade sizing, earnings or writes. */
+/* LP range geometry and optional gross KAT income-target planning. All amounts
+   use deterministic pool arithmetic; no forecast, allocation mandate or writes. */
 import { priceAtTick, liquidityForCapital } from '../strategy-core.mjs';
 import { agentPrice, agentNumber, agentReadingTime } from '../agent-language.mjs';
+import { analyzeLPIncomeTarget,renderLPIncomeTarget } from './_agent-lp-income.mjs';
 
-export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v1';
+export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v2';
 export function isLPRangeQuestion(message) {
   const selecting = /suitable|best|recommend|suggest|choose|widen|narrow|adjust|change|select|合适|合適|建议|建議|sesuai/iu.test(message || '');
   return typeof message === 'string' && (selecting || !/\b(?:in|out(?: of)?|outside)\s+(?:the\s+)?range\b/iu.test(message))
@@ -43,7 +44,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
     && p.chain === 'katana' && (!args.owner || p.owner?.toLowerCase() === args.owner.toLowerCase())) : [];
   if (args.positionId && selected.length !== 1) return unavailable('choose_position', 'I could not identify one Katana LP from that position. Specify its position ID and wallet.');
   const allPools = [...(context.strategy?.pools || []), ...(context.strategy?.fee_pools || [])];
-  let pools = allPools.filter(pool => (!requested || pairKey(pool.base + '/' + pool.quote) === requested)
+  let pools = allPools.filter(pool => (pool.chain||'katana')==='katana' && (!requested || pairKey(pool.base + '/' + pool.quote) === requested)
     && (!selected.length || selected[0].pool?.toLowerCase() === pool.pool?.toLowerCase()));
   // A pair with several fee tiers can use the owner's existing pool only when
   // exactly one pool is identified. Never guess between several owned pools.
@@ -69,7 +70,11 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
   if (!positive(price) || Math.abs(Math.log(price / pool.price) / Math.log(1.0001)) > 1.01
     || Math.abs(Math.log(pool.sqrtPrice) * 2 / Math.log(1.0001) - pool.tick) > 1.01)
     return unavailable('price_mismatch', 'The pool price and tick disagree. I need a consistent reading before comparing ranges.');
-  const position = selected[0] || positions.find(p => p.chain === 'katana' && p.pool?.toLowerCase() === pool.pool?.toLowerCase());
+  const owned=positions.filter(p=>p.chain==='katana'&&p.pool?.toLowerCase()===pool.pool?.toLowerCase()
+    &&(!args.owner||p.owner?.toLowerCase()===args.owner.toLowerCase()));
+  if(args.dailyRewardTargetUsd!==undefined&&!args.positionId&&owned.length>1)return unavailable('choose_position',
+    'You have several LPs in this pool. Which position should I use for the daily income target?');
+  const position = selected[0] || owned[0];
   const own = position?.raw, sameTokens = own && [0, 1].every(i => own['token' + i]?.address?.toLowerCase() === pool['token' + i].address.toLowerCase()
     && own['token' + i]?.decimals === pool['token' + i].decimals);
   const ownCurrent = position && context.lp?.status === 'fresh' && current(position.observedAt, now) && position.status === 'observed';
@@ -97,7 +102,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       upsidePct: (range.upperPrice - price) / price * 100,
       concentrationVsCurrent: ownRange?.inRange && positive(perDollar(ownRange)) ? liquidity / perDollar(ownRange) : null });
   }
-  if (!windows.length) return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
+  if (!windows.length&&args.dailyRewardTargetUsd===undefined) return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
   const constraints = policy?.status === 'confirmed' ? policy.constraints || {} : {};
   const review = args.reviewFrequencyDays ?? (Number.isInteger(constraints.reviewFrequencyDays) ? constraints.reviewFrequencyDays : null);
   const horizon = Number.isInteger(constraints.horizonDays) ? constraints.horizonDays : null;
@@ -105,7 +110,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
   const startingPoint = windows.find(row => row.days === preferredDays) || null;
   const eligible = (!Array.isArray(constraints.eligibleAssets) || [base.symbol, quote.symbol].every(symbol => constraints.eligibleAssets.some(value => value.toUpperCase() === symbol.toUpperCase())))
     && (!Array.isArray(constraints.eligibleProtocols) || constraints.eligibleProtocols.some(value => /^(?:sushi v3|sushiswap v3)$/i.test(value)));
-  return { status: 'ready', stamps: [pool.ts, ...(ownRange ? [position.observedAt] : [])],
+  const output={ status: 'ready', stamps: [pool.ts, ...(ownRange ? [position.observedAt] : [])],
     data: { schemaVersion: AGENT_LP_RANGE_VERSION, chain: 'katana', pool: pool.pool, pair: pool.base + '/' + pool.quote, base: pool.base, quote: pool.quote,
       fee: pool.fee, price, quoteUsd: quote.usd, windows, currentRange: ownRange, positionId: ownRange ? position.positionId : null,
       startingPoint: eligible ? startingPoint : null, preferredDays, reviewFrequencyDays: review, horizonDays: horizon,
@@ -119,11 +124,29 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       'Lookback selection is a review-cadence heuristic, not an optimized range or calibrated probability of remaining in range.',
       'No future fees, rewards, return, net-profit ranking or portfolio allocation is inferred. Rebalancing costs are not supplied.',
       'The pool quote has its original time; the source does not independently pin a valuation block.'], limitations: [] };
+  if(args.dailyRewardTargetUsd!==undefined){
+    output.data.incomeGoal=analyzeLPIncomeTarget({targetUsd:args.dailyRewardTargetUsd,pool,position,rangeData:output.data,
+      katUsd:context.strategy?.kat_usd,katObservedAt:context.strategy?.ts,now});
+    const goal=output.data.incomeGoal;
+    output.status=goal.status==='ready'?'ready':'partial';
+    if(goal.status==='ready'){
+      output.stamps.push(context.strategy.ts);
+      output.validUntil=new Date(goal.campaign.end*1000).toISOString();
+      output.data.historicalOnly=false;
+      output.data.rewardEstimatesConditional=true;
+      output.data.capitalAllocationVerified=false;
+      output.assumptions=output.assumptions.filter(value=>!value.startsWith('No future fees'));
+      output.assumptions.push('New gross KAT reward rates assume current price, emissions and competing liquidity; gas, swaps, borrowing costs and actual capital availability are not verified by this rate calculation.');
+    }
+    output.assumptions.push(goal.basis||goal.message);
+  }
+  return output;
 }
 
 export function renderLPRangeAnalysis(output) {
   const d = output.data || {};
   if (output.status === 'blocked') return d.message || 'Your saved preferences do not include LP analysis. You can change that in Strategy policy.';
+  if(d.incomeGoal)return renderLPIncomeTarget(d);
   const format = price => (['USDC', 'USDT', 'DAI', 'USDG'].includes(asset(d.quote)) && d.quoteUsd === 1 ? agentPrice(price) : agentNumber(price, 6) + ' ' + d.quote);
   const range = row => format(row.lowerPrice) + '–' + format(row.upperPrice);
   const lines = ['For ' + d.pair + ' on Katana' + (Number.isInteger(d.fee) ? ' (the ' + agentNumber(d.fee / 10000, 3) + '% pool)' : '')
