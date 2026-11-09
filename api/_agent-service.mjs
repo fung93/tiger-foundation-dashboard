@@ -17,9 +17,11 @@ import { automationEnabled } from './_agent-auto-state.mjs';
 import { isLPIncomeQuestion } from './_agent-lp-income.mjs';
 import { loadLPAdviceContext } from './_agent-lp-advice-context.mjs';
 import { readKatanaMCP,katanaMCPDiagnostic,katanaMCPEnabled } from './_agent-katana-mcp.mjs';
+import { loadPortfolioLearning,isPortfolioLearningQuestion,renderPortfolioLearning } from './_agent-portfolio-learning.mjs';
+import { loadLearnedLPContext } from './_agent-learned-context.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v9', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v10', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -64,6 +66,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     inferenceEnabled: env.AGENT_INFERENCE_ENABLED !== 'false', bindingConfigured: typeof env.AI?.run === 'function',
     policyVersion: policy.version,
     katanaMCPEnabled:katanaMCPEnabled(env),
+    learningEnabled:env.AGENT_LEARNING_ENABLED!=='false',
   })).digest('hex');
   const cachedAnswer = async () => {
     if (!cacheKey) return null;
@@ -92,11 +95,16 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
     const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message);
     const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
+    reading.portfolioLearning=await loadPortfolioLearning(store,{policy,enabled:env.AGENT_LEARNING_ENABLED!=='false'});
     let result, inferenceSucceeded = false, modelOutput = null,mcpReading=null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());
     const research = researchQuestion(message);
     await agentJobPhase(lock, handle, research ? 'retrieving' : 'inference');
-    if (research) {
+    if (isPortfolioLearningQuestion(message)&&!isLPIncomeQuestion(message)) {
+      result={reply:renderPortfolioLearning(reading.portfolioLearning),action:null,mode:'learning',status:reading.portfolioLearning.status,
+        sources:[{name:'portfolio-learning',status:'historical',ts:reading.portfolioLearning.checkedAt||null}],
+        result:{schemaVersion:'portfolio-learning-v1',...reading.portfolioLearning}};
+    } else if (research) {
       const prepared = await agentAction({ action: 'research', ...research, requestId: jobId },
         { env, store, loadContext: async () => reading });
       result = { reply: prepared.reply, report: prepared.report, status: prepared.report.status,
@@ -119,7 +127,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       result = await respond({ message: message.trim(), messages: messages.slice(-24), settings, context: reading, policy, env, inference,
         loadToolContext: async (tool, base, args) => {
           if(tool!=='analyzeLPRange')return base;
-          const enhanced=await loadLPAdviceContext({context:base,args,env,origin:getAgentOrigin(env),loadSupplementalContext,readMCP});
+          const learned=await loadLearnedLPContext({store,context:base,args,origin:getAgentOrigin(env),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
+          const enhanced=await loadLPAdviceContext({context:learned,args,env,origin:getAgentOrigin(env),loadSupplementalContext,readMCP});
           mcpReading=enhanced.katanaMCP;return enhanced;
         } });
       inferenceSucceeded = usedInference && !result?.errorCategory;

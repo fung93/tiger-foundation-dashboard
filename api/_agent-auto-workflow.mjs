@@ -3,7 +3,7 @@
 import { createAgentStore, readAgentState } from './_agent-store.mjs';
 import { getAgentOrigin } from './_agent-http.mjs';
 import { loadAgentContext, readAgentJSON } from './_agent-context.mjs';
-import { AUTO_SCHEMA, AUTO_LIMITS, automaticInputs, automationEnabled, autoPaused, autoHash, autoFresh } from './_agent-auto-state.mjs';
+import { AUTO_SCHEMA, AUTO_LIMITS, automaticInputs, automationEnabled, autoPaused, autoHash, autoFresh,automaticCadence } from './_agent-auto-state.mjs';
 import { poolKey, positionKey, recordAutomatic, recordWalletObservation, recordPoolObservation, recordPositionObservation, markAbsentPositions } from './_agent-auto-observations.mjs';
 import { trackedIdentity, observedFeeRate, renderPositionSuggestion, renderAutomaticPortfolioBrief } from './_agent-auto-analysis.mjs';
 import { prepareAutomaticLP, detectedLPPositions } from './_agent-lp-autofill.mjs';
@@ -13,6 +13,7 @@ import { createStrategyReport, persistAgentReport } from './_agent-reports.mjs';
 import { mytDayAndTime, monitorConditions } from './_agent-notifications.mjs';
 import { deliverAutomaticNotices } from './_agent-auto-delivery.mjs';
 import { mergeRangeOutcome } from './_agent-auto-learning.mjs';
+import { recordPortfolioLearning } from './_agent-portfolio-learning.mjs';
 
 const CHAINS=['katana','robinhood','arc','solana'];
 const validParams=p=>p?.schemaVersion===1&&p.mode==='observe'&&typeof p.manual==='boolean'&&/^observe-\d+(?:-manual)?$/.test(p.requestId||'');
@@ -84,14 +85,15 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     await store.set('automation:lastTick',{ts:new Date(clock()).toISOString(),workflowId});
     if(!params.manual)await store.set('automation:lastScheduledTick',{ts:new Date(clock()).toISOString(),workflowId});
     if(!automationEnabled(env)||!input.controls.enabled||autoPaused(input.settings,clock()))return {status:'paused'};
-    // Conservative application write estimate leaves room for existing risk,
-    // journal and account work under Free D1's daily allowance. It is not an
-    // account billing meter. Small portfolios keep the five-minute cadence.
+    // Full portfolio checks must fit both Workflow steps and D1 writes. The
+    // independent risk Cron keeps its existing five-minute cadence.
     const prior=input.raw['automation:schedule'],size=prior?.positions||0;
-    const intervalMinutes=5*Math.max(1,Math.ceil((100+28*size)*288/45000));
-    if(!params.manual&&prior&&clock()-Date.parse(prior.checkedAt)<intervalMinutes*60000-30000)return {status:'not_due'};
+    const intervalMinutes=prior?.intervalMinutes||automaticCadence({positions:size,pools:prior?.pools??size,closed:prior?.closed||0,claims:prior?.claims||0}).intervalMinutes;
+    const day=mytDayAndTime(clock()),dailyDue=input.settings.dailyEnabled&&input.raw.telegram&&day.time>=input.settings.dailyTime
+      &&prior?.telegramDailyDate!==day.day;
+    if(!params.manual&&!dailyDue&&prior&&clock()-Date.parse(prior.checkedAt)<intervalMinutes*60000-30000)return {status:'not_due'};
     return {status:'ready',revision:input.controls.revision,policyVersion:input.policy.version,
-      intervalMinutes,recipient:params.manual&&Object.hasOwn(params,'recipient')?params.recipient:input.raw.telegram||null};
+      intervalMinutes,previousPositions:size,recipient:params.manual&&Object.hasOwn(params,'recipient')?params.recipient:input.raw.telegram||null};
   });
   if(prepared.status!=='ready')return prepared;
   const collected=await doStep('collect',async()=>{
@@ -99,7 +101,9 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     const context=await(dependencies.loadContext||loadAgentContext)({origin,fetcher,now:clock,timeoutMs:12000,needs:['strategy','vkat','kat'],tracking:true});
     const positions=roster(context),keys=positions.map(positionKey),pools=[...new Map(positions.filter(p=>p.pool).map(p=>[poolKey(p),{chain:p.chain,pool:p.pool,position:p}])).values()];
     await store.set(jobKey,{context,positions,keys,pools,prepared},{ttlSeconds:1800});
-    return {status:'ready',keys,poolCount:pools.length,intervalMinutes:5*Math.max(1,Math.ceil((100+28*keys.length)*288/45000)),
+    const cadence=automaticCadence({positions:keys.length,pools:pools.length,closed:Math.min(100,context.tracking?.closed?.length||context.lp?.closed?.length||0),
+      claims:Math.min(100,context.tracking?.claims?.length||0),missing:Math.max(keys.length,prepared.previousPositions)});
+    return {status:'ready',keys,poolCount:pools.length,intervalMinutes:cadence.intervalMinutes,resourcePlan:cadence,
       truncated:(context.tracking?.positions||context.lp?.positions||[]).length>AUTO_LIMITS.positions,
       closedCount:Math.min(100,context.tracking?.closed?.length||context.lp?.closed?.length||0),claimCount:Math.min(100,context.tracking?.claims?.length||0)};
   });
@@ -208,6 +212,10 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       value:{...row,recordedAt:job.context.asOf,valuationBasis:'usd_now is the observation-time quote, not the historical claim price. Native token amount and event time are retained.'}})));
     return {status:'recorded',count:rows.length};
   });
+  const learned=await doStep('portfolio-learning',async()=>{
+    const job=await store.get(jobKey);if(!job)return {status:'expired'};
+    return recordPortfolioLearning(store,job.context,prepared.revision,{now:clock(),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
+  });
   const published=await doStep('publish',async()=>{
     const job=await store.get(jobKey);if(!job)return {status:'expired'};
     const monitor=await store.lock('monitor',30);if(!monitor)throw Error('Risk monitoring has priority');
@@ -224,7 +232,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       const positions=states.map(item=>compactItem(item,freshLp&&autoFresh(item.market?.ts,clock()),policy.version,collected.intervalMinutes));
       const uniqueLessons=[...new Map(states.map(item=>[poolKey(item.position),item.lessons])).values()];
       const latest={schemaVersion:AUTO_SCHEMA,checkedAt:job.context.asOf,policyVersion:policy.version,controlsRevision:controls.revision,
-        intervalMinutes:collected.intervalMinutes,nextIntendedCheck:new Date(Date.parse(job.context.asOf)+collected.intervalMinutes*60000).toISOString(),
+        intervalMinutes:collected.intervalMinutes,resourcePlan:collected.resourcePlan,nextIntendedCheck:new Date(Date.parse(job.context.asOf)+collected.intervalMinutes*60000).toISOString(),
         lastSuccess:freshLp||wallets.some(wallet=>wallet.status==='fresh'&&autoFresh(wallet.observedAt,clock()))?job.context.asOf:prior?.lastSuccess||null,
         status:freshLp&&!collected.truncated&&positions.every(item=>item.current)&&job.context.lending?.status==='fresh'&&wallets.length===CHAINS.length&&wallets.every(wallet=>wallet.status==='fresh'&&autoFresh(wallet.observedAt,clock()))?'ready':'partial',
         coverage:{truncated:collected.truncated,totalOpenPositions:job.context.lp?.cards?.open??null,monitoredPositions:positions.length},
@@ -234,6 +242,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
         lp:freshLp?job.context.lp.cards:null,loans:job.context.lending?.markets||[],closedSummary:job.context.lp?.closed_cards||null,
         loanAttention:Object.values(monitorConditions(job.context,settings,{policy,now:clock()})).filter(item=>item.type==='lending'&&item.active).slice(0,3),
         sources:job.context.sources||[],dailyDate:prior?.dailyDate||null,telegramDailyDate:prior?.telegramDailyDate||null,delivery:prior?.delivery||null,
+        portfolioLearning:learned.summary?.policyVersion===policy.version?learned.summary:null,
         learning:{proposals:positions.filter(item=>item.proposal).length,observations:positions.reduce((n,item)=>n+(item.proposal?.observations||0)+(item.lessons?.observations||0),0),
           completed:uniqueLessons.reduce((n,item)=>n+(item?.completedProposals||0),0)}};
       latest.reply=renderAutomaticPortfolioBrief(latest);
@@ -283,7 +292,8 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       const daily={schemaVersion:'agent-automation-day-v1',day:day.day,checkedAt:latest.checkedAt,
         positionKeys:latest.positionKeys,lp:latest.lp,loans:latest.loans,closedSummary:latest.closedSummary,learning:latest.learning};
       const entries=[{key:'automation:latest',value:latest},{key:'automation:schedule',value:{checkedAt:latest.checkedAt,lastSuccess:latest.lastSuccess,
-        telegramDailyDate:latest.telegramDailyDate,positions:collected.keys.length,intervalMinutes:collected.intervalMinutes}},
+        telegramDailyDate:latest.telegramDailyDate,positions:collected.keys.length,pools:collected.poolCount,closed:collected.closedCount,claims:collected.claimCount,
+        intervalMinutes:collected.intervalMinutes}},
         {key:'automation:pending',value:[...new Map(queue.map(item=>[item.id,item])).values()].slice(-20)},
         {key:'alerts',value:alerts},{key:dailyKey,value:{...daily,first:raw[dailyKey]?.first||daily,
           lastGood:freshLp?daily:raw[dailyKey]?.lastGood||null}}];

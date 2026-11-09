@@ -158,6 +158,9 @@ export function renderAutomaticPortfolioBrief(latest) {
   const positions=latest.positions||[],active=positions.filter(p=>p.current!==false&&p.risk?.status==='watch');
   if(active.length)lines.push('• Attention: '+active.length+' LP'+(active.length===1?' needs':'s need')+' a closer watch.');
   else lines.push('• Attention: '+(latest.lp&&positions.every(p=>p.current!==false)?'No new LP risk trigger in the verified readings.':'Waiting for a complete LP reading.'));
+  const lesson=latest.portfolioLearning?.lessons?.find(row=>row.kind==='lending'&&row.trend==='falling')
+    ||latest.portfolioLearning?.lessons?.find(row=>row.priority>=40);
+  if(lesson)lines.push('• Recorded lesson: '+lesson.message);
   const ordered=[...positions].sort((a,b)=>Number(b.current!==false&&b.risk?.status==='watch')-Number(a.current!==false&&a.risk?.status==='watch')
     ||(a.risk?.edgePct??100)-(b.risk?.edgePct??100));
   const footer=[];

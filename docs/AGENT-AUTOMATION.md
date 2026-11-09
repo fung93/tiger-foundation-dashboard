@@ -98,9 +98,13 @@ Temporary Workflow contexts expire logically after 30 minutes and are deleted
 on success; bounded cleanup removes expired failed-job payloads.
 
 The write estimate `(100 + 28 × positions) × 288` targets 45,000 daily D1 writes
-for this path, leaving headroom for the existing dashboard agent. Up to two LPs
-keep five-minute observations; larger portfolios use a slower multiple of five
-minutes. This is an application estimate, not a Cloudflare account billing meter.
+for this path, leaving headroom for the existing dashboard agent. Full observations
+also budget Free Workflow steps, skipped ticks, manual checks and reviews. They use
+a multiple of five minutes shown on the page, typically 10–15 minutes for a small
+portfolio. The independent risk Cron remains at five minutes. Portfolio-wide memory
+and shared Robinhood/Arc range analysis are described in
+[AGENT-PORTFOLIO-LEARNING.md](AGENT-PORTFOLIO-LEARNING.md).
+This is an application estimate, not a Cloudflare account billing meter.
 Account-wide CPU, storage and usage still need checking in Cloudflare. No paid
 fallback or plan upgrade is enabled. Exhaustion must stay visible; do not claim
 that local query-count checks establish production CPU/quota compliance.

@@ -11,6 +11,8 @@ import { targetMetrics } from '../morpho-core.mjs';
 import { tickAtPrice, priceAtTick } from '../strategy-core.mjs';
 import { incomeSources } from './fixtures/agent-lp-income.mjs';
 import { katanaGaugeSource } from './fixtures/katana-mcp-gauges.mjs';
+import { robinhoodLPFixture } from './fixtures/agent-auto-multiple.mjs';
+import { autoHash } from '../api/_agent-auto-state.mjs';
 
 const runtimeRoot = process.argv[2];
 if (!runtimeRoot) throw Error('Pass the validation node_modules directory as the only argument.');
@@ -104,7 +106,11 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
     }
     if (url.origin === env.AGENT_ORIGIN && ['/api/morpho', '/api/lpbook', '/data.json', '/history.json'].includes(url.pathname)) {
       calls.push({ method: url.pathname });
-      if(providerMode==='income'&&url.pathname==='/api/lpbook')return Response.json(incomeSources().lp);
+      if(['income','both-chains'].includes(providerMode)&&url.pathname==='/api/lpbook'){
+        const lp=incomeSources().lp;if(providerMode==='both-chains'){const rh=robinhoodLPFixture(Date.now());
+          lp.live.push(rh.live);lp.position_data.push(rh.position);lp.cards.open++;lp.cards.value_usd+=rh.position.principalUsd;}
+        return Response.json(lp);
+      }
       const stamp = new Date().toISOString();
       return Response.json(url.pathname === '/api/morpho' ? { ...observation, ts: Date.now() / 1000,
         full: true, markets: observation.markets.map(row => ({ ...row, ts: Date.now() / 1000 })) }
@@ -115,7 +121,11 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
     if (url.origin === env.AGENT_ORIGIN && ['/api/strategy', '/api/kat-trades', '/api/vkat'].includes(url.pathname)) {
       calls.push({ method: url.pathname });
       if (providerMode === 'range' && url.pathname === '/api/strategy') return Response.json(rangeSource());
-      if(providerMode==='income'&&url.pathname==='/api/strategy')return Response.json(incomeSources().strategy);
+      if(['income','both-chains'].includes(providerMode)&&url.pathname==='/api/strategy'){
+        if(url.searchParams.get('view')==='agent-pool'){const pool=robinhoodLPFixture(Date.now()).pool;
+          return Response.json({...pool,schemaVersion:'agent-pool-observation-v1',observedAt:new Date().toISOString(),feeGrowth0:'0',feeGrowth1:'0'});}
+        return Response.json(incomeSources().strategy);
+      }
       return new Response(null, { status: 302, headers: { location: 'https://redirected.fixture.test/optional' } });
     }
     check(url.origin, 'https://api.telegram.org', 'Worker requests stay on the approved bot provider');
@@ -336,6 +346,36 @@ try {
   check(calls.filter(row=>row.method.startsWith('mcp:')).length,mcpCalls,'A retry repeats neither AI nor MCP work');
   check((await request({action:'diagnostics'})).value.katanaMCP.status,'ready','Connection & usage retains the last actual MCP check metadata');
   check((await request({action:'diagnostics'})).value.katanaMCP.parsedGaugeCount,40,'The native connection metadata reports all forty valid gauge references');
+  providerMode='both-chains';
+  await db.prepare("DELETE FROM agent_state WHERE key = 'tiger:agent:v1:usage:minute'").run();
+  const nativePolicy=JSON.parse((await db.prepare('SELECT value FROM agent_state WHERE key=?').bind('tiger:agent:v1:policy:current').first()).value);
+  nativePolicy.constraints.eligibleAssets.push('WETH','USDG');nativePolicy.constraints.eligibleProtocols.push('Uniswap V3');
+  await db.prepare('UPDATE agent_state SET value=? WHERE key=?').bind(JSON.stringify(nativePolicy),'tiger:agent:v1:policy:current').run();
+  const rh=robinhoodLPFixture(Date.now()),historyAt=Date.now(),hours=Array.from({length:721},(_,i)=>({
+    hour:Math.floor(historyAt/3600000)-720+i,firstAt:new Date(historyAt-(720-i)*3600000).toISOString(),lastAt:new Date(historyAt-(720-i)*3600000).toISOString(),
+    count:12,maxGapMs:300000,low:rh.pool.tick-1000,high:rh.pool.tick+1000,feeGrowth0:'0',feeGrowth1:'0',block:i}));
+  await db.prepare('INSERT INTO agent_state(key,value,expires_at) VALUES (?,?,NULL)').bind(
+    'tiger:agent:v1:automation:pool:'+autoHash(['robinhood',rh.pool.pool.toLowerCase()]),JSON.stringify({history:{hours,samplingIntervalMinutes:5},
+      learning:{[nativePolicy.version]:{policyVersion:nativePolicy.version,completedProposals:3,observations:72,outsideObservations:30}}})).run();
+  const mcpBeforeFees=calls.filter(row=>row.method.startsWith('mcp:')).length;
+  const feeChat=await request({action:'chat',message:'Suggest a suitable LP range for USDG/ETH',requestId:'native:fee-pool'},true,true);
+  check(feeChat.status,200,'The real authenticated chat accepts the reversed USDG/ETH pair');
+  check(feeChat.value.result?.data.chain,'robinhood','The model-selected BTC example cannot override the owner’s actual Robinhood pair');
+  check(feeChat.value.result.data.learning.applied,true,'Native chat reads prior same-pool evidence from real local D1');
+  check(feeChat.value.result.data.startingPoint.days,30,'The learned outcome changes the actual on-demand band comparison');
+  check(feeChat.value.reply.includes('Current range:'),true,'The native fee answer includes current-position geometry');
+  check(feeChat.value.reply.includes('sampled prices'),true,'A native reply labels sampled prices honestly');
+  check(calls.filter(row=>row.method.startsWith('mcp:')).length,mcpBeforeFees,'A Robinhood question does not call Katana MCP');
+  const feeUpdate={update_id:106,message:{text:'Suggest a suitable LP range for USDG/ETH',chat:{id:42,type:'private'},from:{id:42,is_bot:false}}};
+  const feeTelegram=()=>dispatchFetch('https://worker.fixture.test/api/agent-telegram',{method:'POST',headers:{'content-type':'application/json',
+    'x-telegram-bot-api-secret-token':env.TELEGRAM_WEBHOOK_SECRET,'x-fixture-ai':'range'},body:JSON.stringify(feeUpdate)});
+  check((await feeTelegram()).status,200,'The linked Telegram owner gets the same cross-chain analysis');
+  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('WETH/USDG on robinhood'),true,'The actual Telegram renderer sends fee-pool advice');
+  const feeUsage=await usageCount();check((await feeTelegram()).status,200,'A retry of the fee-pool question succeeds');
+  check(await usageCount(),feeUsage,'The retry spends no additional inference');
+  const learnedChat=await request({action:'chat',message:'What have you learned about my portfolio?',requestId:'native:memory'},true,true);
+  check(learnedChat.value.mode,'learning','The real private memory route works without model inference');
+  check(await usageCount(),feeUsage,'Reading lessons spends no AI quota');
   check(Math.max(...queryCounts)<=50,true,'All native dashboard/Telegram/resource invocations fit the D1 call ceiling');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed; max '+Math.max(...queryCounts)+' D1 calls / '+Math.max(...statementCounts)+' batched SQL statements. No real provider was contacted.');
 } finally { await mf.dispose(); }

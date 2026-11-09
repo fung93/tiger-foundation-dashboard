@@ -5,8 +5,14 @@ import { qualifiedRangeOutcome,mergeRangeOutcome } from '../api/_agent-auto-lear
 import { poolKey,positionKey,recordPoolObservation } from '../api/_agent-auto-observations.mjs';
 import { createAgentStore } from '../api/_agent-store.mjs';
 import { createAgentSQLiteFixture } from './fixtures/agent-sqlite.mjs';
+import { automaticCadence } from '../api/_agent-auto-state.mjs';
 let count=0;const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;};
 const now=Date.now()+86400000,stamp=at=>new Date(at).toISOString(),address=n=>'0x'+String(n).repeat(40);
+for(const positions of [0,1,2,10,30]){
+  const plan=automaticCadence({positions,closed:100,claims:100});
+  check(plan.scheduledStepsPerDay+5*plan.estimatedSteps+64+200<=3000,true,'Full observations leave Free step headroom for manual checks, reviews and recovery');
+  check(plan.intervalMinutes%5,0,'The observation cadence stays aligned with the independent five-minute Cron');
+}
 const p={chain:'katana',pool:address(3),owner:address(1),contract:address(2),id:'1',positionId:'1',status:'observed',observedAt:stamp(now),protocol:'Sushi V3',
   raw:{lowerTick:-1000,upperTick:1000,token0:{address:address(4),symbol:'TOKEN',decimals:0},token1:{address:address(5),symbol:'USDC',decimals:0}}};
 const market={chain:'katana',pool:p.pool,ts:stamp(now),status:'fresh',price:1,sqrtPrice:1,tick:0,tickSpacing:10,activeLiquidity:1000,

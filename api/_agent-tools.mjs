@@ -7,6 +7,7 @@ import { httpError } from './_agent-http.mjs';
 import { agentNumber, agentMoney, agentPrice, agentReadingTime, friendlyAgentNotes } from '../agent-language.mjs';
 import { analyzeLPRange, renderLPRangeAnalysis } from './_agent-lp-range.mjs';
 import { LP_ADVICE_FOCUSES } from './_agent-lp-advice.mjs';
+import { renderPortfolioLearning } from './_agent-portfolio-learning.mjs';
 
 export const AGENT_TOOL_SCHEMA_VERSION = 'agent-tool-v1';
 export const AGENT_TOOL_NAMES = Object.freeze(['getPortfolioSnapshot', 'getLendingRisk', 'calculateTargetHealth', 'getLPPosition', 'getKATExposure', 'analyzeLPRange']);
@@ -153,7 +154,8 @@ function lendingRisk(args, context, now) {
   const markets = args.market ? [findMarket(context, args.market)] : (context?.lending?.markets || []).slice(0, MARKETS.length);
   if (!markets.length) return blocked('Current lending readings are unavailable.');
   const rows = markets.map(row => riskRow(row, context, now)), ready = rows.filter(row => row.status === 'ready');
-  return { status: !ready.length ? 'blocked' : ready.length === rows.length ? 'ready' : 'partial', data: { markets: rows },
+  return { status: !ready.length ? 'blocked' : ready.length === rows.length ? 'ready' : 'partial', data: { markets: rows,
+    learning:(context.portfolioLearning?.lessons||[]).filter(lesson=>lesson.kind==='lending'&&rows.some(row=>row.marketKey===lesson.key)).slice(0,2) },
     stamps: ready.map(row => row.observedAt), units: { health: 'dimensionless', ltv: 'fraction of oracle collateral value', debt: 'loan token units' },
     assumptions: ['Every market is evaluated independently; another market failure does not erase a verified reading.',
       'Oracle health uses pinned raw debt after interest accrual, not collateral redemption value.'],
@@ -212,6 +214,8 @@ function lpPosition(args, context, now) {
     limitations.push('The LP tick range is unavailable or inconsistent.');
   if (p.feesMine === null || p.staked === null) limitations.push('Fee routing or staking eligibility is not fully verified.');
   return { status: limitations.length ? 'partial' : 'ready', stamps: [p.observedAt], data: { ...p,
+    learning:(context.portfolioLearning?.lessons||[]).filter(row=>row.kind==='lp'&&row.key===
+      [p.chain,p.contract?.toLowerCase(),String(p.positionId||p.id),p.owner?.toLowerCase()].join(':')).slice(0,1),
     accounting: { ...p.accounting, principalExcludesFeesAndRewards: true, carriedRewardsExcludedFromApr: true,
       stakedTradingFeesToDao: p.chain === 'katana' && p.feesMine === false } },
     units: { principal: 'USD at observation', liquidity: 'raw liquidity integer', range: 'pool ticks with explicit token decimals' },
@@ -232,6 +236,7 @@ function portfolio(context, now) {
   const cards = context.lp?.status === 'fresh' && fresh(context.lp.ts, now) ? context.lp.cards : null;
   const data = { ...snapshot, assets, liabilities, verifiedSubtotalUsd: subtotal('combined'),
     lpSummary: cards ? { open: cards.open, valueUsd: cards.value_usd, netUsd: cards.net_usd, unclaimedUsd: cards.unclaimed_usd } : null,
+    portfolioLearning:context.portfolioLearning||null,
     scopes: Object.fromEntries(['main', 'vault', 'combined'].map(scope => [scope, { ...snapshot.scopes?.[scope], verifiedSubtotalUsd: subtotal(scope) }])),
     navUsd: incomplete ? null : snapshot.navUsd, allocationBlocked: incomplete,
     status: expired ? 'stale' : incomplete && snapshot.status === 'complete' ? 'partial' : snapshot.status };
@@ -336,7 +341,8 @@ function katExposure(context, now) {
   return { status: limitations.length ? 'partial' : 'ready', stamps, data: { verifiedGrossKat, verifiedDebtKat: debtKat,
     verifiedNetKat: verifiedGrossKat - debtKat, liquidKat, lockedKat, encumberedKat, claimableKat,
     completeExposureKat: limitations.length ? null : verifiedGrossKat - debtKat, allocationBlocked: limitations.length > 0,
-    verifiedComponentCount: components.length, components, historical },
+    verifiedComponentCount: components.length, components, historical,
+    learning:(context.portfolioLearning?.lessons||[]).filter(row=>['kat','votes','locks'].includes(row.kind)).slice(0,2) },
     units: { exposure: 'KAT-equivalent token units, not USD', liquid: 'unrestricted wallet KAT only' },
     assumptions: ['Each economic asset contributes once; receipt look-through replaces its parent representation.',
       'avKAT uses an observed vault redemption rate; the lending oracle ratio is not that conversion.',
@@ -390,6 +396,7 @@ export function renderAgentToolResult(output) {
         }
       }
     }
+    for(const lesson of d.learning||[])lines.push('Recorded '+agentReadingTime(lesson.sourceTimes?.at(-1))+': '+lesson.message+' '+lesson.suggestion);
   } else if (output.toolName === 'getPortfolioSnapshot') {
     const hasReading = output.status === 'ready' || [...(d.assets || []), ...(d.liabilities || [])].some(row => row.status === 'fresh' && Number.isFinite(row.valueUsd));
     lines.push(!hasReading ? 'I could not verify your current portfolio value.' : output.status === 'ready' ? 'Your portfolio is worth ' + agentMoney(d.navUsd) + '.' : 'I can currently account for ' + agentMoney(d.verifiedSubtotalUsd) + ' in your portfolio.');
@@ -400,17 +407,20 @@ export function renderAgentToolResult(output) {
     if (d.lpSummary && Number.isSafeInteger(d.lpSummary.open)) lines.push('You have ' + d.lpSummary.open + ' open LP position' + (d.lpSummary.open === 1 ? '' : 's')
       + (Number.isFinite(d.lpSummary.netUsd) ? ', with a net result of ' + agentMoney(d.lpSummary.netUsd) : '')
       + (Number.isFinite(d.lpSummary.unclaimedUsd) ? ' and ' + agentMoney(d.lpSummary.unclaimedUsd) + ' still to claim' : '') + '.');
+    if(d.portfolioLearning?.lessons?.length)lines.push('\n'+renderPortfolioLearning(d.portfolioLearning,{compact:true}));
   } else if (output.toolName === 'getLPPosition') {
     const label = String(d.id || d.positionId || '');
     lines.push('Your ' + (d.chain || '') + ' LP' + (label.length <= 80 ? ' #' + label : '') + ' is worth ' + agentMoney(d.principalUsd) + ' before fees and rewards.');
     if (typeof d.inRange === 'boolean') lines.push(d.inRange ? 'The price is inside your chosen range.' : 'The price is outside your chosen range.');
     if (d.accounting?.stakedTradingFeesToDao) lines.push('Staked Sushi trading fees go to the DAO; they are not owner earnings.');
+    for(const lesson of d.learning||[])lines.push('Recorded '+agentReadingTime(lesson.sourceTimes?.at(-1))+': '+lesson.message+' '+lesson.suggestion);
   } else if (output.toolName === 'getKATExposure') {
     if (!d.verifiedComponentCount && output.status !== 'ready') lines.push('I could not verify your current KAT holdings.');
     else {
       lines.push('Your ' + (output.status === 'ready' ? '' : 'currently verified ') + 'net exposure is ' + agentNumber(d.verifiedNetKat) + ' KAT after subtracting ' + agentNumber(d.verifiedDebtKat) + ' KAT of debt.');
       lines.push('Available in your wallet: ' + agentNumber(d.liquidKat) + ' KAT.\nLocked: ' + agentNumber(d.lockedKat) + ' KAT.\nCommitted to positions: ' + agentNumber(d.encumberedKat) + ' KAT.\nRewards to claim: ' + agentNumber(d.claimableKat) + ' KAT.');
     }
+    for(const lesson of d.learning||[])lines.push('Recorded '+agentReadingTime(lesson.sourceTimes?.at(-1))+': '+lesson.message+' '+lesson.suggestion);
   }
   lines.push(...friendlyAgentNotes(output.limitations, { partial: output.status === 'partial', blocked: output.status === 'blocked',
     kind: ({ getPortfolioSnapshot: 'portfolio', getKATExposure: 'kat' })[output.toolName] || '' }));

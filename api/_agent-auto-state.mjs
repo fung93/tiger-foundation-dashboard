@@ -12,6 +12,20 @@ export const AUTO_LIMITS = Object.freeze({ intervalMs: 300000, positions: 30, po
   nearEdgePct: 10, hourlyMovePct: 3, hourlyVolatilityPct: 3, liquidityDropPct: 30, rewardDropPct: 25,
   alertCooldownMs: 3600000, proposalDays: 1, historyVersion: 1 });
 export const autoHash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export function automaticCadence({positions=0,pools=positions,closed=0,claims=0,missing=positions}={}) {
+  // Reserve room in the documented 3,000-step Free day for five owner checks,
+  // eight full reviews and bounded recovery. A skipped five-minute tick still
+  // consumes its prepare step. This is an application estimate, not billing.
+  const steps=12+Math.min(30,positions)+Math.min(30,pools)+Math.ceil(Math.min(100,closed)/20)
+    +Math.ceil(Math.min(100,claims)/20)+Math.ceil(Math.min(30,missing)/4);
+  const scheduledBudget=3000-64-200-5*steps;
+  let workflowStride=Math.max(1,Math.ceil(288*(steps-1)/Math.max(1,scheduledBudget-288)));
+  while(288+Math.ceil(288/workflowStride)*(steps-1)>scheduledBudget)workflowStride++;
+  const writeStride=Math.max(1,Math.ceil((100+28*positions)*288/45000));
+  return {intervalMinutes:5*Math.max(workflowStride,writeStride),estimatedSteps:steps,
+    scheduledStepsPerDay:288+Math.ceil(288/Math.max(workflowStride,writeStride))*(steps-1),
+    basis:'Application Free Workflow-step/D1-write planning; risk Cron remains every five minutes.'};
+}
 export const autoFresh = (ts, now) => Number.isFinite(Date.parse(ts)) && now - Date.parse(ts) >= -30000 && now - Date.parse(ts) < 90000;
 export const autoPaused = (settings, now) => !!settings.pausedUntil && Date.parse(settings.pausedUntil) > now;
 export function automaticControls(saved) {

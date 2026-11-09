@@ -2,6 +2,7 @@
    Session credentials stay in the HttpOnly cookie; no chat or key is stored here. */
 import { researchExplanation, friendlyAgentNotes, agentLabel, agentMoney, agentNumber } from '/agent-language.mjs';
 import { summarizeLPComparison } from '/agent-lp-summary.mjs';
+import { renderPortfolioLearning } from '/agent-learning-summary.mjs';
 const $=id=>document.getElementById(id);
 let state=null,busy=false,loading=false,settingsDirty=false,lastMessages='',sources=[],pendingChat=null;
 let policyState=null,policyDraft=null,policyDirty=false,policyFormVersion=null,policyConflict=false,policyLoading=false,toolBusy=false,toolResult=null;
@@ -467,7 +468,7 @@ function clearPrivateAnalysis(){
   if($('agentJournalSave'))$('agentJournalSave').disabled=false;
   pendingComparison=null;comparisonBusy=false;comparisonReport=null;
   automaticState=null;automaticLoading=false;automaticTicket++;automaticHistoryTicket++;automaticHistoryCursor=null;
-  for(const id of ['agentAutomaticBrief','agentAutomaticPositions','agentAutomaticHoldings','agentAutomaticEvidence','agentAutomaticHistoryList','agentAutomaticSchedule','agentAutomaticNotice'])$(id)?.replaceChildren();
+  for(const id of ['agentAutomaticBrief','agentAutomaticPositions','agentAutomaticHoldings','agentAutomaticEvidence','agentAutomaticHistoryList','agentAutomaticSchedule','agentAutomaticNotice','agentPortfolioLearning'])$(id)?.replaceChildren();
   for(const id of ['agentAutomaticDetails','agentAutomaticHistory','agentAdvanced'])if($(id))$(id).open=false;
   if($('agentAutomaticHistoryMore'))$('agentAutomaticHistoryMore').hidden=true;
   lpAutoSetup=null;lpAutoBusy=false;lpAutoTicket++;lpAutoRevision++;lpAutoDirty=new Set();comparisonTicket++;comparisonKind='lending';comparisonShared={};
@@ -891,6 +892,8 @@ function renderAutomatic(value){
   const latest=value.latest;
   $('agentAutomaticBrief').textContent=latest?.reply||(!value.configured?'The existing background Worker needs the current deployment. Your dashboard still works.':'Your live positions will be detected automatically on the first scheduled check.');
   if(latest&&!latest.current)$('agentAutomaticBrief').textContent='The last check is overdue. These are recorded observations from '+date(latest.checkedAt)+'. New suggestions are waiting for fresh readings.';
+  if($('agentPortfolioLearning'))$('agentPortfolioLearning').textContent=renderPortfolioLearning(latest?.portfolioLearning
+    ?{...latest.portfolioLearning,retained:!latest.current||Date.now()-Date.parse(latest.portfolioLearning.checkedAt)>3600000}:null);
   const positions=$('agentAutomaticPositions');positions.replaceChildren();$('agentAutomaticEvidence').replaceChildren();
   for(const item of latest?.positions||[]){
     const row=element('article','agent-automatic-position');row.append(element('p','',item.summaryText||'LP #'+item.position.positionId),

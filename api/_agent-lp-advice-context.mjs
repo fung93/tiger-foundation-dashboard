@@ -9,6 +9,7 @@ export async function loadLPAdviceContext({context={},args={},env={},origin,fetc
   const allowed=context.policy?.status==='confirmed'?context.policy.constraints?.allowedAnalysisTypes:null;
   if(Array.isArray(allowed)&&!allowed.includes('lp'))return context;
   if(args.chain&&args.chain!=='katana')return context;
+  if(context.lpAnalysisChain&&context.lpAnalysisChain!=='katana')return context;
   const extended=args.dailyRewardTargetUsd!==undefined||!!args.analysisFocus;
   const needs=['strategy',...(extended?['kat']:[])].filter(name=>!context[name]);
   const positions=(context.lp?.positions||[]).map(row=>row.canonical).filter(p=>p?.chain==='katana'

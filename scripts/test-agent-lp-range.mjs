@@ -110,7 +110,7 @@ try {
   duplicate.lp.positions = [];
   check((await call(undefined, { context: duplicate })).data.reason, 'choose_pool', 'Several unowned fee tiers require clarification');
   check((await call({ pair: 'ETH/USDC' })).status, 'blocked', 'Unavailable pairs never borrow BTC history');
-  check((await call({ pair: 'BTC/USDC', chain: 'robinhood' })).data.reason, 'unsupported_chain', 'Katana history cannot be reused as Robinhood evidence');
+  check((await call({ pair: 'BTC/USDC', chain: 'robinhood' })).data.reason, 'history_unavailable', 'Katana history cannot be reused as Robinhood evidence');
   const noPosition = fixture(); noPosition.lp.positions = [];
   check((await call(undefined, { context: noPosition })).status, 'ready', 'A pair analysis does not require a currently open LP');
   for (const args of [{}, { pair: 'BTC/USDC', reviewFrequencyDays: 0 }, { pair: 'BTC/USDC', reviewFrequencyDays: '7' }, { pair: 'BTC/USDC', formula: 'eval' }]) {

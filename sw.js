@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v161';  /* MCP response adapters and value-free format diagnostics */
+var CACHE_VERSION = 'tiger-v162';  /* Shared portfolio learning and fee-paying LP analysis */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -35,6 +35,7 @@ var SHELL_ASSETS = [
   '/agent.js',
   '/agent-language.mjs',
   '/agent-lp-summary.mjs',
+  '/agent-learning-summary.mjs',
   '/agent-launcher.js',
   '/',
   '/index.html',

@@ -47,7 +47,8 @@ review feature; `AGENT_STRATEGY_ENABLED=false` also disables new strategy review
 | Area | Supported review |
 | --- | --- |
 | Lending | Current health/LTV, independent liquidation warnings and exact repayment calculations against confirmed owner targets; both health and LTV constraints are respected |
-| Katana LPs | Up to three current positions, verified range history, present band and equal-capital liquidity concentration; staked fees remain DAO earnings |
+| LPs | Up to three current Katana/Robinhood/Arc V3 positions, verified or explicitly sampled range history and present bands; fee scenarios stay separate from KAT campaigns and staked fees remain DAO earnings |
+| Portfolio memory | Dated holdings, LP outcomes, loan trends, KAT trade-book results and known locks; original decision follow-ups remain separate |
 | KAT | Verified exposure observations when the existing tool has sufficient coverage |
 | Saved comparisons | Up to three explicitly confirmed cases, recalculated with fresh financial readings and the original costs, price paths and rate assumptions |
 | Follow-up | Compare later loan health and pool ticks with the original recorded conditions, retaining links to the original report and calculation |

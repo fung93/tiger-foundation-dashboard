@@ -1,5 +1,62 @@
 # Tiger agent implementation progress
 
+## Portfolio-wide learning — 9 November 2026 (MYT)
+
+- [x] Reconcile the request with the existing automatic watcher, limited pool
+  containment adaptation and Katana-only chat/review restrictions. Preserve the
+  owner-reported MCP/advice acceptance notes below and unrelated changes.
+- [x] Package 1: retain bounded private portfolio observations and derive lessons
+  for holdings, LP earnings/performance, borrowing, KAT trading and known locks.
+  Keep wealth changes separate from investment returns and missing reads explicit.
+  The focused regression passes 28 assertions, including later loan trends,
+  same-reference retries, original evidence, stale/missing data and no policy edits.
+- [x] Package 2: share those lessons with dashboard/Telegram chat and reviews;
+  add verified Robinhood/Arc V3 range analysis using the existing pool reader and
+  recorded history, including fee economics rather than Katana KAT assumptions.
+  Focused coverage passes 38 cross-chain assertions. Native workerd
+  exercises the dashboard and linked Telegram with real local D1: 194 chat checks
+  and 37 automatic-runner checks pass, with no real provider contacted.
+- [x] Package 3: expose a concise learning summary, validate cold starts, retries,
+  stale/partial readings, policy changes, accounting, private channels and Free
+  resource bounds; run relevant suites, npm run check and Worker dry run.
+- [x] Prepare the release under the standing agent-build authorization; rebase
+  onto the latest scheduled data commits and complete available local validation.
+- [ ] Confirm the production dashboard/Worker deployment, source freshness,
+  account CPU/quota and live dashboard/Telegram acceptance. Neither Cloudflare
+  API token nor global API key is configured here, and direct deployed-URL reads
+  fail through this workspace's network. No deployment or live success is claimed.
+
+Release evidence: all **65 portable suites** pass (`npm run check`) after
+reconciling upstream data; the current focused memory suite has **28 assertions**
+including the additional ordinary-KAT-answer checks. Cross-chain/fee cases pass
+**38**, automatic risk/Free planning **43**, and the complete automatic persistence
+suite **226** (max 40 D1 calls/stage), including a due daily report bypassing the
+slower scan interval. Native workerd/local D1 passes **194 chat / 37 automatic /
+24 recurring-review assertions**, max **36 / 22 / 29 D1 calls** respectively;
+chat records 66 batched SQL statements separately from binding calls. Chromium
+passes **44 assertions** across Classy/Tiger at 360/1366 px: concise dated lessons,
+actual cadence, no overflow/browser private storage and logout races. Latest
+Worker dry run passes at **722.91 KiB / 188.85 KiB gzip** with the existing Free
+AI/D1/Workflow bindings. These are closed fixtures, not real provider/account tests.
+The original plan hash and unrelated accounting/Lending code are unchanged.
+
+Changed files: new `_agent-portfolio-learning.mjs`, `_agent-learned-context.mjs`,
+`_agent-lp-fees.mjs` and `agent-learning-summary.mjs`; integration in service,
+brain, tools, LP range/advice/context, automatic analysis/state/workflow and review
+analysis/loop; `agent.html`, `agent.js`, `sw.js`; Wrangler, AGENTS, this checklist,
+the automation/review guides and new `docs/AGENT-PORTFOLIO-LEARNING.md`; two new
+portable suites and the existing range/automatic/runtime/project checks.
+Configuration: only regular `AGENT_LEARNING_ENABLED=true` is added. No secret,
+migration, database, model, dependency or wallet permission change; cache is 162.
+Private daily originals remain durable, while working memory is bounded. Full
+scans budget Free Workflow steps as well as D1 writes; the independent risk Cron
+is still five-minute and an enabled due MYT daily summary does not wait for a scan.
+
+Learning means evidence-based comparisons and bounded rule adaptation. It does
+not train model weights, alter the owner's policy or execute transactions. An
+unsupported asset/protocol stays explicitly uncovered; no portfolio-wide profit
+or allocation amount is invented from incomplete flow/valuation coverage.
+
 ## Katana voting-gauge identity adapter — 8 November 2026 (MYT)
 
 - [x] Owner supplies the real format diagnostic: JSON with forty `gauges`, each
@@ -12,8 +69,19 @@
   under an eighty-reference cap. Conflicting/foreign/malformed identities still fail.
 - [x] Run format, protocol, native Worker/Telegram and full project checks plus
   the Worker dry run, then prepare publication under the standing authorization.
-- [ ] Confirm the deployed Check Katana MCP now reports available indexed pool
-  references; the execution proxy still prevents an independent live call here.
+- [x] Owner confirms the deployed Check at **8 Nov 2026, 23:11 MYT** reports
+  “Connected · indexed pool references available” and
+  `text_json · pool_references_found`. Live connection and parsing acceptance
+  pass by owner report; the execution proxy still prevents an independent call.
+- [x] Review the owner's subsequent live LP income/range answer: it addresses
+  the daily goal, gives a conditional keep/reset judgment, compares range buffers
+  and rewards, and separates recorded pace from current campaign-share estimates.
+  Local arithmetic checks of the displayed rounded figures pass for goal share,
+  candidate dollar rewards, range buffers, price sensitivities and target KAT price.
+  The estimate has only about a 3% KAT-price cushion at unchanged reward pace.
+- [ ] Confirm focused live KAT/base-price follow-ups and real account source
+  freshness/Free CPU. The pasted answer alone cannot independently verify reset
+  inventory, gas inputs, campaign funding/expiry or market history.
 
 The regression includes a current LP's reference at row forty and an inactive
 voting gauge with a separately verified active reward campaign. Neither voting
@@ -28,9 +96,14 @@ statements). The reported forty-row schema matches its last-row LP, retains only
 that reference in the private answer, and leaves verified income unchanged when
 the voting gauge is inactive or has large voting/share strings. Worker dry run
 passes at **676.64 KiB / 176.03 KiB gzip**. Source field schema is owner-supplied;
-fixture values are hypothetical. Actual deployment/Free CPU and the next live
-Check remain account acceptance gates. No new model request, data writer or
-wallet operation is introduced.
+fixture values are hypothetical. Owner-reported connection/parsing acceptance is
+recorded above. The owner-supplied original strategy answer has now been reviewed
+for relevance and rounded arithmetic; focused follow-ups, account source
+freshness/Free CPU and independently verified live inputs remain acceptance gates.
+Gauge parsing success does not verify reward rates, source timestamps or portfolio
+figures. This acceptance update changes documentation only; no source code or
+configuration changed and the already passing project suites were not rerun.
+No new model request, data writer or wallet operation is introduced.
 
 ## Katana MCP response-format follow-up — 8 November 2026 (MYT)
 

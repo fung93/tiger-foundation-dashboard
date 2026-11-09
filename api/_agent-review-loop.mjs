@@ -14,6 +14,8 @@ import { buildReviewAnalysis, fallbackReviewSelection, renderPortfolioReview } f
 import { selectReviewStrategy } from './_agent-review-ai.mjs';
 import { deliverReviewNotices, reviewDeliveryAllowed } from './_agent-review-delivery.mjs';
 import { getReviewControls, reviewDue, reviewFeatureEnabled, loadReviewInputs, REVIEW_SCHEMA, REVIEW_LIMITS } from './_agent-review-state.mjs';
+import { loadPortfolioLearning } from './_agent-portfolio-learning.mjs';
+import { loadLearnedLPContext } from './_agent-learned-context.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const clockValue = now => typeof now === 'function' ? now() : now;
@@ -143,6 +145,11 @@ export async function runPortfolioReview({ env = process.env, store: suppliedSto
       context = { ...context, policy };
       const needsStrategy = (context.lp?.positions || []).some(row => row.canonical?.chain === 'katana') || plans.items.some(item => item.kind === 'lp');
       if (needsStrategy && !context.strategy) context = await loadSupplementalContext({ origin, needs: ['strategy'], context, fetcher, timeoutMs: 6000, now: clock });
+      context.portfolioLearning=await loadPortfolioLearning(store,{policy,now:clock(),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
+      for(const row of (context.lp?.positions||[]).filter(row=>['katana','robinhood','arc'].includes(row.canonical?.chain)).slice(0,3)){
+        const p=row.canonical;context=await loadLearnedLPContext({store,context,args:{positionId:String(p.positionId||p.id),chain:p.chain,owner:p.owner},
+          origin,fetcher,now:clock(),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
+      }
       const previous = state.reportId ? await store.get(state.reportId) : null;
       const history = store.list ? await store.list('review:index:', { limit: REVIEW_LIMITS.previousReviews, reverse: true }) : { items: [] };
       const priorIds = [...new Set([previous?.reportId, ...history.items.map(item => item.value.reportId)].filter(Boolean))].slice(0, REVIEW_LIMITS.previousReviews);

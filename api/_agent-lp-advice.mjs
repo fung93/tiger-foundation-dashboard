@@ -44,7 +44,7 @@ function recordedPace(row, now) {
   return { ...pace, katPerDay: pace.katEarned * 24 / pace.hours,
     basis: 'Recorded native rewards over the full interval, including any time out of range; not a spot in-range forecast.' };
 }
-function resetComparison(current, candidate, pool, goal, funding, position, now) {
+export function resetComparison(current, candidate, pool, goal, funding, position, now) {
   const capital=goal.capitalUsd;
   if (!current || !candidate || !positive(capital)) return null;
   const currentL = Number(position?.raw?.liquidity), next = liquidityForCapital(capital, candidate.tickLower, candidate.tickUpper, pool);
@@ -67,7 +67,7 @@ function resetComparison(current, candidate, pool, goal, funding, position, now)
   const gasUsd = validFunding ? funding.gasUsd : null;
   const costs = gasUsd === null ? null : gasUsd + poolFeeUsd + slippageCaseUsd;
   let afterCosts=null;
-  if(costs!==null&&capital>costs){
+  if(costs!==null&&capital>costs&&pool.kind==='rewards'){
     const reading=estimateReward({...pool,eligible:{...pool.eligible,liquidity:goal.otherEligibleLiquidity,amount0:0,amount1:0}},
       {capitalUsd:capital-costs,lowerPrice:candidate.lowerPrice,upperPrice:candidate.upperPrice},
       {now:now/1000,katUsd:goal.katUsd,rewardStart:pool.campaign.start,rewardEnd:pool.campaign.end});
@@ -160,6 +160,7 @@ export function buildLPAdvice({ data, context, position, pool, args, now }) {
   const out = !goal.current.inRange;
   const nearEdge = !out && Math.min(advice.market.currentDownsidePct, advice.market.currentUpsidePct) < 1;
   advice.judgment = out ? 'review_range_exit' : nearEdge ? 'monitor_edge'
+    : data.learning?.applied ? 'compare_history'
     : hasTarget && goal.current.reachesTarget ? 'keep_goal_met'
       : hasTarget && advice.shortfallUsdPerDay <= goal.targetUsdPerDay * .1 ? 'keep_small_gap'
         : hasTarget && !goal.historicalChoice ? 'do_not_chase'
@@ -269,6 +270,7 @@ export function renderLPAdvice(d) {
   }
   if (a.market.kat) lines.push('• Market: KAT ' + (a.market.kat.change24hPct >= 0 ? '+' : '') + agentNumber(a.market.kat.change24hPct, 1)
     + '% over approximately 24 hours from recorded pool prices.');
+  if(d.learning?.message)lines.push('• Memory: '+d.learning.message);
   if(a.focus==='market'&&a.market.observedDay)lines.push('• Pool over roughly 24 hours: '+band(a.market.observedDay)
     +' ('+agentNumber(a.market.observedDay.spanPct,1)+'% price span). Past moves are a risk check, not a forecast.');
   if (!g.historicalChoice && g.capitalRequiredForPreferredUsd !== null && ['income','balanced'].includes(a.focus))

@@ -61,9 +61,9 @@ try{
   check((await store.list('usage:')).items.length,0,'Five-minute observations consume no chat/inference budget counters');
   check((await fixture.db.prepare('SELECT COUNT(*) AS count FROM agent_usage').bind().first()).count,0,'No inference ledger attempt is created');
   const loadsBefore=loads;await run();check(loads,loadsBefore,'Duplicate scheduled ticks do not reread providers before they are due');
-  now+=300000;near=true;await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;near=true;await run();
   check((await store.get('alerts')||[]).length,0,'A near-edge warning requires two distinct current readings');
-  now+=300000;failPublish=true;await assert.rejects(run(),/Fixture lost before publication/);count++;
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;failPublish=true;await assert.rejects(run(),/Fixture lost before publication/);count++;
   await run();
   check((await store.get('alerts')||[]).length,1,'A persistent near-edge observation produces one durable alert');
   check((await store.get('alerts'))[0].sourceTs,new Date(now).toISOString(),'A publication retry retains the original pending signal after the position checkpoint');
@@ -72,7 +72,7 @@ try{
   const proposals=(await store.list('automation:proposal:')).items;
   check(proposals.length,1,'The original range proposal is recorded once per position/day/policy');
   check(proposals[0].value.observations,0,'Later observations never rewrite an original proposal');
-  now+=300000;walletFails=true;await run();status=await automaticStatus(store,env,{now});
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;walletFails=true;await run();status=await automaticStatus(store,env,{now});
   const retained=status.latest.wallets.find(source=>source.chain==='katana');
   check(retained.status,'stale','An unavailable wallet keeps its last good reading explicitly stale');
   check(retained.balances[0].raw,'1000000','A failed wallet read cannot erase the last known amount');
@@ -81,31 +81,31 @@ try{
   const decision=(await store.list('journal:decision:')).items[0].value;
   await recordAgentDecision(store,{decisionId:decision.decisionId,expectedVersion:1,state:'rejected',
     requestId:'fixture-owner-rejection',rationale:'Keep my existing range for now.'},{now});
-  now+=300000;await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;await run();
   const declined=await store.get(key);
   check(declined.range.status,'owner_declined','A real journal rejection suppresses future automatic range suggestions under the same policy');
   check(declined.range.selected,null,'A rejected numeric range is no longer presented as a current suggestion');
   check(declined.risk.status,'watch','Rejecting a suggestion cannot hide independently observed live risk');
   await recordAgentDecision(store,{decisionId:decision.decisionId,expectedVersion:2,state:'deferred',
     requestId:'fixture-owner-clear-rejection',rationale:'Allow range comparisons again.'},{now});
-  now+=300000;await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;await run();
   check(!!(await store.get(key)).range.selected,true,'Only a subsequent owner choice clears the applicable rejection');
-  walletFails=false;now+=300000;empty=true;incomplete=true;await run();
+  walletFails=false;now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;empty=true;incomplete=true;await run();
   check((await store.get(key)).status,'open','An incomplete enumeration cannot prove a position closed');
   status=await automaticStatus(store,env,{now});
   check(status.latest.positions[0].current,false,'Retained LP observations cannot become current recommendations');
-  now+=300000;incomplete=false;await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;incomplete=false;await run();
   check((await store.get(key)).status,'no_longer_owned','A complete empty enumeration records an ownership/lifecycle transition');
   check((await store.list('automation:closed:')).items.length,0,'Absence never fabricates a realised closed-position performance record');
   const closedAt=new Date(now-86400000).toISOString(),p=lastContext.tracking.positions[0]||first.position;
   closedHistory=[{id:'42',chain:p.chain,pair:'vbWBTC / vbUSDC',wallet_address:p.owner,contract:p.contract,pool:p.pool,
     closed:closedAt,fee_usd:5,net_usd:3,incomplete:false,comparison:{volatile:'first quote'}}];
-  now+=300000;await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;await run();
   const originalClose=(await store.list('automation:closed:')).items[0];
   check(originalClose.value.net_usd,3,'Actual closed LP Book net is stored at its original recorded value');
-  now+=300000;closedHistory[0].comparison={volatile:'different current quote'};await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;closedHistory[0].comparison={volatile:'different current quote'};await run();
   check((await store.list('automation:closed:')).items.length,1,'Volatile LP-vs-holding metadata cannot rewrite or duplicate realised performance history');
-  now+=300000;closedHistory[0]={...closedHistory[0],fee_usd:6,net_usd:4};await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;closedHistory[0]={...closedHistory[0],fee_usd:6,net_usd:4};await run();
   check((await store.list('automation:closed:')).items.length,2,'A later final claim-accounting change adds a new immutable financial version');
   check((await store.get(originalClose.key)).net_usd,3,'The earlier closed-performance version remains intact');
   check((await store.list('automation:closed-latest:')).items[0].value.net_usd,4,'The historical list selects the latest verified accounting version');
@@ -121,8 +121,13 @@ try{
   }
   await step.do('fixture-four-qualified-closures',{},()=>markAbsentPositions(store,disappearing,[],0,{complete:true,observedAt:new Date(now).toISOString(),now}));
   check((await store.get(disappearing[3])).pendingOutcomes.length,0,'The maximum closure batch merges qualified learning without exceeding Free D1 queries');
+  await store.set('settings',{dailyEnabled:true,dailyTime:'00:00'});
+  await store.set('telegram',{chatId:'42',userId:'42'});
+  const beforeDaily=loads;now+=300000;result=await run();
+  check(result.status!=='not_due',true,'A due daily summary bypasses the slower full-scan wait');
+  check(loads,beforeDaily+1,'The due daily summary receives a new source reading on its next Cron tick');
   await saveAutomaticControls(store,{enabled:false,expectedRevision:0},{now});
-  now+=300000;const beforePause=loads;result=await run();
+  now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;const beforePause=loads;result=await run();
   check(result.status,'paused','The operational pause stops automatic reads');
   check((await automaticStatus(store,env,{now})).nextIntendedCheck,null,'Paused tracking never advertises an active next check');
   check(loads,beforePause,'A paused run never calls a wallet or position provider');

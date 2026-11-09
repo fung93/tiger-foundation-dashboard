@@ -875,6 +875,26 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   reports together. Tests inject all external
   providers; never register a bot or send real messages as part of tests.
 
+- Portfolio-wide learning (Alex, 9 Nov 2026) shares dated private observations
+  across automatic checks, dashboard/Telegram chat and advanced reviews. Record
+  configured holdings, LP Book outcomes, loans, KAT trading and known locks/vote
+  rewards without changing any ledger or assuming balance changes are returns.
+  Keep immutable daily originals and a bounded 31-day/192-KiB working view; collect
+  at most every 30 minutes. General memory is separate from later outcomes of a
+  journal idea. Qualified pool containment can affect on-demand lookbacks as well
+  as automatic comparisons; preserve policy exclusions and explicit rejections.
+  The current V3 readers support owned Robinhood/Arc pools, with sampled history,
+  provisional bands at least as wide as the current range and conditional fee-growth
+  scenarios. Never apply Katana KAT emissions to those pools or call Katana MCP
+  for them. Keep chain/wallet/contract identity and quote direction explicit.
+  Full portfolio scans now budget Free Workflow steps as well as D1 writes and
+  show their actual interval, usually 10–15 minutes for small portfolios. Independent
+  risk checks remain five-minute; a due enabled daily Telegram summary bypasses
+  the scan wait. This is application planning, not proof of account usage. The
+  new AGENT_LEARNING_ENABLED switch controls new memory/shared adaptation without
+  deleting evidence; existing watch controls remain separate. No model retraining,
+  policy mutation, paid fallback or signing. See docs/AGENT-PORTFOLIO-LEARNING.md.
+
 ## 5. Chain facts that bite
 
 ### Katana
@@ -1120,6 +1140,19 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **9 Nov 2026, portfolio-wide memory and shared analysis:** extend the existing
+  automatic Workflow with private daily portfolio observations and concise lessons
+  for holdings, LP results, borrowing, KAT trading and known locks/votes. Dashboard
+  and Telegram chat read the same memory; qualified pool outcomes affect on-demand
+  ranges, and advanced reviews include Robinhood/Arc V3 fee-paying pools. Read
+  actual owned pool metadata afresh; sampled quotes never become swap extrema or
+  Katana campaign rewards. Include reset-cost and base-price cases with explicit
+  unknowns. Preserve daily MYT delivery while budgeting full scans against Free
+  Workflow steps. Cache 162; regular AGENT_LEARNING_ENABLED=true is the only new
+  variable. No migration, secret, dependency, model switch or accounting change.
+  Publication remains covered by the 6 Nov standing agent-build authorization.
+  Final local evidence and real-account gates are in TIGER_AGENT_PROGRESS.md.
 
 - **8 Nov 2026, exact Katana voting-gauge adapter:** the owner-supplied format
   diagnostic pinpoints the absent `gauge` address alias in forty JSON rows.

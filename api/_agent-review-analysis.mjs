@@ -18,9 +18,9 @@ export async function currentReviewObservation(context, now) {
   const observation = { observedAt: new Date(now).toISOString(), sourceSnapshotId: context.snapshot?.snapshotId || null,
     loans: (risk.data.markets || []).filter(row => row.status === 'ready').map(row => ({ key: row.marketKey, market: row.market,
       health: row.health, ltv: row.ltv, debtRaw: row.debtRaw, noPosition: row.noPosition === true, observedAt: row.observedAt })),
-    pools: [...(context.strategy?.pools || []), ...(context.strategy?.fee_pools || [])].slice(0, 20)
+    pools: [...(context.strategy?.pools || []), ...(context.strategy?.fee_pools || []),...(context.lpMarkets||[])].slice(0, 20)
       .filter(pool => ['fresh', 'partial'].includes(pool.status) && fresh(pool.ts, now) && Number.isInteger(pool.tick) && finite(pool.price))
-      .map(pool => ({ pool: pool.pool, pair: pool.base + '/' + pool.quote, tick: pool.tick, price: pool.price, observedAt: pool.ts })) };
+      .map(pool => ({ pool: pool.pool,chain:pool.chain||'katana', pair: pool.base + '/' + pool.quote, tick: pool.tick, price: pool.price, observedAt: pool.ts })) };
   return { risk, observation };
 }
 
@@ -39,7 +39,7 @@ export function observeReviewFollowUp(previous, observation) {
           + '. This observation does not prove that a repayment or another transaction occurred.';
       } else if (newer && loan.noPosition) { status = 'observed'; message = loan.market + ' has no open loan in the new verified reading.'; }
     } else if (watch.kind === 'range') {
-      const pool = observation.pools.find(row => row.pool === watch.pool);
+      const pool = observation.pools.find(row => row.pool === watch.pool&&(row.chain||'katana')===(watch.chain||'katana'));
       if (pool && Date.parse(pool.observedAt) > Date.parse(watch.observedAt) && Number.isInteger(watch.tickLower) && Number.isInteger(watch.tickUpper)) {
         const inside = pool.tick >= watch.tickLower && pool.tick < watch.tickUpper;
         status = 'observed'; values = { tick: pool.tick, price: pool.price, inside };
@@ -79,9 +79,11 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
       calculationId: risk.calculationId, observedAt: loan.observedAt, critical });
     watches.push({ kind: 'loan', key, health: loan.health, target, observedAt: loan.observedAt });
     if (!allowed(policy, 'lending')) continue;
+    const memory=(context.portfolioLearning?.lessons||[]).find(row=>row.kind==='lending'&&row.key===key);
     const reasons = { current_risk: critical ? 'This loan is below the protocol liquidation boundary in the verified reading.'
       : target === null ? 'Your risk target is needed before I can compare repayment choices.'
-        : breached ? 'This loan is outside the risk target you saved.' : 'This loan is within your saved target at this reading.' };
+        : breached ? 'This loan is outside the risk target you saved.' : 'This loan is within your saved target at this reading.',
+      ...(memory?.trend==='falling'?{recorded_trend:memory.message+' '+memory.suggestion}:{}) };
     const conditions = { loan_changes: 'Review again if debt, collateral or the oracle ratio changes.', policy_changes: 'A change in your lending target requires a new calculation.' };
     if (target !== null && target >= 1 && target <= 100) {
       const calculation = addCalculation(await runAgentTool('calculateTargetHealth', { market: key, targetHealth: target }, { context, policy, now }));
@@ -91,18 +93,18 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
           detail: renderAgentToolResult(calculation), reasons, conditions,
           scope: 'One verified loan and the owner-selected target; available cash and portfolio allocation remain separate.' });
       else addCandidate({ id: id('choice', ['monitor', key]), key, kind: 'loan', label: 'Keep ' + loan.market + ' under review',
-        priority: critical ? 100 : breached ? 75 : 20, findingIds: [fact.id], calculationIds: [risk.calculationId],
+        priority: critical ? 100 : breached ? 75 : memory?.trend==='falling'?65:20, findingIds: [fact.id], calculationIds: [risk.calculationId],
         detail: fact.text + ' This does not recommend increasing borrowing.', reasons, conditions });
     } else addCandidate({ id: id('choice', ['target', key]), key, kind: 'inputs', label: 'Choose a lending target for ' + loan.market,
       priority: critical ? 100 : 45, findingIds: [fact.id], calculationIds: [risk.calculationId],
       detail: fact.text + ' Set your chosen health or maximum LTV in Strategy policy before I calculate a target repayment.', reasons, conditions });
   }
   if (allowed(policy, 'lp')) {
-    const positions = (context.lp?.positions || []).filter(row => row.canonical?.chain === 'katana')
+    const positions = (context.lp?.positions || []).filter(row => ['katana','robinhood','arc'].includes(row.canonical?.chain))
       .sort((a, b) => (b.canonical?.principalUsd || 0) - (a.canonical?.principalUsd || 0)).slice(0, 3);
     for (const row of positions) {
       const p = row.canonical, key = 'lp:' + p.chain + ':' + p.owner + ':' + (p.positionId || p.id);
-      const calculation = addCalculation(await runAgentTool('analyzeLPRange', { positionId: String(p.positionId || p.id), chain: 'katana', owner: p.owner }, { context, policy, now }));
+      const calculation = addCalculation(await runAgentTool('analyzeLPRange', { positionId: String(p.positionId || p.id), chain: p.chain, owner: p.owner }, { context, policy, now }));
       const data = calculation.data, choice = data.startingPoint;
       if (calculation.status === 'blocked') continue;
       const outside = data.currentRange?.inRange === false, missingBuffer = choice?.currentCoversHistory === false;
@@ -110,7 +112,13 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
         label: data.pair, text: data.pair + (outside ? ' is outside its current band.' : missingBuffer
           ? ': the current band does not cover the full observed ' + choice.days + '-day price move.' : ': current range and historical candidates checked.'),
         calculationId: calculation.calculationId, observedAt: calculation.observedAt, critical: false });
-      if (choice && data.withinAssetPreferences) {
+      if (data.feeAdvice) {
+        addCandidate({id:id('choice',['range',key]),key,kind:'range',label:'Review '+data.pair+' on '+p.chain,
+          priority:outside?75:35,findingIds:[fact.id],calculationIds:[calculation.calculationId],detail:renderAgentToolResult(calculation),
+          reasons:{range_fit:data.learning?.applied?'Earlier price-containment evidence supports a wider comparison.':'The pool earns trading fees; its own price/fee history is used.'},
+          conditions:{range_break:'Recheck at a range edge or a material fee/volatility change.'}});
+        if(choice)watches.push({kind:'range',key,pool:data.pool,chain:p.chain,tickLower:choice.tickLower,tickUpper:choice.tickUpper,observedAt:data.poolObservation.observedAt});
+      } else if (choice && data.withinAssetPreferences) {
         const detail = 'The ' + choice.days + '-day candidate is ' + formatRange(choice, data) + '.'
           + (data.currentRange ? ' Your current band is ' + formatRange(data.currentRange, data) + '.' : '')
           + (finite(choice.concentrationVsCurrent) ? ' At the same capital it gives about ' + agentNumber(choice.concentrationVsCurrent, 2) + '× the current band’s liquidity at this price.' : '')
@@ -123,7 +131,7 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
           review_cadence: data.reviewFrequencyDays === null ? 'The starting comparison assumes you can check at least weekly; your preference is still unspecified.'
             : 'The historical lookback follows your saved review interval of ' + data.reviewFrequencyDays + ' days.' },
           conditions: { range_break: 'Review if price leaves the candidate band.', rewards_change: 'Recheck costs, competing liquidity and campaign eligibility before acting.' } });
-        watches.push({ kind: 'range', key, pool: data.pool, tickLower: choice.tickLower, tickUpper: choice.tickUpper, observedAt: data.poolObservation.observedAt });
+        watches.push({ kind: 'range', key, pool: data.pool,chain:p.chain, tickLower: choice.tickLower, tickUpper: choice.tickUpper, observedAt: data.poolObservation.observedAt });
       }
     }
   }
@@ -159,7 +167,16 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
         conditions: { assumptions_expire: 'Reconfirm assumptions by ' + agentReadingTime(plan.expiresAt) + '.', inputs_change: 'Changes in rates, eligibility, prices or available cash can change these outcomes.' } });
     }
   }
+  for(const memory of (context.portfolioLearning?.lessons||[]).filter(row=>['closed_lp','kat','locks','votes','holdings'].includes(row.kind)).slice(0,4)){
+    addCandidate({id:id('choice',['memory',memory.id]),key:memory.key,kind:'monitor',label:'Review recorded '+memory.kind.replaceAll('_',' ')+' results',
+      priority:memory.priority,findingIds:[],calculationIds:[],detail:memory.message+' '+memory.suggestion,
+      reasons:{recorded_evidence:'This uses dated observations or the original accounting book; no return forecast or transaction is inferred.'},
+      conditions:{new_reading:'Review when a new source reading or recorded outcome changes the evidence.'}});
+  }
   const lessons = observeReviewFollowUp(previous, observation);
+  const portfolioLessons = (context.portfolioLearning?.lessons||[]).slice(0,6)
+    .map(row=>({id:row.id,key:row.key,status:'observed',message:row.message+' '+row.suggestion,
+      observedAt:row.sourceTimes.at(-1),provenance:row.provenance}));
   for (const candidate of candidates) {
     candidate.lessonIds = lessons.filter(lesson => lesson.key === candidate.key && lesson.status === 'observed').map(lesson => lesson.id);
     const rejected = feedback.some(item => ['rejected', 'invalidated'].includes(item.state) && item.policyVersion === policy.version && item.keys?.includes(candidate.key));
@@ -179,7 +196,7 @@ export async function buildReviewAnalysis({ context, policy, plans = [], previou
   const sourceExpiries = calculations.filter(value => value.status !== 'blocked').map(value => Date.parse(value.validUntil)).filter(Number.isFinite);
   const result = { schemaVersion: 'agent-review-analysis-v1', createdAt: new Date(now).toISOString(), policyVersion: policy.version,
     snapshotId: context.snapshot?.snapshotId || null, findings: findings.slice(0, 12), candidates: active, calculations,
-    observation, watches: watches.slice(0, 8), lessons, planResults, feedback: feedback.slice(0, 6), allocationBlocked: missing,
+    observation, watches: watches.slice(0, 8), lessons,portfolioLessons, planResults, feedback: feedback.slice(0, 6), allocationBlocked: missing,
     validUntil: sourceExpiries.length ? new Date(Math.min(...sourceExpiries)).toISOString() : null,
     hasFreshFinancialData: observation.loans.length > 0 || observation.pools.length > 0,
     assumptions: ['Only owner-confirmed targets and comparison assumptions are used. No automatic transaction, policy change or model retraining occurs.',
@@ -226,6 +243,8 @@ export function renderPortfolioReview(report, { now = Date.now(), forDelivery = 
   const lessons = analysis.lessons.filter(lesson => lesson.status === 'observed').slice(0, 2);
   if (lessons.length) lines.push('\nSince the earlier review:', ...lessons.map(lesson => lesson.message));
   else if (!review.previousReportId) lines.push('\nThis is the first recorded review. Future reviews will check these ideas against later readings.');
+  if(analysis.portfolioLessons?.length)lines.push('\nFrom portfolio memory:',...analysis.portfolioLessons.slice(0,2)
+    .map(row=>row.message+' Recorded '+agentReadingTime(row.observedAt)+'.'));
   if (analysis.allocationBlocked) lines.push('\nSome holdings are not fully verified, so I have kept this to individual positions and stated scenarios rather than portfolio allocation amounts.');
   return lines.join('\n').slice(0, 11500);
 }

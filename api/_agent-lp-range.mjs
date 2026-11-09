@@ -4,8 +4,10 @@ import { priceAtTick, liquidityForCapital } from '../strategy-core.mjs';
 import { agentPrice, agentNumber, agentReadingTime } from '../agent-language.mjs';
 import { analyzeLPIncomeTarget,renderLPIncomeTarget } from './_agent-lp-income.mjs';
 import { buildLPAdvice, renderLPAdvice } from './_agent-lp-advice.mjs';
+import { rangeCandidates } from './_agent-auto-analysis.mjs';
+import { analyzeLPFees,renderLPFees } from './_agent-lp-fees.mjs';
 
-export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v3';
+export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v4';
 export function isLPRangeQuestion(message) {
   const selecting = /suitable|best|recommend|suggest|choose|widen|narrow|adjust|change|select|合适|合適|建议|建議|sesuai/iu.test(message || '');
   return typeof message === 'string' && (selecting || !/\b(?:in|out(?: of)?|outside)\s+(?:the\s+)?range\b/iu.test(message))
@@ -39,26 +41,26 @@ const quoteRange = (lo, hi, pool) => {
 };
 
 export function analyzeLPRange(args, context, policy, now, positions = []) {
-  if (args.chain && args.chain !== 'katana') return unavailable('unsupported_chain', 'I currently have verified range history for configured Katana pools. Which Katana pair would you like to compare?');
+  if (args.chain && !['katana','robinhood','arc'].includes(args.chain)) return unavailable('unsupported_chain', 'I can monitor this position, but numeric range comparisons currently need a verified V3 pool on Katana, Robinhood or Arc.');
   const requested = args.pair ? pairKey(args.pair) : null;
   if (args.pair && !requested) return unavailable('choose_pair', 'Tell me the two tokens, for example BTC/USDC, so I can compare their ranges.');
   const selected = args.positionId ? positions.filter(p => [p.id, p.positionId, p.assetId].some(id => String(id) === args.positionId.replace(/^#/, ''))
-    && p.chain === 'katana' && (!args.owner || p.owner?.toLowerCase() === args.owner.toLowerCase())) : [];
-  if (args.positionId && selected.length !== 1) return unavailable('choose_position', 'I could not identify one Katana LP from that position. Specify its position ID and wallet.');
-  const allPools = [...(context.strategy?.pools || []), ...(context.strategy?.fee_pools || [])];
-  let pools = allPools.filter(pool => (pool.chain||'katana')==='katana' && (!requested || pairKey(pool.base + '/' + pool.quote) === requested)
-    && (!selected.length || selected[0].pool?.toLowerCase() === pool.pool?.toLowerCase()));
+    && (!args.chain||p.chain===args.chain) && (!args.owner || p.owner?.toLowerCase() === args.owner.toLowerCase())) : [];
+  if (args.positionId && selected.length !== 1) return unavailable('choose_position', 'I could not identify one LP from that position. Specify its position ID, chain and wallet.');
+  const allPools = [...(context.strategy?.pools || []), ...(context.strategy?.fee_pools || []),...(context.lpMarkets||[])];
+  let pools = allPools.filter(pool => (!args.chain||(pool.chain||'katana')===args.chain) && (!requested || pairKey(pool.base + '/' + pool.quote) === requested)
+    && (!selected.length || selected[0].pool?.toLowerCase() === pool.pool?.toLowerCase()&&selected[0].chain===(pool.chain||'katana')));
   // A pair with several fee tiers can use the owner's existing pool only when
   // exactly one pool is identified. Never guess between several owned pools.
   if (!args.positionId && pools.length > 1) {
-    const owned = pools.filter(pool => positions.some(p => p.chain === 'katana' && p.pool?.toLowerCase() === pool.pool?.toLowerCase()));
+    const owned = pools.filter(pool => positions.some(p => p.chain === (pool.chain||'katana') && p.pool?.toLowerCase() === pool.pool?.toLowerCase()));
     if (owned.length === 1) pools = owned;
   }
   if (pools.length !== 1) return unavailable(pools.length ? 'choose_pool' : 'history_unavailable', pools.length
     ? 'There is more than one pool for this pair. Which LP position or fee tier should I use?'
     : 'I do not have verified price history for that pool yet, so I cannot give you a defensible numeric range. A narrower range concentrates earnings but needs more frequent checks; a wider one leaves more room for price moves.');
-  const pool = pools[0], base = pool.baseIndex === 0 ? pool.token0 : pool.token1, quote = pool.baseIndex === 0 ? pool.token1 : pool.token0;
-  if (!['fresh', 'partial'].includes(context.strategy?.status) || !['fresh', 'partial'].includes(pool.status) || !current(pool.ts, now))
+  const pool = pools[0],chain=pool.chain||'katana', base = pool.baseIndex === 0 ? pool.token0 : pool.token1, quote = pool.baseIndex === 0 ? pool.token1 : pool.token0;
+  if (!(context.lpMarkets?.includes(pool)||['fresh', 'partial'].includes(context.strategy?.status)) || !['fresh', 'partial'].includes(pool.status) || !current(pool.ts, now))
     return unavailable('stale', 'I need a fresh pool price and price history before suggesting numeric ranges. Please refresh and try again.');
   if (![0, 1].includes(pool.baseIndex) || ![pool.token0, pool.token1].every(token => token && /^0x[0-9a-f]{40}$/i.test(token.address)
     && Number.isInteger(token.decimals) && token.decimals >= 0 && token.decimals <= 36 && positive(token.usd))
@@ -72,7 +74,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
   if (!positive(price) || Math.abs(Math.log(price / pool.price) / Math.log(1.0001)) > 1.01
     || Math.abs(Math.log(pool.sqrtPrice) * 2 / Math.log(1.0001) - pool.tick) > 1.01)
     return unavailable('price_mismatch', 'The pool price and tick disagree. I need a consistent reading before comparing ranges.');
-  const owned=positions.filter(p=>p.chain==='katana'&&p.pool?.toLowerCase()===pool.pool?.toLowerCase()
+  const owned=positions.filter(p=>p.chain===chain&&p.pool?.toLowerCase()===pool.pool?.toLowerCase()
     &&(!args.owner||p.owner?.toLowerCase()===args.owner.toLowerCase()));
   if((args.dailyRewardTargetUsd!==undefined||args.analysisFocus)&&!args.positionId&&owned.length>1)return unavailable('choose_position',
     'You have several LPs in this pool. Which position should I use for the daily income target?');
@@ -83,11 +85,18 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
   const ownRange = ownCurrent && sameTokens && tick(own.lowerTick) && tick(own.upperTick) && own.lowerTick < own.upperTick
     ? { ...quoteRange(own.lowerTick, own.upperTick, pool), inRange: pool.tick >= own.lowerTick && pool.tick < own.upperTick } : null;
   const perDollar = range => liquidityForCapital(1, range.tickLower, range.tickUpper, pool)?.liquidity;
+  const sampled=rangeCandidates(pool,pool.sampledHistory||context.lpLearning?.[chain+':'+pool.pool.toLowerCase()]?.history||{},now);
   const windows = [];
   for (const days of [7, 14, 30]) {
     const history = pool.recent?.[days];
     if (history?.complete !== true || !tick(history.lowTick) || !tick(history.highTick) || history.lowTick > pool.tick || history.highTick < pool.tick
-      || !Number.isSafeInteger(history.swaps) || history.swaps < 1) continue;
+      || !Number.isSafeInteger(history.swaps) || history.swaps < 1) {
+      const row=sampled.find(row=>row.days===days&&row.historyBasis==='sampled_pool_quotes');
+      if(row)windows.push({...row,historyComplete:true,swaps:null,currentCoversHistory:ownRange?ownRange.tickLower<=row.tickLower&&ownRange.tickUpper>=row.tickUpper:null,
+        downsidePct:(price-row.lowerPrice)/price*100,upsidePct:(row.upperPrice-price)/price*100,
+        concentrationVsCurrent:ownRange?.inRange?perDollar(row)/perDollar(ownRange):null});
+      continue;
+    }
     const edge = Math.floor(887272 / pool.tickSpacing) * pool.tickSpacing;
     const lo = Math.floor(history.lowTick / pool.tickSpacing) * pool.tickSpacing;
     const hi = (Math.floor(history.highTick / pool.tickSpacing) + 1) * pool.tickSpacing;
@@ -98,27 +107,44 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
     const previous = windows.at(-1);
     if (previous && (lo > previous.tickLower || hi < previous.tickUpper))
       return unavailable('history_mismatch', 'The recorded history windows disagree. I need a consistent history before choosing a range.');
-    windows.push({ days, ...range, historyLowTick: history.lowTick, historyHighTick: history.highTick, swaps: history.swaps, historyComplete: true,
+    windows.push({ days, ...range, historyLowTick: history.lowTick, historyHighTick: history.highTick, swaps: history.swaps, historyComplete: true,historyBasis:'verified_swap_history',
       currentCoversHistory: ownRange ? ownRange.tickLower <= history.lowTick && ownRange.tickUpper > history.highTick : null,
       downsidePct: (price - range.lowerPrice) / price * 100,
       upsidePct: (range.upperPrice - price) / price * 100,
       concentrationVsCurrent: ownRange?.inRange && positive(perDollar(ownRange)) ? liquidity / perDollar(ownRange) : null });
   }
-  if (!windows.length&&args.dailyRewardTargetUsd===undefined&&!args.analysisFocus) return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
+  if(!windows.length&&pool.kind==='fees'){
+    const early=sampled.find(row=>row.days===1&&row.historyBasis==='sampled_pool_quotes');
+    if(early)windows.push({...early,historyComplete:true,swaps:null,provisional:true,
+      currentCoversHistory:ownRange?ownRange.tickLower<=early.tickLower&&ownRange.tickUpper>=early.tickUpper:null});
+  }
+  if (!windows.length&&args.dailyRewardTargetUsd===undefined&&!args.analysisFocus&&pool.kind!=='fees') return unavailable('history_incomplete', 'I can read this pool, but its recent price history is incomplete. I can explain the narrow-versus-wide trade-off, but a numeric recommendation would be a guess.');
   const constraints = policy?.status === 'confirmed' ? policy.constraints || {} : {};
   const review = args.reviewFrequencyDays ?? (Number.isInteger(constraints.reviewFrequencyDays) ? constraints.reviewFrequencyDays : null);
   const horizon = Number.isInteger(constraints.horizonDays) ? constraints.horizonDays : null;
-  const preferredDays = review === null ? 14 : review <= 1 ? 7 : review <= 7 ? 14 : 30;
-  const startingPoint = windows.find(row => row.days === preferredDays) || null;
+  const memory=context.lpLearning?.[chain+':'+pool.pool.toLowerCase()],lessons=memory?.lessons;
+  const learned=lessons?.policyVersion===(policy?.version||0)&&lessons.completedProposals>=3&&lessons.observations>=36
+    &&lessons.outsideObservations/lessons.observations>.2;
+  const preferredDays = learned?30:review === null ? 14 : review <= 1 ? 7 : review <= 7 ? 14 : 30;
+  let startingPoint = windows.find(row => row.days === preferredDays) || (pool.kind==='fees'?windows.at(-1):null) || null;
+  if(pool.kind==='fees'&&startingPoint&&startingPoint.days<preferredDays&&ownRange){
+    const lo=Math.min(startingPoint.tickLower,ownRange.tickLower),hi=Math.max(startingPoint.tickUpper,ownRange.tickUpper);
+    startingPoint={...startingPoint,...quoteRange(lo,hi,pool),provisional:true,includesCurrentRange:true};
+  }
   const eligible = (!Array.isArray(constraints.eligibleAssets) || [base.symbol, quote.symbol].every(symbol => constraints.eligibleAssets.some(value => value.toUpperCase() === symbol.toUpperCase())))
-    && (!Array.isArray(constraints.eligibleProtocols) || constraints.eligibleProtocols.some(value => /^(?:sushi v3|sushiswap v3)$/i.test(value)));
-  const output={ status: 'ready', stamps: [pool.ts, ...(ownRange ? [position.observedAt] : [])],
-    data: { schemaVersion: AGENT_LP_RANGE_VERSION, chain: 'katana', pool: pool.pool, pair: pool.base + '/' + pool.quote, base: pool.base, quote: pool.quote,
+    && (!Array.isArray(constraints.eligibleProtocols) || constraints.eligibleProtocols.some(value => value.toLowerCase().replace(/sushiswap/g,'sushi').replace(/[^a-z0-9]/g,'')
+      ===(position?.protocol||(chain==='katana'?'Sushi V3':'Uniswap V3')).toLowerCase().replace(/sushiswap/g,'sushi').replace(/[^a-z0-9]/g,'')))
+    &&memory?.ownerDeclined!==true;
+  const output={ status: pool.kind==='fees'&&!windows.length?'partial':'ready', stamps: [pool.ts, ...(ownRange ? [position.observedAt] : [])],
+    data: { schemaVersion: AGENT_LP_RANGE_VERSION, chain, pool: pool.pool, pair: pool.base + '/' + pool.quote, base: pool.base, quote: pool.quote,
       fee: pool.fee, price, quoteUsd: quote.usd, windows, currentRange: ownRange, positionId: ownRange ? position.positionId : null,
       startingPoint: eligible ? startingPoint : null, preferredDays, reviewFrequencyDays: review, horizonDays: horizon,
       reviewBasis: args.reviewFrequencyDays != null ? 'request' : review !== null ? 'policy' : 'unspecified',
       poolObservation: { source: '/api/strategy', observedAt: pool.ts, tick: pool.tick, sqrtPrice: pool.sqrtPrice, reportedPrice: pool.price,
-        tickSpacing: pool.tickSpacing, baseIndex: pool.baseIndex, token0: pool.token0, token1: pool.token1, valuationBlockPinned: false },
+        tickSpacing: pool.tickSpacing, baseIndex: pool.baseIndex, token0: pool.token0, token1: pool.token1, valuationBlockPinned: Number.isSafeInteger(pool.block) },
+      learning:{applied:!!learned,ownerDeclined:memory?.ownerDeclined===true,completedProposals:lessons?.completedProposals||0,
+        message:learned?'Earlier recorded bands missed later prices in more than one fifth of covered samples; compare the longer history.'
+          :memory?.ownerDeclined?'You declined an earlier suggestion for this position under the same saved policy.':null,sourceRecord:memory?.sourceRecord||null},
       withinAssetPreferences: eligible, stakedTradingFeesToDao: ownCurrent && position.feesMine === false,
       historicalOnly: true, profitRankingAvailable: false },
     units: { price: pool.quote + ' per ' + pool.base, offsets: 'percent from observed pool price', concentration: 'liquidity per equal USD at the observed price' },
@@ -126,7 +152,10 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
       'Lookback selection is a review-cadence heuristic, not an optimized range or calibrated probability of remaining in range.',
       'No future fees, rewards, return, net-profit ranking or portfolio allocation is inferred. Rebalancing costs are not supplied.',
       'The pool quote has its original time; the source does not independently pin a valuation block.'], limitations: [] };
-  if(args.dailyRewardTargetUsd!==undefined||args.analysisFocus){
+  if(pool.kind==='fees'){
+    output.data.feeAdvice=analyzeLPFees({data:output.data,pool,position,context,args,now});
+    output.assumptions.push('Sampled price history is distinct from swap extrema. Fee scenarios assume constant volume and competing liquidity; transaction/borrowing costs and future fees remain conditional.');
+  }else if(args.dailyRewardTargetUsd!==undefined||args.analysisFocus){
     output.data.incomeGoal=analyzeLPIncomeTarget({targetUsd:args.dailyRewardTargetUsd??null,pool,position,rangeData:output.data,
       katUsd:context.strategy?.kat_usd,katObservedAt:context.strategy?.ts,now});
     const goal=output.data.incomeGoal;
@@ -154,11 +183,12 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
 export function renderLPRangeAnalysis(output) {
   const d = output.data || {};
   if (output.status === 'blocked') return d.message || 'Your saved preferences do not include LP analysis. You can change that in Strategy policy.';
+  if(d.feeAdvice)return renderLPFees(d);
   if(d.advice)return renderLPAdvice(d);
   if(d.incomeGoal)return renderLPIncomeTarget(d);
   const format = price => (['USDC', 'USDT', 'DAI', 'USDG'].includes(asset(d.quote)) && d.quoteUsd === 1 ? agentPrice(price) : agentNumber(price, 6) + ' ' + d.quote);
   const range = row => format(row.lowerPrice) + '–' + format(row.upperPrice);
-  const lines = ['For ' + d.pair + ' on Katana' + (Number.isInteger(d.fee) ? ' (the ' + agentNumber(d.fee / 10000, 3) + '% pool)' : '')
+  const lines = ['For ' + d.pair + ' on '+(d.chain==='katana'?'Katana':d.chain) + (Number.isInteger(d.fee) ? ' (the ' + agentNumber(d.fee / 10000, 3) + '% pool)' : '')
     + ', I would compare these ranges around the current price of ' + format(d.price) + ':'];
   for (const row of d.windows) lines.push('\n' + row.days + '-day history: ' + range(row) + ' (' + agentNumber(row.downsidePct, 1) + '% below to ' + agentNumber(row.upsidePct, 1) + '% above today’s price).');
   if (d.currentRange) lines.push('\nYour current range is ' + range(d.currentRange) + (d.currentRange.inRange ? '.' : ', and the price is currently outside it.'));
