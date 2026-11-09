@@ -20,9 +20,11 @@ import { readKatanaMCP,katanaMCPDiagnostic,katanaMCPEnabled } from './_agent-kat
 import { loadPortfolioLearning,isPortfolioLearningQuestion,renderPortfolioLearning } from './_agent-portfolio-learning.mjs';
 import { loadLearnedLPContext } from './_agent-learned-context.mjs';
 import { investmentQuestion,runInvestmentReview } from './_agent-investment.mjs';
+import {investmentScope} from './_agent-investment-intent.mjs';
+import {requestedPortfolioStress} from '../agent-portfolio-stress.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v11', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v12', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -96,7 +98,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     let settings = await getSettings(store);
     const messages = await store.get('messages') || [];
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
-    const investment=investmentQuestion(message);
+    const investment=investmentQuestion(message,{messages});
     const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message)&&!investment;
     const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
     reading.portfolioLearning=await loadPortfolioLearning(store,{policy,enabled:env.AGENT_LEARNING_ENABLED!=='false'});
@@ -105,7 +107,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     const research = researchQuestion(message);
     await agentJobPhase(lock, handle, research ? 'retrieving' : 'inference');
     if(investment){
-      result=await runInvestmentReview({store,context:reading,origin:getAgentOrigin(env),env,...investment});
+      result=await runInvestmentReview({store,context:reading,origin:getAgentOrigin(env),env,question:message,...investment});
     } else if (isPortfolioLearningQuestion(message)&&!isLPIncomeQuestion(message)) {
       result={reply:renderPortfolioLearning(reading.portfolioLearning),action:null,mode:'learning',status:reading.portfolioLearning.status,
         sources:[{name:'portfolio-learning',status:'historical',ts:reading.portfolioLearning.checkedAt||null}],
@@ -131,6 +133,9 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
         settle: (attempt, outcome) => ledger().settle(attempt, outcome),
         observe: value => { modelOutput = safeAgentOutputDiagnostic(value); } };
       result = await respond({ message: message.trim(), messages: messages.slice(-24), settings, context: reading, policy, env, inference,
+        runReview:(focus,{context:base=reading,message:question=message,messages:history=messages}={})=>runInvestmentReview({store,context:base,
+          origin:getAgentOrigin(env),env,focus,question,...investmentScope(question,{messages:history}),
+          ...(focus==='stress'?{scenarios:requestedPortfolioStress(question)}:{})}),
         loadToolContext: async (tool, base, args) => {
           if(tool!=='analyzeLPRange')return base;
           const learned=await loadLearnedLPContext({store,context:base,args,origin:getAgentOrigin(env),enabled:env.AGENT_LEARNING_ENABLED!=='false'});

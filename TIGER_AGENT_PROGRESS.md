@@ -1,5 +1,87 @@
 # Tiger agent implementation progress
 
+## Autonomous weekly learning — 9 November 2026 (MYT)
+
+- [x] Continue background review/evaluation without owner strategy-review tasks.
+  Stop new due reminders, cancel durable legacy notices and hide old due alerts.
+  Automatic full strategy reports stay private; requested reviews still work.
+- [x] Add one Sunday learning summary at the saved report time in MYT, enabled
+  independently of daily reports. No new form, model inference, Cron or migration.
+  Preserve current lending/LP risk alerts, daily reports, pause and recipient checks.
+- [x] Keep immutable weekly evidence, qualified same-policy lookback changes,
+  delivery acknowledgments and retry/catch-up behavior. Do not claim improved
+  returns from sampled containment, reward repricing or changed wallet balances.
+- [x] Focused local checks: 96 weekly assertions (max 16 D1 binding calls/stage),
+  277 automatic Workflow assertions (max 40), 54 review-delivery checks and 26
+  independent risk-Cron checks (max 43). Native workerd/local-D1 automatic
+  acceptance passes 50 assertions including actual weekly preparation/delivery
+  with no AI attempts (max 32 D1 binding calls/stage). All providers/bot replies
+  are closed fixtures; none of this confirms the real Cloudflare account.
+- [x] Finish full regression/browser/bundle acceptance and prepare the combined
+  conversational/weekly release under the standing publication authorization.
+- [ ] Verify actual production source, real-account resource gates and the first
+  Sunday delivery after the matching Worker deployment.
+
+## Conversational backend analysis — 9 November 2026 (MYT)
+
+- [x] Owner confirms the preceding release is live. This confirms the visible
+  frontend rollout; it does not independently verify Worker CPU/quota/provider gates.
+- [x] Remove the extra Investment review card/buttons and dedicated result renderer.
+  Keep ordinary chat, existing settings and background tracking available.
+- [x] Replace compulsory four-part output with question-specific prose backed by
+  deterministic calculations. Retain private structured reports and material gaps.
+- [x] Route normal wording and related position references automatically; allow one
+  closed model review selector for unfamiliar wording, preserving the six financial
+  tools, explicit income/price requests, scope, policy and inference accounting.
+- [x] Keep automatic observations, prospective decisions, qualified learning and
+  protocol monitoring active; include bounded claim-date attribution in daily memory.
+- [x] Complete portable/native/browser/bundle acceptance and prepare publication
+  under the standing agent-build authorization.
+- [ ] Confirm the new production source and natural dashboard/Telegram replies
+  separately from local fixtures.
+
+Final local evidence for the combined change: **all 75 portable suites pass**
+with `npm run check`, including 57 conversational service assertions and 255
+brain/parser checks. Native local workerd/D1 passes **241 chat / 50 automatic /
+24 recurring-review assertions** (maximum **36 / 32 / 29 D1 binding calls**;
+chat also reports 72 batched SQL statements). Browser checks cover normal chat,
+the removed card, both themes at 360/1366 px, private-state isolation and logout
+races (**92 conversational + 44 existing learning assertions**). Final Wrangler dry run succeeds at **822.30 KiB /
+216.21 KiB gzip** using the existing Free AI/D1/Workflow bindings. Wallets,
+provider responses and Telegram acknowledgments are fixtures, not real-account
+verification. No collectors, accounting backfills or data/history writers ran.
+
+Changed files in the combined conversational/weekly release:
+
+- Dashboard: `agent.html`, `agent.js`, `sw.js`.
+- Reply/analysis: `agent-investment-brief.mjs`, `agent-portfolio-stress.mjs`,
+  `api/_agent-investment-intent.mjs`, `api/_agent-investment.mjs`,
+  `api/_agent-brain.mjs`, `api/_agent-models.mjs`, `api/_agent-output-schema.mjs`,
+  `api/_agent-service.mjs`.
+- Learning/notifications: `api/_agent-weekly-learning.mjs`,
+  `api/_agent-portfolio-learning.mjs`, `api/_agent-auto-state.mjs`,
+  `api/_agent-auto-workflow.mjs`, `api/_agent-auto-delivery.mjs`,
+  `api/_agent-settings.mjs`, `api/_agent-notifications.mjs`,
+  `api/agent-monitor.mjs`, `api/_agent-review-delivery.mjs`.
+- Tests: `scripts/test-agent-conversation.mjs`, `scripts/test-agent-weekly-learning.mjs`,
+  `scripts/test-agent-automation.mjs`, `scripts/test-agent-brain.mjs`,
+  `scripts/test-agent-decisions-jobs.mjs`, `scripts/test-agent-investment.mjs`,
+  `scripts/test-agent-lp-frontier.mjs`, `scripts/test-agent-portfolio-learning.mjs`,
+  `scripts/test-agent-review-delivery.mjs`, `scripts/test-agent-review-monitor.mjs`,
+  `scripts/check-agent-automation-runtime.mjs`,
+  `scripts/check-agent-telegram-runtime.mjs`, `scripts/check-agent-investment-browser.cjs`.
+- Instructions/evidence: `AGENTS.md`, this checklist,
+  `docs/AGENT-INVESTMENT-TOOLS.md`. The original implementation plan is unchanged.
+
+Configuration: no new secret, migration, paid service, model or binding. Reuse
+the existing active automatic Workflow, private D1, free Workers AI and Telegram
+pairing. Old settings inherit `weeklyEnabled=true`; daily/risk preferences keep
+their values. Sunday uses the saved report clock in MYT (09:00 when unset).
+Live production remains an explicit blocker: there are no Cloudflare/Vercel
+credentials in this workspace, no corresponding connector, and fresh read-only
+probes still receive proxy CONNECT 403. No actual production source, resource
+quota, Sunday delivery or model response is inferred from local test success.
+
 ## Production frontend follow-up — 9 November 2026 (MYT)
 
 - [x] Confirm `1a03883` is published on GitHub `main` and contains the five review
@@ -10,8 +92,9 @@
 - [x] Prepare cache 164 to request one fresh automatic main deployment and refresh
   investment-review assets when that release reaches Production. Validate syntax
   and the diff; application, accounting and private backend code match `1a03883`.
-- [ ] Confirm Vercel creates a build for the retry and marks it Ready/Production,
-  then verify the live card and the separately deployed Worker. Vercel account
+- [x] Owner confirms the retry is live. The next requested change intentionally
+  removes the card; do not use that card to check the new revision.
+- [ ] Independently verify the matching Worker/resources. Vercel account
   credentials are unavailable here; direct page/deployment API reads fail through
   the workspace proxy with 403. If the retry is absent or blocked, inspect the Git
   connection/production branch and actual provider error before changing app code.

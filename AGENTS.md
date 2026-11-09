@@ -744,6 +744,34 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
   and assumptions remain inspectable in optional details. Reviewed research explanations
   require their configured supporting evidence; do not invent coverage or accept
   arbitrary model financial prose to make a response sound more conversational.
+- Conversational backend analysis (Alex, 9 Nov 2026, after confirming the release
+  is live): remove the added Investment review card/five buttons. Normal dashboard
+  and Telegram questions select the backend attribution, LP frontier, stress,
+  decision-evaluation and protocol features. No mandatory Suggestion/Why/Trade-off/
+  Recheck layout. Render a concise, question-specific answer from verified data;
+  retain exact scope, material unknowns and private structured evidence. Common
+  wording uses deterministic routing; unfamiliar wording may select one closed
+  `review.focus` enum through the same accounted AI call. The six financial tools
+  remain unchanged; reviews cannot supply money assumptions, identities, URLs or
+  preference changes. Preserve specific daily-income and price-case calculations,
+  owner-requested position/chain scope, related follow-ups and policy gates.
+  Existing automatic collection, original decisions and qualified adaptation keep
+  running without clicks. Daily memory also retains bounded claim-date attribution;
+  it never labels balance/reward repricing as new earnings or a learned win rate.
+  Cache 165 and the versioned Agent module prevent old panel code/new HTML mixes.
+- Autonomous weekly review (Alex, 9 Nov 2026): the agent performs its own
+  evidence/outcome reviews; do not send Telegram strategy-review-due tasks or
+  automatic full strategy reports. Cancel queued legacy reminders as well as
+  suppressing new ones. Keep independent lending/LP/source risk alerts and the
+  owner's existing daily report preference. A short Sunday learning summary uses
+  the saved report time in MYT; `weeklyEnabled` defaults true independently of
+  `dailyEnabled` and can be changed through an explicit owner chat request.
+  Use the existing automatic Workflow, not additional risk-Cron queries or AI.
+  Keep dated immutable weekly evidence and an acknowledged delivery checkpoint;
+  first activation waits for the next Sunday, missed weeks recover only the most
+  recent due summary. Respect pause, recipient, policy and feature switches.
+  Report actual qualified lookback changes against a previous week; no model
+  retraining, automatic risk-policy changes or unproven improvement in returns.
 - LP range-selection questions use analyzeLPRange, not the position-value lookup
   (Alex, 7 Nov 2026). Load the existing first-party Strategy quote/history only when
   this tool is selected. It compares outward-rounded 7/14/30-day tick envelopes,
@@ -1140,6 +1168,27 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **9 Nov 2026, autonomous weekly follow-up:** owner asks the agent to review
+  itself and send one weekly account of lessons/improvements, without Telegram
+  review-due messages. Add a bounded Sunday step to the existing automatic
+  Workflow and durable weekly originals/delivery checkpoints in the current D1
+  state table. Default weekly learning on at the existing saved MYT report time,
+  independently of daily summaries. Cancel old review-due and automatic strategy
+  outboxes; explicitly requested reviews still work. Existing risk/daily delivery,
+  journal originals, qualified adaptation and policy protections remain. Free
+  step planning includes the extra stage; no new migration, secret or AI call.
+
+- **9 Nov 2026, conversational follow-up:** owner confirms the prior release is
+  live and asks for backend capabilities and ongoing learning without new review
+  buttons or a fixed answer form. Remove that card and its dedicated renderer;
+  share question-specific, verified prose through ordinary dashboard/Telegram chat.
+  Add a strictly bounded review selector alongside the six existing financial tools,
+  natural intent/scope routing, scoped historical evidence and additive attribution
+  in automatic memory. Keep observation/risk cadence, source/accounting, journals,
+  authentication, budget guards and Lending's per-visit settings behavior. Cache 165;
+  no new configuration, secret, migration, model or paid service. See progress and
+  docs/AGENT-INVESTMENT-TOOLS.md for acceptance evidence and account-only gates.
 
 - **9 Nov 2026, production frontend follow-up:** Alex confirms Vercel's latest
   Production source is `38ac666`, the parent of the published `1a03883` investment

@@ -20,6 +20,13 @@ async function wallets(raw='100'){
     valueUsd:Number(raw)/100,observedAt:stamp(),status:'observed'}]});
 }
 try{
+  const attributed=context();attributed.lp.positions[0].canonical.performance.attribution={principalPnlUsd:-100,claimedAtEventUsd:25,unclaimedNowUsd:5,
+    grossCashBasisPnlUsd:-70,netAfterAllCostsUsd:null,capitalVersion:'fixture-capital'};delete attributed.lp.positions[0].comparison;
+  const attributedObservation=portfolioLearningObservation({context:attributed,now});
+  check(attributedObservation.lps[0].performance.attribution.claimedAtEventUsd,25,'Automatic memory retains original claim-date earnings alongside the unchanged LP Book result');
+  const attributedLesson=derivePortfolioLessons({current:attributedObservation,days:[],policy:{version:0},now}).lessons.find(row=>row.kind==='lp');
+  check(attributedLesson.message.includes('claim-date LP result'),true,'The background loop can use the new attribution without clicking a review');
+  check(attributedLesson.message.includes('before complete transaction/financing costs'),true,'Stored lessons do not manufacture fully net performance');
   check(isPortfolioLearningQuestion('What have you learned from my portfolio?'),true,'Natural learning question needs no form');
   check(isPortfolioLearningQuestion('What is the suitable ETH/USDG LP range?'),false,'Ordinary range advice is not intercepted by portfolio memory');
   await wallets();let result=await recordPortfolioLearning(store,context(),0,{now});

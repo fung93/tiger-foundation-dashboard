@@ -6,7 +6,7 @@ import { AGENT_OUTPUT_SCHEMA, AGENT_OUTPUT_SCHEMA_VERSION } from './_agent-outpu
 import { AGENT_REVIEW_OUTPUT_SCHEMA } from './_agent-review-schema.mjs';
 
 export const DEFAULT_AGENT_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
-export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v4';
+export const AGENT_MODEL_SCHEMA_VERSION = 'agent-model-v5';
 const VERIFIED_AT = '2026-11-07';
 const CATALOG = 'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/workers-ai-models/';
 const PRICING = 'https://developers.cloudflare.com/workers-ai/platform/pricing/';

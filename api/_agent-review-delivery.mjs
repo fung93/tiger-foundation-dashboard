@@ -7,8 +7,10 @@ import { sendTelegram } from './_agent-notifications.mjs';
 import { getAgentOrigin } from './_agent-http.mjs';
 
 export function reviewDeliveryAllowed(controls, settings, kind) {
-  return controls.delivery === 'telegram' || controls.delivery === 'inherit'
-    && (kind === 'daily' ? settings.dailyEnabled : settings.alertsEnabled);
+  // Background reviews are silent. Only an explicitly requested review may
+  // use this outbox; the separate weekly digest reports recorded learning.
+  return kind==='manual'&&(controls.delivery === 'telegram' || controls.delivery === 'inherit'
+    && settings.alertsEnabled);
 }
 export async function yieldReviewOutbox(store, lease) {
   if ((await store.get('monitor:pending'))?.kind !== 'strategy_reviews') return;

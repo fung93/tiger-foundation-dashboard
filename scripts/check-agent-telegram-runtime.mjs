@@ -34,6 +34,11 @@ const buildResult = await build({ stdin: { contents: `
     if (request.headers.get('x-fixture-ai') === 'range') env = { ...env, AI: { run: async () => ({
       response: { tool: { name: 'analyzeLPRange', args: { pair: 'BTC/USDC' } } },
       usage: { prompt_tokens: 1000, completion_tokens: 30 } }) } };
+    if(request.headers.get('x-fixture-ai')==='review')env={...env,AI:{run:async()=>({response:{review:{focus:'performance'}},
+      usage:{prompt_tokens:1000,completion_tokens:15,total_tokens:1015}})}};
+    const reviewFocus=request.headers.get('x-fixture-ai')?.replace(/^review-/, '');
+    if(['ranges','stress','evaluation','protocols'].includes(reviewFocus))env={...env,AI:{run:async()=>({response:{review:{focus:reviewFocus}},
+      usage:{prompt_tokens:1000,completion_tokens:15,total_tokens:1015}})}};
     const db=env.AGENT_DB,originals=new WeakMap();let queries=0,statements=0;
     const wrap=statement=>{const proxy=new Proxy(statement,{get(target,key){
       if(key==='bind')return(...args)=>wrap(target.bind(...args));
@@ -47,7 +52,7 @@ const buildResult = await build({ stdin: { contents: `
     return response;
   }};`, resolveDir: root, sourcefile: 'telegram-runtime-fixture.mjs' },
   bundle: true, write: false, format: 'esm', platform: 'neutral', external: ['node:*'] });
-let checks = 0, webhook = '', providerMode = 'success',mcpMode='success';
+let checks = 0, webhook = '', providerMode = 'success',mcpMode='success',completeDepth=false;
 const calls = [], redirected = [];
 // Read an existing captured observation into an isolated, explicitly simulated
 // source. Only fixture timestamps change; no public ledger or live D1 is written.
@@ -135,7 +140,11 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
           return Response.json({schemaVersion:'agent-wallet-observation-v1',chain,status:'fresh',block:100,observedAt:new Date().toISOString(),balances:[{
             chain,owner,symbol:'USDC',raw:'1000000',amount:1,decimals:6,valueUsd:1,priceUsd:1,status:'observed',block:100,observedAt:new Date().toISOString()}]});}
         if(url.searchParams.get('view')==='lp-funding')return Response.json(fundingFixture(url.searchParams.get('owner'),Date.now(),{chain:url.searchParams.get('chain')}));
-        if(['agent-pool','agent-liquidity'].includes(url.searchParams.get('view'))){const pool=robinhoodLPFixture(Date.now()).pool;
+        if(['agent-pool','agent-liquidity'].includes(url.searchParams.get('view'))){const rh=robinhoodLPFixture(Date.now()),kat=incomeSources(),p=url.searchParams.get('chain')==='katana'?kat.lp.position_data[0]:rh.position;
+          const pool=completeDepth&&p.chain==='katana'?{...kat.strategy.pools[0],chain:'katana',status:'fresh',ts:new Date().toISOString(),block:100}:rh.pool;
+          if(completeDepth){const L=BigInt(p.raw.liquidity)*10n;pool.activeLiquidity=Number(L);pool.activeLiquidityRaw=String(L);
+            pool.liquidityEvidence={schemaVersion:'agent-liquidity-v1',chain:p.chain,pool:p.pool,block:100,currentTick:pool.tick,
+              activeLiquidityRaw:String(L),lowerTick:-887272,upperTick:887273,complete:true,ticks:[]};}
           return Response.json({...pool,schemaVersion:'agent-pool-observation-v1',observedAt:new Date().toISOString(),feeGrowth0:'0',feeGrowth1:'0'});}
         return Response.json(incomeSources().strategy);
       }
@@ -162,7 +171,7 @@ async function request(body, authenticated = true, rangeAI = false) {
   const response = await dispatchFetch('https://worker.fixture.test/api/agent', { method: 'POST',
     headers: { 'content-type': 'application/json', origin: env.AGENT_ORIGIN,
       'x-agent-gateway-secret': env.AGENT_GATEWAY_SECRET, ...(authenticated && cookie ? { cookie } : {}),
-      ...(rangeAI ? { 'x-fixture-ai': 'range' } : {}) }, body: JSON.stringify(body) });
+      ...(rangeAI ? { 'x-fixture-ai': typeof rangeAI==='string'?rangeAI:'range' } : {}) }, body: JSON.stringify(body) });
   return { status: response.status, headers: response.headers, value: await response.json() };
 }
 try {
@@ -393,12 +402,12 @@ try {
   const performance=await request({action:'chat',message:'Show my actual profit breakdown',requestId:'native:investment-performance'});
   check(performance.status,200,'The authenticated Worker runs the new performance review');
   check(performance.value.result?.schemaVersion,'agent-investment-v1','Structured investment evidence survives the actual Worker response');
-  check(performance.value.reply.split('\n').length,4,'The new Worker review is concise');
+  check(performance.value.reply.length<1200&&!/^Suggestion:/m.test(performance.value.reply),true,'The Worker answers naturally without a mandatory report form');
   check(performance.value.result.performance.netAfterAllCostsUsd,null,'Receipt subsets cannot become fully net profit in native D1');
   const perfUpdate={update_id:107,message:{text:'Show my actual profit breakdown',chat:{id:42,type:'private'},from:{id:42,is_bot:false}}};
   check((await dispatchFetch('https://worker.fixture.test/api/agent-telegram',{method:'POST',headers:{'content-type':'application/json',
     'x-telegram-bot-api-secret-token':env.TELEGRAM_WEBHOOK_SECRET},body:JSON.stringify(perfUpdate)})).status,200,'The linked Telegram owner can request the same performance review');
-  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('Suggestion:'),true,'Telegram sends the shared four-line investment brief');
+  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('complete cost history'),true,'Telegram sends the conversational analysis with its actual coverage note');
   const gatedStress=await request({action:'chat',message:'Stress test my whole portfolio',requestId:'native:investment-stress-gated'});
   check(gatedStress.value.status,'blocked','Portfolio stress respects a saved policy that excludes portfolio analysis');
   nativePolicy.constraints.allowedAnalysisTypes.push('portfolio');
@@ -417,6 +426,24 @@ try {
   check(choices.value.result?.rangeAnalyses.length,2,'The shared investment review retains calculations for both detected LPs');
   check(choices.value.result.rangeCoverage,{reviewed:2,total:2},'The concise review states its detected and reviewed scope');
   check(await usageCount(),feeUsage,'All new verified reviews consume no model inference');
+  await db.prepare("DELETE FROM agent_state WHERE key = 'tiger:agent:v1:usage:minute'").run();
+  const natural=await request({action:'chat',message:'Does the yield offset the damage?',requestId:'native:conversational-review'},true,'review');
+  check(natural.status,200,'Ordinary wording reaches the closed review selector in actual workerd');
+  check(natural.value.mode,'investment_review','The model delegates to the existing deterministic backend review');
+  check(natural.value.reply.includes('$14.00')&&!/^Suggestion:/m.test(natural.value.reply),true,'A real native review answers with the verified portfolio LP subtotal');
+  check(await usageCount(),feeUsage+1,'An unfamiliar question uses one budgeted selection and no second prose call');
+  const naturalUpdate={update_id:108,message:{text:'Does the yield offset the damage?',chat:{id:42,type:'private'},from:{id:42,is_bot:false}}};
+  check((await dispatchFetch('https://worker.fixture.test/api/agent-telegram',{method:'POST',headers:{'content-type':'application/json',
+    'x-telegram-bot-api-secret-token':env.TELEGRAM_WEBHOOK_SECRET,'x-fixture-ai':'review'},body:JSON.stringify(naturalUpdate)})).status,200,'Telegram uses the same natural question routing');
+  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('$14.00'),true,'The linked owner receives the natural, verified answer');
+  completeDepth=true;
+  await db.prepare("DELETE FROM agent_state WHERE key = 'tiger:agent:v1:usage:minute'").run();
+  for(const focus of ['ranges','stress','evaluation','protocols']){
+    const answer=await request({action:'chat',message:'Please work through the evidence for me.',requestId:'native:review-'+focus},true,'review-'+focus);
+    check(answer.status,200,'The real Worker executes the model-selected '+focus+' review inside the Free D1 ceiling');
+    check(answer.value.result?.focus,focus,'Unfamiliar wording reaches the '+focus+' backend');
+  }
+  check((await db.prepare("SELECT COUNT(*) AS n FROM agent_state WHERE key LIKE 'tiger:agent:v1:investment:baseline:%'").first()).n>=2,true,'Backend range questions save prospective originals for both owned LPs without UI buttons');
   check(Math.max(...queryCounts)<=50,true,'All native dashboard/Telegram/resource invocations fit the D1 call ceiling');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed; max '+Math.max(...queryCounts)+' D1 calls / '+Math.max(...statementCounts)+' batched SQL statements. No real provider was contacted.');
 } finally { await mf.dispose(); }

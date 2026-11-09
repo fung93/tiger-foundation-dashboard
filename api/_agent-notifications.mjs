@@ -141,15 +141,8 @@ export function monitorConditions(context, settings, { policy, previous = {}, de
         title: 'LP token price review', message: 'Pool token ratio changed by ' + change.toFixed(2) + '% from the saved monitoring baseline.', sourceTs: pool.ts };
     }
   }
-  for (const decision of decisions) {
-    // Recurring reviews have their own follow-up schedule. Old daily briefs do
-    // not generate an ever-growing set of review-due alerts or retrigger AI.
-    if (decision.kind === 'portfolio_review') continue;
-    if (['rejected','invalidated','superseded'].includes(decision.state) || !decision.reviewAt) continue;
-    const key = 'review:' + decision.decisionId;
-    conditions[key] = { active: Date.parse(decision.reviewAt) <= now, type: 'review', severity: 'info',
-      title: 'Strategy review due', message: (decision.thesis || 'Saved strategy').slice(0,160) + '\nOpen your Decision journal to review it.', sourceTs: decision.updatedAt };
-  }
+  // Strategy analysis and original-outcome checks run in the background. A
+  // journal date is not an instruction for the owner to perform a review.
   return conditions;
 }
 

@@ -69,16 +69,10 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
         await commit([{key:'lastCheck',value:{ts:iso,status:'paused',sources:[]}}]);
         return json(res,200,{ok:true,skipped:'paused'});
       }
-      let decisions = [];
-      if (store.list) {
-        const cursor = await store.get('monitor:decisionCursor');
-        const page = await store.list('journal:decision:', { cursor, limit: 20 });
-        decisions = page.items.map(item => item.value);
-        await commit([{key:'monitor:decisionCursor',value:page.cursor}]);
-      }
       let state = await store.get('monitor:state') || { conditions: {}, dailyDate: null };
-      const previousConditions = state.policyVersion === policy.version ? state.conditions : Object.fromEntries(Object.entries(state.conditions).filter(([key]) => !key.startsWith('lp:')));
-      const conditions = monitorConditions(context, settings, { policy, previous: previousConditions, decisions, now: timestamp }), day = mytDayAndTime(timestamp);
+      const previousConditions = Object.fromEntries(Object.entries(state.conditions).filter(([key])=>!key.startsWith('review:')
+        &&(state.policyVersion===policy.version||!key.startsWith('lp:'))));
+      const conditions = monitorConditions(context, settings, { policy, previous: previousConditions, now: timestamp }), day = mytDayAndTime(timestamp);
       const limitations = [];
       if (needs.length && context.strategy?.status !== 'fresh') limitations.push('Current campaign/price coverage is incomplete.');
       if ((triggers.outOfRange || triggers.maxOutOfRangeHours != null) && (context.lp?.positions || []).some(row => !row.canonical?.block)) limitations.push('Some LP range readings have no pinned block.');
@@ -107,7 +101,7 @@ export function createMonitorHandler({ env = process.env, storeFactory = createA
           const condition = conditions[item.key];
           const verified = item.type === 'daily' ? item.day === day.day : condition
             && (item.status === 'active' ? condition.active : !condition.active);
-          const enabled = (item.type === 'daily' ? settings.dailyEnabled : settings.alertsEnabled) && verified;
+          const enabled = item.type!=='review'&&(item.type === 'daily' ? settings.dailyEnabled : settings.alertsEnabled) && verified;
           let deliveredMessage = item.text;
           if (enabled) {
             // An old queued warning is rechecked against today's verified state.

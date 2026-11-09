@@ -147,7 +147,7 @@ async function runTelegramSetup(connecting){
 }
 function renderAlerts(){
   const box=$('agentAlerts');box.replaceChildren();
-  const alerts=Array.isArray(state?.alerts)?state.alerts.slice(-8).reverse():[];
+  const alerts=Array.isArray(state?.alerts)?state.alerts.filter(alert=>alert.type!=='review'&&!alert.key?.startsWith('review:')).slice(-8).reverse():[];
   if(!alerts.length)box.append(element('p','agent-help','No recent alerts.'));
   for(const alert of alerts){
     const text=alert?.message||alert?.text||alert?.title;if(typeof text!=='string')continue;
@@ -220,7 +220,6 @@ $('agentChatForm').addEventListener('submit',async event=>{
     if(answer.settings){state.settings=answer.settings;settingsDirty=false;}
     if(Array.isArray(answer.sources))sources=answer.sources;
     if(Array.isArray(answer.alerts))state.alerts=answer.alerts;
-    renderInvestmentReport(answer);
     input.value='';pendingChat=null;render();$('agentMessages').scrollTop=$('agentMessages').scrollHeight;
     notice('');await loadStatus({quiet:true});
   }catch(error){
@@ -452,57 +451,7 @@ function renderKatanaMCP(value){
     details.append(copy,element('div','agent-result-text',payload));box.append(details);
   }
 }
-function renderInvestmentReport(answer){
-  const choiceName=id=>({keep:'Keep current',recenter:'Recenter',wider:'Wider'})[id]||(/^history_\d+$/.test(id)?id.slice(8)+'-day history':id);
-  const report=answer?.result;if(report?.schemaVersion!=='agent-investment-v1'||!state?.authenticated)return;
-  $('agentInvestmentResult').hidden=false;
-  $('agentInvestmentMeta').textContent=({performance:'LP performance',ranges:'LP choices',stress:'Portfolio stress test',evaluation:'Decision evidence',protocols:'Protocol watch'})[report.focus]
-    +' · '+date(report.createdAt)+' · '+(report.status==='ready'?'Checked':report.status==='blocked'?'Waiting for evidence':'Partial evidence');
-  $('agentInvestmentBrief').textContent=answer.reply;
-  const box=$('agentInvestmentEvidence');box.replaceChildren();$('agentInvestmentDetails').open=false;
-  if(report.performance){
-    box.append(comparisonTable(['LP','Principal P&L','Claim-date earnings','Still to claim','Before costs'],report.performance.rows.map(row=>[
-      (row.pair||row.chain)+' #'+row.positionId,agentMoney(row.attribution?.principalPnlUsd),agentMoney(row.attribution?.claimedAtEventUsd),
-      agentMoney(row.attribution?.unclaimedNowUsd),agentMoney(row.attribution?.grossCashBasisPnlUsd)])),
-      element('p','agent-help','Capital flows are excluded from profit. Historical claims use their saved event values. Fully net and whole-portfolio profit require complete costs and wallet flows.'));
-    for(const row of report.performance.rows)if(Number.isFinite(row.attribution?.identifiedTransactionGasUsd))box.append(element('p','agent-help',
-      '#'+row.positionId+': identified transaction gas '+agentMoney(row.attribution.identifiedTransactionGasUsd)+'. Other approvals, swaps and financing may be missing.'));
-  }
-  for(const analysis of report.rangeAnalyses||[]){
-    const frontier=analysis.data?.frontier;if(!frontier)continue;
-    box.append(element('p','agent-comparison-title',analysis.data?.pair||'LP comparison'),
-      comparisonTable(['Choice','Upfront cost','Lowest tested end value'],(frontier.options||[]).map(option=>{
-        const values=(option.outcomes||[]).map(row=>row.netBeforeFinancingUsd).filter(Number.isFinite);
-        return [choiceName(option.id)+' · '+agentNumber(option.lowerPrice,2)+'–'+agentNumber(option.upperPrice,2),agentMoney(option.costUsd),values.length===frontier.scenarios?.length?agentMoney(Math.min(...values)):'Not fully verified'];
-      })),element('p','agent-help','Conditional paths share the same starting capital and horizon; costs reduce replacement capital. No probabilities or guaranteed earnings are implied.'));
-    for(const assumption of frontier.assumptions||[])box.append(element('p','agent-help',assumption));
-  }
-  if(report.stress)box.append(comparisonTable(['Case','Verified change','Wallet stablecoins','Loan health'],report.stress.cases.map(row=>[
-    row.label||row.id,agentMoney(row.verifiedAfterUsd-row.verifiedBeforeUsd),agentMoney(row.verifiedWalletStableUsd),
-    (row.loans||[]).map(loan=>loan.health==null?'Unverified':agentNumber(loan.health,3)+(loan.liquidatable?' · liquidation boundary crossed':'')).join(' / ')||'Unverified'])),
-    element('p','agent-help','Fixed balances and current debt under stated shocks. This is a scenario, not a forecast. Wallet funds on another chain are not assumed available for repayment.'));
-  for(const row of report.evaluations||[]){
-    box.append(element('p','agent-comparison-title','Original '+date(row.baselineAt)+' → '+date(row.observedAt)),
-      element('p','agent-help',row.status==='capital_changed'?'Capital changed; comparison stopped.':row.status==='earlier_policy'?'Saved policy changed; earlier decision retained.':'Principal values only; alternative fees and financing remain unverified.'),
-      comparisonTable(['Original choice','Later principal','Difference vs holding before income'],(row.marks||[]).map(mark=>[
-        choiceName(mark.optionId),agentMoney(mark.principalUsd),agentMoney(mark.differenceBeforeUnobservedIncomeUsd)])));
-  }
-  if(report.protocolWatch){
-    for(const source of report.protocolWatch.sources||[]){
-      box.append(element('p','agent-help',source.protocol+' · '+({fresh:'Verified',stale:'Older evidence retained',unavailable:'Could not verify'})[source.status]
-        +(source.checkedAt?' · '+date(source.checkedAt):'')));
-      for(const entry of source.entries||[]){const url=researchCitationUrl(entry.url);if(!url)continue;
-        const link=element('a','agent-research-link',source.protocol+' '+entry.tag);link.href=url;link.target='_blank';link.rel='noopener noreferrer';box.append(link,
-          element('p','agent-help','Published '+date(entry.publishedAt)));
-      }
-    }
-    box.append(element('p','agent-help','Configured official repository releases and current campaign readings; broad news and governance coverage are not established.'));
-  }
-}
 function clearPrivateAnalysis(){
-  for(const id of ['agentInvestmentMeta','agentInvestmentBrief','agentInvestmentEvidence'])$(id)?.replaceChildren();
-  if($('agentInvestmentResult'))$('agentInvestmentResult').hidden=true;
-  if($('agentInvestmentDetails'))$('agentInvestmentDetails').open=false;
   reviewState=null;reviewDirty=false;reviewBusy=false;reviewSaving=false;reviewFormRevision=null;pendingReview=null;
   for(const id of ['agentReviewReply','agentReviewSources','agentReviewPlans','agentReviewSchedule','agentReviewProgress'])$(id)?.replaceChildren();
   if($('agentReviewResult'))$('agentReviewResult').hidden=true;if($('agentReviewDetails'))$('agentReviewDetails').open=false;

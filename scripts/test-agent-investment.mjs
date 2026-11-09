@@ -17,14 +17,14 @@ const db=createAgentSQLiteFixture({usage:true}),store=createAgentStore({AGENT_DB
 const fetchOriginal=globalThis.fetch;let calls=0;globalThis.fetch=async url=>{calls++;check(new URL(url).searchParams.get('view'),'cost-evidence','Only the fixed first-party cost view is requested');
  return Response.json({schemaVersion:'agent-cost-evidence-v1',chain:'robinhood',positionId:'1',owner:a(1),complete:false,gasUsd:.2,receipts:[]});};
 try{
- const answer=await runInvestmentReview({store,context,origin:'https://fixture.test'});check(answer.reply.split('\n').length,4,'The owner gets four concise decision lines');
- check(answer.reply.includes('before costs')&&answer.reply.includes('Fully net profit remains unknown'),true,'A partial result cannot become fully net profit');
+ const answer=await runInvestmentReview({store,context,origin:'https://fixture.test'});check(!/^(Suggestion|Why|Trade-off|Recheck when):/m.test(answer.reply),true,'The owner gets an ordinary-language answer without fixed headings');
+ check(answer.reply.includes('before transaction and borrowing costs')&&answer.reply.includes('complete cost history'),true,'A partial result cannot become fully net profit');
  check(answer.result.performance.rows[0].attribution.identifiedTransactionGasUsd,.2,'Identified gas evidence is retained separately');
  check((await store.get(answer.result.reportId)).performance.portfolioPnlUsd,null,'The immutable record retains its coverage gate');
  for(const source of ['dashboard','telegram']){
    const response=await processAgentMessage({store,source,message:'Show my actual profit breakdown',requestId:'attribution-'+source,context,env:{AGENT_ORIGIN:'https://fixture.test'}});
    check(response.mode,'investment_review','Both channels use one shared deterministic review');
-   check(response.reply.split('\n').length,4,'Both channels retain the same concise format');
+   check(response.reply.length<1200&&!/^Suggestion:/m.test(response.reply),true,'Both channels retain concise conversational answers');
  }
  const before=calls;await processAgentMessage({store,source:'telegram',message:'Show my actual profit breakdown',requestId:'attribution-telegram',context,env:{AGENT_ORIGIN:'https://fixture.test'}});
  check(calls,before,'A duplicate question reference repeats no receipt read');

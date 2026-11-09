@@ -8,12 +8,15 @@ import {fileURLToPath} from 'node:url';
 import {reviewPool,reviewContext} from './fixtures/agent-review.mjs';
 import {multipleLPFetcher,robinhoodLPFixture} from './fixtures/agent-auto-multiple.mjs';
 import {fundingFixture} from './fixtures/agent-lp-autofill.mjs';
+import {weeklyPeriod} from '../api/_agent-weekly-learning.mjs';
 if(!process.argv[2])throw Error('Pass the validation node_modules directory.');
 const runtime=createRequire(join(resolve(process.argv[2]),'__automatic_runtime__.cjs'));
 const {Miniflare,convertV4MiniflareOptions,Log,LogLevel}=runtime('miniflare'),{build}=runtime('esbuild');
 const root=fileURLToPath(new URL('../',import.meta.url)),config=JSON.parse(readFileSync(join(root,'cloudflare/wrangler.jsonc'),'utf8').replace(/^\s*\/\/.*$/gm,''));
 const built=await build({stdin:{resolveDir:root,sourcefile:'automatic-native-fixture.mjs',contents:`
  import worker,{PortfolioReviewWorkflow as RealWorkflow} from './cloudflare/runtime.mjs';
+ import {executeAutomaticWorkflow} from './api/_agent-auto-workflow.mjs';
+ import {createAgentStore} from './api/_agent-store.mjs';
  export class PortfolioReviewWorkflow extends RealWorkflow{
   async run(event,realStep){
    const db=this.env.AGENT_DB,originals=new WeakMap();let queries=0;
@@ -27,22 +30,29 @@ const built=await build({stdin:{resolveDir:root,sourcefile:'automatic-native-fix
    const step={do:(name,options,operation)=>realStep.do(name,options,async()=>{queries=0;const value=await operation();
     if(queries>50)throw Error('Free D1 invocation budget exceeded');
     await db.prepare('INSERT INTO fixture_steps(name,queries) VALUES (?,?)').bind(name,queries).run();return value;})};
+   if(event.payload.fixtureNow)return executeAutomaticWorkflow({env:this.env,params:event.payload,workflowId:event.instanceId,step,
+     store:createAgentStore(this.env,{now:()=>event.payload.fixtureNow}),dependencies:{now:()=>event.payload.fixtureNow}});
    return super.run(event,step);
   }
  }
  export default {...worker,async fetch(request,env,context){
   if(new URL(request.url).pathname==='/fixture/status')return Response.json(await(await env.PORTFOLIO_REVIEWS.get(new URL(request.url).searchParams.get('id'))).status());
+  if(new URL(request.url).pathname==='/fixture/weekly'){
+    const fixtureNow=Number(new URL(request.url).searchParams.get('at')),id='observe-'+Math.floor(fixtureNow/300000);
+    await env.PORTFOLIO_REVIEWS.create({id,params:{schemaVersion:1,mode:'observe',manual:false,requestId:id,fixtureNow}});
+    return Response.json({id});
+  }
   return worker.fetch(request,env,context);
  }};
 `},bundle:true,write:false,format:'esm',platform:'neutral',external:['node:*','cloudflare:*']});
 const env={AGENT_ORIGIN:'https://review.fixture.test',AGENT_ACCESS_KEY:'fixture-automatic-owner-at-least-24',
  AGENT_GATEWAY_SECRET:'fixture-automatic-gateway-at-least-24',CRON_SECRET:'fixture-automatic-cron-at-least-24',TELEGRAM_BOT_TOKEN:'fixture-native-only'};
-let count=0;const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;},calls=[],sent=[];
+let count=0,fixtureNow=null;const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;},calls=[],sent=[];
 const options={modules:true,script:built.outputFiles[0].text,compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,
  bindings:env,d1Databases:['AGENT_DB'],workflows:convertV4MiniflareOptions?{PORTFOLIO_REVIEWS:{name:'tiger-portfolio-review',className:'PortfolioReviewWorkflow'}}
  :[{name:'tiger-portfolio-review',className:'PortfolioReviewWorkflow',bindingName:'PORTFOLIO_REVIEWS'}],log:new Log(LogLevel.ERROR),
  outboundService:async request=>{
-  const url=new URL(request.url),now=Date.now();
+  const url=new URL(request.url),now=fixtureNow||Date.now();
   if(url.origin==='https://api.telegram.org'){check(url.pathname.endsWith('/sendMessage'),true,'Native delivery only sends a message; no webhook mutation');
    sent.push(JSON.parse(await request.text()));return Response.json({ok:true,result:{message_id:sent.length}});}
   if(url.origin!==env.AGENT_ORIGIN)throw Error('Unapproved fixture outbound origin');
@@ -127,7 +137,31 @@ try{
  check(stages.results.length<=plan.estimatedSteps,true,'The planned scan budget covers the actual native Workflow steps');
  check(plan.scheduledStepsPerDay+5*plan.estimatedSteps+64+200<=3000,true,'Scheduled scans leave modeled Free headroom for manual checks, reviews and recovery');
  check((await db.prepare("SELECT COUNT(*) AS n FROM agent_state WHERE key LIKE 'tiger:agent:v1:automation:context:%'").first()).n,0,'The native runner cleans temporary payloads after success');
+ const fixtureWeek=weeklyPeriod(Date.now()+14*86400000,'22:50');fixtureNow=Date.parse(fixtureWeek.endAt)+300000;
+ await db.prepare('INSERT INTO agent_state(key,value,expires_at) VALUES (?,?,NULL) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(
+  'tiger:agent:v1:settings',JSON.stringify({dailyTime:'22:50',dailyEnabled:false,alertsEnabled:false,weeklyEnabled:true})).run();
+ const weeklyId=(await(await mf.dispatchFetch('https://worker.fixture.test/fixture/weekly?at='+fixtureNow)).json()).id;
+ for(let i=0;i<200;i++){
+  workflow=await(await mf.dispatchFetch('https://worker.fixture.test/fixture/status?id='+weeklyId)).json();
+  if(['complete','errored','terminated'].includes(workflow.status))break;
+  await new Promise(resolve=>setTimeout(resolve,50));
+ }
+ check(workflow.status,'complete','The actual native Workflow autonomously prepares and delivers a due Sunday summary');
+ const weeklySent=sent.filter(row=>row.text.startsWith('Your weekly learning update'));
+ check(weeklySent.length,1,'A single weekly learning summary reaches the original fixture recipient');
+ check(weeklySent[0].chat_id,'123456','The weekly summary uses the existing authenticated Telegram pairing');
+ check(/review due|Open Decision journal/.test(weeklySent[0].text),false,'Self-review creates no owner review task');
+ const weeklyState=JSON.parse((await db.prepare('SELECT value FROM agent_state WHERE key=?').bind('tiger:agent:v1:learning:weekly-state').first()).value);
+ check(weeklyState.deliveredPeriod,fixtureWeek.periodId,'The real D1 database retains the completed weekly checkpoint');
+ check(!!await db.prepare('SELECT key FROM agent_state WHERE key=?').bind('tiger:agent:v1:'+weeklyState.deliveredReportId).first(),true,'The exact delivered report is durable private evidence');
+ check((await db.prepare('SELECT COUNT(*) AS n FROM agent_usage').first()).n,0,'Weekly self-review uses no AI inference');
+ const allStages=(await db.prepare('SELECT name,queries FROM fixture_steps').all()).results;
+ check(Math.max(...allStages.map(row=>row.queries))<=50,true,'Both native workflows remain below the Free D1 invocation ceiling');
+ check(allStages.some(row=>row.name==='observe-weekly-learning'),true,'Weekly preparation runs in its own bounded native step');
+ // The deliberate multi-week clock advance may clean the earlier session.
+ response=await request({action:'login',accessKey:env.AGENT_ACCESS_KEY});
+ cookie=response.headers.get('set-cookie').split(';')[0];
  response=await request({action:'automaticSettings',enabled:false,expectedRevision:0});check(response.value.status,'paused','The owner can pause without editing strategy policy');
  response=await request({action:'automaticRun'});check(response.value.status,'paused','An explicit operational pause is respected');
- console.log('Native automatic portfolio/LP workflow: '+count+' assertions passed; max '+peak+' D1 queries/stage. No real provider was contacted.');
+ console.log('Native automatic portfolio/LP workflow: '+count+' assertions passed; max '+Math.max(...allStages.map(row=>row.queries))+' D1 queries/stage. No real provider was contacted.');
 }finally{await mf.dispose();}

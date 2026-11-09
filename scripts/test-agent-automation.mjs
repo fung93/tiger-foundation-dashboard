@@ -9,6 +9,7 @@ import { automaticStatus, dispatchAutomaticObservation, saveAutomaticControls } 
 import { positionKey, markAbsentPositions } from '../api/_agent-auto-observations.mjs';
 import { priceAtTick } from '../strategy-core.mjs';
 import { recordAgentDecision } from '../api/_agent-decisions.mjs';
+import {WEEKLY_STATE,weeklyPeriod} from '../api/_agent-weekly-learning.mjs';
 
 let count=0,queries=0,maxQueries=0,now=Date.now()+1000,near=false,empty=false,incomplete=false,walletFails=false,loads=0,failPublish=false,closedHistory=[];
 const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;};
@@ -20,9 +21,10 @@ const env={AGENT_DB:db,AGENT_ORIGIN:'https://automation.fixture.test',PORTFOLIO_
   CRON_SECRET:'fixture-cron-only-at-least-24',
   AI:{run(){throw Error('Automatic observations must not call inference');}}};
 const store=createAgentStore(env,{now:()=>now}),steps=[];
-let lastContext;
+let lastContext,replacement=false;const telegram=[];
 const loadContext=async()=>{
   loads++;const context=await autofillContext(now),p=context.lp.positions[0].canonical,pool=context.strategy.pools[0];
+  if(replacement)p.id=p.positionId='84';
   if(near){pool.tick=p.raw.upperTick-1;pool.sqrtPrice=1.0001**(pool.tick/2);pool.price=priceAtTick(pool.tick,pool);pool.token0.usd=pool.price;}
   p.pair='vbWBTC / vbUSDC';p.performance={costUsd:500,withdrawnUsd:0,principalUsd:p.principalUsd,pnlUsd:0,earnedUsd:2,netUsd:2,complete:true};
   pool.activeLiquidity=Number(p.raw.liquidity)*10;pool.activeLiquidityRaw=String(BigInt(p.raw.liquidity)*10n);pool.eligible.liquidity=pool.activeLiquidity;
@@ -44,6 +46,8 @@ const step={async do(name,options,operation){if(name==='observe-publish'&&failPu
   check(queries<=50,true,'Workflow stage '+name+' stays below the Free D1 invocation ceiling ('+queries+')');return result;}};
 const run=()=>executeAutomaticWorkflow({env,store,params:{schemaVersion:1,mode:'observe',manual:false,requestId:'observe-'+Math.floor(now/300000)},
   workflowId:'fixture-auto-'+now,step,dependencies:{now:()=>now,loadContext,readWallet,
+    fetcher:async(url,options)=>{check(new URL(url).hostname,'api.telegram.org','The weekly Workflow transport stays on Telegram');
+      telegram.push(JSON.parse(options.body));return Response.json({ok:true,result:{message_id:telegram.length}});},
     readPool:async()=>({...lastContext.strategy.pools[0],schemaVersion:'agent-pool-observation-v1',chain:'katana',block:100,
       observedAt:new Date(now).toISOString(),accounting:{valuationBlockPinned:true}}),
     readFunding:async selected=>fundingFixture(selected.owner,now)}});
@@ -130,6 +134,17 @@ try{
   const beforeDaily=loads;now+=300000;result=await run();
   check(result.status!=='not_due',true,'A due daily summary bypasses the slower full-scan wait');
   check(loads,beforeDaily+1,'The due daily summary receives a new source reading on its next Cron tick');
+  // The same production Workflow performs the review and weekly delivery. The
+  // owner supplies no form, daily report opt-in or strategy acknowledgment.
+  await store.set('settings',{weeklyEnabled:true,dailyEnabled:false,alertsEnabled:false,dailyTime:'22:50'});
+  env.TELEGRAM_BOT_TOKEN='fixture-weekly-only';
+  now=Date.parse(weeklyPeriod(now+14*86400000,'22:50').endAt)+300000;
+  empty=false;replacement=true;closedHistory=[];await run();
+  check(telegram.length,1,'A due weekly learning update is delivered by the automatic Workflow');
+  check(telegram[0].text.startsWith('Your weekly learning update'),true,'The delivered content is a concise learning summary');
+  check((await store.get(WEEKLY_STATE)).deliveredPeriod,weeklyPeriod(now,'22:50').periodId,'The real Workflow persists its weekly delivery acknowledgment');
+  check((await store.get('settings')).dailyEnabled,false,'Weekly reporting never enables daily portfolio messages');
+  now+=300000;await run();check(telegram.length,1,'A repeated scheduled tick does not send the weekly update twice');
   await saveAutomaticControls(store,{enabled:false,expectedRevision:0},{now});
   now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;const beforePause=loads;result=await run();
   check(result.status,'paused','The operational pause stops automatic reads');

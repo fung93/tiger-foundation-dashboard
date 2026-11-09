@@ -51,22 +51,6 @@
       <details class="agent-answer-details" id="agentAutomaticDetails"><summary>All positions, holdings and evidence</summary><div id="agentAutomaticPositions"></div><div id="agentAutomaticHoldings"></div><div id="agentAutomaticEvidence"></div></details>
       <details class="agent-answer-details" id="agentAutomaticHistory"><summary>Historical LP performance</summary><div id="agentAutomaticHistoryList"></div><button type="button" class="agent-text-button" id="agentAutomaticHistoryMore" hidden>Older LP results</button></details>
     </section>
-    <section class="card agent-automatic" id="agentInvestment" aria-label="Investment decision tools">
-      <div class="agent-section-head"><h3>Investment review</h3><span class="agent-state">Read-only</span></div>
-      <p class="agent-help">Uses your live positions. Choose a review or ask in your own words.</p>
-      <div class="agent-settings-actions">
-        <button type="button" class="agent-button agent-quiet" data-question="Show my actual profit breakdown">Performance</button>
-        <button type="button" class="agent-button agent-quiet" data-question="Compare my LP choices">LP choices</button>
-        <button type="button" class="agent-button agent-quiet" data-question="Stress test my whole portfolio">Stress test</button>
-        <button type="button" class="agent-button agent-quiet" data-question="Review my decision evidence">Decision evidence</button>
-        <button type="button" class="agent-button agent-quiet" data-question="Check protocol updates and incentive changes">Protocol watch</button>
-      </div>
-      <div id="agentInvestmentResult" hidden>
-        <p class="agent-help" id="agentInvestmentMeta"></p>
-        <div class="agent-result-text" id="agentInvestmentBrief" aria-live="polite"></div>
-        <details class="agent-answer-details" id="agentInvestmentDetails"><summary>Calculations and evidence</summary><div id="agentInvestmentEvidence"></div></details>
-      </div>
-    </section>
     <section class="card agent-chat" aria-label="Agent conversation">
       <div class="agent-chat-head"><div><div class="label">Conversation</div><p>Ask in your own words.</p></div><span class="agent-state" id="agentState">Connected</span></div>
       <div class="agent-messages" id="agentMessages" role="log" aria-label="Conversation history" aria-live="polite" aria-relevant="additions"></div>
@@ -133,6 +117,6 @@
   </div>
   <noscript><div class="card">Turn on JavaScript to use your agent.</div></noscript>
 </main>
-<script type="module" src="/agent.js"></script>
+<script type="module" src="/agent.js?v=165"></script>
 </body>
 </html>

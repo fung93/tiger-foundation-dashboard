@@ -86,5 +86,14 @@ try {
   queries=0;res=response();await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
   check(res.value.daily,false,'A daily brief already queued by automation is not duplicated by the overdue fallback');
   check(queries<=50,true,'Daily deduplication adds no query to the bounded risk pass');
+  const beforeLegacy=sent.length;
+  await store.set('settings',{alertsEnabled:true,dailyEnabled:false});
+  await store.set('monitor:pending',{chatId:'123',items:[{type:'review',key:'review:old',status:'active',text:'Strategy review due'}],itemIndex:0,sentParts:0});
+  const beforeState=await store.get('monitor:state');
+  await store.set('monitor:state',{...beforeState,conditions:{...beforeState.conditions,'review:old':{active:true,type:'review',notifiedAt:now}}});
+  queries=0;res=response();await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
+  check(sent.length,beforeLegacy,'A queued legacy review-due reminder is cancelled without contacting Telegram');
+  check(Object.keys((await store.get('monitor:state')).conditions).some(key=>key.startsWith('review:')),false,'Legacy review-due conditions are removed without recovery notifications');
+  check(queries<=50,true,'Cancelling old reminders stays within the independent risk Cron budget');
   console.log('Independent bounded review/risk Cron: ' + assertions + ' assertions passed (max ' + Math.max(firstQueries,queries) + ' D1 calls/invocation).');
 } finally { globalThis.fetch = oldFetch; fixture.close(); }

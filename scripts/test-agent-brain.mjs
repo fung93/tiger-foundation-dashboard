@@ -121,6 +121,15 @@ try {
   check(agentPreferenceAction(change('alertsEnabled', 'false', 'Mute alerts'), 'Mute alerts')?.settings.alertsEnabled, false, 'Mute is recognized as a monitoring preference');
   check(agentPreferenceAction(change('alertsEnabled', 'true', 'Unmute alerts'), 'Unmute alerts')?.settings.alertsEnabled, true, 'Unmute restores alerts');
   check(agentPreferenceAction(change('dailyEnabled', 'true', 'Give me a summary every morning'), 'Give me a summary every morning')?.settings.dailyEnabled, true, 'Natural daily-summary wording is supported');
+  const weekly='Stop my weekly learning summary';
+  check(agentPreferenceAction(change('weeklyEnabled','false',weekly),weekly)?.settings.weeklyEnabled,false,'Weekly learning summaries can be stopped independently');
+  check(agentPreferenceAction(change('dailyEnabled','false',weekly),weekly),null,'Stopping weekly learning cannot disable daily reports');
+  check(agentPreferenceAction(change('alertsEnabled','false',weekly),weekly),null,'Stopping weekly learning cannot disable risk alerts');
+  const weeklyAgent='Stop agent weekly summaries';
+  check(agentPreferenceAction(change('alertsEnabled','false',weeklyAgent),weeklyAgent),null,'Mentioning the agent in a weekly request cannot disable risk alerts');
+  const weeklyStart='Send my weekly learning updates';
+  check(agentPreferenceAction(change('weeklyEnabled','true',weeklyStart),weeklyStart)?.settings.weeklyEnabled,true,'Weekly learning summaries can be resumed in ordinary chat');
+  check(agentPreferenceAction(change('weeklyEnabled','false','Stop daily reports'),'Stop daily reports'),null,'Stopping daily reports cannot disable weekly learning');
   check(agentPreferenceAction(change('healthThreshold', '1.2', 'Warn me below 1.2'), 'What is my LP earning?'), null, 'A previous turn cannot authorize a preference change');
   check(agentPreferenceAction(change('accessKey', 'guess', 'Change my access key'), 'Change my access key'), null, 'Model proposals cannot alter credentials');
   for (const [key, value] of [['healthThreshold', '.9'], ['healthThreshold', '101'], ['ltvThreshold', '0'], ['ltvThreshold', '101'], ['dailyTime', '25:00'], ['dailyEnabled', 'yes'], ['pausedUntil', '2020-01-01T00:00:00Z']]) {

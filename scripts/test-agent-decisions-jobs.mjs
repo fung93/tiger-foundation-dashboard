@@ -112,7 +112,7 @@ try{
   check((await store.get('alerts')).some(alert=>alert.key.startsWith('lp:range:')&&alert.status==='recovered'),true,'Verified range recovery is journaled in alert history');
   const due={...report,reportId:report.reportId.replace(/:[0-9a-f-]{36}$/,'')+':11111111-1111-4111-8111-111111111111',policyVersion:2,nextReviewAt:new Date(at-1).toISOString()};
   await persistAgentReport(store,due,snapshot);await tick();
-  check((await store.get('alerts')).some(alert=>alert.type==='review'),true,'The monitor finds due durable strategy reviews without inference');
+  check((await store.get('alerts')).some(alert=>alert.type==='review'),false,'Durable strategy review dates never create owner review-due reminders');
   const failedMonitor=createMonitorHandler({env,storeFactory:()=>store,loadContext:async()=>{throw Error('Fixture data outage');},now:()=>at+1000});
   check((await tick(failedMonitor)).code,503,'Data infrastructure failure cannot report a healthy risk check');
   check((await store.get('lastCheck')).status,'failed','Failed attempts remain visible');

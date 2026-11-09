@@ -23,7 +23,7 @@ check(out.options.every(row=>row.outcomes.length===5),true,'Every band uses the 
 check(out.options.every(row=>row.outcomes.every(result=>result.newFeesUsd<=100*7+1e-8)),true,'No position can receive more than the modeled whole-pool fee budget');
 check(keep.outcomes.find(row=>row.scenario==='whipsaw').timeInRangeDays<7,true,'A price round-trip can spend time outside even when its final price is unchanged');
 check(keep.outcomes.find(row=>row.scenario==='income_stress').newFeesUsd,flat.newFeesUsd/2,'Lower trading volume changes fee income independently of principal');
-check(out.reply.split('\n').length,4,'The decision is concise while full cases stay structured');
+check(out.reply.length<1800&&!/^(Suggestion|Why|Trade-off|Recheck when):/m.test(out.reply),true,'The decision is conversational while full cases stay structured');
 check(out.reply.includes('before financing'),true,'Unknown financing costs are not called zero');
 const noCosts=buildLPFrontier({...args,context:{}});check(noCosts.options.some(row=>row.id!=='keep'&&row.status==='blocked'),true,'Missing gas cannot create free resets');
 const noDepth=buildLPFrontier({...args,pool:{...pool,liquidityEvidence:null}});check(noDepth.status,'partial','A constant-competition assumption cannot masquerade as a verified liquidity curve');

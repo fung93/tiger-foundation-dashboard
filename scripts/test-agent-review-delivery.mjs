@@ -85,6 +85,17 @@ try {
   check((await deliver()).status, 'cancelled', 'Automatic delivery remains paused');
   await saveReviewControls(store, { enabled: true }, 1, { now });
 
+  // Autonomous strategy review never asks the owner to do the reviewing, even
+  // if old controls or a pre-release durable outbox explicitly chose Telegram.
+  await saveReviewControls(store,{delivery:'telegram'},2,{now});
+  for(const trigger of ['daily','event']){
+    const background=await seed();await store.set('review:pending',[{...background.item,trigger}]);
+    check((await deliver()).status,'cancelled','Automatic '+trigger+' strategy reports stay in the backend');
+    check(sent.length,0,'A background report sends no Telegram request');
+  }
+  const oldOutbox=await seed();await store.set('monitor:pending',{kind:'strategy_reviews',items:[{...oldOutbox.item,trigger:'daily'}],itemIndex:0,sentParts:0});
+  await deliver();check(sent.length,0,'An already staged automatic strategy notice is cancelled too');
+
   await seed({ expired: true }); await deliver();
   check(sent[0].text.includes('Open Agent'), true, 'An old review sends a dated saved-review link');
   check(sent[0].text.includes('Repay'), false, 'Expired repayment amounts are not pushed as actionable suggestions');

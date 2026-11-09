@@ -17,6 +17,7 @@ import { recordPortfolioLearning } from './_agent-portfolio-learning.mjs';
 import {runAgentTool} from './_agent-tools.mjs';
 import {recordInvestmentDecision} from './_agent-decision-evaluation.mjs';
 import {checkProtocolWatch,currentProtocolWarnings,renderProtocolNotice} from './_agent-protocol-watch.mjs';
+import {prepareWeeklyLearning,weeklyDue,WEEKLY_STATE} from './_agent-weekly-learning.mjs';
 
 const CHAINS=['katana','robinhood','arc','solana'];
 const validParams=p=>p?.schemaVersion===1&&p.mode==='observe'&&typeof p.manual==='boolean'&&/^observe-\d+(?:-manual)?$/.test(p.requestId||'');
@@ -70,7 +71,7 @@ async function caseForPosition({store,context,item,policy,origin,fetcher,now,rea
 }
 function compactItem(item,current,policyVersion,intervalMinutes) {
   const p=item.position,m=item.market,comparison=item.comparison;
-  const result={key:positionKey(p),identity:item.identity,current,intervalMinutes,position:{id:p.id,positionId:p.positionId||p.id,chain:p.chain,owner:p.owner,contract:p.contract,
+  const result={key:positionKey(p),identity:item.identity,current,intervalMinutes,position:{id:p.id,positionId:p.positionId||p.id,chain:p.chain,owner:p.owner,contract:p.contract,pool:p.pool,
     pair:p.pair,principalUsd:p.principalUsd,observedAt:p.observedAt,performance:p.performance||null,
     raw:{token0:p.raw?.token0,token1:p.raw?.token1,lowerTick:p.raw?.lowerTick,upperTick:p.raw?.upperTick}},
     market:m?{price:m.price,quote:m.quote,base:m.base,quoteUsd:m.quoteUsd??m['token'+(1-m.baseIndex)]?.usd??null,ts:m.ts,block:m.block??null}:null,risk:current?item.risk:{status:'unavailable',signals:[]},
@@ -87,7 +88,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
   const doStep=(name,fn)=>step.do('observe-'+name,{retries:{limit:2,delay:'5 seconds',backoff:'linear'},timeout:'60 seconds'},fn);
   const jobKey='automation:context:'+params.requestId;
   const prepared=await doStep('prepare',async()=>{
-    const input=await automaticInputs(store,['telegram','automation:schedule']);
+    const input=await automaticInputs(store,['telegram','automation:schedule',WEEKLY_STATE]);
     await store.increment('automation:cleanup',86400); // Bounded expiry cleanup also removes failed job payloads.
     await store.set('automation:lastTick',{ts:new Date(clock()).toISOString(),workflowId});
     if(!params.manual)await store.set('automation:lastScheduledTick',{ts:new Date(clock()).toISOString(),workflowId});
@@ -98,7 +99,8 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     const intervalMinutes=prior?.intervalMinutes||automaticCadence({positions:size,pools:prior?.pools??size,closed:prior?.closed||0,claims:prior?.claims||0}).intervalMinutes;
     const day=mytDayAndTime(clock()),dailyDue=input.settings.dailyEnabled&&input.raw.telegram&&day.time>=input.settings.dailyTime
       &&prior?.telegramDailyDate!==day.day;
-    if(!params.manual&&!dailyDue&&prior&&clock()-Date.parse(prior.checkedAt)<intervalMinutes*60000-30000)return {status:'not_due'};
+    const weeklyIsDue=weeklyDue(input.raw[WEEKLY_STATE],input.settings,clock());
+    if(!params.manual&&!dailyDue&&!weeklyIsDue&&prior&&clock()-Date.parse(prior.checkedAt)<intervalMinutes*60000-30000)return {status:'not_due'};
     return {status:'ready',revision:input.controls.revision,policyVersion:input.policy.version,
       intervalMinutes,previousPositions:size,recipient:params.manual&&Object.hasOwn(params,'recipient')?params.recipient:input.raw.telegram||null};
   });
@@ -231,13 +233,14 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     const job=await store.get(jobKey);if(!job)return {status:'expired'};
     return recordPortfolioLearning(store,job.context,prepared.revision,{now:clock(),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
   });
+  const weekly=await doStep('weekly-learning',()=>prepareWeeklyLearning({store,env,now:clock()}));
   const published=await doStep('publish',async()=>{
     const job=await store.get(jobKey);if(!job)return {status:'expired'};
     const monitor=await store.lock('monitor',30);if(!monitor)throw Error('Risk monitoring has priority');
     const owner=await store.lock('owner',15);if(!owner){await monitor.release();throw Error('Private update in progress');}
     try{
       const dailyKey='automation:day:'+mytDayAndTime(clock()).day;
-      const {raw,controls,settings,policy}=await automaticInputs(store,['automation:latest','automation:pending','alerts','messages','telegram','monitor:state',dailyKey,...collected.keys,
+      const {raw,controls,settings,policy}=await automaticInputs(store,['automation:latest','automation:pending','alerts','messages','telegram','monitor:state',WEEKLY_STATE,dailyKey,...collected.keys,
         'automation:other-defi',...CHAINS.map(chain=>'automation:wallet:'+chain)]);
       if(!controls.enabled||controls.revision!==prepared.revision||autoPaused(settings,clock()))return {status:'paused'};
       const prior=raw['automation:latest'];if(prior&&Date.parse(prior.checkedAt)>Date.parse(job.context.asOf))return {status:'superseded'};
@@ -288,7 +291,9 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       // Refresh unsent notices from newly verified current facts. A resolved or
       // stale condition cannot be sent merely because it once entered the queue.
       for(let index=queue.length-1;index>=0;index--){const notice=queue[index],item=positions.find(item=>positionKey(item.position)===notice.positionKey);
-        if(notice.trigger==='protocol'){
+        if(notice.trigger==='weekly'){
+          if(!settings.weeklyEnabled||weekly.report?.reportId!==notice.reportId||raw[WEEKLY_STATE]?.deliveredPeriod===notice.periodId){queue.splice(index,1);continue;}
+        }else if(notice.trigger==='protocol'){
           const warning=protocolWarnings.find(row=>row.id===notice.warningId);
           if(!warning){queue.splice(index,1);continue;}
           notice.text=renderProtocolNotice(warning);notice.validUntil=warning.validUntil;
@@ -320,12 +325,21 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
           expiresAt:new Date(clock()+86400000).toISOString(),validUntil:new Date(clock()+90000).toISOString(),sentParts:0});
         if(dailyAllowed&&!params.manual)latest.telegramDailyDate=day.day;
       }
+      const weeklyReport=weekly.status==='ready'&&settings.weeklyEnabled&&weekly.report?.policyVersion===policy.version
+        &&weekly.report.controlsRevision===controls.revision&&raw[WEEKLY_STATE]?.reportId===weekly.report.reportId
+        &&raw[WEEKLY_STATE]?.deliveredPeriod!==weekly.report.periodId?weekly.report:null;
+      if(sameRecipient&&weeklyReport&&!queue.some(item=>item.id===weeklyReport.reportId))queue.push({id:weeklyReport.reportId,
+        trigger:'weekly',reportId:weeklyReport.reportId,periodId:weeklyReport.periodId,text:weeklyReport.reply,
+        chatId:raw.telegram.chatId,userId:raw.telegram.userId,policyVersion:policy.version,controlsRevision:controls.revision,
+        expiresAt:weeklyReport.validUntil,validUntil:weeklyReport.validUntil,sentParts:0});
+      latest.weeklyLearning={periodId:weeklyReport?.periodId||raw[WEEKLY_STATE]?.preparedPeriod||null,
+        lastDelivered:raw[WEEKLY_STATE]?.deliveredAt||null,status:weekly.status};
       if(newDay)latest.dailyDate=day.day;
       const alerts=[...(raw.alerts||[]),...events.map(event=>({id:event.id,key:'auto:'+(event.positionKey||'protocol')+':'+event.kind,type:event.kind==='protocol'?'protocol':'lp',severity:event.severity,
         title:event.kind==='protocol'?'Protocol and incentive watch':'Automatic LP market watch',message:event.message,ts:iso,sourceTs:event.observedAt,status:'active',telegramSent:false}))].slice(-30);
       const daily={schemaVersion:'agent-automation-day-v1',day:day.day,checkedAt:latest.checkedAt,
         positionKeys:latest.positionKeys,lp:latest.lp,loans:latest.loans,closedSummary:latest.closedSummary,learning:latest.learning};
-      const rank=notice=>notice.sentParts>0?-1:['manual','daily'].includes(notice.trigger)?0:notice.trigger==='alert'?1:2;
+      const rank=notice=>notice.sentParts>0?-1:['manual','daily'].includes(notice.trigger)?0:notice.trigger==='alert'?1:notice.trigger==='weekly'?2:3;
       const orderedQueue=[...new Map(queue.map(item=>[item.id,item])).values()].sort((a,b)=>rank(a)-rank(b)),boundedQueue=orderedQueue.slice(0,20);
       // Preserve urgent/explicit updates and leave omitted current conditions
       // eligible for a later queue attempt instead of silently marking them sent.

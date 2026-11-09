@@ -14,17 +14,20 @@ export const DEFAULT_STRESSES=Object.freeze([
  {id:'combined',label:'Combined fall + avKAT/KAT oracle ratio −10%',shocks:{BTC:-20,ETH:-25,KAT:-30,USDG:-5},oracleRatioPct:-10},
 ]);
 export function requestedPortfolioStress(message){
- const text=String(message||'').replace(/```[\s\S]*?```|`[^`]*`|"[^"\r\n]*"|“[^”]*”/g,' '),shocks={};
- for(const row of text.matchAll(/\b(BTC|WBTC|bitcoin|ETH|WETH|KAT|USDG|USDC|USDT|SOL)\s+(?:price\s+)?(?:falls?|drops?|down|declines?|rises?|up|gains?)\s+(?:by\s+)?(\d+(?:\.\d+)?)\s*%/gi)){
-   const symbol=alias(row[1]),value=Number(row[2])*(/fall|drop|down|decline/i.test(row[0])?-1:1);
+ const text=String(message||'').replace(/```[\s\S]*?```|`[^`]*`|"[^"\r\n]*"|“[^”]*”/g,' '),shocks={};let recognizedMoves=0;
+ for(const row of text.matchAll(/\b(BTC|WBTC|bitcoin|ETH|WETH|KAT|USDG|USDC|USDT|SOL)\s+(?:price\s+)?(?:falls?|drops?|down|declines?|crashes|plunges|loses|rises?|up|gains?)\s+(?:by\s+)?(\d+(?:\.\d+)?)\s*%/gi)){
+   const symbol=alias(row[1]),value=Number(row[2])*(/fall|drop|down|decline|crash|plunge|loses/i.test(row[0])?-1:1);
    if(value< -95||value>500||Object.hasOwn(shocks,symbol)&&shocks[symbol]!==value)return {invalid:true};shocks[symbol]=value;
+   recognizedMoves++;
  }
  for(const row of text.matchAll(/\b(BTC|WBTC|bitcoin|ETH|WETH|KAT|USDG|USDC|USDT|SOL)\s*([+-]\d+(?:\.\d+)?)\s*%/gi)){
   const symbol=alias(row[1]),value=Number(row[2]);if(value< -95||value>500||Object.hasOwn(shocks,symbol)&&shocks[symbol]!==value)return {invalid:true};shocks[symbol]=value;
+  recognizedMoves++;
  }
  const oracle=text.match(/\bavKAT\s*\/\s*KAT\s+(?:oracle\s+)?ratio\s+(falls?|drops?|down|declines?|rises?|up|gains?)\s+(?:by\s+)?(\d+(?:\.\d+)?)\s*%/i);
  const oracleRatioPct=oracle?Number(oracle[2])*(/fall|drop|down|decline/i.test(oracle[1])?-1:1):0;
  if(oracleRatioPct< -95||oracleRatioPct>100)return {invalid:true};
+ if([...text.matchAll(/\d+(?:\.\d+)?\s*%/g)].length>recognizedMoves+(oracle?1:0))return {invalid:true};
  if(Object.keys(shocks).length||oracle)return [{id:'requested',label:'Your stated combined price case',shocks,oracleRatioPct}];
  return DEFAULT_STRESSES;
 }

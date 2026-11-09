@@ -1,6 +1,7 @@
 /* The model selects a reviewed explanation or read-only tool. Financial facts,
    calculations and preference authorization remain independently checked in code. */
-export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v4';
+export const AGENT_OUTPUT_SCHEMA_VERSION = 'agent-output-v5';
+export const AGENT_REVIEW_FOCUSES=Object.freeze(['performance','ranges','stress','evaluation','protocols']);
 export const AGENT_EXPLANATIONS = Object.freeze({
   apr: 'APR turns recent earnings into a yearly rate. A short earning period can make it look unusually high or low, so use it as a rough guide. After a top-up, I need a fresh earning baseline before the rate is meaningful.',
   lp_holding: 'Holding means keeping the same token amounts you put into the LP and checking what they would be worth at the same time. LP plus earnings includes the position value and its fees or rewards. The difference is your LP advantage; it is a comparison, not another asset to add to your total.',
@@ -12,14 +13,16 @@ export const AGENT_EXPLANATIONS = Object.freeze({
   readonly: 'I can explain your positions, check lending risk and compare what-if choices. You make the decisions and carry out any wallet transactions.',
   policy: 'Strategy policy saves the preferences used for your reviews and monitoring. To change them, open Strategy policy, preview the changes and confirm. Your notification preferences and the Lending page keep their own controls.',
   greeting: 'Hi. Ask me about your portfolio, loans, LP earnings or KAT holdings. I can also explain how the dashboard works.',
+  capabilities: 'I can follow your holdings and DeFi positions, check loan and LP risk, compare supported choices and review earlier ideas against later readings. Ask in your own words; I’ll use the relevant live data and recorded history. Wallet decisions and transactions stay with you.',
+  learning_process: 'I review portfolio readings and recorded outcomes in the background, keeping the original ideas so I can compare them fairly with what happens later. Qualified history can improve the range comparisons. I’ll send a short learning update each Sunday at your saved report time if weekly updates are enabled. You don’t need to review strategies for me; wallet decisions stay with you. This doesn’t retrain the model or change your risk settings automatically.',
   clarify_market_target: 'Which loan should I check, and what health target would you like to use?',
   clarify_position: 'Which LP position and chain should I review?',
   clarify_request: 'What would you like to check: your portfolio, a loan, an LP position or your KAT holdings?',
   clarify_daily_reward_target: 'What single daily KAT reward value in USD would you like me to check?',
-  lp_net_income_goal: 'Your target is after costs. I can estimate gross KAT rewards, but net profit also depends on price moves, transaction costs and borrowing. Use the strategy comparison for those scenarios.',
+  lp_net_income_goal: 'Your target is after costs. Gross KAT rewards alone cannot establish net daily profit: price moves, execution costs and borrowing matter too. A range that reaches a gross reward target is still a conditional scenario.',
 });
 
-const preferenceKeys = ['healthThreshold', 'ltvThreshold', 'alertsEnabled', 'dailyEnabled', 'dailyTime', 'pausedUntil'];
+const preferenceKeys = ['healthThreshold', 'ltvThreshold', 'alertsEnabled', 'dailyEnabled', 'dailyTime', 'pausedUntil','weeklyEnabled'];
 const text = maxLength => ({ type: 'string', minLength: 1, maxLength });
 const object = (properties, required = Object.keys(properties)) => ({
   type: 'object', properties, required, additionalProperties: false,
@@ -37,6 +40,7 @@ function freeze(value) {
 // calculation forms remain parser compatibility paths, never advertised output.
 export const AGENT_OUTPUT_SCHEMA = freeze({
   oneOf: [
+    object({review:object({focus:{type:'string',enum:AGENT_REVIEW_FOCUSES}})}),
     object({
       explanationId: { type: 'string', enum: Object.keys(AGENT_EXPLANATIONS) },
       preferenceChanges: { type: 'array', minItems: 0, maxItems: preferenceKeys.length,

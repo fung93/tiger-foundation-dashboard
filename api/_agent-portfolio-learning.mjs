@@ -16,6 +16,7 @@ const label = s => typeof s === 'string' ? s.replace(/[\u0000-\u001f]/g,'').slic
 const observed = (source,now) => source && ['fresh','partial'].includes(source.status) && autoFresh(source.ts||source.observedAt,now);
 const lpId = p => [p.chain,p.contract?.toLowerCase(),String(p.positionId||p.id),p.owner?.toLowerCase()].join(':');
 export const isPortfolioLearningQuestion = text => typeof text === 'string'
+  && !(/\bweekly\b/i.test(text)&&/\b(?:enable|disable|pause|resume|stop|start|send|mute|unmute|turn\s+(?:on|off))\b/i.test(text))
   && /\b(?:learn(?:ed|ing|t)?|lessons?|patterns?|self[ -]study|improv(?:e|ed|ing).*decisions?)\b/i.test(text)
   && /\b(?:my|portfolio|positions?|investments?|agent|you|your|our|decisions?)\b/i.test(text);
 
@@ -27,7 +28,10 @@ export function portfolioLearningObservation({context={},wallets=[],otherDefi,no
     return {identity:lpId(p),chain:p.chain,pool:p.pool?.toLowerCase()||null,positionId:String(p.positionId||p.id),pair:label(p.pair||row?.pair),
       observedAt:p.observedAt,principalUsd:finite(p.principalUsd),liquidity:p.raw?.liquidity||null,inRange:typeof p.inRange==='boolean'?p.inRange:null,
       performance:m?.complete===true?{costUsd:finite(m.costUsd),netUsd:finite(m.netUsd),earnedUsd:finite(m.earnedUsd),
-        unclaimedUsd:finite(m.unclaimedUsd),claimedTokens:m.claimedTokens||null}:null,
+        unclaimedUsd:finite(m.unclaimedUsd),claimedTokens:m.claimedTokens||null,
+        attribution:m.attribution?{principalPnlUsd:finite(m.attribution.principalPnlUsd),claimedAtEventUsd:finite(m.attribution.claimedAtEventUsd),
+          unclaimedNowUsd:finite(m.attribution.unclaimedNowUsd),grossCashBasisPnlUsd:finite(m.attribution.grossCashBasisPnlUsd),
+          netAfterAllCostsUsd:finite(m.attribution.netAfterAllCostsUsd),capitalVersion:m.attribution.capitalVersion||null}:null}:null,
       advantageUsd:row?.comparison?.available===true?finite(row.comparison.difference_usd):null};
   });
   const balances=wallets.flatMap(source=>autoFresh(source.observedAt,now)?(source.balances||[]).filter(row=>row.status==='observed'
@@ -87,6 +91,10 @@ export function derivePortfolioLessons({days=[],current,policy,now=Date.now()}={
       +(p.advantageUsd<0?' behind':' ahead of')+' holding under the LP Book benchmark.',p.advantageUsd<0
       ?'Compare future fees with range risk and reset costs; a high APR alone does not establish a better result.':'Keep the fee benefit and range risk under review.',
       [p.observedAt],{priority:p.advantageUsd<0?55:15,pool:p.pool,chain:p.chain});
+    else if(Number.isFinite(p.performance?.attribution?.grossCashBasisPnlUsd))add('lp',p.identity,p.pair+': recorded claim-date LP result '
+      +agentMoney(p.performance.attribution.grossCashBasisPnlUsd)+' before complete transaction/financing costs.',
+      'Separate original capital, principal price moves and earnings; this is not whole-portfolio profit.',[p.observedAt],
+      {priority:p.inRange===false?65:20,pool:p.pool,chain:p.chain});
     else if(p.performance&&Number.isFinite(p.performance.netUsd))add('lp',p.identity,p.pair+': recorded LP Book net '+agentMoney(p.performance.netUsd)+'.',
       p.inRange===false?'Review the range exit before comparing new earnings.':'Review earnings together with principal P&L.',[p.observedAt],
       {priority:p.inRange===false?65:10,pool:p.pool,chain:p.chain});
