@@ -1,4 +1,4 @@
-{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 47443033, "last_ts": 1794185844,
+{"version": 1, "chain": 747474, "start": {"block":46345344,"ts":1793088155}, "last_block": 47468538, "last_ts": 1794211349,
   "start_kat": 0, "flows": {"rewards":25536.973349538028,"avkat":-11889,"morpho":-5600,"vkat":0},
   "trades": [
     {"hash":"0xd249bc72b1426c42b92fc55ba806e2776e0a88846acb92743d3cd55f65cddca1","deposit_hash":null,"block":46345344,"ts":1793088155,"side":"buy","kat":5978.847409331783,"usd":25,"token":"vbUSDC","route":"swap","fees":{"usd":0.0017026197162703924,"gas_eth":0,"gas_usd":0,"parts":[{"what":"Order fee","token":"KAT","amount":0.40718813918801805,"usd":0.0017026197162703924}]}},
@@ -8,14 +8,7 @@
     {"hash":"0x95e20f45ae78babd8f69ad9c4e6efb3d1e6599a2684ede202d50b668830227fd","deposit_hash":"0x8b4788058164c85e00eacc687422bfb14060ce48d2b7651727506291f668ebb7","block":46862814,"ts":1793605625,"side":"buy","kat":5120.452820364596,"usd":20,"token":"vbUSDC","route":"deposit","fees":{"usd":0.050536284604778305,"gas_eth":0.000003357915,"gas_usd":0.007674083324266099,"parts":[{"what":"Service fee","token":"KAT","amount":2.049000728437213,"usd":0.008003201280512205},{"what":"Relayer fee","token":"vbUSDC","amount":0.034859,"usd":0.034859}]}},
     {"hash":"0x8e3a2c394b5cb8d101329d4f7028833e2796a90515e1004c530a1ae725162e38","deposit_hash":null,"block":47062737,"ts":1793805548,"side":"buy","kat":5152.063849519023,"usd":20,"token":"vbUSDC","route":"swap","fees":{"usd":0.08688807658041725,"gas_eth":0,"gas_usd":0,"parts":[{"what":"Order fee","token":"KAT","amount":22.38264591521041,"usd":0.08688807658041725}]}}
   ],
-  "pending": [
-    {"to":"0x83d0acc109b5704454cc5a7058e1e34f7a1b1650","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":471,"block":47186874,"ts":1793929685,"hash":"0xd15aff3378503f2b6e44a8cca03ed632faa26a235cd1c17dfc73756d247f116e"},
-    {"to":"0x76ecaf23d61893fc5306de97dd88c4503171b88a","token":"0x2dca96907fde857dd3d816880a0df407eeb2d2f2","amount":471.493938,"block":47187623,"ts":1793930434,"hash":"0x34fcceec5fa035cf3d1886c9878c53e1fe4e1844a6e39649e0dc7124f4427a8a"},
-    {"to":"0xf9b1ae5f1929f9a4de548e98e0393ae1a9d1d0f8","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":0.9975,"block":47190785,"ts":1793933596,"hash":"0x1a2a3645d5982fc09c4da4f1e37519dc97f9cf83f9101028b8231b29c1bc432a"},
-    {"to":"0xc10ee9031f2a0b84766a86b55a8d90f357910fb4","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":0.0025,"block":47190785,"ts":1793933596,"hash":"0x1a2a3645d5982fc09c4da4f1e37519dc97f9cf83f9101028b8231b29c1bc432a"},
-    {"to":"0xc48807b1763513016029f5a565bb4cfdc4436b72","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":337,"block":47190844,"ts":1793933655,"hash":"0xbd00ddcc7f532370594972d41f2a8266e127fb3e26772ee6cfeffe5d3a0a0179"},
-    {"to":"0x744676b3ced942d78f9b8e9cd22246db5c32395c","token":"0x203a662b0bd271a6ed5a60edfbd04bfce608fd36","amount":527.974525,"block":47190948,"ts":1793933759,"hash":"0x34aa5961e26ca2ea29d55052b5ea13ba93f3d83232ca150c086f8cf27b535eb3"}
-  ],
+  "pending": [],
   "hours": [
     [1793088000,331062],
     [1793091600,331084],
@@ -321,6 +314,14 @@
     [1794171600,333510],
     [1794175200,333393],
     [1794178800,333276],
-    [1794182400,333194]
+    [1794182400,333112],
+    [1794186000,333135],
+    [1794189600,333183],
+    [1794193200,333277],
+    [1794196800,333289],
+    [1794200400,333306],
+    [1794204000,333358],
+    [1794207600,333522],
+    [1794211200,333516]
   ]
 }
