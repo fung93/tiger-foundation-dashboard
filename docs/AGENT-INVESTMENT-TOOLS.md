@@ -139,7 +139,18 @@ Wrangler). No new secret, database migration, dependency, Cron Trigger, signing
 permission or paid service is needed. Existing authentication, policy, research,
 strategy, automation, pause and recipient controls remain effective. The Lending
 page's per-visit reset remains separate from persistent agent policy. The shell
-cache is version 163.
+cache is version 164 (the investment tools first shipped with 163).
+
+If the review card is missing, verify the Vercel **Production source commit**.
+On 9 November the owner reported `38ac666`, immediately before the `1a03883`
+investment release. A fresh main push with cache 164 requests another automatic
+build; it does not establish that Vercel accepted or published it. If necessary,
+create a Vercel deployment from Git reference `main` using the Production
+environment. A Ready Cloudflare Worker is a separate backend deployment and does
+not publish `agent.html`. Rebuilding an old Vercel entry reuses its old source;
+check the source commit rather than relying on a new deployment timestamp. If no
+new build appears, inspect the project's Git connection/production branch; if it
+fails, use its actual error to diagnose the blocker.
 
 Local acceptance includes portable regression suites, real local workerd/D1 chat
 and Workflow checks, both dashboard themes at 360/1366 px, and Wrangler dry run.

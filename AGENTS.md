@@ -1141,6 +1141,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **9 Nov 2026, production frontend follow-up:** Alex confirms Vercel's latest
+  Production source is `38ac666`, the parent of the published `1a03883` investment
+  release; the new card is also absent from a fresh full-page URL. Retry the main
+  deployment once with cache 164. Browser checks pass in the full page and embedded
+  drawer. The workspace cannot read Vercel/GitHub deployment APIs (proxy 403), and
+  has no Vercel deployment token. A push is not confirmation of a Ready Production
+  deployment. If the retry is absent or fails, inspect Vercel's Git connection/main
+  branch and the actual deployment error; rebuilding the old entry repeats its old
+  source. Existing 6 November agent publication authorization applies.
+
 - **9 Nov 2026, investment decision tools under the standing agent-build authorization:**
   the private Investment review card/chat adds claim-date LP attribution, initialized
   V3 liquidity evidence and equal-capital conditional LP paths, combined portfolio

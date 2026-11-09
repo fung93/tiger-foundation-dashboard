@@ -1,5 +1,21 @@
 # Tiger agent implementation progress
 
+## Production frontend follow-up — 9 November 2026 (MYT)
+
+- [x] Confirm `1a03883` is published on GitHub `main` and contains the five review
+  buttons. Owner reports Vercel's latest Production source is `38ac666`, its parent;
+  the review card is also absent from a fresh full-page URL.
+- [x] Recheck both full-page and embedded-drawer rendering: 108 browser assertions
+  pass for each across Classy/Tiger at 360/1366 px, using closed API fixtures.
+- [x] Prepare cache 164 to request one fresh automatic main deployment and refresh
+  investment-review assets when that release reaches Production. Validate syntax
+  and the diff; application, accounting and private backend code match `1a03883`.
+- [ ] Confirm Vercel creates a build for the retry and marks it Ready/Production,
+  then verify the live card and the separately deployed Worker. Vercel account
+  credentials are unavailable here; direct page/deployment API reads fail through
+  the workspace proxy with 403. If the retry is absent or blocked, inspect the Git
+  connection/production branch and actual provider error before changing app code.
+
 ## Investment decision tools — 9 November 2026 (MYT)
 
 - [x] Reconcile the five requested improvements against release 26d91ca,
