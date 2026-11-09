@@ -14,6 +14,9 @@ import { mytDayAndTime, monitorConditions } from './_agent-notifications.mjs';
 import { deliverAutomaticNotices } from './_agent-auto-delivery.mjs';
 import { mergeRangeOutcome } from './_agent-auto-learning.mjs';
 import { recordPortfolioLearning } from './_agent-portfolio-learning.mjs';
+import {runAgentTool} from './_agent-tools.mjs';
+import {recordInvestmentDecision} from './_agent-decision-evaluation.mjs';
+import {checkProtocolWatch,currentProtocolWarnings,renderProtocolNotice} from './_agent-protocol-watch.mjs';
 
 const CHAINS=['katana','robinhood','arc','solana'];
 const validParams=p=>p?.schemaVersion===1&&p.mode==='observe'&&typeof p.manual==='boolean'&&/^observe-\d+(?:-manual)?$/.test(p.requestId||'');
@@ -39,25 +42,29 @@ function mergeMarket(observed,known,position,now) {
   return out;
 }
 async function caseForPosition({store,context,item,policy,origin,fetcher,now,readFunding}) {
-  if(!item?.market||!item.range?.selected||!autoFresh(item.position.observedAt,now)||!autoFresh(item.market.ts,now))return null;
+  if(!item?.market||item.range?.status==='owner_declined'||!autoFresh(item.position.observedAt,now)||!autoFresh(item.market.ts,now))return null;
   const current={...item.market,fees:observedFeeRate((await store.get(poolKey(item.position)))?.history||{},item.market)};
   const pools=[...(context.strategy?.pools||[]),...(context.strategy?.fee_pools||[])].filter(pool=>!(pool.pool===current.pool&&(pool.chain||'katana')===item.position.chain));
   const reading={...context,lp:{...context.lp,positions:[{canonical:item.position,pair:item.position.pair}]},
     strategy:{...context.strategy,status:'fresh',pools:[...pools,current],fee_pools:[]}};
   const selected=detectedLPPositions(reading,now).find(p=>p.owner===item.position.owner&&p.positionId===String(item.position.positionId||item.position.id));
   if(!selected?.available)return null;
-  const band=item.range.selected;
+  const geometry=item.range?.selected?null:await runAgentTool('analyzeLPRange',{positionId:String(item.position.positionId||item.position.id),
+    chain:item.position.chain,owner:item.position.owner,analysisFocus:'balanced'},{context:{...reading,policy},policy,now});
+  const band=item.range?.selected||geometry?.data.currentRange;if(!band)return null;
   const setup=await prepareAutomaticLP({context:reading,policy,origin,fetcher,now,request:{positionKey:selected.key,
     overrides:{lowerPrice:band.lowerPrice,upperPrice:band.upperPrice}},...(readFunding?{readFunding}:{})});
   if(!setup.inputs)return null;
   // These are automatically generated paper assumptions, never owner-confirmed
   // recurring plans. The caller does not persist or mutate investment policy.
-  setup.fieldSources.lowerPrice={basis:'derived',label:'Automatically selected historical band'};
-  setup.fieldSources.upperPrice={basis:'derived',label:'Automatically selected historical band'};
+  setup.fieldSources.lowerPrice={basis:'derived',label:item.range?.selected?'Automatically selected historical band':'Original observed current band'};
+  setup.fieldSources.upperPrice={basis:'derived',label:setup.fieldSources.lowerPrice.label};
   const result=await compareAgentStrategies({context:reading,policy,input:setup.inputs,now}),view=summarizeLPComparison(result);
+  const frontierCalculation=await runAgentTool('analyzeLPRange',{positionId:String(item.position.positionId||item.position.id),
+    chain:item.position.chain,owner:item.position.owner,analysisFocus:'balanced'},{context:{...reading,policy,lpAdviceFunding:setup.funding||null},policy,now});
   const reposition=result.options.find(option=>option.id==='reposition');
   setup.marketObservation=current;
-  return {setup,result,input:setup.inputs,marketObservation:current,summary:reposition?.status==='outside_policy'?'A range change is outside your cash or saved limits.'
+  return {setup,result,frontierCalculation,input:setup.inputs,marketObservation:current,summary:reposition?.status==='outside_policy'?'A range change is outside your cash or saved limits.'
     :view.points.find(point=>point.label==='Your LP vs holding')?.text||'Waiting for complete fee and cost observations.',
     upfrontCostUsd:reposition?.cashRequiredUsd??null,source:'automatic_observational_defaults_v1',createdAt:new Date(now).toISOString()};
 }
@@ -139,7 +146,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     const selected=job.pools[index],known=[...(job.context.strategy?.pools||[]),...(job.context.strategy?.fee_pools||[])].find(pool=>pool.pool?.toLowerCase()===selected.pool.toLowerCase()&&(pool.chain||'katana')===selected.chain);
     const input=await automaticInputs(store);if(!input.controls.enabled||input.controls.revision!==prepared.revision||autoPaused(input.settings,clock()))return {status:'paused'};
     let market=null;
-    try{market=dependencies.readPool?await dependencies.readPool(selected):await readAgentJSON(origin+'/api/strategy?'+new URLSearchParams({view:'agent-pool',chain:selected.chain,pool:selected.pool}),{fetcher,timeoutMs:12000,maxBytes:32000});}catch{}
+    try{market=dependencies.readPool?await dependencies.readPool(selected):await readAgentJSON(origin+'/api/strategy?'+new URLSearchParams({view:'agent-liquidity',chain:selected.chain,pool:selected.pool}),{fetcher,timeoutMs:12000,maxBytes:48000});}catch{}
     const merged=mergeMarket(market,known,selected.position,clock());if(merged)merged.samplingIntervalMinutes=collected.intervalMinutes;
     return recordPoolObservation(store,selected.position,merged,prepared.revision,{now:clock()});
   });
@@ -155,6 +162,8 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
     const item=raw[key];let comparison=null;
     try{comparison=await caseForPosition({store,context:job.context,item,policy,origin,fetcher,now:clock(),readFunding:dependencies.readFunding});}catch{}
     if(comparison){
+      if(env.AGENT_INVESTMENT_ENABLED!=='false'&&comparison.frontierCalculation?.data.frontier?.options?.length)await recordInvestmentDecision({store,position:item.position,market:item.market,
+        frontier:comparison.frontierCalculation.data.frontier,policyVersion:policy.version,revision:prepared.revision,now:clock()});
       // One durable original comparison per day/policy; the latest case may be
       // recalculated without creating hundreds of journal entries every day.
       const caseDay=mytDayAndTime(clock()).day,uuid=autoHash([item.identity,caseDay,policy.version]).slice(0,32);
@@ -212,6 +221,12 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       value:{...row,recordedAt:job.context.asOf,valuationBasis:'usd_now is the observation-time quote, not the historical claim price. Native token amount and event time are retained.'}})));
     return {status:'recorded',count:rows.length};
   });
+  const protocolWatch=await doStep('protocol-watch',async()=>{
+    const job=await store.get(jobKey);if(!job)return {status:'expired',warnings:[]};
+    const input=await automaticInputs(store);if(!input.controls.enabled||input.controls.revision!==prepared.revision||autoPaused(input.settings,clock()))return {status:'paused',warnings:[]};
+    const allowed=input.policy.status!=='confirmed'||input.policy.constraints?.allowedAnalysisTypes?.includes('research');
+    return checkProtocolWatch({store,context:job.context,fetcher,now:clock(),enabled:env.AGENT_RESEARCH_ENABLED!=='false'&&env.AGENT_INVESTMENT_ENABLED!=='false'&&allowed});
+  });
   const learned=await doStep('portfolio-learning',async()=>{
     const job=await store.get(jobKey);if(!job)return {status:'expired'};
     return recordPortfolioLearning(store,job.context,prepared.revision,{now:clock(),enabled:env.AGENT_LEARNING_ENABLED!=='false'});
@@ -242,7 +257,7 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
         lp:freshLp?job.context.lp.cards:null,loans:job.context.lending?.markets||[],closedSummary:job.context.lp?.closed_cards||null,
         loanAttention:Object.values(monitorConditions(job.context,settings,{policy,now:clock()})).filter(item=>item.type==='lending'&&item.active).slice(0,3),
         sources:job.context.sources||[],dailyDate:prior?.dailyDate||null,telegramDailyDate:prior?.telegramDailyDate||null,delivery:prior?.delivery||null,
-        portfolioLearning:learned.summary?.policyVersion===policy.version?learned.summary:null,
+        portfolioLearning:learned.summary?.policyVersion===policy.version?learned.summary:null,protocolWatch,
         learning:{proposals:positions.filter(item=>item.proposal).length,observations:positions.reduce((n,item)=>n+(item.proposal?.observations||0)+(item.lessons?.observations||0),0),
           completed:uniqueLessons.reduce((n,item)=>n+(item?.completedProposals||0),0)}};
       latest.reply=renderAutomaticPortfolioBrief(latest);
@@ -255,17 +270,29 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
         }
       }
       latest.publishedSignals=publishedSignals;
+      const protocolWarnings=currentProtocolWarnings(protocolWatch,clock());
+      latest.protocolSignalIds={...(prior?.protocolSignalIds||{})};
+      for(const warning of protocolWarnings)if(!latest.protocolSignalIds[warning.id]){
+        events.push({id:warning.id,kind:'protocol',message:warning.message,severity:warning.severity,observedAt:warning.sourceTime});
+        latest.protocolSignalIds[warning.id]=true;
+      }
+      latest.protocolSignalIds=Object.fromEntries(Object.entries(latest.protocolSignalIds).slice(-32));
       const newDay=day.time>=settings.dailyTime&&prior?.dailyDate!==day.day;
       const pending=raw['automation:pending']||[],sameRecipient=raw.telegram&&prepared.recipient&&String(raw.telegram.chatId)===String(prepared.recipient.chatId)&&String(raw.telegram.userId)===String(prepared.recipient.userId);
       const recipientKey=raw.telegram?autoHash([String(raw.telegram.chatId),String(raw.telegram.userId),controls.revision,policy.version]):null;
       const telegramSignals=settings.alertsEnabled&&prior?.telegramRecipientKey===recipientKey?{...(prior?.telegramSignalIds||{})}:{};
       latest.telegramRecipientKey=sameRecipient?recipientKey:prior?.telegramRecipientKey||null;
       latest.telegramSignalIds=sameRecipient?telegramSignals:prior?.telegramSignalIds||{};
+      for(const notice of pending)if(notice.trigger==='protocol'&&Date.parse(notice.expiresAt)<=clock())delete telegramSignals[notice.warningId];
       const queue=pending.filter(item=>Date.parse(item.expiresAt)>clock()&&sameRecipient&&String(item.chatId)===String(raw.telegram.chatId)&&String(item.userId)===String(raw.telegram.userId));
       // Refresh unsent notices from newly verified current facts. A resolved or
       // stale condition cannot be sent merely because it once entered the queue.
       for(let index=queue.length-1;index>=0;index--){const notice=queue[index],item=positions.find(item=>positionKey(item.position)===notice.positionKey);
-        if(notice.trigger==='alert'){
+        if(notice.trigger==='protocol'){
+          const warning=protocolWarnings.find(row=>row.id===notice.warningId);
+          if(!warning){queue.splice(index,1);continue;}
+          notice.text=renderProtocolNotice(warning);notice.validUntil=warning.validUntil;
+        }else if(notice.trigger==='alert'){
           if(!item||!item.conditions?.[notice.condition]?.active||!autoFresh(item.market?.ts,clock())){queue.splice(index,1);continue;}
           notice.text=renderPositionSuggestion(item);notice.validUntil=new Date(Date.parse(item.market.ts)+90000).toISOString();
         }else{if(notice.trigger==='daily'&&notice.day!==day.day){queue.splice(index,1);continue;}
@@ -278,6 +305,13 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
           expiresAt:new Date(clock()+86400000).toISOString(),validUntil:new Date(Date.parse(item.market.ts)+90000).toISOString(),sentParts:0});
         telegramSignals[item.key+':'+event.kind]=event.id;
       }
+      for(const warning of protocolWarnings)if(sameRecipient&&settings.alertsEnabled&&!telegramSignals[warning.id]){
+        queue.push({id:warning.id,warningId:warning.id,trigger:'protocol',text:renderProtocolNotice(warning),
+          chatId:raw.telegram.chatId,userId:raw.telegram.userId,policyVersion:policy.version,controlsRevision:controls.revision,
+          expiresAt:warning.validUntil,validUntil:warning.validUntil,sentParts:0});
+        telegramSignals[warning.id]=warning.id;
+      }
+      latest.telegramSignalIds=Object.fromEntries(Object.entries(latest.telegramSignalIds).slice(-96));
       const dailyAllowed=day.time>=settings.dailyTime&&settings.dailyEnabled&&latest.telegramDailyDate!==day.day&&raw['monitor:state']?.dailyDate!==day.day;
       if(sameRecipient&&(params.manual||dailyAllowed)){
         const id='auto-'+(params.manual?params.requestId:day.day);
@@ -287,14 +321,20 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
         if(dailyAllowed&&!params.manual)latest.telegramDailyDate=day.day;
       }
       if(newDay)latest.dailyDate=day.day;
-      const alerts=[...(raw.alerts||[]),...events.map(event=>({id:event.id,key:'auto:'+event.positionKey+':'+event.kind,type:'lp',severity:event.severity,
-        title:'Automatic LP market watch',message:event.message,ts:iso,sourceTs:event.observedAt,status:'active',telegramSent:false}))].slice(-30);
+      const alerts=[...(raw.alerts||[]),...events.map(event=>({id:event.id,key:'auto:'+(event.positionKey||'protocol')+':'+event.kind,type:event.kind==='protocol'?'protocol':'lp',severity:event.severity,
+        title:event.kind==='protocol'?'Protocol and incentive watch':'Automatic LP market watch',message:event.message,ts:iso,sourceTs:event.observedAt,status:'active',telegramSent:false}))].slice(-30);
       const daily={schemaVersion:'agent-automation-day-v1',day:day.day,checkedAt:latest.checkedAt,
         positionKeys:latest.positionKeys,lp:latest.lp,loans:latest.loans,closedSummary:latest.closedSummary,learning:latest.learning};
+      const rank=notice=>notice.sentParts>0?-1:['manual','daily'].includes(notice.trigger)?0:notice.trigger==='alert'?1:2;
+      const orderedQueue=[...new Map(queue.map(item=>[item.id,item])).values()].sort((a,b)=>rank(a)-rank(b)),boundedQueue=orderedQueue.slice(0,20);
+      // Preserve urgent/explicit updates and leave omitted current conditions
+      // eligible for a later queue attempt instead of silently marking them sent.
+      for(const omitted of orderedQueue.slice(20))delete latest.telegramSignalIds[omitted.trigger==='protocol'?omitted.warningId:omitted.positionKey+':'+omitted.condition];
+      latest.deliveryOverflow=Math.max(0,orderedQueue.length-boundedQueue.length);
       const entries=[{key:'automation:latest',value:latest},{key:'automation:schedule',value:{checkedAt:latest.checkedAt,lastSuccess:latest.lastSuccess,
         telegramDailyDate:latest.telegramDailyDate,positions:collected.keys.length,pools:collected.poolCount,closed:collected.closedCount,claims:collected.claimCount,
         intervalMinutes:collected.intervalMinutes}},
-        {key:'automation:pending',value:[...new Map(queue.map(item=>[item.id,item])).values()].slice(-20)},
+        {key:'automation:pending',value:boundedQueue},
         {key:'alerts',value:alerts},{key:dailyKey,value:{...daily,first:raw[dailyKey]?.first||daily,
           lastGood:freshLp?daily:raw[dailyKey]?.lastGood||null}}];
       if(newDay||events.length||params.manual)entries.push({key:'messages',value:[...(raw.messages||[]),{id:params.requestId,role:'assistant',content:latest.reply,ts:iso,source:'automation'}]
@@ -302,7 +342,9 @@ export async function executeAutomaticWorkflow({env,params,workflowId,step,store
       await monitor.commit(entries,{alsoOwned:[owner]});return {status:latest.status,positions:positions.length};
     }finally{await owner.release();await monitor.release();}
   });
-  await doStep('delivery',()=>deliverAutomaticNotices({store,env,fetcher,now:clock}));
+  let delivery=await doStep('delivery',()=>deliverAutomaticNotices({store,env,fetcher,now:clock}));
+  for(let index=1;index<3&&delivery.status==='sent';index++)delivery=await doStep('delivery-followup-'+index,
+    ()=>deliverAutomaticNotices({store,env,fetcher,now:clock}));
   await doStep('cleanup',async()=>{await store.del(jobKey);return {status:'completed'};});
   return published;
 }

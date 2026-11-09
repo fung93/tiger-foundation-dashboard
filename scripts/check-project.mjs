@@ -14,7 +14,7 @@ function run(args){
 if(!process.argv.includes('--tests-only')){
   const scripts=[...readdirSync(path.join(root,'api')).filter(f=>f.endsWith('.mjs')).map(f=>'api/'+f),
     ...readdirSync(path.join(root,'scripts')).filter(f=>f.endsWith('.mjs')).map(f=>'scripts/'+f),
-    'lending.js','lpbook.js','lpcards.js','sw.js','morpho-core.mjs','portfolio-core.mjs','strategy.js','strategy-core.mjs','kat.js','kat-core.mjs','vkat.js','vkat-core.mjs','theme.js','agent.js','agent-language.mjs','agent-lp-summary.mjs','agent-learning-summary.mjs','agent-launcher.js','cloudflare/worker.mjs','cloudflare/runtime.mjs','cloudflare/review-workflow.mjs'];
+    'lending.js','lpbook.js','lpcards.js','sw.js','morpho-core.mjs','portfolio-core.mjs','strategy.js','strategy-core.mjs','kat.js','kat-core.mjs','vkat.js','vkat-core.mjs','theme.js','agent.js','agent-language.mjs','agent-lp-summary.mjs','agent-learning-summary.mjs','agent-investment-brief.mjs','agent-liquidity.mjs','agent-lp-frontier.mjs','agent-performance.mjs','agent-portfolio-stress.mjs','agent-launcher.js','cloudflare/worker.mjs','cloudflare/runtime.mjs','cloudflare/review-workflow.mjs'];
   for(const file of scripts)run(['--check',file]);
   for(const file of ['index.html','vercel/index.html','lp.html','lp-all.html','lending.html','strategy.html','kat.html','vkat.html','widget.html','agent.html']){
     const html=readFileSync(path.join(root,file),'utf8');

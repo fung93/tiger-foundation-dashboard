@@ -18,14 +18,23 @@ export async function loadLPAdviceContext({context={},args={},env={},origin,fetc
     &&(!args.pair||lpPairKey(args.pair)===lpPairKey(p.raw?.token0?.symbol+'/'+p.raw?.token1?.symbol))
     &&p.status==='observed'&&/^0x[0-9a-f]{40}$/i.test(p.owner||''));
   // Funding uses a detected owner's address, never a submitted/model-only one.
-  const selected=extended&&positions.length===1?positions[0]:null;
+  const selected=positions.length===1?positions[0]:null;
   const funding=selected?readAgentJSON(origin+'/api/strategy?'+new URLSearchParams({view:'lp-funding',chain:'katana',owner:selected.owner}),
     {fetcher,timeoutMs:2500,maxBytes:32000,init:{redirect:'manual'}}).catch(()=>null):null;
-  const [enhanced,mcp,gas]=await Promise.all([
+  const depth=selected?readAgentJSON(origin+'/api/strategy?'+new URLSearchParams({view:'agent-liquidity',chain:'katana',pool:selected.pool}),
+    {fetcher,timeoutMs:4000,maxBytes:48000,init:{redirect:'manual'}}).catch(()=>null):null;
+  const [enhanced,mcp,gas,market]=await Promise.all([
     needs.length?loadSupplementalContext({origin,needs,context,timeoutMs:6000,fetcher}):context,
-    readMCP({env,fetcher}),funding,
+    readMCP({env,fetcher}),funding,depth,
   ]);
-  const sources=(enhanced.sources||[]).filter(row=>row.name!=='katana-mcp');
+  let withDepth=enhanced;
+  if(market?.schemaVersion==='agent-pool-observation-v1'&&market.chain==='katana'&&market.pool?.toLowerCase()===selected?.pool?.toLowerCase()
+    &&market.liquidityEvidence?.complete===true&&Date.now()-Date.parse(market.observedAt)<90000&&Date.now()-Date.parse(market.observedAt)>=-30000){
+    const merge=pool=>pool.pool?.toLowerCase()!==market.pool.toLowerCase()?pool:{...pool,...market,kind:pool.kind,ts:market.observedAt,
+      ratesObservedAt:pool.ts,campaign:pool.campaign,katPerDay:pool.katPerDay,eligible:pool.eligible,rules:pool.rules,recent:pool.recent};
+    withDepth={...enhanced,strategy:{...enhanced.strategy,pools:(enhanced.strategy?.pools||[]).map(merge),fee_pools:(enhanced.strategy?.fee_pools||[]).map(merge)}};
+  }
+  const sources=(withDepth.sources||[]).filter(row=>row.name!=='katana-mcp');
   if(katanaMCPEnabled(env))sources.push({name:'katana-mcp',status:mcp.status==='ready'?'reference':mcp.status==='connected'?'connected':'unavailable',ts:mcp.checkedAt});
-  return {...enhanced,katanaMCP:mcp,lpAdviceFunding:gas,sources};
+  return {...withDepth,katanaMCP:mcp,lpAdviceFunding:gas,sources};
 }

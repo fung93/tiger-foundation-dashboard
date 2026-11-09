@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {reviewPool} from './fixtures/agent-review.mjs';
+import {reviewPool,reviewContext} from './fixtures/agent-review.mjs';
 import {multipleLPFetcher,robinhoodLPFixture} from './fixtures/agent-auto-multiple.mjs';
 import {fundingFixture} from './fixtures/agent-lp-autofill.mjs';
 if(!process.argv[2])throw Error('Pass the validation node_modules directory.');
@@ -50,9 +50,15 @@ const options={modules:true,script:built.outputFiles[0].text,compatibilityDate:c
   if(view==='agent-wallet'){const chain=url.searchParams.get('chain');return Response.json({schemaVersion:'agent-wallet-observation-v1',chain,status:'fresh',block:100,
    observedAt:new Date(now).toISOString(),balances:[{chain,owner:'0x'+'0'.repeat(38)+'10',symbol:'USD',raw:'1000000',decimals:6,amount:1,valueUsd:1,
     status:'observed',block:100,observedAt:new Date(now).toISOString()}]});}
-  if(view==='agent-pool')return Response.json({...(url.searchParams.get('chain')==='robinhood'?robinhoodLPFixture(now).pool:reviewPool(now)),
-   schemaVersion:'agent-pool-observation-v1',chain:url.searchParams.get('chain'),status:'fresh',
-   observedAt:new Date(now).toISOString(),block:100,recent:{},accounting:{valuationBlockPinned:true}});
+  if(['agent-pool','agent-liquidity'].includes(view)){
+   const rh=robinhoodLPFixture(now),kat=await reviewContext(now),position=url.searchParams.get('chain')==='robinhood'?rh.position:kat.lp.positions[0].canonical;
+   const pool=url.searchParams.get('chain')==='robinhood'?rh.pool:reviewPool(now),L=BigInt(position.raw.liquidity)*10n;
+   return Response.json({...pool,activeLiquidity:Number(L),activeLiquidityRaw:String(L),
+    liquidityEvidence:{schemaVersion:'agent-liquidity-v1',chain:position.chain,pool:position.pool,block:100,currentTick:pool.tick,
+      activeLiquidityRaw:String(L),lowerTick:-887272,upperTick:887273,ticks:[],complete:true},
+    schemaVersion:'agent-pool-observation-v1',chain:url.searchParams.get('chain'),status:'fresh',
+    observedAt:new Date(now).toISOString(),block:100,recent:{},accounting:{valuationBlockPinned:true}});
+  }
   if(view==='lp-funding')return Response.json(fundingFixture(url.searchParams.get('owner'),now));
   if(url.pathname==='/api/vkat')return Response.json({at:now/1000,head:100,head_ts:now/1000,health:{notes:[]},kat_usd:.01,
    locks:[],standing:[],book:{epochs:[],total_usd:0,claimed:false},network:{locked:0,locks:0,kat_supply:100,avkat_supply:0,avkat_kat:0,avkat_rate:1}});
@@ -95,7 +101,7 @@ try{
  check(response.value.latest.wallets.length,4,'All configured wallet-chain adapters are polled');
  check(response.value.latest.positions.find(row=>row.position.chain==='katana').range.selected.days,14,'The real runtime uses labelled observational defaults');
  check(response.value.latest.reply.includes('before borrowing costs'),true,'Concise native replies retain financing scope');
- check(sent.length,1,'The original linked owner receives one short manual update');
+ check(sent.filter(row=>row.text.startsWith('Your automatic portfolio check')).length,1,'The original linked owner receives one short manual summary before protocol notices');
  check(sent[0].chat_id,'123456','No pending result is addressed to another recipient');
  check(sent[0].text.includes('katana #1001')&&sent[0].text.includes('robinhood #2002'),true,'The actual outgoing Telegram brief includes both chains and LP identities');
  check((await db.prepare('SELECT COUNT(*) AS n FROM agent_usage').first()).n,0,'The real scheduled observation path reserves no AI inference');
@@ -115,6 +121,8 @@ try{
  check(stages.results.some(row=>row.name==='observe-other-defi'),true,'Separate staking and DeFi observations run in their own bounded step');
  check(stages.results.some(row=>row.name==='observe-portfolio-learning'),true,'Portfolio learning has its own bounded Workflow step');
  check(stages.results.some(row=>row.name==='observe-position-0'),true,'Actual LP scenarios and durable range evidence are calculated');
+ check(stages.results.some(row=>row.name==='observe-protocol-watch'),true,'Official-source monitoring has its own bounded step');
+ check((await db.prepare("SELECT COUNT(*) AS n FROM agent_state WHERE key LIKE 'tiger:agent:v1:investment:baseline:%'").first()).n,2,'Both current LPs receive prospective decision originals in real local D1');
  const peak=Math.max(...stages.results.map(row=>row.queries));check(peak<=50,true,'Each actual invocation stays within the Free D1 query ceiling');
  check(stages.results.length<=plan.estimatedSteps,true,'The planned scan budget covers the actual native Workflow steps');
  check(plan.scheduledStepsPerDay+5*plan.estimatedSteps+64+200<=3000,true,'Scheduled scans leave modeled Free headroom for manual checks, reviews and recovery');

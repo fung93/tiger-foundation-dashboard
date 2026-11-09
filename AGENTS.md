@@ -1141,6 +1141,28 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **9 Nov 2026, investment decision tools under the standing agent-build authorization:**
+  the private Investment review card/chat adds claim-date LP attribution, initialized
+  V3 liquidity evidence and equal-capital conditional LP paths, combined portfolio
+  stress, prospective decision marks and official release/campaign monitoring.
+  Four-line summaries share deterministic calculations with Telegram; no new forms,
+  signing, model tools, paid services or Lending/reset changes. Preserve the LP Book
+  values; receipts cover identified events only, all-cost and exhaustive wallet-flow
+  coverage remain unknown. Tick evidence is pinned, three bitmap words/max 96 ticks;
+  missing/outside coverage cannot become constant verified liquidity. KAT eligible
+  liquidity is separate from total ticks, DAO fees stay excluded, campaigns cap
+  projections. Never replace a specific income-goal answer with a general frontier.
+  Originals are immutable per position/policy/MYT day; later six-hour marks never
+  invent alternative fees, net winners or win rates. Source checks are fixed official
+  release feeds (six-hour healthy / 30-minute failed retry) and current primary
+  incentives (deadline/date changes and cumulative >=5% emissions moves), not
+  general news or governance coverage. Unread primary rates never become zero.
+  Protocol notices use the
+  existing recipient/freshness/acknowledged outbox, with up to three independent
+  delivery steps included in Free cadence planning. Cache 163; the only new regular
+  variable is AGENT_INVESTMENT_ENABLED=true. See docs/AGENT-INVESTMENT-TOOLS.md and
+  TIGER_AGENT_PROGRESS.md for acceptance evidence and the blocked production checks.
+
 - **9 Nov 2026, portfolio-wide memory and shared analysis:** extend the existing
   automatic Workflow with private daily portfolio observations and concise lessons
   for holdings, LP results, borrowing, KAT trading and known locks/votes. Dashboard

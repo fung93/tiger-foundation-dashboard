@@ -884,7 +884,7 @@ export async function livePrices(book, extra) {
   for (const [k, v] of Object.entries(extra || {})) if (out[k] === undefined && v) out[k] = v;
   return out;
 }
-async function priceAtBlock(book, key, block) {
+export async function priceAtBlock(book, key, block) {
   const e = book.tokens[key];
   if (!e) return null;
   if (e.stable) return 1;

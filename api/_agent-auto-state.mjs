@@ -16,7 +16,7 @@ export function automaticCadence({positions=0,pools=positions,closed=0,claims=0,
   // Reserve room in the documented 3,000-step Free day for five owner checks,
   // eight full reviews and bounded recovery. A skipped five-minute tick still
   // consumes its prepare step. This is an application estimate, not billing.
-  const steps=12+Math.min(30,positions)+Math.min(30,pools)+Math.ceil(Math.min(100,closed)/20)
+  const steps=15+Math.min(30,positions)+Math.min(30,pools)+Math.ceil(Math.min(100,closed)/20)
     +Math.ceil(Math.min(100,claims)/20)+Math.ceil(Math.min(30,missing)/4);
   const scheduledBudget=3000-64-200-5*steps;
   let workflowStride=Math.max(1,Math.ceil(288*(steps-1)/Math.max(1,scheduledBudget-288)));

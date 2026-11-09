@@ -3,6 +3,7 @@
 import { automaticInputs, autoPaused, automationEnabled, autoFresh } from './_agent-auto-state.mjs';
 import { getAgentOrigin } from './_agent-http.mjs';
 import { sendTelegram } from './_agent-notifications.mjs';
+import {currentProtocolWarnings} from './_agent-protocol-watch.mjs';
 
 export async function deliverAutomaticNotices({store,env,fetcher=fetch,now=Date.now}={}) {
   const lease=await store.lock('monitor',90);if(!lease)return {status:'queued'};
@@ -14,12 +15,14 @@ export async function deliverAutomaticNotices({store,env,fetcher=fetch,now=Date.
     if(!item)return {...input,status:'empty'};
     if(!env.TELEGRAM_BOT_TOKEN)return {...input,status:'configuration_missing'};
     const position=raw['automation:latest']?.positions?.find(position=>position.key===item.positionKey);
+    const protocolWarning=currentProtocolWarnings(raw['automation:latest']?.protocolWatch,clock()).find(warning=>warning.id===item.warningId);
     const permitted=item.trigger==='manual'||(item.trigger==='daily'?settings.dailyEnabled:settings.alertsEnabled);
     const valid=automationEnabled(env)&&controls.enabled&&!autoPaused(settings,clock())&&permitted
       &&controls.revision===item.controlsRevision&&policy.version===item.policyVersion&&!!binding&&!!env.TELEGRAM_BOT_TOKEN
       &&String(binding.chatId)===String(item.chatId)&&String(binding.userId)===String(item.userId)
       &&Date.parse(item.expiresAt)>clock()&&Date.parse(item.validUntil)>clock()
-      &&(item.trigger!=='alert'||position?.current&&position.conditions?.[item.condition]?.active&&autoFresh(position.market?.ts,clock()));
+      &&(item.trigger!=='alert'||position?.current&&position.conditions?.[item.condition]?.active&&autoFresh(position.market?.ts,clock()))
+      &&(item.trigger!=='protocol'||env.AGENT_RESEARCH_ENABLED!=='false'&&env.AGENT_INVESTMENT_ENABLED!=='false'&&protocolWarning);
     return {...input,item,binding,status:valid?'ready':'cancelled'};
   };
   const commit=async(make)=>{
@@ -32,7 +35,12 @@ export async function deliverAutomaticNotices({store,env,fetcher=fetch,now=Date.
     const initial=await ready();
     if(['empty','risk_delivery_first','configuration_missing'].includes(initial.status))return {status:initial.status};
     if(initial.status==='cancelled'){
-      await commit(({raw})=>[{key:'automation:pending',value:(raw['automation:pending']||[]).filter(item=>item.id!==initial.item.id)}]);
+      await commit(({raw})=>{
+        const entries=[{key:'automation:pending',value:(raw['automation:pending']||[]).filter(item=>item.id!==initial.item.id)}],latest=raw['automation:latest'];
+        if(initial.item.trigger==='protocol'&&latest){const signals={...(latest.telegramSignalIds||{})};delete signals[initial.item.warningId];
+          entries.push({key:'automation:latest',value:{...latest,telegramSignalIds:signals}});}
+        return entries;
+      });
       return {status:'cancelled'};
     }
     const {item,binding}=initial;

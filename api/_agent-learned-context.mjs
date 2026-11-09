@@ -31,7 +31,7 @@ export async function loadLearnedLPContext({store,context={},args={},origin,fetc
     sourceRecord:poolKey};
   if(p.chain==='katana')return {...context,lpLearning:learning,lpAnalysisChain:p.chain};
   if(context.lp?.status!=='fresh'||!autoFresh(p.observedAt,now)||p.status!=='observed')return {...context,lpLearning:learning,lpAnalysisChain:p.chain};
-  const query=new URLSearchParams({view:'agent-pool',chain:p.chain,pool:p.pool});
+  const query=new URLSearchParams({view:'agent-liquidity',chain:p.chain,pool:p.pool});
   const fundingQuery=new URLSearchParams({view:'lp-funding',chain:p.chain,owner:p.owner});
   const [market,funding]=await Promise.all([
     readAgentJSON(origin+'/api/strategy?'+query,{fetcher,timeoutMs:4000,maxBytes:32000,init:{redirect:'manual'}}).catch(()=>null),

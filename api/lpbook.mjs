@@ -11,6 +11,9 @@
 import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION, V3, FABLES } from './_core.mjs';
 import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders, savedBookValid } from './_live-cache.mjs';
 import { compactLPPositions } from '../portfolio-core.mjs';
+import { attributeLPPerformance } from '../agent-performance.mjs';
+import { readPositionCostEvidence } from './_agent-cost-reader.mjs';
+import {createHash} from 'node:crypto';
 
 const readLive = createLiveCache({ complete: lpViewComplete });
 const checkpoints = new Map();
@@ -45,8 +48,18 @@ async function readBook(origin) {
   view.generated = new Date().toISOString();
   view.position_data = compactLPPositions(now, live.rows, { generated: view.generated,
     contracts: { ...Object.fromEntries(V3.map(chain => [chain.key, chain.npm])), fables: FABLES.ramp } });
-  for (const position of view.position_data) position.performance = (view.position_metrics || []).find(metric => metric.chain === position.chain
-    && metric.owner === position.owner && metric.id === String(position.id)) || null;
+  for (const position of view.position_data) {
+    position.performance = (view.position_metrics || []).find(metric => metric.chain === position.chain
+      && metric.owner === position.owner && metric.id === String(position.id)) || null;
+    const original=now.positions[position.chain+':'+position.id];
+    if(original&&position.performance){
+      const row=(view.live||[]).find(row=>row.chain===position.chain&&String(row.id).replace(/^#/,'')===String(position.id));
+      position.performance.attribution=attributeLPPerformance({position:{...original,contract:position.contract},metric:position.performance,
+        comparison:row?.comparison,observedAt:view.generated});
+      position.performance.attribution.capitalVersion=createHash('sha256').update(JSON.stringify([original.deposits,original.withdrawals,original.wallet,
+        original.transferred,original.at_start])).digest('hex');
+    }
+  }
   return view;
 }
 
@@ -55,6 +68,12 @@ export default async function handler(req, res) {
   try {
     const origin = requestOrigin(req);
     const view = await readLive(origin, () => readBook(origin));
+    const query=req.query||Object.fromEntries(new URL(req.url||'/','https://dashboard.invalid').searchParams);
+    if(query.view==='cost-evidence'){
+      res.setHeader('cache-control','no-store');
+      const result=await readPositionCostEvidence({book:checkpoints.get(origin)?.book,chain:query.chain,positionId:query.positionId});
+      return res.status(200).end(JSON.stringify(result));
+    }
     responseHeaders(res, lpViewComplete(view));
     res.status(200).end(JSON.stringify(view));
   } catch (e) {

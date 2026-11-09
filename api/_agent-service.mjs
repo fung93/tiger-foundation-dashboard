@@ -19,9 +19,10 @@ import { loadLPAdviceContext } from './_agent-lp-advice-context.mjs';
 import { readKatanaMCP,katanaMCPDiagnostic,katanaMCPEnabled } from './_agent-katana-mcp.mjs';
 import { loadPortfolioLearning,isPortfolioLearningQuestion,renderPortfolioLearning } from './_agent-portfolio-learning.mjs';
 import { loadLearnedLPContext } from './_agent-learned-context.mjs';
+import { investmentQuestion,runInvestmentReview } from './_agent-investment.mjs';
 
 const FALLBACK_ERRORS = new Set(['configuration_missing', 'model_unavailable', 'quota_exhausted', 'timeout', 'invalid_model_output']);
-const ANSWER_SCHEMA = 'agent-answer-v10', CURRENT_TTL = 90000;
+const ANSWER_SCHEMA = 'agent-answer-v11', CURRENT_TTL = 90000;
 const historical = source => source?.name === 'history' || source?.kind === 'historical';
 const sourceExpiry = (source, at) => {
   const time = Date.parse(source?.ts);
@@ -67,6 +68,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     policyVersion: policy.version,
     katanaMCPEnabled:katanaMCPEnabled(env),
     learningEnabled:env.AGENT_LEARNING_ENABLED!=='false',
+    investmentEnabled:env.AGENT_INVESTMENT_ENABLED!=='false',
+    strategyEnabled:env.AGENT_STRATEGY_ENABLED!=='false',researchEnabled:env.AGENT_RESEARCH_ENABLED!=='false',
   })).digest('hex');
   const cachedAnswer = async () => {
     if (!cacheKey) return null;
@@ -93,14 +96,17 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
     let settings = await getSettings(store);
     const messages = await store.get('messages') || [];
     handle = await beginAgentJob(store, lock, { id: jobId, kind: 'chat', inputHash, policyVersion: policy.version });
-    const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message);
+    const investment=investmentQuestion(message);
+    const fullReview = isPortfolioReviewQuestion(message)&&!isLPIncomeQuestion(message)&&!investment;
     const reading = { ...(context || (fullReview ? { sources: [] } : await loadContext({ origin: getAgentOrigin(env) }))), policy };
     reading.portfolioLearning=await loadPortfolioLearning(store,{policy,enabled:env.AGENT_LEARNING_ENABLED!=='false'});
     let result, inferenceSucceeded = false, modelOutput = null,mcpReading=null;
     let inputExpiresAt = liveInputExpiry(reading, Date.now());
     const research = researchQuestion(message);
     await agentJobPhase(lock, handle, research ? 'retrieving' : 'inference');
-    if (isPortfolioLearningQuestion(message)&&!isLPIncomeQuestion(message)) {
+    if(investment){
+      result=await runInvestmentReview({store,context:reading,origin:getAgentOrigin(env),env,...investment});
+    } else if (isPortfolioLearningQuestion(message)&&!isLPIncomeQuestion(message)) {
       result={reply:renderPortfolioLearning(reading.portfolioLearning),action:null,mode:'learning',status:reading.portfolioLearning.status,
         sources:[{name:'portfolio-learning',status:'historical',ts:reading.portfolioLearning.checkedAt||null}],
         result:{schemaVersion:'portfolio-learning-v1',...reading.portfolioLearning}};
@@ -143,6 +149,7 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
       // A verified market is independent of unrelated stale markets or LP data.
       inputExpiresAt = expiries.length ? Math.min(...expiries.map(value => Number.isFinite(value) ? value : 0)) : Date.now() + CURRENT_TTL;
     }
+    if(result?.mode==='investment_review')inputExpiresAt=Date.parse(result.result?.validUntil)||Date.now()+CURRENT_TTL;
     // A successful inference does not extend the lifetime of its source data.
     // Discard generated amounts and actions if any current input expired while
     // the provider was working. Keep only visibly dated deterministic facts.
@@ -161,6 +168,8 @@ export async function processAgentMessage({ store, message, source = 'dashboard'
         sources: datedContext(reading, Date.now()).sources,
         reply: 'The strategy policy changed while this answer was being prepared. Request a new review. No recommendation or settings change was applied.' };
     }
+    if(result?.mode==='investment_review'&&Date.now()>=inputExpiresAt)result={status:'blocked',action:null,mode:'facts_only',errorCategory:'data_stale',sources:[],
+      reply:'The position readings aged out while this review was being prepared. Ask again for a current comparison.'};
     if (!result || typeof result.reply !== 'string' || !result.reply.trim() || result.reply.length > 12000) throw httpError(503, 'The AI reply could not be verified.');
     if (result.action) {
       if (result.action.type !== 'settings') throw httpError(503, 'The agent requested an unsupported action.');

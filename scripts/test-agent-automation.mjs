@@ -25,6 +25,9 @@ const loadContext=async()=>{
   loads++;const context=await autofillContext(now),p=context.lp.positions[0].canonical,pool=context.strategy.pools[0];
   if(near){pool.tick=p.raw.upperTick-1;pool.sqrtPrice=1.0001**(pool.tick/2);pool.price=priceAtTick(pool.tick,pool);pool.token0.usd=pool.price;}
   p.pair='vbWBTC / vbUSDC';p.performance={costUsd:500,withdrawnUsd:0,principalUsd:p.principalUsd,pnlUsd:0,earnedUsd:2,netUsd:2,complete:true};
+  pool.activeLiquidity=Number(p.raw.liquidity)*10;pool.activeLiquidityRaw=String(BigInt(p.raw.liquidity)*10n);pool.eligible.liquidity=pool.activeLiquidity;
+  pool.liquidityEvidence={schemaVersion:'agent-liquidity-v1',chain:p.chain,pool:p.pool,block:100,currentTick:pool.tick,
+    activeLiquidityRaw:pool.activeLiquidityRaw,lowerTick:-887272,upperTick:887273,ticks:[],complete:true};
   context.tracking={positions:empty?[]:[p],enumerationComplete:!incomplete,closed:closedHistory};
   if(empty){context.lp.positions=[];context.lp.cards={open:0,value_usd:0,pnl_usd:0,fees_usd:0,net_usd:0,unclaimed_usd:0};}
   if(incomplete)context.lp.status='stale';
@@ -54,6 +57,7 @@ try{
   check(status.latest.positions[0].range.selected?.days,14,'An explicit observational default selects a historical band without a confirmed policy');
   check(await store.get('policy:current'),null,'Automatic defaults never create or confirm an investment policy');
   check((await store.list('journal:decision:')).items.length,1,'A dated automatic comparison creates a prospective journal record');
+  check((await store.list('investment:baseline:')).items.length,1,'The automatic runner also saves the original equal-capital decision before future quotes');
   const key=positionKey(lastContext.tracking.positions[0]),first=await store.get(key);
   check(first.proposal.observations,0,'A newly proposed band has no invented past outcomes');
   check(first.position.performance.netUsd,2,'Actual LP Book performance readings retain their original values');
@@ -62,11 +66,11 @@ try{
   check((await fixture.db.prepare('SELECT COUNT(*) AS count FROM agent_usage').bind().first()).count,0,'No inference ledger attempt is created');
   const loadsBefore=loads;await run();check(loads,loadsBefore,'Duplicate scheduled ticks do not reread providers before they are due');
   now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;near=true;await run();
-  check((await store.get('alerts')||[]).length,0,'A near-edge warning requires two distinct current readings');
+  check((await store.get('alerts')||[]).filter(row=>row.type==='lp').length,0,'A near-edge warning requires two distinct current readings');
   now+=(await store.get('automation:latest'))?.intervalMinutes*60000||300000;failPublish=true;await assert.rejects(run(),/Fixture lost before publication/);count++;
   await run();
-  check((await store.get('alerts')||[]).length,1,'A persistent near-edge observation produces one durable alert');
-  check((await store.get('alerts'))[0].sourceTs,new Date(now).toISOString(),'A publication retry retains the original pending signal after the position checkpoint');
+  check((await store.get('alerts')||[]).filter(row=>row.type==='lp').length,1,'A persistent near-edge observation produces one durable alert');
+  check((await store.get('alerts')).find(row=>row.type==='lp').sourceTs,new Date(now).toISOString(),'A publication retry retains the original pending signal after the position checkpoint');
   check((await store.get(key)).proposal.observations,2,'Only later source times assess the original band');
   check((await store.list('journal:decision:')).items.length,1,'Repeated checks do not create repeated same-day comparison decisions');
   const proposals=(await store.list('automation:proposal:')).items;
@@ -77,7 +81,7 @@ try{
   check(retained.status,'stale','An unavailable wallet keeps its last good reading explicitly stale');
   check(retained.balances[0].raw,'1000000','A failed wallet read cannot erase the last known amount');
   check(Date.parse(retained.observedAt)<now,true,'A failed refresh cannot renew an old wallet timestamp');
-  check((await store.get('alerts')||[]).length,1,'Repeated unchanged conditions do not send another alert during cooldown');
+  check((await store.get('alerts')||[]).filter(row=>row.type==='lp').length,1,'Repeated unchanged conditions do not send another alert during cooldown');
   const decision=(await store.list('journal:decision:')).items[0].value;
   await recordAgentDecision(store,{decisionId:decision.decisionId,expectedVersion:1,state:'rejected',
     requestId:'fixture-owner-rejection',rationale:'Keep my existing range for now.'},{now});

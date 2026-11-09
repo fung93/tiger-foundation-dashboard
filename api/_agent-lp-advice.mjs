@@ -44,7 +44,7 @@ function recordedPace(row, now) {
   return { ...pace, katPerDay: pace.katEarned * 24 / pace.hours,
     basis: 'Recorded native rewards over the full interval, including any time out of range; not a spot in-range forecast.' };
 }
-export function resetComparison(current, candidate, pool, goal, funding, position, now) {
+export function resetComparison(current, candidate, pool, goal, funding, position, now, {projectRewards=true}={}) {
   const capital=goal.capitalUsd;
   if (!current || !candidate || !positive(capital)) return null;
   const currentL = Number(position?.raw?.liquidity), next = liquidityForCapital(capital, candidate.tickLower, candidate.tickUpper, pool);
@@ -67,7 +67,7 @@ export function resetComparison(current, candidate, pool, goal, funding, positio
   const gasUsd = validFunding ? funding.gasUsd : null;
   const costs = gasUsd === null ? null : gasUsd + poolFeeUsd + slippageCaseUsd;
   let afterCosts=null;
-  if(costs!==null&&capital>costs&&pool.kind==='rewards'){
+  if(projectRewards&&costs!==null&&capital>costs&&pool.kind==='rewards'){
     const reading=estimateReward({...pool,eligible:{...pool.eligible,liquidity:goal.otherEligibleLiquidity,amount0:0,amount1:0}},
       {capitalUsd:capital-costs,lowerPrice:candidate.lowerPrice,upperPrice:candidate.upperPrice},
       {now:now/1000,katUsd:goal.katUsd,rewardStart:pool.campaign.start,rewardEnd:pool.campaign.end});

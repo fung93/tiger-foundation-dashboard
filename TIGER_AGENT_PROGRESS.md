@@ -1,5 +1,72 @@
 # Tiger agent implementation progress
 
+## Investment decision tools — 9 November 2026 (MYT)
+
+- [x] Reconcile the five requested improvements against release 26d91ca,
+  accounting instructions, existing paper scenarios and the Free runtime limits.
+- [x] 1. Performance attribution: distinguish original capital movements,
+  principal/holding divergence, claim-date earnings and current claimable rewards;
+  preserve the dashboard book and expose unknown transaction/financing costs.
+  Focused checks pass 22 attribution / 15 receipt assertions, the existing 512
+  LP-performance assertions and existing private API/tool checks. Lifetime costs
+  and complete external wallet flows remain source-coverage gates, never zeros.
+- [x] 2. Stronger LP engine: verified bounded tick-liquidity evidence, conditional
+  volume/reward paths, equal-capital cost-aware choices and clear range-risk trade-offs.
+  Focused checks pass 16 curve/reader and 19 frontier assertions, with existing
+  LP range, advice, source and fee accounting regressions retained.
+- [x] 3. Portfolio stress tests: combined asset/stablecoin/oracle shocks, debts,
+  liquidity restrictions and explicit coverage, with no duplicated look-through wealth.
+  Eighteen deterministic checks cover KAT debt offsets, independent oracle shocks,
+  depegs, LP reconstruction and missing coverage; private review tests also pass.
+- [x] 4. Decision evaluation: prospective original recommendations and later
+  measured benchmarks; separate observed outcomes from estimated alternatives.
+  Twenty SQLite-backed checks cover immutable originals, later-only marks,
+  six-hour deduplication, capital/owner/policy changes and operational pause.
+- [x] 5. Protocol/incentive monitoring and a shared short recommendation format:
+  suggestion, evidence, trade-off and recheck trigger; no new mandatory forms.
+  Official-source parsing/cache/failure/incentive checks pass 34 assertions; acknowledged
+  delivery passes 28, including cancellation/recovery. Chromium passes 108 checks
+  in Classy/Tiger at 360/1366 px, including escaping and logout races.
+- [x] Validate each package, the complete project, private dashboard/Telegram
+  paths, browser layout and Worker bundle before publication. Preserve all unrelated
+  data updates. Production account/source/CPU/quota checks remain explicit gates.
+- [x] Reconcile the release onto scheduled data commit `38ac666` without conflicts
+  or changes to its nine data/history files; prepare publication under the existing
+  6 November agent-build authorization.
+- [ ] Verify the actual production deployment and sources against the owner's
+  Cloudflare account. No Cloudflare API token/key is configured here; dashboard,
+  Worker and all three official feed probes fail at this workspace's proxy with
+  CONNECT 403. No real Telegram delivery, receipt/tick RPC, CPU or quota result
+  is inferred from the local fixtures.
+
+Release evidence: **all 73 portable suites pass** (`npm run check`) on the rebased
+checkout, including the eight new suites and the existing accounting, rollover,
+authentication and Lending regressions. Native workerd/local D1 passes **218
+chat / 40 automatic / 24 recurring-review assertions**, with maxima of **36 / 26 /
+29 D1 binding calls** respectively (chat separately reports 66 batched SQL
+statements). Original decision records for both Katana and Robinhood LPs are
+verified in real local D1. Closed-source browser checks pass **108 new + 44
+existing learning assertions** across Classy/Tiger at 360/1366 px. The final
+Wrangler dry run passes at **792.17 KiB / 207.62 KiB gzip** with the same Free
+AI/D1/Workflow bindings. Runtime counts and resource planning are not real-account
+CPU, quota or profitability evidence. No production provider or bot is contacted
+by these tests, and no collector/backfill is run.
+
+Changed files and operating assumptions are listed in
+`docs/AGENT-INVESTMENT-TOOLS.md`: five deterministic core modules, six private
+source/review/evaluation/watch modules, LP Book/range/automatic/service integration,
+the Investment review card, cache 163 and regression/runtime/browser checks.
+Configuration adds only regular `AGENT_INVESTMENT_ENABLED=true`; no secret,
+migration, paid dependency or wallet permission changes. Complete lifetime costs
+and exhaustive external wallet flows are still coverage blockers. The original
+implementation plan remains unchanged (SHA-256
+`b28f17ad6b6a024dd30158cc0e792b58f223499ed85e06acd7f8c3cada46337f`).
+
+The repository's on-chain portfolio skill supplies accounting/reader checks. The
+owner's existing Cloudflare AI/D1/Workflow architecture takes precedence over the
+skill's older generic no-backend design. No signing, policy mutation, paid service
+or automatic model switch is authorized by these new research/analysis tools.
+
 ## Portfolio-wide learning — 9 November 2026 (MYT)
 
 - [x] Reconcile the request with the existing automatic watcher, limited pool

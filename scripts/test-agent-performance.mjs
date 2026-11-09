@@ -1,0 +1,37 @@
+/* Hand-worked cash-flow/claim-date cases. No chain or model calls. */
+import assert from 'node:assert/strict';
+import {attributeLPPerformance,classifyPortfolioFlow,attributePortfolioPeriod} from '../agent-performance.mjs';
+let count=0;const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;};
+const address=n=>'0x'+String(n).repeat(40),at='2026-11-09T00:00:00.000Z';
+const p={id:'1',chain:'katana',wallet:address(1),cost_usd:1000,out_usd:0,deposits:[{block:1,ts:100,a0:1,a1:500,usd:1000}],withdrawals:[],
+  claims:[{block:2,ts:200,tokens:{KAT:1000},prices:{KAT:.01},usd:10}]};
+const m={complete:true,principalUsd:950,claimedTokens:{KAT:'1000'},claimedUsd:5,unclaimedUsd:3,netUsd:-42};
+const compare={available:true,complete:true,hold_usd:980};
+let r=attributeLPPerformance({position:p,metric:m,comparison:compare,observedAt:at});
+check(r.principalPnlUsd,-50,'Principal movements are separate from earnings');
+check(r.marketMoveUsd,-20,'The holding benchmark isolates the market move');
+check(r.divergenceUsd,-30,'Divergence is already inside principal P&L and is not deducted twice');
+check(r.claimedAtEventUsd,10,'Claim-date value survives a 50% fall in reward price');
+check(r.grossCashBasisPnlUsd,-37,'Claim-date earnings and current claimable value reconcile to cash-basis gross P&L');
+check(r.bookMarkToMarketPnlUsd,-42,'The existing dashboard accounting remains a distinct unchanged figure');
+check(r.claimRepricingDifferenceUsd,-5,'The effect of repricing already claimed tokens is explained explicitly');
+check(r.netAfterAllCostsUsd,null,'Missing gas/financing never becomes a fully net return');
+const snapshot=JSON.stringify(p);attributeLPPerformance({position:p,metric:{...m,claimedUsd:1,netUsd:-46},observedAt:at});
+check(JSON.stringify(p),snapshot,'Attribution never rewrites historical claim prices');
+const costs={schemaVersion:'agent-cost-evidence-v1',positionId:'1',chain:'katana',owner:p.wallet,complete:true,gasUsd:2,swapCostsUsd:1,financingUsd:4};
+r=attributeLPPerformance({position:p,metric:m,comparison:compare,observedAt:at,costs});check(r.netAfterAllCostsUsd,-44,'Verified scoped costs reduce gross results once');
+check(attributeLPPerformance({position:p,metric:m,costs:{...costs,owner:address(9)}}).netAfterAllCostsUsd,null,'Another wallet’s cost record cannot be charged to this position');
+check(attributeLPPerformance({position:p,metric:m,costs:{...costs,financingUsd:null}}).netAfterAllCostsUsd,null,'Partial cost proof remains incomplete');
+check(attributeLPPerformance({position:{...p,at_start:true},metric:m}).grossCashBasisPnlUsd,null,'Photographed starting balances are not original deposits');
+check(attributeLPPerformance({position:{...p,claims:[{...p.claims[0],usd:null}]},metric:m}).claimedAtEventUsd,null,'Missing event prices stay unknown');
+check(attributeLPPerformance({position:p,metric:{...m,claimedTokens:{KAT:'1200'}}}).completeClaims,false,'Unreconciled native claims block event-date attribution');
+const owners=[{chain:'katana',address:address(1)},{chain:'katana',address:address(2)}],flow={chain:'katana',from:address(1),to:address(2),usd:500,observedAt:at};
+check(classifyPortfolioFlow(flow,{owners}).kind,'internal_transfer','Moving between owned wallets is not a deposit');
+check(classifyPortfolioFlow({...flow,from:address(3)},{owners}).kind,'external_deposit','An outside transfer crosses the owner portfolio boundary');
+check(classifyPortfolioFlow({...flow,to:address(3)},{owners,protocols:[{chain:'katana',address:address(3),kind:'lending'}]}).kind,'lending','Borrowing/collateral movements remain protocol flows');
+const period={before:{valueUsd:1000},after:{valueUsd:1600},flows:[{kind:'external_deposit',usd:500},{kind:'internal_transfer',usd:500}],coverageComparable:true,flowsComplete:true};
+check(attributePortfolioPeriod(period).pnlUsd,100,'External funding is removed while internal transfers cancel');
+check(attributePortfolioPeriod({...period,flowsComplete:false}).pnlUsd,null,'Missing wallet flow coverage blocks portfolio profit');
+check(attributePortfolioPeriod({...period,coverageComparable:false}).wealthChangeUsd,null,'Coverage changes cannot produce investment returns');
+check(attributePortfolioPeriod(period).timeWeightedReturn,null,'Dollar change is not mislabeled a time-weighted return');
+console.log('Investment performance attribution: '+count+' assertions passed.');

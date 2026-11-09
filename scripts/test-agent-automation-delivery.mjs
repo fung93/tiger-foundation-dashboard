@@ -43,5 +43,16 @@ try{
   await reset();const acknowledged=item();acknowledged.sentParts=1;await store.set('automation:pending',[acknowledged]);
   const prior=sent;result=await run();check(sent,prior,'A saved acknowledgement avoids replaying an accepted part after restart');
   check(result.status,'sent','An already acknowledged notice can finish its durable bookkeeping');
+  const protocol=async()=>{await reset();const warning={id:'release:fixture:1',message:'Fixture official release',sourceTime:new Date(now).toISOString(),validUntil:new Date(now+21600000).toISOString()};
+    await store.set('automation:latest',{protocolWatch:{warnings:[warning]}});
+    await store.set('automation:pending',[{...item(),id:warning.id,trigger:'protocol',warningId:warning.id}]);};
+  await protocol();result=await run();check(result.status,'sent','Current official-source notices use the acknowledged delivery queue');
+  await protocol();await store.set('automation:latest',{protocolWatch:{warnings:[]}});const beforeProtocol=sent;
+  await store.set('automation:latest',{...(await store.get('automation:latest')),telegramSignalIds:{'release:fixture:1':'release:fixture:1'}});
+  result=await run();check(result.status,'cancelled','A withdrawn or expired protocol notice is cancelled before sending');
+  check(sent,beforeProtocol,'Missing source evidence never sends an old protocol warning');
+  check((await store.get('automation:latest')).telegramSignalIds['release:fixture:1'],undefined,'A cancelled unacknowledged notice remains eligible after a fresh source reading');
+  await protocol();result=await run({env:{...env,AGENT_RESEARCH_ENABLED:'false'}});
+  check(result.status,'cancelled','Disabling research also stops queued protocol notices');
   console.log('Automatic Telegram delivery and recovery: '+count+' assertions passed.');
 }finally{fixture.close();globalThis.fetch=originalFetch;}

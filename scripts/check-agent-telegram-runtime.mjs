@@ -13,6 +13,8 @@ import { incomeSources } from './fixtures/agent-lp-income.mjs';
 import { katanaGaugeSource } from './fixtures/katana-mcp-gauges.mjs';
 import { robinhoodLPFixture } from './fixtures/agent-auto-multiple.mjs';
 import { autoHash } from '../api/_agent-auto-state.mjs';
+import {fundingFixture} from './fixtures/agent-lp-autofill.mjs';
+import {WALLET} from '../morpho-core.mjs';
 
 const runtimeRoot = process.argv[2];
 if (!runtimeRoot) throw Error('Pass the validation node_modules directory as the only argument.');
@@ -80,6 +82,7 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
   bindings: env, d1Databases: ['AGENT_DB'], log: new Log(LogLevel.ERROR),
   outboundService: async request => {
     const url = new URL(request.url);
+    if(url.origin==='https://api.github.com'&&url.pathname.endsWith('/releases'))return Response.json([]);
     if(url.origin==='https://mcp.katana.network'){
       check(url.href,'https://mcp.katana.network/mcp','Native MCP transport uses only the fixed approved endpoint');
       const body=await request.json();calls.push({method:'mcp:'+body.method,body});
@@ -109,6 +112,12 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
       if(['income','both-chains'].includes(providerMode)&&url.pathname==='/api/lpbook'){
         const lp=incomeSources().lp;if(providerMode==='both-chains'){const rh=robinhoodLPFixture(Date.now());
           lp.live.push(rh.live);lp.position_data.push(rh.position);lp.cards.open++;lp.cards.value_usd+=rh.position.principalUsd;}
+        if(url.searchParams.get('view')==='cost-evidence'){
+          const p=lp.position_data.find(row=>row.chain===url.searchParams.get('chain')&&row.positionId===url.searchParams.get('positionId'));
+          return Response.json({schemaVersion:'agent-cost-evidence-v1',chain:p?.chain,positionId:p?.positionId,owner:p?.owner,complete:false,gasUsd:.2,receipts:[]});
+        }
+        for(const p of lp.position_data)p.performance={...(p.performance||{}),attribution:{schemaVersion:'agent-attribution-v1',capitalVersion:'native-capital-v1',
+          principalPnlUsd:-10,claimedAtEventUsd:2,unclaimedNowUsd:1,grossCashBasisPnlUsd:-7,netAfterAllCostsUsd:null}};
         return Response.json(lp);
       }
       const stamp = new Date().toISOString();
@@ -122,7 +131,11 @@ const options = { modules: true, script: buildResult.outputFiles[0].text,
       calls.push({ method: url.pathname });
       if (providerMode === 'range' && url.pathname === '/api/strategy') return Response.json(rangeSource());
       if(['income','both-chains'].includes(providerMode)&&url.pathname==='/api/strategy'){
-        if(url.searchParams.get('view')==='agent-pool'){const pool=robinhoodLPFixture(Date.now()).pool;
+        if(url.searchParams.get('view')==='agent-wallet'){const chain=url.searchParams.get('chain'),owner=chain==='solana'?'GSMtKVYnxLbhfGQUBkdYW5npnu1LWP58ruBxVya5VM4B':WALLET;
+          return Response.json({schemaVersion:'agent-wallet-observation-v1',chain,status:'fresh',block:100,observedAt:new Date().toISOString(),balances:[{
+            chain,owner,symbol:'USDC',raw:'1000000',amount:1,decimals:6,valueUsd:1,priceUsd:1,status:'observed',block:100,observedAt:new Date().toISOString()}]});}
+        if(url.searchParams.get('view')==='lp-funding')return Response.json(fundingFixture(url.searchParams.get('owner'),Date.now(),{chain:url.searchParams.get('chain')}));
+        if(['agent-pool','agent-liquidity'].includes(url.searchParams.get('view'))){const pool=robinhoodLPFixture(Date.now()).pool;
           return Response.json({...pool,schemaVersion:'agent-pool-observation-v1',observedAt:new Date().toISOString(),feeGrowth0:'0',feeGrowth1:'0'});}
         return Response.json(incomeSources().strategy);
       }
@@ -376,6 +389,34 @@ try {
   const learnedChat=await request({action:'chat',message:'What have you learned about my portfolio?',requestId:'native:memory'},true,true);
   check(learnedChat.value.mode,'learning','The real private memory route works without model inference');
   check(await usageCount(),feeUsage,'Reading lessons spends no AI quota');
+  await db.prepare("DELETE FROM agent_state WHERE key = 'tiger:agent:v1:usage:minute'").run();
+  const performance=await request({action:'chat',message:'Show my actual profit breakdown',requestId:'native:investment-performance'});
+  check(performance.status,200,'The authenticated Worker runs the new performance review');
+  check(performance.value.result?.schemaVersion,'agent-investment-v1','Structured investment evidence survives the actual Worker response');
+  check(performance.value.reply.split('\n').length,4,'The new Worker review is concise');
+  check(performance.value.result.performance.netAfterAllCostsUsd,null,'Receipt subsets cannot become fully net profit in native D1');
+  const perfUpdate={update_id:107,message:{text:'Show my actual profit breakdown',chat:{id:42,type:'private'},from:{id:42,is_bot:false}}};
+  check((await dispatchFetch('https://worker.fixture.test/api/agent-telegram',{method:'POST',headers:{'content-type':'application/json',
+    'x-telegram-bot-api-secret-token':env.TELEGRAM_WEBHOOK_SECRET},body:JSON.stringify(perfUpdate)})).status,200,'The linked Telegram owner can request the same performance review');
+  check(calls.filter(row=>row.method==='sendMessage').at(-1).body.text.includes('Suggestion:'),true,'Telegram sends the shared four-line investment brief');
+  const gatedStress=await request({action:'chat',message:'Stress test my whole portfolio',requestId:'native:investment-stress-gated'});
+  check(gatedStress.value.status,'blocked','Portfolio stress respects a saved policy that excludes portfolio analysis');
+  nativePolicy.constraints.allowedAnalysisTypes.push('portfolio');
+  await db.prepare('UPDATE agent_state SET value=? WHERE key=?').bind(JSON.stringify(nativePolicy),'tiger:agent:v1:policy:current').run();
+  const stress=await request({action:'chat',message:'Stress test my whole portfolio',requestId:'native:investment-stress'});
+  check(stress.value.result?.stress.cases.length,4,'Native portfolio stress compares all four combined cases');
+  check(stress.value.result.stress.cases.every(row=>row.portfolioNavUsd===null),true,'Incomplete real-format fixtures cannot invent complete NAV');
+  await db.prepare("DELETE FROM agent_state WHERE key = 'tiger:agent:v1:usage:minute'").run();
+  const protocols=await request({action:'chat',message:'Check protocol updates and incentive changes',requestId:'native:investment-protocols'});
+  check(protocols.value.result?.protocolWatch.sources.length,3,'The Worker checks three fixed official feeds');
+  const evidence=await request({action:'chat',message:'Review my decision evidence',requestId:'native:investment-evidence'});
+  check(evidence.value.mode,'investment_review','Native decision review uses the deterministic private route');
+  check(evidence.value.result.evaluations.length,0,'A first review does not invent historical investment wins');
+  const choices=await request({action:'chat',message:'Compare my LP choices',requestId:'native:investment-choices'});
+  check(choices.status,200,'The actual authenticated Worker can run all current LP comparisons without a form');
+  check(choices.value.result?.rangeAnalyses.length,2,'The shared investment review retains calculations for both detected LPs');
+  check(choices.value.result.rangeCoverage,{reviewed:2,total:2},'The concise review states its detected and reviewed scope');
+  check(await usageCount(),feeUsage,'All new verified reviews consume no model inference');
   check(Math.max(...queryCounts)<=50,true,'All native dashboard/Telegram/resource invocations fit the D1 call ceiling');
   console.log('Native Telegram Worker runtime: ' + checks + ' assertions passed; max '+Math.max(...queryCounts)+' D1 calls / '+Math.max(...statementCounts)+' batched SQL statements. No real provider was contacted.');
 } finally { await mf.dispose(); }

@@ -34,7 +34,7 @@ try{
   const f=fixture();let calls=[];
   await store.set(poolKey(f.position),{history:f.history,learning:{0:{policyVersion:0,completedProposals:3,observations:72,outsideObservations:30}}});
   const fetcher=async url=>{const query=new URL(url).searchParams;calls.push({url,view:query.get('view')});
-    if(query.get('view')==='agent-pool')return Response.json(f.pool);
+    if(['agent-pool','agent-liquidity'].includes(query.get('view')))return Response.json(f.pool);
     if(query.get('view')==='lp-funding')return Response.json({schemaVersion:'agent-lp-funding-v1',chain:'robinhood',owner:f.position.owner,
       observedAt:stamp(now),priceObservedAt:stamp(now),block:123,gasUnits:100000,gasPriceWei:'1000000000',nativePriceUsd:2000,gasUsd:.2});
     throw Error('Unexpected outbound');};

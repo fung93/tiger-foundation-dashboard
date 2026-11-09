@@ -161,6 +161,8 @@ export function renderAutomaticPortfolioBrief(latest) {
   const lesson=latest.portfolioLearning?.lessons?.find(row=>row.kind==='lending'&&row.trend==='falling')
     ||latest.portfolioLearning?.lessons?.find(row=>row.priority>=40);
   if(lesson)lines.push('• Recorded lesson: '+lesson.message);
+  const protocolWarning=latest.protocolWatch?.warnings?.find(row=>Date.parse(row.validUntil)>Date.parse(latest.checkedAt));
+  if(protocolWarning)lines.push('• Protocol watch: '+protocolWarning.message);
   const ordered=[...positions].sort((a,b)=>Number(b.current!==false&&b.risk?.status==='watch')-Number(a.current!==false&&a.risk?.status==='watch')
     ||(a.risk?.edgePct??100)-(b.risk?.edgePct??100));
   const footer=[];

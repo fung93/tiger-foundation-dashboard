@@ -49,6 +49,8 @@ for(const reverse of [false,true]){
   check(a.candidate.reachesTarget,true,'The target-only candidate can meet the gross spot goal');
   check(a.candidate.coversPreferredHistory,false,'A target-only band still carries its actual history gap');
   const reply=renderAgentToolResult(structuredClone(r));
+  const enhanced=structuredClone(r);enhanced.data.frontier={status:'ready',reply:'Suggestion: Compare several longer-horizon paths.'};
+  check(renderAgentToolResult(enhanced),reply,'A ready multi-path comparison cannot replace the answer to the owner’s specific daily reward goal');
   check(reply.includes('small income gap')&&reply.includes('sell about'),true,'The concise judgment connects the small benefit to the actual token mix');
   check(reply.includes('target-only band')&&reply.includes('misses part'),true,'Serialization cannot lose the candidate’s target-only label');
   check(reply.includes('Recorded pace:')&&reply.includes('including any time out of range'),true,'Recorded Merkl pace is not passed off as the current in-range rate');

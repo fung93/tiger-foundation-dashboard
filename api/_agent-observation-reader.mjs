@@ -2,6 +2,7 @@
    Fixed RPCs, fixed ABI methods, pinned blocks; no caller-provided URL or wallet. */
 import { Buffer } from 'node:buffer';
 import { CFG, VAULT, rpc, multi, pad } from './_core.mjs';
+import {readLiquidityEvidence} from './_agent-liquidity-reader.mjs';
 
 export const OBSERVATION_CHAINS = ['katana', 'robinhood', 'arc', 'solana'];
 const AVKAT = '0x7231dbacdfc968e07656d12389ab20de82fbfceb';
@@ -105,7 +106,7 @@ const symbol = row => {
     return Buffer.from(row.data.slice(2+offset*2+64,2+offset*2+64+length*2),'hex').toString('utf8').replace(/[^\w./+-]/g,'').slice(0,24)||null;
   } catch { return null; }
 };
-export async function readAgentPool({chain,pool,now=Date.now(),readRpc=rpc,readMulti=multi}={}) {
+export async function readAgentPool({chain,pool,now=Date.now(),readRpc=rpc,readMulti=multi,withLiquidity=false}={}) {
   if (!Object.hasOwn(FACTORIES,chain)||!/^0x[0-9a-f]{40}$/i.test(pool||'')) throw Object.assign(Error(),{status:400});
   const cfg=VAULT.chains[chain],at=await head(cfg.rpc,readRpc,now),selectors=['0xc45a0155','0x3850c7bd','0x1a686502','0x0dfe1681','0xd21220a7','0xd0c93a7c','0xddca3f43','0xf3058399','0x46141319'];
   const rows=await readMulti(cfg.rpc,selectors.map(data=>({to:pool,data})),at.tag);
@@ -125,18 +126,19 @@ export async function readAgentPool({chain,pool,now=Date.now(),readRpc=rpc,readM
   const baseIndex=stable(1)?0:stable(0)?1:0,ratio=(Number(sqrt)/2**96)**2*10**(tokens[0].decimals-tokens[1].decimals);
   if(!Number.isFinite(ratio)||ratio<=0)throw Error();
   if(tokens[1].usd!==null)tokens[0].usd=ratio*tokens[1].usd;else if(tokens[0].usd!==null)tokens[1].usd=tokens[0].usd/ratio;
-  return {schemaVersion:'agent-pool-observation-v1',chain,pool:pool.toLowerCase(),...at,status:'fresh',kind:'fees',tick,sqrtPrice:Number(sqrt)/2**96,
-    sqrtPriceX96:sqrt.toString(),tickSpacing:Number(spacing),fee:Number(fee),activeLiquidity:Number(liquidity),token0:tokens[0],token1:tokens[1],baseIndex,
+  const market={schemaVersion:'agent-pool-observation-v1',chain,pool:pool.toLowerCase(),...at,status:'fresh',kind:'fees',tick,sqrtPrice:Number(sqrt)/2**96,
+    sqrtPriceX96:sqrt.toString(),tickSpacing:Number(spacing),fee:Number(fee),activeLiquidity:Number(liquidity),activeLiquidityRaw:liquidity.toString(),token0:tokens[0],token1:tokens[1],baseIndex,
     base:tokens[baseIndex].symbol,quote:tokens[1-baseIndex].symbol,quoteUsd:tokens[1-baseIndex].usd,price:baseIndex===0?ratio:1/ratio,
     feeGrowth0:word(rows[7])?.toString()??null,feeGrowth1:word(rows[8])?.toString()??null,
     factory:FACTORIES[chain],accounting:{valuationBlockPinned:true,projectedRewardsAreAssumptions:true},recent:{}};
+  if(withLiquidity)market.liquidityEvidence=await readLiquidityEvidence(market,{readMulti});return market;
 }
 export async function handleAgentObservation(req,res,{readWallets=readAgentWallets,readPool=readAgentPool}={}) {
   const query=req.query||Object.fromEntries(new URL(req.url||'/','https://dashboard.invalid').searchParams);
-  if(!['agent-wallet','agent-pool'].includes(query.view))return false;
+  if(!['agent-wallet','agent-pool','agent-liquidity'].includes(query.view))return false;
   res.setHeader('cache-control','no-store');
   if(req.method&&req.method!=='GET'){res.status(405).end(JSON.stringify({error:'Use GET.'}));return true;}
-  try{res.status(200).end(JSON.stringify(await(query.view==='agent-wallet'?readWallets({chain:query.chain}):readPool({chain:query.chain,pool:query.pool}))));}
+  try{res.status(200).end(JSON.stringify(await(query.view==='agent-wallet'?readWallets({chain:query.chain}):readPool({chain:query.chain,pool:query.pool,withLiquidity:query.view==='agent-liquidity'}))));}
   catch(error){res.status(error.status===400?400:502).end(JSON.stringify({error:error.status===400?'Choose a configured chain and pool.':'The current observation could not be verified.'}));}
   return true;
 }

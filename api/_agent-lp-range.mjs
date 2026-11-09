@@ -6,8 +6,9 @@ import { analyzeLPIncomeTarget,renderLPIncomeTarget } from './_agent-lp-income.m
 import { buildLPAdvice, renderLPAdvice } from './_agent-lp-advice.mjs';
 import { rangeCandidates } from './_agent-auto-analysis.mjs';
 import { analyzeLPFees,renderLPFees } from './_agent-lp-fees.mjs';
+import {buildLPFrontier} from '../agent-lp-frontier.mjs';
 
-export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v4';
+export const AGENT_LP_RANGE_VERSION = 'agent-lp-range-v5';
 export function isLPRangeQuestion(message) {
   const selecting = /suitable|best|recommend|suggest|choose|widen|narrow|adjust|change|select|合适|合適|建议|建議|sesuai/iu.test(message || '');
   return typeof message === 'string' && (selecting || !/\b(?:in|out(?: of)?|outside)\s+(?:the\s+)?range\b/iu.test(message))
@@ -177,6 +178,7 @@ export function analyzeLPRange(args, context, policy, now, positions = []) {
     if(output.data.advice.reset?.funding)output.stamps.push(output.data.advice.reset.funding.observedAt,context.lpAdviceFunding.priceObservedAt);
     output.assumptions.push('Reset token mix uses the same LP capital before costs; 0.5% slippage is an illustrative allowance, not a live route quote. Recorded native rewards and current campaign-share rates are different observations.');
   }
+  if(position&&ownRange)output.data.frontier=buildLPFrontier({position,pool,rangeData:output.data,context,args,now});
   return output;
 }
 
@@ -186,6 +188,7 @@ export function renderLPRangeAnalysis(output) {
   if(d.feeAdvice)return renderLPFees(d);
   if(d.advice)return renderLPAdvice(d);
   if(d.incomeGoal)return renderLPIncomeTarget(d);
+  if(d.frontier?.status==='ready')return d.frontier.reply;
   const format = price => (['USDC', 'USDT', 'DAI', 'USDG'].includes(asset(d.quote)) && d.quoteUsd === 1 ? agentPrice(price) : agentNumber(price, 6) + ' ' + d.quote);
   const range = row => format(row.lowerPrice) + '–' + format(row.upperPrice);
   const lines = ['For ' + d.pair + ' on '+(d.chain==='katana'?'Katana':d.chain) + (Number.isInteger(d.fee) ? ' (the ' + agentNumber(d.fee / 10000, 3) + '% pool)' : '')
