@@ -3,7 +3,7 @@ name: Update UNI pool readings
 on:
   workflow_dispatch:
   schedule:
-    - cron: '31 */6 * * *'
+    - cron: '31 * * * *'
   push:
     branches: [main]
     paths:

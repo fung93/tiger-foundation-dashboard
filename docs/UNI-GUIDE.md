@@ -12,12 +12,16 @@ explicitly requested **push**. Publication of this update is authorized.
 - [x] Expand Step 1 (UNI only / stablecoin only / Balance), then reveal Step 2.
 - [x] Add amount, minimum/maximum price, current price and tick-rounded actual range.
 - [x] Calculate deposit mix, edge P&L, conditional fees/day and simple APR in code.
-- [x] Copy the exact network/pool URL and open Uniswap from one action.
+- [x] Copy the exact network/pool URL for the user to paste in a browser.
 - [x] Retain readings/form inputs after failures; make stale/missing data explicit.
 - [x] Repair independent current TVL/history reads, archived-RPC fallback and
   tablet layout after the owner reported missing data on both networks.
 - [x] Make Copy pool link copy only; never open a page or tab.
 - [x] Add the separate public snapshot and its bounded collection workflow.
+- [x] Preserve usable recorded fee/APR estimates instead of hiding them at three
+  minutes, and treat successful alternative evidence as available data.
+- [x] Prefill single-sided entry at the current price, round outward to a usable
+  tick and preserve manual edits while automatically following unedited entry.
 - [x] Validate math and the real UI using closed chain responses.
 - [x] Run `npm run check`; all portable checks pass.
 - [x] Verify live pool inventory, TVL, volume, fee totals and APR against Base and
@@ -40,12 +44,18 @@ range inputs, then the results and Copy pool link button. The button copies the
 URL for the user to paste into their browser. It never navigates or opens a tab;
 if clipboard permission is denied, a selectable readonly URL is revealed.
 
-- **UNI only:** the entire usable band must be above spot. It gradually sells UNI
+- **UNI only:** the minimum input starts at the current price. Its usable tick
+  rounds outward so the position holds UNI only. It gradually sells UNI
   as price enters/rises through the range; it earns no fees while waiting.
-- **Stablecoin only:** the usable band must be below spot. It gradually buys UNI as
+- **Stablecoin only:** the maximum input starts at the current price. Its usable
+  tick rounds outward to keep the deposit in stablecoin. It gradually buys UNI as
   price enters/falls through the range; it earns no fees while waiting.
 - **Balance:** the band must include spot. The calculator gives the required mix,
   which need not be 50/50 by value. The editable starting illustration is $1,000.
+
+The automatic entry follows refreshed prices until the user edits it; a manual
+entry and deposit amount remain unchanged during polling. The displayed usable
+range shows the actual prices supported by Uniswap's tick spacing.
 
 Edge P&L marks the position at each tick-rounded boundary against its starting
 value, excluding fees and transaction costs. Below the lower edge the position is
@@ -112,16 +122,20 @@ do not recursively rescan. Log requests use a single pool and at most 5,000 bloc
 preserve range errors across peers and skip providers that disable the method.
 The current block hash is rechecked before history. Chains fail
 independently. The public API coalesces requests and caches 30 seconds; the page
-refreshes every minute and pauses in a hidden tab. Data older than three minutes
-or retained after failure keeps its original timestamp and cannot supply a live
-income quote. A failed fee method may retain a previously verified period for up
-to eight hours, measured from the history's original end time. Its date never
+refreshes every minute and pauses in a hidden tab. A current, freshly fetched quote
+can be labeled LIVE for three minutes. A validated recorded quote and fee window
+remain usable for eight hours, with the original reading time and RECORDED label.
+They produce dated conditional estimates rather than disappearing after a failed
+live refresh. Missing and expired evidence still cannot generate a return. A
+successful conservative source does not raise a warning just because an optional
+archive method failed. A failed fee method may retain a previously verified period
+for up to eight hours, measured from the history's original end time. Its date never
 becomes the new price/TVL date. Historical portfolio/trade/LP files are untouched.
 
 The separate `uni-pools.json` snapshot is bundled into the API and also loaded
 independently by the browser. `scripts/uni-pools.mjs` validates before reading or
 writing and preserves each original observation during outages. Its own workflow
-runs on relevant main-branch source pushes, manual dispatch and every six hours.
+runs on relevant main-branch source pushes, manual dispatch and every hour.
 It commits only this public snapshot, pulls before pushing and does not trigger
 itself from its data commit. A final availability check fails visibly if a network
 was unreadable, after retaining the available figures and sanitized diagnostics.
@@ -149,16 +163,26 @@ renewing the original observation timestamps.
   pools versus unavailable sources, clipboard denial without navigation, visible
   collapsed-card TVL/fees, independent field recovery and no page overflow/errors.
 - Independent saved snapshot/outage and late-response race: **11** browser checks.
+- `scripts/test-uni-readings.mjs`: **1,714** assertions for dated quote/fee expiry,
+  successful fallback availability and current-price single-sided inputs across
+  both token orders, signed/fractional ticks and supported tick spacings.
+- Estimate-display follow-up: **776** browser assertions across both themes at
+  320/360/960/1366 px. These reproduce a failed live refresh with a 15-minute-old
+  real snapshot, confirm no false warning or missing estimates, preserve expired/
+  missing-data messages and verify automatic entry updates and manual overrides.
 - Actual collected observations: **168** additional browser assertions across
   both themes at 360/960/1366 px, showing every real TVL/volume/fee/APR field,
   conditional range income and copy-only links without page errors or overflow.
 - All nine full pages' navigation: **288** assertions at the same themes/widths;
   six destinations fit on one row without horizontal overflow.
-- `npm run check` passes all **80** suites, including syntax and byte-identical
+- `npm run check` passes all **81** suites, including syntax and byte-identical
   Portfolio copies. Focused UNI checks also pass after isolating archive/log budgets.
   An existing automation test depended on the wall clock and crossed MYT midnight
   during its simulated updates; its test clock is now anchored at tomorrow noon.
   No production agent behavior was changed.
+  The risk-monitor resume and Workflow-recovery tests use the same stable MYT
+  daytime convention so legitimate next-day daily/review transitions cannot
+  invalidate their same-day recovery scenarios.
 - Direct preview RPC access remains blocked. Real market verification instead
   uses the production snapshot workflow, whose successful RPC readings are
   independently validated below. The Vercel page itself is still proxy blocked.
@@ -169,8 +193,9 @@ renewing the original observation timestamps.
 Files: `uni.html`, `uni.css`, `uni.js`, `uni-core.mjs`, `api/uni.mjs`,
 `api/_uni-config.mjs`, `api/_uni-reader.mjs`, closed fixtures/tests, all full-page
 menus, shared small-screen menu styles, cache 168, preview route and Vercel's
-60-second UNI function ceiling (including the bundled snapshot). Cache 169 adds
-copy-only behavior and the data repair. No production credentials or migrations
+60-second UNI function ceiling (including the bundled snapshot). Cache 170 adds
+dated estimate availability and current-price entries to the earlier copy-only
+behavior and data repair. No production credentials or migrations
 are needed. Live source reads from the new workflow and the Vercel deployment are
 not implied by the closed tests; confirm them independently after pushing.
 

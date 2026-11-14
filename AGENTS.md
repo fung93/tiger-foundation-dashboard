@@ -1221,6 +1221,26 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **14 Nov 2026, UNI estimate display and spot-price entry — explicit push requested:**
+  required evidence, not an optional archive method's `partial` flag, determines
+  whether the page is usable. Successful BNB conservative evidence must not show
+  the generic live-reading error. Keep estimates from validated recorded quote and
+  fee observations available for eight hours with their original dates and a
+  **RECORDED** label; only recent freshly fetched quotes say LIVE. Missing or truly
+  expired evidence still shows a specific message and never becomes an invented
+  return. UNI-only minimum defaults to the current price; stablecoin-only maximum
+  defaults there. Round entries outward to valid ticks, preserving one-token
+  deposits in either token orientation. Follow the price until the user edits
+  that entry, then preserve their edit through polling. Waiting ranges still
+  display zero current fees/APR. The separate UNI snapshot refreshes hourly.
+  Cache 170. Tests cover saved readings after a failed refresh, optional-source
+  success, real and fractional tick boundaries, both token orders and editable
+  auto-filled entries (1,714 focused assertions and 776 browser assertions across
+  both themes at 320/360/960/1366 px). All 81 project suites pass. Stabilize only the existing risk-monitor
+  and Workflow-recovery tests' starting clocks at tomorrow noon MYT so legitimate
+  midnight changes cannot invalidate their same-day scenarios; production agent
+  behavior is unchanged.
+
 - **14 Nov 2026, UNI TVL/fees repair and copy-only links — explicit push requested:**
   keep current pool reads independent of archive/log budgets. Recheck the current
   block before history, use smaller Multicall batches and retry incomplete HTTP-200

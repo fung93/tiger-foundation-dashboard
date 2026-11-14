@@ -7,7 +7,10 @@ import { createAgentStore } from '../api/_agent-store.mjs';
 import { createMonitorHandler } from '../api/agent-monitor.mjs';
 import { dispatchPortfolioReview } from '../api/_agent-review-dispatch.mjs';
 
-let queries = 0, assertions = 0, now = Date.now() + 86400000;
+// The first resume scenario stays within one MYT day. A wall-clock start near
+// midnight legitimately creates tomorrow's daily alert and breaks dedup assertions.
+// Keep the closed clock in the future for SQLite's real-time lease checks.
+let queries = 0, assertions = 0, now = (Math.floor((Date.now()+8*3600000)/86400000)+1)*86400000+4*3600000;
 const check = (a,b,n) => { assert.deepEqual(a,b,n); assertions++; };
 const fixture = createAgentSQLiteFixture();
 const db = { prepare(sql) { return { bind(...params) { const s = fixture.db.prepare(sql).bind(...params);

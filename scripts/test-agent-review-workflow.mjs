@@ -16,7 +16,9 @@ import { compareAgentStrategies } from '../api/_agent-scenarios.mjs';
 import { createStrategyReport, persistAgentReport } from '../api/_agent-reports.mjs';
 import { recordAgentDecision } from '../api/_agent-decisions.mjs';
 
-let assertions = 0, queries = 0, maxQueries = 0, now = Date.now() + 86400000;
+// Keep the five-minute recovery scenarios on one MYT day regardless of the
+// wall clock. Future noon also satisfies SQLite's real-time lease guards.
+let assertions = 0, queries = 0, maxQueries = 0, now = (Math.floor((Date.now()+8*3600000)/86400000)+1)*86400000+4*3600000;
 const check = (a, b, note) => { assert.deepEqual(a, b, note); assertions++; };
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fixture = createAgentSQLiteFixture({ usage: true }), aiCalls = [], sourceCalls = [], instances = new Map();
