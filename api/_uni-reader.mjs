@@ -10,28 +10,34 @@ const hash=s=>'0x'+keccakHex(Buffer.from(s).toString('hex')).replace(/^0x/,'');
 export const UNI_SWAP_TOPIC=hash('Swap(address,address,int256,int256,uint160,uint128,int24)');
 export const UNI_PROTOCOL_TOPIC=hash('SetFeeProtocol(uint8,uint8,uint8,uint8)');
 const S={slot:'0x3850c7bd',liquidity:'0x1a686502',spacing:'0xd0c93a7c',factory:'0xc45a0155',token0:'0x0dfe1681',token1:'0xd21220a7',fee:'0xddca3f43',g0:'0xf3058399',g1:'0x46141319',balance:'0x70a08231',decimals:'0x313ce567'};
+export function uniLogRangeError(error){const text=String(error?.message||'');return !/rate limit|too many requests|HTTP 429|quota/i.test(text)&&(/log.*limit|more than.*(?:results|logs)|block range|range.*(?:large|exceed)|too many results|response size|limited to.*blocks|limit.*(?:blocks|results|logs|range)|query.*(?:exceed|limit)/i.test(text)||error?.rpcCode===-32005);}
+const unavailableMethod=error=>error?.rpcCode===-32601||/method.*(?:not supported|disabled|not available|not found|does not exist)|unsupported method/i.test(String(error?.message||''));
 
 export function createUniRpc(chain,{fetcher=fetch,timeoutMs=14000,maxRequests=64,nowMs=()=>Date.now()}={}){
-  const deadline=nowMs()+timeoutMs,verified=new Set();let used=0,preferred=0;
+  const deadline=nowMs()+timeoutMs,verified=new Set(),disabled=new Map();let used=0,preferred=0;
   async function send(url,method,params){
     if(++used>maxRequests||nowMs()>=deadline)throw Error('Pool reading limit reached');
     const r=await fetcher(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),
       signal:AbortSignal.timeout(Math.max(1,Math.min(3500,deadline-nowMs())))});
-    if(!r.ok)throw Error('Pool source HTTP '+r.status);const j=await r.json();if(j.error)throw Error(String(j.error.message).slice(0,180));if(!Object.hasOwn(j,'result'))throw Error('Missing RPC result');return j.result;
+    if(!r.ok)throw Error('Pool source HTTP '+r.status);const j=await r.json();if(j.error)throw Object.assign(Error(String(j.error.message).slice(0,180)),{rpcCode:j.error.code});if(!Object.hasOwn(j,'result'))throw Error('Missing RPC result');return j.result;
   }
   return async(method,params,{validate}={})=>{
     if(!['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getLogs','eth_call','eth_getCode'].includes(method))throw Error('Read-only RPC methods only');
-    let last;
+    let last,rangeError;
     for(let n=0;n<chain.rpcs.length;n++){
       const index=(preferred+n)%chain.rpcs.length,url=chain.rpcs[index];
+      if(disabled.get(url)?.has(method))continue;
       try{if(!verified.has(url)){if(Number(BigInt(await send(url,'eth_chainId',[])))!==chain.id)throw Error('RPC chain does not match');verified.add(url);}
         const value=await send(url,method,params);
         if(method==='eth_getBlockByNumber'&&(!value?.timestamp||!/^0x[0-9a-f]{64}$/i.test(value.hash||'')||Number(BigInt(value.number))!==Number(BigInt(params[0]))))throw Error('Incomplete block reading from this provider');
         if(method==='eth_blockNumber'&&(!/^0x[0-9a-f]+$/i.test(value||'')||BigInt(value)<=0n))throw Error('Incomplete block number from this provider');
         if(validate&&!validate(value))throw Error('Incomplete contract readings from this provider');preferred=index;return value;
-      }catch(e){last=e;}
+      }catch(e){last=e;if(method==='eth_getLogs'&&uniLogRangeError(e))rangeError=e;
+        if(unavailableMethod(e)){if(!disabled.has(url))disabled.set(url,new Set());disabled.get(url).add(method);}}
     }
-    throw last||Error('Pool source unavailable');
+    // Preserve an actionable range error even if a later peer disables logs.
+    // The caller can then split the query instead of discarding a whole day.
+    throw rangeError||last||Error('Pool source unavailable');
   };
 }
 async function multi(rpc,calls,block){
@@ -58,9 +64,11 @@ export async function uniReadingClock(rpc,{pinnedTip}={}){
 }
 export async function completeUniLogs(rpc,addresses,from,to){
   if(from>to)return [];
-  try{const logs=await rpc('eth_getLogs',[{address:addresses,topics:[[UNI_SWAP_TOPIC,UNI_PROTOCOL_TOPIC]],fromBlock:hex(from),toBlock:hex(to)}]);
+  if(addresses.length>1){const out=[];for(const address of addresses)out.push(...await completeUniLogs(rpc,[address],from,to));return out;}
+  if(to-from>=5000){const out=[];for(let a=from;a<=to;a+=5000)out.push(...await completeUniLogs(rpc,addresses,a,Math.min(to,a+4999)));return out;}
+  try{const logs=await rpc('eth_getLogs',[{address:addresses[0],topics:[[UNI_SWAP_TOPIC,UNI_PROTOCOL_TOPIC]],fromBlock:hex(from),toBlock:hex(to)}]);
     if(!Array.isArray(logs))throw Error('Malformed pool logs');if(logs.length>=10000)throw Error('Log result limit exceeded');return logs;
-  }catch(e){if(!/log.*limit|more than.*(?:results|logs)|block range|range.*(?:large|exceed)|too many results|response size|limited to.*blocks/i.test(e.message)||from>=to)throw e;
+  }catch(e){if(!uniLogRangeError(e)||from>=to)throw e;
     const mid=Math.floor((from+to)/2);return [...await completeUniLogs(rpc,addresses,from,mid),...await completeUniLogs(rpc,addresses,mid+1,to)];}
 }
 export function uniObservedTrading(logs,pool,fromBlock,toBlock,initialProtocol){
@@ -95,7 +103,7 @@ export function uniInitialProtocol(logs,pool,from,to){
     const p=[0,1,2,3].map(i=>Number(word(l.data,i)));if(p.some(n=>n!==0&&(n<4||n>10))||p[2]+16*p[3]!==protocol)throw Error('Incomplete fee protocol history');protocol=p[0]+16*p[1];}
   return protocol;
 }
-export function uniFailureReason(error){const message=String(error?.message||'');return /budget|reading limit/i.test(message)?'budget_exhausted':/chain.*match/i.test(message)?'chain_mismatch':/behind/i.test(message)?'stale_chain':/timeout|timed out|abort/i.test(message)?'timeout':/429|rate limit/i.test(message)?'rate_limited':/archive|historical|missing trie/i.test(message)?'archive_unavailable':/contract|multicall|batch/i.test(message)?'contract_read_failed':'source_unavailable';}
+export function uniFailureReason(error){const message=String(error?.message||'');return /budget|reading limit/i.test(message)?'budget_exhausted':/chain.*match/i.test(message)?'chain_mismatch':/behind/i.test(message)?'stale_chain':/timeout|timed out|abort/i.test(message)?'timeout':/429|rate limit/i.test(message)?'rate_limited':uniLogRangeError(error)?'log_range_limit':unavailableMethod(error)?'method_unavailable':/archive|historical|missing trie/i.test(message)?'archive_unavailable':/contract|multicall|batch/i.test(message)?'contract_read_failed':/HTTP (\d{3})/.test(message)?'source_http_'+message.match(/HTTP (\d{3})/)[1]:'source_unavailable';}
 export async function readUniChain(chain,{rpc,historyRpc,archiveRpc,now=Math.floor(Date.now()/1000),savedPools=[],currentTimeoutMs=14000,historyTimeoutMs=24000,archiveTimeoutMs=8000,maxHistoryRequests=140}={}){
   const supplied=rpc;rpc=rpc||createUniRpc(chain,{timeoutMs:currentTimeoutMs});
   const clock=await uniReadingClock(rpc),{tip}=clock;if(Math.abs(now-tip.ts)>180)throw Error('The chain reading is behind; keeping the previous figures');
@@ -130,7 +138,7 @@ export async function readUniChain(chain,{rpc,historyRpc,archiveRpc,now=Math.flo
   // has its own RPC budget and can no longer erase a valid current TVL reading.
   const final=await rpc('eth_getBlockByNumber',[hex(tip.number),false]);if(final?.hash!==tip.hash)throw Error('Chain block changed during the reading');
   const history=historyRpc||supplied||createUniRpc(chain,{timeoutMs:historyTimeoutMs,maxRequests:maxHistoryRequests});
-  let start,historyClock;
+  let start,historyClock,historyReason=null;
   try{
     historyClock=await uniReadingClock(history,{pinnedTip:tip});start=await historyClock.before(tip.ts-86400);const seconds=tip.ts-start.ts;
     if(seconds<82800||seconds>90000)throw Error('The fee window is not a complete day');
@@ -158,7 +166,7 @@ export async function readUniChain(chain,{rpc,historyRpc,archiveRpc,now=Math.flo
       if(!p.feeWindow&&(trading.coveredSwaps>0||trading.totalSwaps===0))p.feeWindow={verified:true,method:'swap_fee_lower_bound',seconds,fromTs:start.ts,toTs:tip.ts,fromBlock:start.number,toBlock:tip.number,
         perL0Day:trading.perL[0]*86400/seconds,perL1Day:trading.perL[1]*86400/seconds,coveredSwaps:trading.coveredSwaps,totalSwaps:trading.totalSwaps};
     }catch{p.status='partial';p.note='Some recent trading data could not be verified.';}}
-  }catch{notes.push('Some 24-hour trading data is unavailable. Verified prices and fee growth remain available.');}
+  }catch(error){historyReason=uniFailureReason(error);notes.push('Some 24-hour trading data is unavailable. Verified prices and fee growth remain available.');}
   for(const p of pools){
     const saved=savedPools.find(old=>old.id===p.id&&old.fee===p.fee&&old.token0?.address===p.token0.address&&old.token1?.address===p.token1.address&&old.at<=p.at&&p.at-old.at<=8*3600);
     if(!p.feeWindow&&saved?.feeWindow?.verified&&p.at-saved.feeWindow.toTs<=8*3600){p.feeWindow=structuredClone(saved.feeWindow);p.feeHistoryRetained=true;}
@@ -166,7 +174,7 @@ export async function readUniChain(chain,{rpc,historyRpc,archiveRpc,now=Math.flo
     if(!p.feeWindow||p.fees24hUsd===null||p.feeHistoryRetained||p.tradingRetained){p.status='partial';p.note='Current TVL and price are live. Fee readings keep their own recorded period.';}
     delete p._growth;
   }
-  return {key:chain.key,name:chain.name,status:notes.length||pools.some(p=>p.status!=='fresh')?'partial':'fresh',at:tip.ts,block:tip.number,pools,notes:[...new Set(notes)]};
+  return {key:chain.key,name:chain.name,status:notes.length||pools.some(p=>p.status!=='fresh')?'partial':'fresh',at:tip.ts,block:tip.number,pools,historyReason,poolsWithTrading:pools.filter(p=>p.fees24hUsd!==null).length,notes:[...new Set(notes)]};
 }
 export async function readUniPools({now=Math.floor(Date.now()/1000),readChain=readUniChain,saved,currentTimeoutMs,historyTimeoutMs,archiveTimeoutMs,maxHistoryRequests}={}){
   const chains=await Promise.all(Object.values(UNI_CHAINS).map(async chain=>{try{return await readChain(chain,{now,savedPools:saved?.pools||[],currentTimeoutMs,historyTimeoutMs,archiveTimeoutMs,maxHistoryRequests});}catch(e){return {key:chain.key,name:chain.name,status:'unavailable',at:null,pools:[],reason:uniFailureReason(e),notes:['The live pool source could not be reached. Previous readings are retained.']};}}));

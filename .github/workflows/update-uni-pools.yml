@@ -51,4 +51,5 @@ jobs:
           import {readFileSync} from 'node:fs';
           const value=JSON.parse(readFileSync('uni-pools.json','utf8'));
           if(value.chains.some(c=>c.status==='unavailable'))throw Error('A UNI network source is unavailable; available readings and diagnostics were retained.');
+          if(value.pools.some(p=>p.fees24hUsd===null||p.volume24hUsd===null||p.apr===null))throw Error('Some UNI trading totals are still unavailable; their source diagnostics were retained.');
           NODE

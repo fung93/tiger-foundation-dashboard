@@ -107,7 +107,9 @@ a profit or loss when its actual P&L differs from that label.
 
 Readers have request/time budgets, chain-ID checks, per-call deadlines and
 fallback RPCs. Capped successful logs split into disjoint ranges; budget failures
-do not recursively rescan. The current block hash is rechecked before history. Chains fail
+do not recursively rescan. Log requests use a single pool and at most 5,000 blocks,
+preserve range errors across peers and skip providers that disable the method.
+The current block hash is rechecked before history. Chains fail
 independently. The public API coalesces requests and caches 30 seconds; the page
 refreshes every minute and pauses in a hidden tab. Data older than three minutes
 or retained after failure keeps its original timestamp and cannot supply a live
@@ -136,9 +138,10 @@ renewing the original observation timestamps.
   rounding, edge P&L, dilution, missing archive state, logs/protocol changes,
   incomplete discovery, capped results, budgets, reorgs, source isolation and the
   actual API's cache, request coalescing, JSON serialization and failure responses.
-- `node scripts/test-uni-reliability.mjs`: **41** assertions for independent
+- `node scripts/test-uni-reliability.mjs`: **45** assertions for independent
   history budgets, TVL retention, archive-free fee totals, conservative sampling,
-  RPC subcall fallback, original history expiry, snapshot races and durable writes.
+  RPC subcall fallback, range errors followed by disabled-method peers, explicit
+  log windows, original history expiry, snapshot races and durable writes.
 - Real UNI page, closed browser sources: **440** assertions in both themes at
   320/360/768/960/1366 px. Checks steps, result values, copy-only action, filtering,
   preserved inputs, stale/recovery, independently failed networks, confirmed empty
@@ -166,3 +169,10 @@ menus, shared small-screen menu styles, cache 168, preview route and Vercel's
 copy-only behavior and the data repair. No production credentials or migrations
 are needed. Live source reads from the new workflow and the Vercel deployment are
 not implied by the closed tests; confirm them independently after pushing.
+
+The first production workflow (`43610259426`, code `7f301e6`, snapshot `9811c57`)
+did read both chains and verified current TVL for two Base UNI/USDC fee tiers and
+one BNB UNI/USDT tier. Its trading totals were missing, exposing the need for the
+smaller single-pool log queries and actionable range-error fallback above. The
+workflow's acceptance check now rejects missing fee/volume/APR totals instead of
+accepting connectivity alone. Subsequent live results must verify those fields.

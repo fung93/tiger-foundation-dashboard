@@ -1242,7 +1242,12 @@ It has four views: Planner, simulated positions, My real LPs and History.
   Current reads, archive reads and swap logs have separate budgets; archives/logs
   run in parallel. The snapshot job has a larger bounded history allowance than
   a live API request. A slow archive must never starve swap-based pool fee totals.
-  Cache 169. Tests: 292 original UNI assertions, 41 reliability assertions, 440
+  Log queries use one pool and at most 5,000 blocks. Preserve a splittable range
+  error when another provider disables eth_getLogs; memoize disabled methods.
+  The first real snapshot confirmed two funded Base UNI/USDC tiers and one funded
+  BNB UNI/USDT tier with live TVL; its missing trading totals prompted this additional
+  log-query repair. The workflow now checks trading totals as well as connectivity.
+  Cache 169. Tests: 292 original UNI assertions, 45 reliability assertions, 440
   browser flow assertions (both themes, 320/360/768/960/1366 px), plus 11 saved-data
   outage/race browser assertions. All 80 portable project suites passed, followed
   by the focused checks after separating the archive/log allowance. Real network/source verification follows the

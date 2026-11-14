@@ -43,7 +43,8 @@ export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,
     if(method==='eth_getBlockByNumber'){const n=Number(BigInt(params[0]));if(n===head)heads++;return {number:params[0],timestamp:'0x'+(now-(head-n)*2).toString(16),hash:'0x'+pad(n+(reorg&&heads>1?1:0))};}
     if(method==='eth_call'){if(params[0].to!==UNI_MULTICALL)throw Error('Unexpected direct call');return multicall(params[0].data,Number(BigInt(params[1])));}
     if(method==='eth_getCode')return '0x6000';
-    if(method==='eth_getLogs'){if(logsFailure)throw Error('Provider timed out');return empty?[]:Array.from({length:swapCount},(_,i)=>({...swap,blockNumber:'0x'+(head-10+i).toString(16),logIndex:'0x'+(1+i).toString(16)}));}
+    if(method==='eth_getLogs'){if(logsFailure)throw Error('Provider timed out');const filter=params[0],from=Number(BigInt(filter.fromBlock)),to=Number(BigInt(filter.toBlock));
+      return empty?[]:Array.from({length:swapCount},(_,i)=>({...swap,blockNumber:'0x'+(head-10+i).toString(16),logIndex:'0x'+(1+i).toString(16)})).filter(l=>Number(BigInt(l.blockNumber))>=from&&Number(BigInt(l.blockNumber))<=to);}
     throw Error('Unsupported closed RPC');
   };
   return {chain,rpc,now,pool,requests,swap};
