@@ -1601,6 +1601,18 @@
       "arc_usd": 0.06,
       "total_usd": 2090.01,
       "vault_usd": 2702.38
+    },
+    {
+      "date": "2026-11-14",
+      "timestamp": "2026-11-14T06:32:16.553Z",
+      "onchain_usd": 212.81,
+      "pending_usd": 0,
+      "lp_usd": 775.19,
+      "solana_usd": 0.07,
+      "robinhood_usd": 5.31,
+      "arc_usd": 0.06,
+      "total_usd": 2075.26,
+      "vault_usd": 2681.03
     }
   ]
 }

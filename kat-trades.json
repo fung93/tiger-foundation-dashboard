@@ -1,20 +1,9 @@
-{
-  "version": 2,
-  "chain": 747474,
-  "start": {
-    "block": 47890384,
-    "ts": 1794633195
-  },
-  "last_block": 47890383,
-  "last_ts": 1794633195,
-  "start_kat": 6.95198487e-09,
-  "flows": {
-    "rewards": 0,
-    "avkat": 0,
-    "morpho": 0,
-    "vkat": 0
-  },
+{"version": 2, "chain": 747474, "start": {"block":47890384,"ts":1794633195}, "last_block": 47895181, "last_ts": 1794637992,
+  "start_kat": 6.95198487e-9, "flows": {"rewards":0,"avkat":0,"morpho":0,"vkat":0},
   "trades": [],
   "pending": [],
-  "hours": []
+  "hours": [
+    [1794632400,333404],
+    [1794636000,333448]
+  ]
 }
