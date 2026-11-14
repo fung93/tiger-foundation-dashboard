@@ -1221,6 +1221,26 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **15 Nov 2026, UNI single-sided active estimates — explicit push requested:**
+  the owner reported zero fees/APR for single-sided modes while Balance had an
+  estimate. Keep `feesPerDay`/`apr` as the current-price rate (zero outside range),
+  and add `activeFeesPerDay`/`activeApr` for the conditional active scenario. Show
+  the latter in the main result cells with “While in range”, and show zero current
+  earnings separately while waiting. Use the same planned liquidity, recorded
+  per-liquidity fee observations, token USD prices and dilution from today's active
+  pool liquidity. This does not verify future entry-price liquidity or predict
+  future trading. Initial committed capital remains the APR denominator. Preserve
+  unavailable/expired evidence as null and verified no-activity as zero. Keep the
+  conservative fee-source label, original observation dates, current-price entry
+  defaults, manual-edit retention and copy-only pool links. Cache 171. The focused
+  reading/math suite passes 2,264 assertions; all 1,768 browser assertions pass in
+  both themes at 320/360/960/1366 px, including displayed conditional values versus
+  the calculator, zero waiting earnings, missing/expired evidence, zero activity,
+  unavailable active liquidity and preserved form edits. `npm run check` passes
+  all 81 suites, including syntax and identical Portfolio copies. Evidence is in
+  `docs/UNI-GUIDE.md`. No configuration or credentials change. The owner approved
+  publication after local validation; live Vercel verification remains proxy blocked.
+
 - **14 Nov 2026, UNI estimate display and spot-price entry — explicit push requested:**
   required evidence, not an optional archive method's `partial` flag, determines
   whether the page is usable. Successful BNB conservative evidence must not show

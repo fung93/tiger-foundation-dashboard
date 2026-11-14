@@ -49,15 +49,19 @@ export function uniEstimate(pool,input,{now=pool.at}={}){
   if(!pos||!Number.isFinite(pos.liquidity))return {error:'This range cannot be valued. Try prices closer to the current price.',range};
   const base=pool.baseIndex,uni=pos['amount'+base],stable=pos['amount'+(1-base)];
   const growth=pool.feeWindow,verified=reading.fees;
-  // Observed per-liquidity fee growth already excludes protocol fees. Account
-  // for a new deposit diluting today's active liquidity; never promise a yield.
+  // Conditional on this position being active with today's background liquidity
+  // and observed trading pace. This is not a reading of liquidity at a future
+  // entry price. Recorded fee growth already excludes protocol fees.
   const dilution=pool.activeLiquidity>0?pool.activeLiquidity/(pool.activeLiquidity+pos.liquidity):null;
-  let daily=null;
-  if(!inRange)daily=0;
-  else if(verified&&dilution!==null){daily=pos.liquidity*dilution*(growth.perL0Day*pool.token0.usd+growth.perL1Day*pool.token1.usd);}
+  const projected=verified&&dilution!==null?pos.liquidity*dilution*(growth.perL0Day*pool.token0.usd+growth.perL1Day*pool.token1.usd):null;
+  const activeFeesPerDay=Number.isFinite(projected)?projected:null,activeApr=activeFeesPerDay===null?null:activeFeesPerDay*365/capital;
+  // Keep earnings at the current price separate: outside the range they are
+  // exactly zero even when evidence for the conditional estimate is missing.
+  const daily=inRange?activeFeesPerDay:0;
   const edge=edgeOutcome(pool,range,pos.liquidity,capital);
   return {range,inRange,capitalUsd:capital,liquidity:pos.liquidity,deposit:{uni,stable},edges:edge,
-    feesPerDay:daily,apr:daily===null?null:daily*365/capital,feeBasis:verified?{fromTs:growth.fromTs,toTs:growth.toTs,seconds:growth.seconds,method:growth.method||'fee_growth'}:null};
+    feesPerDay:daily,apr:daily===null?null:daily*365/capital,activeFeesPerDay,activeApr,
+    feeBasis:verified?{fromTs:growth.fromTs,toTs:growth.toTs,seconds:growth.seconds,method:growth.method||'fee_growth'}:null};
 }
 export function uniPriceFromSqrt(sqrtRaw,pool){
   const ratio=(Number(sqrtRaw)/2**96)**2*10**(pool.token0.decimals-pool.token1.decimals);

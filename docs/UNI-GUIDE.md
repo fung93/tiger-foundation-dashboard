@@ -1,7 +1,34 @@
-# UNI liquidity guide — review and release, 14 November 2026
+# UNI liquidity guide — review and release
 
-The owner requested a new UNI page, reviewed the local implementation and then
-explicitly requested **push**. Publication of this update is authorized.
+The original page and previous data/display repairs were explicitly approved for
+push. The owner also explicitly requested **push** for the 15 November single-sided
+estimate follow-up after local implementation and validation.
+
+## Single-sided estimate follow-up — 15 November 2026
+
+- [x] Separate conditional fees/day and APR while active from current-price earnings.
+- [x] Show the conditional estimate for both single-sided options, with “While in
+  range” beside each value and a separate zero-current-earnings waiting message.
+- [x] Use the planned liquidity, original fee observations and observed token
+  prices, retaining dilution from the added deposit; do not invent future liquidity.
+- [x] Preserve missing/expired evidence as unavailable, and verified no-activity
+  evidence as zero. Keep recorded-source dates and the conservative-source label.
+- [x] Validate the deterministic calculation, both token orders and tick boundaries.
+- [x] Validate the actual UI in both themes at phone/tablet/desktop sizes: **1,768**
+  assertions pass, covering conditional values versus the calculator, zero waiting
+  rates, missing/expired evidence, zero activity, absent active liquidity, manual
+  edits, auto-filled entries, copy-only behavior and no errors/sideways overflow.
+- [x] `npm run check` passes all **81** suites, including syntax and byte-identical
+  Portfolio copies. Focused UNI suites pass **292 + 45 + 2,264** assertions.
+- [x] Receive explicit approval before committing, pushing or deploying this follow-up.
+- [ ] Verify the deployed page; production Vercel access remains proxy blocked.
+
+The prior zero was the rate **at the current price**, while a single-sided deposit
+waits outside its usable range. It did not answer the planning question. The main
+fee/APR values now describe a full day **while in range**. The separate current
+rate remains zero while waiting. These are scenarios using today's active pool
+liquidity and recorded trading pace, not measured future entry-price liquidity.
+APR divides annualized conditional income by the initial committed capital.
 
 ## Progress
 
@@ -102,10 +129,12 @@ a profit or loss when its actual P&L differs from that label.
    backwards from current state, then apply changes in event order. Inputs count once.
    Fee totals can differ by tiny per-step rounding units. Volume marks use the
    current UNI quote. APR accounts for the actual interval and current TVL.
-5. Personal liquidity comes from deposit value and tick-rounded range. In-range
-   income uses actual recent per-liquidity fee growth, scaled for dilution from
-   adding the new liquidity to today's active liquidity. APR is fees/day × 365
-   divided by the deposit value. Single-sided positions outside the range show 0.
+5. Personal liquidity comes from deposit value and tick-rounded range. Conditional
+   in-range income uses actual recent per-liquidity fee growth, scaled for dilution
+   from adding the new liquidity to today's active liquidity. APR is fees/day × 365
+   divided by the initial deposit value. Both single-sided modes show this active
+   scenario even while waiting outside the range; their separate current rate is 0.
+   Future entry-price liquidity and trading can differ from the scenario inputs.
    If archive growth is unavailable, a labeled conservative fallback sums only
    integer-rounded fees from swaps whose entry/exit ticks remain within one
    usable-tick interval. Their active liquidity cannot change within that swap.
@@ -163,13 +192,23 @@ renewing the original observation timestamps.
   pools versus unavailable sources, clipboard denial without navigation, visible
   collapsed-card TVL/fees, independent field recovery and no page overflow/errors.
 - Independent saved snapshot/outage and late-response race: **11** browser checks.
-- `scripts/test-uni-readings.mjs`: **1,714** assertions for dated quote/fee expiry,
+- `scripts/test-uni-readings.mjs`: **2,264** assertions for dated quote/fee expiry,
   successful fallback availability and current-price single-sided inputs across
-  both token orders, signed/fractional ticks and supported tick spacings.
+  both token orders, signed/fractional ticks and supported tick spacings. The
+  single-sided follow-up also covers nonzero active estimates versus zero current
+  rates, a hand-worked $4/day pool scenario, deposit dilution, APR denominators,
+  conservative source identity and unavailable versus genuinely zero activity.
 - Estimate-display follow-up: **776** browser assertions across both themes at
   320/360/960/1366 px. These reproduce a failed live refresh with a 15-minute-old
   real snapshot, confirm no false warning or missing estimates, preserve expired/
   missing-data messages and verify automatic entry updates and manual overrides.
+- Single-sided conditional estimate follow-up: **1,768** browser assertions in
+  both themes at 320/360/960/1366 px. All three actual collected pool observations
+  produce conditional single-sided fees and APR from the dated evidence, alongside
+  zero current-price earnings. Controlled missing/expired/quiet/liquidity cases
+  verify unavailable versus zero behavior. These are closed-source browser checks,
+  not new live RPC reads. Evidence, screenshots and logs are saved outside the repo
+  at `/workspace/tiger-agent-validation/uni-active-estimate/`.
 - Actual collected observations: **168** additional browser assertions across
   both themes at 360/960/1366 px, showing every real TVL/volume/fee/APR field,
   conditional range income and copy-only links without page errors or overflow.
@@ -198,6 +237,8 @@ dated estimate availability and current-price entries to the earlier copy-only
 behavior and data repair. No production credentials or migrations
 are needed. Live source reads from the new workflow and the Vercel deployment are
 not implied by the closed tests; confirm them independently after pushing.
+Cache 171 adds the local single-sided conditional estimate and waiting-rate display.
+It needs no new configuration, credentials or backend deployment.
 
 The first production workflow (`43610259426`, code `7f301e6`, snapshot `9811c57`)
 did read both chains and verified current TVL for two Base UNI/USDC fee tiers and

@@ -1,4 +1,4 @@
-import {uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots} from './uni-core.mjs?v=170';
+import {uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots} from './uni-core.mjs?v=171';
 const $=id=>document.getElementById(id),states=new Map(),rows=new Map();
 const REFRESH=60000,CACHE='tf_uni_pools_v1';let busy=false,chains=[],lastError=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -54,14 +54,15 @@ function updateResult(card,p,s){
   const out=card.querySelector('.uni-result');if(!s.input){out.innerHTML='';return;}
   const r=uniEstimate(p,s.input,{now:Date.now()/1000});
   if(r.error){out.innerHTML=`<div class="uni-result-error" role="status">${esc(r.error)}</div>`;return;}
-  const source=reading(p),earnings=r.feesPerDay,apr=r.apr;
+  const source=reading(p),earnings=r.activeFeesPerDay,apr=r.activeApr;
   const pnl=v=>Number.isFinite(v)?Math.abs(v)<.005?money(0):(v>=0?'+':'−')+money(Math.abs(v)):'—';
   const pnlTone=v=>Number.isFinite(v)&&Math.abs(v)>=.005?(v>0?'up':'down'):'';
-  const cell=(label,value,tone='')=>`<div><div class="metric-label">${label}</div><div class="uni-result-value ${tone}">${value}</div></div>`;
-  out.innerHTML=`<div class="uni-result-grid">${cell('Upper edge P&amp;L',pnl(r.edges?.upper.pnlUsd),pnlTone(r.edges?.upper.pnlUsd))}${cell('Lower edge P&amp;L',pnl(r.edges?.lower.pnlUsd),pnlTone(r.edges?.lower.pnlUsd))}${cell('Estimated fees / day',feeMoney(earnings))}${cell('Estimated fee APR',percent(apr))}</div>
+  const cell=(label,value,tone='',hint='')=>`<div><div class="metric-label">${label}</div><div class="uni-result-value ${tone}">${value}</div>${hint?`<div class="uni-result-basis">${hint}</div>`:''}</div>`;
+  out.innerHTML=`<div class="uni-result-grid">${cell('Upper edge P&amp;L',pnl(r.edges?.upper.pnlUsd),pnlTone(r.edges?.upper.pnlUsd))}${cell('Lower edge P&amp;L',pnl(r.edges?.lower.pnlUsd),pnlTone(r.edges?.lower.pnlUsd))}${cell('Estimated fees / day',feeMoney(earnings),'','While in range')}${cell('Estimated fee APR',percent(apr),'','While in range')}</div>
+    ${r.inRange?'':`<p class="uni-result-note uni-current-earnings"><strong>At this price: ${feeMoney(r.feesPerDay)}/day · ${percent(r.apr)} APR.</strong> Waiting for price to enter your range.</p>`}
     <p class="uni-result-note"><strong>Deposit:</strong> ${number(r.deposit.uni)} UNI + ${number(r.deposit.stable)} ${esc(p.stable)} · about ${money(r.capitalUsd)}.</p>
-    <p class="uni-result-note">Uniswap’s usable range: <strong>${price(r.range.lowerPrice)}–${price(r.range.upperPrice)} ${esc(p.stable)} per UNI</strong>. ${r.inRange?'Your position starts in range.':'Your position starts outside the range. Fees and APR are 0 until the price enters it.'}</p>
-    <p class="uni-result-note">${source.recorded?'Using the recorded price from '+time(p.at)+'. ':''}${r.inRange?(r.feeBasis?`${r.feeBasis.method==='swap_fee_lower_bound'?'Conservative estimate from verified recent swaps':'Based on recorded fee growth'} from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. Assumes a similar trading pace while your price stays in range.`:'The recent fee history is unavailable, so an income estimate cannot be verified.'):'A single-sided deposit earns 0 at this reading until price enters the usable range.'}</p>
+    <p class="uni-result-note">Uniswap’s usable range: <strong>${price(r.range.lowerPrice)}–${price(r.range.upperPrice)} ${esc(p.stable)} per UNI</strong>. ${r.inRange?'Your position starts in range.':''}</p>
+    <p class="uni-result-note">${source.recorded?'Using the recorded price from '+time(p.at)+'. ':''}${r.feeBasis&&earnings!==null?`${r.feeBasis.method==='swap_fee_lower_bound'?'Conservative estimate from verified recent swaps':'Based on recorded fee growth'} from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. ${r.inRange?'Assumes similar trading and active pool liquidity while price stays in range.':'Uses today’s active pool liquidity and recorded trading pace; both may differ when your range becomes active.'}`:'A recent fee reading and active pool liquidity are needed to estimate income while in range.'}</p>
     <p class="uni-result-note">Edge P&amp;L excludes fees and transaction costs. Below the lower edge you hold UNI, so losses can grow if its price keeps falling.</p>`;
 }
 function updateCard(card,p){
