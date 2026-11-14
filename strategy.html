@@ -16,8 +16,8 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/theme.css">
 <!--
-  Strategy: Katana's KAT emissions for staked Sushi LPs. The current epoch, the KAT it pays,
-  every pool that pays it sorted by APR, and a per-pool estimate of what a range would earn.
+  Strategy: the five requested Katana trading-fee pairs, sortable by 24-hour volume,
+  LP fees or APR, with daily range estimates and optional hedge simulations.
   The figures come finished from /api/strategy; the estimate runs here with strategy-core.mjs.
 -->
 </head>
@@ -29,7 +29,7 @@
       <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
     </div>
     <div class="theme-actions">
-      <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+
       <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
     </div>
   </div>
@@ -40,41 +40,34 @@
   <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
   <a href="/lending.html" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
   <a href="/strategy.html" class="on" aria-current="page" title="Strategy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg><span>Strategy</span></a>
-  <a href="/kat.html" title="KAT Trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>KAT</span></a>
+  <a href="/vkat.html" title="vKAT and avKAT holdings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>vKAT/avKAT</span></a>
 </nav>
 </div>
 
 <main class="book-content strategy-content">
   <div class="health" id="health" role="status"></div>
-  <div class="strategy-intro"><div class="label">Katana · KAT emissions for staked LPs</div></div>
+  <div class="strategy-intro"><div class="label">Katana · trading-fee pools</div></div>
   <div class="strategy-overview" id="overview" aria-live="polite">
-    <div class="card overview-card"><div class="metric-label">Epoch</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">KAT this epoch</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">KAT per day</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Reward period</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Pool TVL</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Volume · 24h</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">LP fees · 24h</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">Fee pools</div><div class="overview-value">—</div><div class="metric-sub">Five token pairs</div></div>
   </div>
-  <div class="vote-note" id="voteNote" hidden></div>
-  <div class="pools-head"><div class="label">Pools paying KAT · highest APR first</div><span class="pools-hint">Open a pool to estimate your own range</span></div>
+  <div class="pools-head"><div class="label">Compare pools</div><div class="pool-sorting">
+    <label for="poolSortMetric">Sort by</label><select id="poolSortMetric"><option value="apr">Fee APR</option><option value="volume">24h volume</option><option value="fees">24h LP fees</option></select>
+    <select id="poolSortDirection" aria-label="Sort direction"><option value="desc">High to low</option><option value="asc">Low to high</option></select>
+  </div></div>
   <div class="pools" id="pools"></div>
-  <!-- the pools without KAT emissions: trading fees only, behind their own button (Alex, 3 Nov 2026) -->
-  <button type="button" class="more-pools" id="feeToggle" aria-expanded="false" aria-controls="feeSection">Show pools without KAT emissions</button>
-  <section id="feeSection" hidden>
-    <div class="pools-head"><div class="label">Pools without KAT emissions · trading fees only</div><span class="pools-hint">Open a pool to estimate your own range</span></div>
-    <div class="pools" id="feePools"></div>
-  </section>
-  <noscript><div class="card">Turn on JavaScript to read the epoch and the pools.</div></noscript>
-  <div class="strategy-method">
-    <details><summary>How these numbers are made</summary>
-      <p><b>Epoch.</b> Katana's epoch clock runs 14-day epochs. The first week is the gauge vote; when it closes, each voted pool's KAT is paid over the next 14 days. The epoch shown is the one whose votes fund the rewards being paid now. Times are Malaysia time.</p>
-      <p><b>KAT per pool.</b> Each pool's KAT is its live Merkl staking campaign for that epoch: the KAT is paid to positions staked through the Sushi staker (and to the few vaults Merkl whitelists for that pool). An unstaked position earns no KAT. APR is Merkl's: the pool's KAT value a year over the staked value it pays. <b>Staked TVL</b> is the staked positions and whitelisted vaults in range now, valued on chain at today's prices: the LPs your position would share the KAT with. Staked positions out of range earn nothing and are left out, as Merkl leaves them out.</p>
-      <p><b>Your estimate.</b> These campaigns pay entirely by trading fees earned in range, so at any moment a position's share is its liquidity over all eligible liquidity in range. The estimate turns your capital and range into liquidity at today's price, adds it to what is already staked in range, and takes that share of the pool's KAT a day. A narrower range buys more liquidity per dollar, so a bigger share, but only while the price stays inside it. Out of range it earns nothing.</p>
-      <p><b>Pools without KAT.</b> They earn trading fees only, with no staking. A pool's fee growth rises by every swap's fee to LPs over the liquidity in range at that moment, so its rise over the last 7 days is what each unit of liquidity in range earned; a new position takes its share of that, at the same rate, as a staked one takes its share of the KAT. Sushi keeps half of each swap's fee on Katana (checked against the swaps on 3 Nov 2026), so the volume shown is the LPs' fees over the half they keep. Fee APR is the pool's fees a year over everything it holds. The period is the KAT pools' reward period, so the two read side by side.</p>
-      <p><b>What it assumes.</b> The price stays in your range, the other stakers' liquidity stays as it is now, and the KAT price holds. The total runs from your start day to the end of this reward period; the next epoch's KAT depends on its vote and is not known until that vote closes. Checked on 1 Nov 2026 against a staked vbWBTC/vbUSDC position: predicted 2,535 KAT a day, earned about 2,588.</p>
-      <p><b>Sources.</b> Katana's epoch clock and gauge voter, the pools and the Sushi staker on chain; campaigns from Merkl; KAT's price from the KAT/vbUSDC pool, as on the Lending page. This page reads only; it never connects a wallet.</p>
-    </details>
-  </div>
+  <noscript><div class="card">Turn on JavaScript to read the pools.</div></noscript>
+  <div class="strategy-method"><details><summary>How these numbers are made</summary>
+    <p><b>Trading fees.</b> The five pairs are USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC. Funded Sushi V3 fee tiers appear separately. KAT LP emissions are excluded.</p>
+    <p><b>Volume and APR.</b> Volume counts each swap's input once over the last 24 hours, valued at this reading's token prices. LP fees apply the observed protocol fee split. Fee APR annualises those fees over the pool's current TVL; it is not a forecast.</p>
+    <p><b>Your daily estimate.</b> Your capital and range determine liquidity. The estimate uses the last seven days of fee growth and your conditional share of current active liquidity. The price must stay in range; future volume and competition can change. Totals and hedges use a seven-day comparison period.</p>
+    <p><b>Hedge.</b> BTC and ETH exposure use their corresponding Katana Perps markets. avKAT exposure can use KAT at its observed conversion ratio, which leaves avKAT/KAT ratio risk. Live venue prices, funding and costs are required; an unavailable hedge quote does not become a free hedge.</p>
+    <p><b>Sources.</b> Verified Sushi pools and archive state on Katana, complete swap logs, and Katana Perps. This page reads only and never connects a wallet.</p>
+  </details></div>
 </main>
-<script type="module" src="/strategy.js"></script>
+<script type="module" src="/strategy.js?v=166"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

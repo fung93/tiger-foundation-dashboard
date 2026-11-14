@@ -3,9 +3,10 @@
    and a few made-up cases. No network. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { START, KAT, WALLETS, walletTxs, scanTrades, prunePending, replay, summary, pnlSeries, mergeCloses,
+import { START as CURRENT_START, KAT, WALLETS, walletTxs, scanTrades, prunePending, replay, summary, pnlSeries, mergeCloses,
   usdAtTick, usdFromSqrt, emptyBook, validateBook, units, simulate, flowsOf, addFlows, noFlows, reconcile, PENDING_SECONDS } from '../kat-core.mjs';
 
+const START={block:46345344,ts:1793088155};
 let checks = 0;
 const ok = (v, note) => { assert.ok(v, note); checks++; };
 const eq = (a, b, note) => { assert.deepEqual(a, b, note); checks++; };
@@ -163,6 +164,6 @@ ok(validateBook(emptyBook()), 'an empty ledger is valid');
 assert.throws(() => validateBook({ ...emptyBook(), start: { block: 1, ts: 1 } }), /start moved/); checks++;
 assert.throws(() => validateBook({ ...emptyBook(), trades: [book[0], book[0]] }), /bad trade/); checks++;
 assert.throws(() => validateBook({ ...emptyBook(), hours: [[3600, 1], [3600, 2]] }), /bad hour/); checks++;
-ok(validateBook({ ...emptyBook(), trades: book, last_block: 46760300, last_ts: 1793503000 }), 'the real trades pass');
+ok(validateBook({ ...emptyBook(), trades: book.map((t,i)=>({...t,block:CURRENT_START.block+i,ts:CURRENT_START.ts+i,swap_verified:true})), last_block: CURRENT_START.block+100, last_ts: CURRENT_START.ts+100 }), 'the real trades pass');
 
 console.log(`KAT trades: ${checks} assertions passed.`);

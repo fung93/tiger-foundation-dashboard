@@ -28,7 +28,7 @@ export function attributeLPPerformance({position:p,metric:m,comparison,observedA
     result.flows=[...deposits.map(row=>({kind:'lp_deposit',block:row.block,ts:row.ts,usd:row.usd,amount0:row.a0,amount1:row.a1})),
       ...withdrawals.map(row=>({kind:'lp_withdrawal',block:row.block,ts:row.ts,usd:row.usd,amount0:row.a0,amount1:row.a1}))];
   }else result.reasons.push('Original priced deposit/withdrawal or ownership coverage is incomplete.');
-  const claims=p.claims||[],totals={};
+  const claims=[...(p.claims||[]),...(p.trading_claims||[])],totals={};
   const validClaims=Array.isArray(claims)&&claims.length<=256&&claims.every(row=>Number.isFinite(row.ts)&&row.ts>0
     &&Number.isFinite(row.usd)&&row.usd>=0&&validAmounts(row.tokens));
   if(validClaims)for(const row of claims)for(const [key,n]of Object.entries(row.tokens))totals[key]=(totals[key]||0)+Number(n);

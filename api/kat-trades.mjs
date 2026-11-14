@@ -34,7 +34,7 @@ export async function pricesNow() {
 /* Move the ledger from its last block to the head: trades, deposits still waiting and
    hourly closes. The readers are passed in, so the job, this API and the tests share it. */
 export async function advanceKat(file, { head, headTs, ethUsd, getLogs, getReceipt }) {
-  const from = file.last_block + 1;
+  const from = Math.max(file.last_block + 1,START.block);
   if (head < from) return file;
   const transfers = [];
   for (let a = from; a <= head; a += WALLET_SPAN) {
@@ -73,8 +73,8 @@ export async function readKatTrades(saved, now = Math.floor(Date.now() / 1000)) 
   let file = emptyBook();
   if (saved) {
     try { file = validateBook(saved); }
-    catch (e) { notes.push('The saved ledger could not be used (' + e.message.slice(0, 80) + '); reading from 27 Oct instead.'); }
-  } else notes.push('The saved ledger could not be read; reading from 27 Oct instead.');
+    catch (e) { notes.push('The saved ledger could not be used (' + e.message.slice(0, 80) + '); reading from the 14 Nov reset instead.'); }
+  } else notes.push('The saved ledger could not be read; reading from the 14 Nov reset instead.');
   const io = katReaders();
   const [{ head, headTs }, px, held] = await Promise.all([io.tip(), pricesNow(), walletKat()]);
   if (!(px.kat > 0)) throw new Error('KAT price could not be read');

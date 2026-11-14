@@ -1,7 +1,7 @@
 /* strategy.js: lays out /api/strategy and runs each pool's estimate with strategy-core.mjs.
    Inputs and open pools survive every refresh: the cards are built once and updated in
    place, never rebuilt under the cursor. */
-import { estimateReward, estimateFees, edgeOutcome, byApr, RANGE_DAYS, hedgePlan, rehedgeStep } from './strategy-core.mjs';
+import { estimateReward, estimateFees, edgeOutcome, sortFeePools, RANGE_DAYS, hedgePlan, rehedgeStep } from './strategy-core.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,14 +27,14 @@ const dayStart = (iso) => Date.parse(iso + 'T00:00:00+08:00') / 1000;
 const nowS = () => Date.now() / 1000;
 const left = (s) => (s <= 0 ? 'ended' : s >= 86400 ? `${Math.floor(s / 86400)} d ${Math.floor((s % 86400) / 3600)} h left` : `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min left`);
 
-const KEY = 'tf_strategy', FEES_KEY = 'tf_strategy_fees', POLL = 60000, FRESH = 150;
-let view = null, readAt = 0, lastOk = false, busy = false, failure = '';
+const KEY = 'tf_strategy_fees_v2', POLL = 60000, FRESH = 150;
+let view = null, readAt = 0, lastOk = false, busy = false, failure = '', sortMetric='apr', sortDirection='desc';
 const state = new Map();   /* pool → the inputs and whether it is open */
 const cards = new Map();   /* pool → its card */
 
-/* a pool without KAT (view.fee_pools) earns trading fees only; its card reads the same otherwise */
+/* Fee-pool estimates share the established range and hedge calculators. */
 const isFees = (p) => p.kind === 'fees';
-const FIGS = { kat: ['Staked TVL', 'APR', 'KAT per day', 'Value per day'], fees: ['Pool TVL', 'Fee APR', 'Volume per day', 'Fees per day'] };
+const FIGS = { kat: ['Staked TVL', 'APR', 'KAT per day', 'Value per day'], fees: ['Pool TVL', 'Fee APR · 24h', 'Volume · 24h', 'LP fees · 24h'] };
 
 /* a pair of stablecoins wants a range in tenths of a percent, not whole percents */
 const stable = (p) => Math.abs(p.price - 1) < 0.02 && [p.token0.usd, p.token1.usd].every((u) => u > 0.95 && u < 1.05);
@@ -47,7 +47,7 @@ const ceilPrice = (p) => { const k = 10 ** priceDp(p); return Math.ceil(p * k) /
 
 function defaults(p) {
   const w = stable(p) ? 0.001 : 0.025;
-  return { lower: roundPrice(p.price * (1 - w)), upper: roundPrice(p.price * (1 + w)), capital: 1000, start: isoDay(nowS()), open: false };
+  return { lower: p.quote_usable===false?'':roundPrice(p.price * (1 - w)), upper: p.quote_usable===false?'':roundPrice(p.price * (1 + w)), capital: 1000, start: isoDay(nowS()), open: false };
 }
 
 function build(p) {
@@ -128,6 +128,7 @@ function estimate(pool) {
   const p = current(pool), el = cards.get(pool), s = state.get(pool);
   if (!p || !el || !s.open) return;
   const out = el.querySelector('.calc-out'), t = nowS();
+  if(p.quote_usable===false){out.innerHTML='<div class="calc-note">This pool has no active liquidity. A daily earning or hedge estimate needs a tradeable pool quote.</div>';el.querySelector('.edge-box').replaceChildren();el.querySelector('.hedge-body').hidden=true;return;}
   const startTs = s.start && s.start !== isoDay(t) ? dayStart(s.start) : t, fees = isFees(p);
   const e = (fees ? estimateFees : estimateReward)(p, { capitalUsd: Number(s.capital), lowerPrice: Number(s.lower), upperPrice: Number(s.upper), startTs },
     { now: t, katUsd: view.kat_usd, rewardStart: view.reward.start, rewardEnd: view.reward.end });
@@ -154,15 +155,15 @@ function estimate(pool) {
     notes.unshift(`Range set from the last ${pick.days} days' lowest and highest traded price (${fmt(pick.swaps)} swaps${pick.complete ? '' : ', history incomplete'}).`);
   let warn = false;
   if (!e.inRange) { notes.push('The price is outside this range now, so it earns nothing until the price moves into it.'); warn = true; }
-  if (e.days <= 0) { notes.push(fees ? 'This period has ended by that start day.' : 'This reward period has ended by that start day; the next epoch’s KAT is set by its vote.'); warn = true; }
+  if (e.days <= 0) { notes.push(fees ? 'Choose a start day within this seven-day comparison.' : 'This reward period has ended by that start day; the next epoch’s KAT is set by its vote.'); warn = true; }
   out.innerHTML = fees ? `
     <div><div class="metric-label">My fees per day</div><div class="metric-value big">${money(e.usdPerDay)}</div><div class="metric-sub">${tokens(e.fees0PerDay)} ${esc(p.token0.symbol)} + ${tokens(e.fees1PerDay)} ${esc(p.token1.symbol)}</div></div>
-    <div><div class="metric-label">From ${esc(day(e.from))} to the period's end</div><div class="metric-value">${money(e.totalUsd)}</div><div class="metric-sub">over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
+    <div><div class="metric-label">Seven-day fee comparison</div><div class="metric-value">${money(e.totalUsd)}</div><div class="metric-sub">over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
     <div><div class="metric-label">My share of the pool's fees</div><div class="metric-value">${pct(e.share)}</div><div class="metric-sub">of ${money(p.fees.usd_per_day)} a day</div></div>
     <div><div class="metric-label">APR on my capital</div><div class="metric-value">${pct(e.apr)}</div><div class="metric-sub">on ${money(Number(s.capital))}, fees only</div></div>
     <div class="calc-note${warn ? ' warn' : ''}">${notes.join(' ')}</div>` : `
     <div><div class="metric-label">My KAT per day</div><div class="metric-value big">${kat(e.katPerDay)}</div><div class="metric-sub">${money(e.usdPerDay)} a day</div></div>
-    <div><div class="metric-label">From ${esc(day(e.from))} to the period's end</div><div class="metric-value">${kat(e.totalKat)}</div><div class="metric-sub">${money(e.totalUsd)} over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
+    <div><div class="metric-label">Seven-day fee comparison</div><div class="metric-value">${kat(e.totalKat)}</div><div class="metric-sub">${money(e.totalUsd)} over ${fmt(e.days, 1)} days, to ${esc(when(view.reward.end))}</div></div>
     <div><div class="metric-label">My share of the pool's KAT</div><div class="metric-value">${pct(e.share)}</div><div class="metric-sub">of ${kat(p.katPerDay)} a day</div></div>
     <div><div class="metric-label">APR on my capital</div><div class="metric-value">${pct(e.apr)}</div><div class="metric-sub">on ${money(Number(s.capital))}, KAT only</div></div>
     <div class="calc-note${warn ? ' warn' : ''}">${notes.join(' ')}</div>`;
@@ -190,7 +191,7 @@ function renderHedge(el, p, e, x, s) {
     return `<div class="hedge-leg">
         <div class="metric-label">Short on ${esc(l.symbol)}</div>
         <div class="metric-value big">${tokens(l.qty)} ${esc(base)}</div>
-        <div class="metric-sub">${money(l.notional)} at ${price(l.mark)} · the ${tokens(l.amount)} ${esc(l.token)} in the deposit</div>
+        <div class="metric-sub">${money(l.notional)} at ${price(l.mark)} · ${tokens(l.amount)} ${esc(l.token)} exposure</div>
         <div class="metric-sub">Margin ${money(l.margin)} vbUSDC at 1x · liquidated if ${esc(base)} reaches ${price(l.liquidation)} (+${fmt(up * 100, 0)}%)</div>
         ${warns.length ? `<div class="metric-sub warn">${warns.join(' ')}</div>` : ''}
       </div>`;
@@ -235,13 +236,13 @@ function renderHedge(el, p, e, x, s) {
     edges += '</div>';
   }
   let drift = '';
-  if (plan.legs.length === 1) {
+  if (plan.legs.length === 1&&!plan.ratioAssumption) {
     const r = rehedgeStep(p, e.range, e.liquidity, l0.token, l0.taker, l0.mark);
     drift = ` Each 1% the price moves changes the deposit's ${esc(l0.token)} by about ${tokens(r.qty)} (${money(r.usd)}); re-hedging that costs about ${money(r.fee)} in taker fees.`;
   }
   const wasOpen = !!body.querySelector('.hedge-info.open');   /* a tapped "!" stays open through a refresh */
   body.innerHTML = `<div class="hedge-legs">${legs}</div>${total}${edges}
-    <div class="calc-note">The short is the amount of each volatile token the deposit holds now, which is how much its value moves with that price.${drift}</div>`;
+    <div class="calc-note">${plan.ratioAssumption?'avKAT is converted to KAT exposure at the observed ratio. This hedge assumes that ratio holds; avKAT/KAT ratio changes remain unhedged.':'The short matches the volatile token exposure in the deposit.'}${drift}</div>`;
   if (wasOpen) { const w = body.querySelector('.hedge-info'); w.classList.add('open'); w.querySelector('.info-btn').setAttribute('aria-expanded', 'true'); }
 }
 
@@ -254,17 +255,16 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') document.querySelectorAll(POPS).forEach((w) => w.classList.remove('open')); });
 
-/* the pools paying KAT, then the pools without KAT behind their button; each card is built
-   once and updated in place */
-const EMPTY = { pools: 'No live staking campaign right now. The next one starts when the epoch vote closes.', feePools: 'The pools without KAT could not be read this time.' };
+/* Sort existing cards in place so expanded inputs survive refresh and reordering. */
+const EMPTY = { pools: 'The requested trading-fee pools could not be read. Retrying.', feePools: 'The pools without KAT could not be read this time.' };
 function renderPools() {
-  const groups = [[$('pools'), view.pools], [$('feePools'), view.fee_pools || []]];
+  const groups = [[$('pools'), view.fee_pools || []]];
   const live = new Set(groups.flatMap(([, list]) => list.map((p) => p.pool)));
   for (const [pool, el] of cards) if (!live.has(pool)) { el.remove(); cards.delete(pool); }
   for (const [box, list] of groups) {
     box.querySelectorAll(':scope > :not(.pool-card)').forEach((n) => n.remove());
     if (!list.length) box.insertAdjacentHTML('beforeend', `<div class="card overview-card">${EMPTY[box.id]}</div>`);
-    for (const p of byApr(list)) renderPool(box, p);
+    for (const p of sortFeePools(list,sortMetric,sortDirection)) renderPool(box, p);
   }
 }
 
@@ -277,24 +277,26 @@ function renderPool(box, p) {
   /* staked LPs in range now: the ones sharing the KAT (Merkl's figure when the chain gives none) */
   const tvl = p.staked_usd || {}, liveTvl = Number.isFinite(tvl.in_range);
   el.querySelector('.tvl').textContent = dollars(fees ? p.tvl_usd : liveTvl ? tvl.in_range : p.tvl);
-  el.querySelector('.tvl').title = fees ? 'Everything the pool holds, at its own price' : liveTvl ? 'Staked LPs in range now, on chain' : 'Staked value from Merkl';
+  el.querySelector('.tvl').title = fees ? 'Everything the pool holds, at verified reference token prices' : liveTvl ? 'Staked LPs in range now, on chain' : 'Staked value from Merkl';
   el.querySelector('.apr').textContent = pct(p.apr);
-  el.querySelector('.kat').textContent = fees ? dollars(p.fees && p.fees.volume_usd_per_day) : fmt(p.katPerDay, 0);
-  el.querySelector('.usd').textContent = fees ? money(p.fees && p.fees.usd_per_day) : money(p.katPerDay * view.kat_usd);
+  el.querySelector('.kat').textContent = fees ? dollars(p.fees && p.fees.volume_usd_24h) : fmt(p.katPerDay, 0);
+  el.querySelector('.usd').textContent = fees ? money(p.fees && p.fees.usd_24h) : money(p.katPerDay * view.kat_usd);
   el.querySelector('.lo-label').textContent = `Lower · ${p.quote} per ${p.base}`;
   el.querySelector('.hi-label').textContent = `Upper · ${p.quote} per ${p.base}`;
   /* the recent-range buttons: enabled once the pool's history is read, each titled with its range */
   el.querySelectorAll('.recent button[data-days]').forEach((b) => {
     const r = (p.recent || {})[b.dataset.days];
-    b.disabled = !r;
+    b.disabled = !r||p.quote_usable===false;
     b.title = r ? `${b.dataset.days}-day low ${price(r.low)} – high ${price(r.high)} ${p.quote} per ${p.base}${r.complete ? '' : ' (history incomplete)'}`
       : 'Recent price history is not recorded yet';
   });
+  el.querySelectorAll('.around button').forEach(b=>{b.disabled=p.quote_usable===false;});
+  el.querySelector('.hedge-on').disabled=p.quote_usable===false;
   const start = state.get(p.pool);
   const dateInput = el.querySelector('[data-f=start]');
   dateInput.min = isoDay(Math.max(nowS(), view.reward.start)); dateInput.max = isoDay(view.reward.end - 1);
   if (!start.start) dateInput.value = start.start = isoDay(nowS());
-  el.querySelector('.pool-context').textContent = `Now ${price(p.price)} ${p.quote} per ${p.base}`;
+  el.querySelector('.pool-context').textContent = p.quote_usable===false?'No active liquidity in this fee tier.':`Now ${price(p.price)} ${p.quote} per ${p.base}`;
   /* the rest about the pool, point by point, behind the "!" beside its fee tier (Alex, 3 Nov) */
   el.querySelector('.pool-info .info-tip').innerHTML = '<span class="info-title">About this pool</span><ul class="info-list">'
     + (fees ? feeFacts(p) : katFacts(p, tvl, liveTvl)).filter(Boolean).map((t) => `<li>${esc(t)}</li>`).join('') + '</ul>'
@@ -321,49 +323,32 @@ function feeFacts(p) {
   const kept = f.lp_part0 === f.lp_part1 ? fmt((1 - f.lp_part0) * 100, 0) + '%' : `${fmt((1 - f.lp_part0) * 100, 0)}% / ${fmt((1 - f.lp_part1) * 100, 0)}%`;
   return [
     'No KAT emissions: it earns trading fees only, with no staking',
-    `${dollars(f.volume_usd_per_day)} traded a day over the last ${fmt(f.window_days, 0)} days; ${dollars(f.volume_usd_24h)} in the last 24 h`,
-    `LPs earned ${money(f.usd_per_day)} a day over ${fmt(f.window_days, 0)} days; ${money(f.usd_24h)} in the last 24 h`,
-    `Sushi keeps ${kept} of each swap's ${fmt(p.fee_tier * 100, 2)}% fee; LPs share the rest`,
+    `${dollars(f.volume_usd_24h)} traded in the last 24 h; LP fees ${money(f.usd_24h)} at the observed protocol split`,
+    `The ${fmt(f.window_days, 0)}-day fee-growth rate applied to today's active liquidity is about ${money(f.usd_per_day)} a day; it is an estimate, not the pool's historical fee total`,
+    `The protocol keeps ${kept} of each swap's ${fmt(p.fee_tier * 100, 2)}% fee; LPs share the rest`,
     `Pool TVL ${dollars(p.tvl_usd)}: ${tokens(b.amount0)} ${p.token0.symbol} + ${tokens(b.amount1)} ${p.token1.symbol}`,
     'Fee APR is the fees over everything the pool holds; a range near the price earns more per dollar while in range',
   ];
 }
 
-/* the button that shows the pools without KAT; remembered on this device */
-const feeToggle = $('feeToggle');
-const showFees = (on) => {
-  $('feeSection').hidden = !on;
-  feeToggle.setAttribute('aria-expanded', String(on));
-  feeToggle.textContent = on ? 'Hide pools without KAT emissions' : 'Show pools without KAT emissions';
-};
-try { showFees(localStorage.getItem(FEES_KEY) === '1'); } catch (e) { showFees(false); }
-feeToggle.addEventListener('click', () => {
-  const on = $('feeSection').hidden;
-  showFees(on);
-  try { localStorage.setItem(FEES_KEY, on ? '1' : '0'); } catch (e) { /* a convenience */ }
-});
-
-function renderOverview() {
-  const e = view.epoch, t = nowS();
-  const cells = $('overview').children;
-  const set = (i, value, sub) => { cells[i].querySelector('.overview-value').textContent = value; cells[i].querySelector('.metric-sub').textContent = sub; };
-  if (!e) { [0, 1, 2, 3].forEach((i) => set(i, '—', 'No live campaign')); return; }
-  set(0, String(e.number), `${day(e.start)} – ${day(e.end)} · vote closed ${when(e.voteEnd)}`);
-  set(1, kat(view.total.kat), `${money(view.total.kat * view.kat_usd)} · ${view.pools.length} pool${view.pools.length === 1 ? '' : 's'}`);
-  set(2, kat(view.total.katPerDay), `${money(view.total.katPerDay * view.kat_usd)} a day · KAT $${(view.kat_usd || 0).toFixed(6)}`);
-  cells[3].querySelector('.overview-value').classList.add('dates');
-  set(3, `${day(view.reward.start)} → ${day(view.reward.end)}`, `${hm(view.reward.start)} to ${hm(view.reward.end)} MYT · ${left(view.reward.end - t)}`);
-  const note = $('voteNote');
-  if (e.voting_open && e.next_vote_end) {
-    note.hidden = false;
-    note.innerHTML = `<b>Epoch ${e.clock_current} vote is open</b> until ${esc(when(e.next_vote_end))}. Its KAT starts then and is not known until the vote closes.`;
-  } else note.hidden = true;
+$('poolSortMetric').addEventListener('change',event=>{sortMetric=event.target.value;if(view)renderPools();});
+$('poolSortDirection').addEventListener('change',event=>{sortDirection=event.target.value;if(view)renderPools();});
+function renderOverview(){
+  const pools=view.fee_pools||[],cells=$('overview').children,
+    set=(i,value,sub)=>{cells[i].querySelector('.overview-value').textContent=value;cells[i].querySelector('.metric-sub').textContent=sub;},
+    sum=pick=>{const rows=pools.map(pick).filter(Number.isFinite);return rows.length?rows.reduce((a,b)=>a+b,0):null;};
+  set(0,dollars(sum(p=>p.tvl_usd)),'Across the displayed fee pools');
+  const partial=pools.some(p=>!Number.isFinite(p.fees?.volume_usd_24h)||!Number.isFinite(p.fees?.usd_24h));
+  set(1,dollars(sum(p=>p.fees?.volume_usd_24h)),partial?'Verified subtotal · some pools unavailable':'Verified 24-hour swap inputs');
+  set(2,money(sum(p=>p.fees?.usd_24h)),partial?'Verified subtotal · some pools unavailable':'LP share at the observed protocol split');
+  set(3,String(pools.length),new Set(pools.map(p=>p.pairKey)).size+' token pairs · funded fee tiers');
 }
 
 function renderStamp() {
-  const age = nowS() - readAt, fresh = lastOk && age <= FRESH;
+  const age = nowS() - readAt, fresh = lastOk && age <= FRESH,
+    partial=!!view&&(view.fee_pools.some(p=>p.status!=='fresh')||new Set(view.fee_pools.map(p=>p.pairKey)).size<5);
   $('stamp').className = 'stamp' + (fresh ? '' : ' stale');
-  $('stamp').innerHTML = `<span class="dot"></span><span class="st">${fresh ? 'LIVE' : readAt ? 'STALE' : 'LOADING'}</span><br>${fresh ? clockTime(nowS()) : readAt ? clockTime(readAt) : '—'}`;
+  $('stamp').innerHTML = `<span class="dot"></span><span class="st">${fresh ? partial?'PARTIAL':'LIVE' : readAt ? 'STALE' : 'LOADING'}</span><br>${readAt ? clockTime(readAt) : '—'}`;
 }
 
 function render() {
@@ -380,19 +365,19 @@ async function load(force) {
   try {
     const r = await fetch('/api/strategy', { cache: 'no-store', signal: AbortSignal.timeout(25000) });
     const v = await r.json();
-    if (!r.ok || v.error || !Array.isArray(v.pools)) throw new Error(v.error || 'HTTP ' + r.status);
-    view = v; readAt = nowS(); lastOk = true; failure = '';
+    if (!r.ok || v.error || v.mode!=='trading-fees' || !Array.isArray(v.fee_pools)) throw new Error(v.error || 'The trading-fee reading is unavailable');
+    view = v; readAt = Number.isFinite(v.at)?v.at:nowS(); lastOk = true; failure = '';
     try { localStorage.setItem(KEY, JSON.stringify({ t: readAt, v })); } catch (e) { /* storage is a convenience */ }
   } catch (e) {
     lastOk = false;
-    failure = view ? `Could not refresh (${e.message}). Showing the reading from ${when(readAt)} MYT.` : `Could not read the epoch yet (${e.message}). Retrying.`;
+    failure = view ? `Could not refresh (${e.message}). Showing the reading from ${when(readAt)} MYT.` : `Could not read the pools yet (${e.message}). Retrying.`;
   } finally { busy = false; render(); }
 }
 
 /* the last reading paints at once, marked STALE until a fresh one arrives */
 try {
   const seed = JSON.parse(localStorage.getItem(KEY) || 'null');
-  if (seed && seed.v && Array.isArray(seed.v.pools)) { view = seed.v; readAt = seed.t; }
+  if (seed && seed.v && Array.isArray(seed.v.fee_pools) && seed.v.mode==='trading-fees') { view = seed.v; readAt = seed.t; }
 } catch (e) { /* no saved reading */ }
 render();
 load(true);

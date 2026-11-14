@@ -10,6 +10,7 @@
    Read-only: no keys, no wallet, nothing signed.
    ========================================================================== */
 import { CFG, multi, rpc, keccakHex } from './_core.mjs';
+import {MARKETS,MORPHO} from '../morpho-core.mjs';
 import { VOTER, VKAT_NFT, ESCROW, KAT, WALLETS, VOTE_TOPIC, RESET_TOPIC, epochOf, epochStart, voteClose, voteFromLog,
   bribeRows, voteBook, standingVotes, emptyLedger, validateLedger } from '../vkat-core.mjs';
 
@@ -53,7 +54,9 @@ export function vkatReaders() {
       const p = PRICED[token];
       if (!p) return null;
       const r = await rpc(RPC, 'eth_call', [{ to: p.pool, data: '0x3850c7bd' }, block === 'latest' ? 'latest' : hex(block)]);
-      return p.usd(Number(word(r, 0)) / 2 ** 96);
+      if(typeof r!=='string'||!/^0x[0-9a-f]+$/i.test(r)||r.length<66)return null;
+      const sqrt=Number(word(r,0))/2**96,price=sqrt>0?p.usd(sqrt):null;
+      return Number.isFinite(price)&&price>0?price:null;
     },
     merklUser: async (wallet) => {
       const r = await fetch(`${MERKL}/users/${wallet}/rewards?chainId=747474&breakdownPage=0`, { signal: AbortSignal.timeout(12000) });
@@ -139,13 +142,17 @@ export async function advanceVkat(file, io, { head, headTs }) {
 export const rewardsByEpoch = (f) => f.rewards.map((r) => ({ ...r, epoch: epochOf(f.campaigns[r.campaign][1] - 1) }));
 
 /* the vKAT locks both wallets hold now */
-async function readLocks() {
-  const bal = await multi(RPC, WALLETS.map((w) => ({ to: VKAT_NFT, data: '0x70a08231' + pad(w).slice(2) })));
+async function readLocks(block='latest') {
+  const bal = await multi(RPC, WALLETS.map((w) => ({ to: VKAT_NFT, data: '0x70a08231' + pad(w).slice(2) })),block);
   const owned = [];
-  WALLETS.forEach((w, i) => { const n = bal[i].ok ? Number(word(bal[i].data, 0)) : 0; for (let k = 0; k < n; k++) owned.push({ w, k }); });
-  const ids = await multi(RPC, owned.map(({ w, k }) => ({ to: VKAT_NFT, data: '0x2f745c59' + pad(w).slice(2) + pad(k.toString(16)).slice(2) })));
+  WALLETS.forEach((w, i) => {if(!bal[i]?.ok||bal[i].data.length<66)throw Error('Personal vKAT ownership could not be read');
+    const n=Number(word(bal[i].data,0));if(!Number.isSafeInteger(n)||n>100)throw Error('Personal vKAT enumeration is incomplete');
+    for (let k = 0; k < n; k++) owned.push({ w, k }); });
+  const ids = await multi(RPC, owned.map(({ w, k }) => ({ to: VKAT_NFT, data: '0x2f745c59' + pad(w).slice(2) + pad(k.toString(16)).slice(2) })),block);
+  if(ids.some(r=>!r?.ok||r.data.length<66))throw Error('Personal vKAT lock IDs could not be read');
   const locks = owned.map((o, i) => ({ wallet: o.w, id: ids[i].ok ? Number(word(ids[i].data, 0)) : null })).filter((l) => l.id !== null);
-  const reads = await multi(RPC, locks.flatMap((l) => [{ to: ESCROW, data: sel('locked(uint256)') + pad(l.id.toString(16)).slice(2) }, { to: ESCROW, data: sel('votingPower(uint256)') + pad(l.id.toString(16)).slice(2) }]));
+  const reads = await multi(RPC, locks.flatMap((l) => [{ to: ESCROW, data: sel('locked(uint256)') + pad(l.id.toString(16)).slice(2) }, { to: ESCROW, data: sel('votingPower(uint256)') + pad(l.id.toString(16)).slice(2) }]),block);
+  if(locks.some((_,i)=>!reads[2*i]?.ok||reads[2*i].data.length<130))throw Error('Personal vKAT amounts could not be read');
   return locks.map((l, i) => ({ ...l, kat: reads[2 * i].ok ? Number(word(reads[2 * i].data, 0)) / 1e18 : null, since: reads[2 * i].ok ? Number(word(reads[2 * i].data, 1)) : null,
     power: reads[2 * i + 1].ok ? Number(word(reads[2 * i + 1].data, 0)) / 1e18 : null }));
 }
@@ -189,11 +196,35 @@ export async function readVkat(saved, now = Math.floor(Date.now() / 1000)) {
   };
 }
 
+/* The holdings page has no dependency on gauge voting, Merkl rewards or a vote
+   ledger. All amounts and the conversion rate share one pinned Katana block. */
+export async function readVkatHoldings(){
+  const io=vkatReaders(),{head,headTs}=await io.tip(),tag=hex(head),markets=MARKETS.filter(m=>m.collateral_token==='avKAT');
+  const collateral=WALLETS.flatMap(wallet=>markets.map(m=>({to:MORPHO,data:sel('position(bytes32,address)')+m.id.slice(2)+pad(wallet).slice(2)})));
+  const [locks,network,katUsd,personal]=await Promise.all([readLocks(tag),readNetwork(head),io.priceAt(KAT,head),
+    multi(RPC,[...WALLETS.map(wallet=>({to:AVKAT,data:sel('balanceOf(address)')+pad(wallet).slice(2)})),...collateral],tag)]);
+  const read=(r,words,label)=>{if(!r?.ok||r.data.length<2+words*64)throw Error(label+' could not be read');return r.data;};
+  let walletRaw=0n,collateralRaw=0n;
+  personal.slice(0,WALLETS.length).forEach(r=>walletRaw+=word(read(r,1,'Wallet avKAT'),0));
+  personal.slice(WALLETS.length).forEach(r=>collateralRaw+=word(read(r,3,'avKAT collateral'),2));
+  if(!Number.isFinite(katUsd)||!(katUsd>0)||!Number.isFinite(network.avkat_rate)||!(network.avkat_rate>0))throw Error('The current holding prices are unavailable');
+  const wallet=Number(walletRaw)/1e18,collateralAmount=Number(collateralRaw)/1e18,total=wallet+collateralAmount,vkat=locks.reduce((n,l)=>n+l.kat,0);
+  return {schemaVersion:'katana-holdings-v1',at:headTs,head,head_ts:headTs,kat_usd:katUsd,network,locks,
+    holdings:{vkat:{amount:vkat,value_usd:vkat*katUsd,scope:'vKAT NFTs held by the two tracked wallets'},
+      avkat:{amount:total,wallet_amount:wallet,collateral_amount:collateralAmount,raw:(walletRaw+collateralRaw).toString(),
+        kat_equivalent:total*network.avkat_rate,value_usd:total*network.avkat_rate*katUsd,scope:'Wallet balances plus Morpho collateral; LP token exposure is separate'}},health:{notes:[]}};
+}
+
 export default async function handler(req, res) {
   res.setHeader('access-control-allow-origin', '*');
   /* a minute at the edge: votes change once a fortnight, rewards once a week */
   res.setHeader('cache-control', 's-maxage=60, stale-while-revalidate=60');
   res.setHeader('content-type', 'application/json; charset=utf-8');
+  const query=req.query||Object.fromEntries(new URL(req.url||'/','https://dashboard.invalid').searchParams);
+  if(query.view==='holdings'){
+    try{return res.status(200).end(JSON.stringify(await readVkatHoldings()));}
+    catch(e){res.setHeader('cache-control','no-store');return res.status(502).end(JSON.stringify({error:String(e.message||e)}));}
+  }
   let saved = null;
   try {
     const host = req.headers['x-forwarded-host'] || req.headers.host, proto = req.headers['x-forwarded-proto'] || 'https';

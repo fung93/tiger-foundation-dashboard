@@ -152,7 +152,8 @@ export function feesFromGrowth({ before, after, seconds, fee, feeProtocol, pool 
    is the KAT pools' reward period, so the two read side by side. */
 export function estimateFees(pool, input, ctx) {
   if (!(input.capitalUsd > 0)) return { error: 'Enter the capital in dollars.' };
-  if (!pool.fees) return { error: 'This pool\'s fees could not be read this time.' };
+  if(pool.quote_usable===false)return {error:'This pool has no active liquidity; a tradeable quote is needed.'};
+  if (!pool.fees||![pool.fees.pool_day0,pool.fees.pool_day1].every(n=>Number.isFinite(n)&&n>=0)) return { error: 'This pool\'s fee history could not be verified this time.' };
   const range = snapRange(input.lowerPrice, input.upperPrice, pool);
   if (range.error) return range;
   const pos = liquidityForCapital(input.capitalUsd, range.tickLower, range.tickUpper, pool);
@@ -195,6 +196,27 @@ export function edgeOutcome(pool, range, liquidity, capitalUsd) {
 
 /* the pools ordered as the page lists them: highest reward APR first */
 export const byApr = (pools) => [...pools].sort((a, b) => (b.apr ?? -1) - (a.apr ?? -1) || (b.katPerDay || 0) - (a.katPerDay || 0));
+
+/* One swap's input is counted once. Dollar marks use this reading's token quotes;
+   the LP fee share uses the observed protocol split, not a KAT emission rate. */
+export function observedSwapFees(logs,pool){
+  let volume=0,fees=0,gross=0;
+  for(const log of logs){
+    if(typeof log.data!=='string'||log.data.length<130)throw Error('Incomplete swap amounts');
+    const amounts=[0,1].map(i=>BigInt.asIntN(256,BigInt('0x'+log.data.slice(2+i*64,66+i*64))));
+    const positive=amounts.map((n,i)=>({n,i})).filter(x=>x.n>0n);if(positive.length!==1)throw Error('Unrecognized swap input');
+    const {n,i}=positive[0],token=pool['token'+i];if(!(token.usd>0))throw Error('Missing swap dollar quote');
+    const input=Number(n)/10**token.decimals*token.usd,fee=input*pool.fee/1e6,
+      divisor=i===0?pool.fee_protocol%16:pool.fee_protocol>>4;
+    volume+=input;gross+=fee;fees+=fee*(divisor>0?1-1/divisor:1);
+  }
+  return {volume_usd_24h:volume,usd_24h:fees,gross_usd_24h:gross,swaps_24h:logs.length};
+}
+export function sortFeePools(pools,metric='apr',direction='desc'){
+  const value=p=>metric==='volume'?p.fees?.volume_usd_24h:metric==='fees'?p.fees?.usd_24h:p.apr,sign=direction==='asc'?1:-1;
+  return [...pools].sort((a,b)=>{const x=value(a),y=value(b);if(!Number.isFinite(x))return Number.isFinite(y)?1:0;
+    if(!Number.isFinite(y))return -1;return sign*(x-y)||a.pool.localeCompare(b.pool);});
+}
 
 /* ---------- recent ranges: the lowest and highest price a pool traded at ----------
    Every swap logs the tick it left the pool at, so the lowest and highest swap tick over a
@@ -266,9 +288,9 @@ export function rangePrices(r, pool) {
    the fee to withdraw the margin back to Katana. The hedge is exact only at the price it is
    set: as the price moves the LP's amounts change, and re-hedging costs fees too.
    --------------------------------------------------------------------------- */
-export const PERP_OF = { vbWBTC: 'BTC-USD', WBTC: 'BTC-USD', vbETH: 'ETH-USD', WETH: 'ETH-USD', KAT: 'KAT-USD' };
+export const PERP_OF = { vbWBTC: 'BTC-USD', WBTC: 'BTC-USD', vbETH: 'ETH-USD', WETH: 'ETH-USD', KAT: 'KAT-USD', avKAT:'KAT-USD' };
 export const FUNDING_SECONDS = 8 * 3600;
-const isDollar = (t) => t.usd > 0.95 && t.usd < 1.05;
+const isDollar = (t) => /^(?:vb)?(?:USDC|USDT|USDG|DAI|USDe|FRAX|AUSD)$/i.test(t.symbol||'');
 
 /* filling `qty` against one side of the book: the average price, or null if it runs out */
 export function fillPrice(levels, qty) {
@@ -291,21 +313,28 @@ export function hedgePlan(pool, deposit, perps, { days, from = null, to = null, 
   const amounts = [deposit.amount0, deposit.amount1], toks = [pool.token0, pool.token1];
   if (toks.every(isDollar)) return { nothing: true, legs: [] };
   const legs = [], missing = [];
+  const exposures=new Map();let ratioAssumption=false;
   for (let i = 0; i < 2; i++) {
     const t = toks[i];
     if (isDollar(t) || !(amounts[i] > 0)) continue;
     const symbol = PERP_OF[t.symbol], m = symbol && perps && perps.markets && perps.markets[symbol];
     if (!m) { missing.push(t.symbol); continue; }
+    const factor=t.symbol==='avKAT'?t.usd/(pool.kat_usd||toks.find(t=>t.symbol==='KAT')?.usd||m.index):1;
+    if(!(factor>0)||!Number.isFinite(factor)){missing.push(t.symbol);continue;}
+    const row=exposures.get(symbol)||{symbol,m,token:t.symbol==='avKAT'?'KAT':t.symbol,amount:0,parts:[]};
+    row.amount+=amounts[i]*factor;row.parts.push({token:t.symbol,amount:amounts[i],factor});exposures.set(symbol,row);if(t.symbol==='avKAT')ratioAssumption=true;
+  }
+  for(const {symbol,m,token,amount,parts}of exposures.values()){
     const book = (perps.book && perps.book[symbol]) || {}, fund = (perps.funding && perps.funding[symbol]) || {};
     const step = m.step > 0 ? m.step : 1e-8;
-    const qty = Math.round(amounts[i] / step) * step;
+    const qty = Math.round(amount / step) * step;
     const mark = book.mark > 0 ? book.mark : m.index;
     const notional = qty * mark;
     const sell = fillPrice(book.bids, qty), buy = fillPrice(book.asks, qty);
     const periods = from !== null && to !== null ? fundingPayments(from, to) : Math.max(0, days) * 86400 / FUNDING_SECONDS;
     const rate = Number.isFinite(fund.avg) ? fund.avg : Number.isFinite(fund.now) ? fund.now : 0;
     legs.push({
-      token: t.symbol, symbol, amount: amounts[i], qty, residual: amounts[i] - qty, mark, notional, margin: notional,
+      token, symbol, amount, parts, qty, residual: amount - qty, mark, notional, margin: notional,
       below_min: qty < m.min, min: m.min, step,
       liquidation: liquidationPrice(sell || mark, m.mmf),
       open_fee: notional * m.taker, close_fee: notional * m.taker,
@@ -322,19 +351,20 @@ export function hedgePlan(pool, deposit, perps, { days, from = null, to = null, 
   /* with one volatile token against a dollar, the short's P&L at each edge offsets the LP's */
   let hedgedEdges = null;
   if (edges && legs.length === 1 && toks.some(isDollar)) {
-    const leg = legs[0], volIs0 = toks[0].symbol === leg.token, baseIs0 = orientation(pool).base === 0;
-    const usdAt = (edgePrice) => (volIs0 === baseIs0 ? edgePrice : 1 / edgePrice);
+    const leg = legs[0],volIndex=toks.findIndex(t=>!isDollar(t)),volIs0=volIndex===0,baseIs0=orientation(pool).base===0,
+      source=toks[volIndex],factor=leg.parts.find(p=>p.token===source.symbol)?.factor||1;
+    const usdAt = (edgePrice) => (volIs0 === baseIs0 ? edgePrice : 1 / edgePrice)/factor;
     hedgedEdges = Object.fromEntries(['lower', 'upper'].map((k) => {
       const px = usdAt(edges[k].price), shortPnl = leg.qty * (leg.mark - px);
       /* past the edge the LP stops changing: all the volatile token below, none above. What
          is left is that holding less the short; a further 1% move away from the range then
          gains or loses this much */
-      const holding = edges[k].token === leg.token ? edges[k].amount : 0;
+      const holding = edges[k].token === source.symbol ? edges[k].amount*factor : 0;
       const beyond = (holding - leg.qty) * px * 0.01 * (px < leg.mark ? -1 : 1);
       return [k, { price: edges[k].price, token_usd: px, lp: edges[k].pnlUsd, short: shortPnl, net: edges[k].pnlUsd + shortPnl, beyond_per_pct: beyond }];
     }));
   }
-  return { nothing: false, legs, missing, withdraw_fee: withdraw, fees, funding: sum('funding'), net, margin, capital,
+  return { nothing: false, legs, missing,ratioAssumption, withdraw_fee: withdraw, fees, funding: sum('funding'), net, margin, capital,
     total, apr: total !== null && capital > 0 && days > 0 ? (total / capital) * (365 / days) : null, edges: hedgedEdges };
 }
 

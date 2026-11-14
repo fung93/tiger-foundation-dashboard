@@ -145,3 +145,7 @@ header .stamp{min-width:0;flex:1 1 0;overflow:hidden}
 .claim .a{font-size:13.5px;text-align:right;white-space:nowrap}
 .claim .p{color:var(--faint);font-size:11.5px}
 .claim .u{color:var(--faint);font-size:11.5px;text-align:right}
+
+/* Keep the longer vKAT/avKAT destination on one row on small phones. */
+@media(max-width:420px){.menu{gap:4px}.menu a{padding:7px 4px;font-size:9px;letter-spacing:0}.menu a svg{display:none}}
+@media(max-width:359px){.menu a{padding-left:3px;padding-right:3px;font-size:8.5px}}

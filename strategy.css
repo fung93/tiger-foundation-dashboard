@@ -155,3 +155,6 @@ html.tiger .themed-page .info-tip{background:var(--card)}
   .hedge-leg .metric-value{font-size:22px}
   .calc-inputs{gap:10px}.calc-inputs .wide-phone{grid-column:1/-1}.preset-row{flex-direction:column;align-items:flex-start}.presets button{padding:6px 9px}.calc-out{gap:14px 12px}.calc-out .metric-value{font-size:clamp(17px,5.2vw,22px)}}
 @media(prefers-reduced-motion:reduce){.chev{transition:none}}
+.pool-sorting{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:11px}
+.pool-sorting select{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+@media(max-width:600px){.pools-head{flex-wrap:wrap;gap:12px}.pool-sorting{width:100%}.pool-sorting select{min-width:0;flex:1}}

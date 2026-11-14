@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050505">
 <script src="/theme.js"></script>
-<title>vKAT Votes · Tiger Foundation</title>
+<title>vKAT/avKAT · Tiger Foundation</title>
 <link rel="icon" href="/icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,9 +17,8 @@
 <link rel="stylesheet" href="/vkat.css">
 <link rel="stylesheet" href="/theme.css">
 <!--
-  vKAT Votes: Alex's vKAT, the gauge votes it cast each epoch and the rewards those votes
-  earned, with each epoch's APR. The figures come finished from /api/vkat (vkat-core.mjs's
-  voteBook); this page lays them out. The KAT section's second tab, beside KAT trades.
+  vKAT/avKAT: live network totals followed by the two wallets' personal holdings.
+  The primary KAT destination; the separate KAT trades tab opens the swap-only book.
 -->
 </head>
 <body class="themed-page">
@@ -30,7 +29,7 @@
       <a class="hdr-brand" href="/" title="Tiger Foundation portfolio"><h1><em>Tiger</em> <b>Foundation</b></h1><div class="sub">WEALTH &amp; INVESTMENT DASHBOARD</div></a>
     </div>
     <div class="theme-actions">
-      <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to the cute tiger theme" title="Switch to the cute tiger theme"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+
       <div class="stamp stale" id="stamp">LOADING<br>&nbsp;</div>
     </div>
   </div>
@@ -41,68 +40,35 @@
   <a href="/lp.html" title="LP Book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 7.5v9M17 7.5v9"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg><span>LP Book</span></a>
   <a href="/lending.html" title="Lending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6H3zM5 10v8M10 10v8M14 10v8M19 10v8M3 21h18"/></svg><span>Lending</span></a>
   <a href="/strategy.html" title="Strategy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg><span>Strategy</span></a>
-  <a href="/kat.html" class="on" aria-current="page" title="KAT Trades and vKAT votes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>KAT</span></a>
+  <a href="/vkat.html" class="on" aria-current="page" title="vKAT and avKAT holdings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>vKAT/avKAT</span></a>
 </nav>
 </div>
 
 <main class="book-content kat-content">
   <div class="health" id="health" role="status"></div>
-  <!-- all of Katana's vKAT and avKAT, read live (Alex, 3 Nov 2026); first, above his own votes.
-       The section's tab to KAT trades sits at the top, where KAT trades keeps its vKAT votes tab -->
+  <!-- Keep the network row unchanged above the simplified personal holdings. -->
   <div class="bar kat-intro">
     <span class="what">Katana network<span class="what-more"> &middot; all vKAT and avKAT, read live</span></span>
-    <a href="/kat.html" title="KAT trades since 27 Oct 2026"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>KAT trades</a>
+    <a href="/kat.html" title="KAT trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>KAT trades</a>
   </div>
   <div class="kat-overview net-overview" id="network" aria-live="polite">
     <div class="card overview-card"><div class="metric-label">vKAT locked</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">avKAT minted</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">avKAT / KAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
   </div>
-  <div class="bar kat-intro">
-    <span class="what">vKAT votes<span class="what-more"> &middot; Katana gauges</span></span>
-  </div>
-  <div class="kat-overview" id="overview" aria-live="polite">
+  <div class="bar kat-intro"><span class="what">Personal holdings</span></div>
+  <div class="kat-overview personal-overview" id="overview" aria-live="polite">
     <div class="card overview-card"><div class="metric-label">vKAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Votes cast</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Total reward <span class="info-wrap" id="rewardInfo"><button type="button" class="info-btn" aria-label="Reward breakdown" aria-expanded="false">!</button><span class="info-tip" role="tooltip"></span></span></div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Average APR</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
+    <div class="card overview-card"><div class="metric-label">avKAT</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
   </div>
-  <div class="waiting-note" id="voteNote" hidden></div>
-
-  <section class="card chart-card" aria-labelledby="chartTitle">
-    <div class="chart-bar">
-      <div><div class="metric-label" id="chartTitle">Vote rewards · all epochs</div><div class="chart-total" id="chartTotal">—</div></div>
-      <span class="trades-hint" id="chartHint">Each point is labelled with that epoch's reward</span>
-    </div>
-    <div class="plot vote-plot" id="plot" tabindex="0" role="img" aria-label="Total vote rewards by epoch, each epoch's reward labelled"></div>
-    <div class="plot-legend">
-      <span><i style="border-color:var(--gold)"></i>Total reward so far</span>
-      <span><b class="mark"></b>+$ that epoch's reward</span>
-    </div>
-  </section>
-
-  <section class="card trades-card" aria-labelledby="historyTitle">
-    <div class="trades-head"><div class="label" id="historyTitle">Vote history · newest first</div><span class="trades-hint">Times are Malaysia time</span></div>
-    <div class="table-wrap"><table class="trades votes" id="votes">
-      <thead><tr><th scope="col">Epoch</th><th scope="col">Pool voted</th><th scope="col" class="num">vKAT used</th><th scope="col">Reward</th><th scope="col" class="num">Value</th><th scope="col" class="num">APR</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-    <div class="trades-foot" id="votesFoot"></div>
-  </section>
-  <noscript><div class="card">Turn on JavaScript to read the votes.</div></noscript>
-
-  <div class="kat-method">
-    <details><summary>How these numbers are made</summary>
-      <p><b>vKAT.</b> The KAT locked in the vKAT the two wallets hold now, read from Katana's voting escrow; its voting power is the same. KAT in avKAT is not counted here: the avKAT vault votes it and compounds its rewards itself.</p>
-      <p><b>Katana network.</b> All the KAT locked in vKAT is the voting escrow's total, which is the KAT it holds; it includes the KAT behind avKAT, which the vault keeps as one vKAT lock. avKAT minted is the vault's supply, and avKAT / KAT its rate: the KAT one avKAT redeems for, which rises as the vault compounds its vote rewards back into vKAT. The change is against the same reading a week before. Leaving avKAT goes through the same exit queue as vKAT.</p>
-      <p><b>Votes.</b> Every vote and reset the gauge voter recorded for either wallet. A vote stands from epoch to epoch until it is changed, so an epoch counts as voted when a vote stood during it. Its pool and vKAT are the vote that stood with the most vKAT behind it in that epoch (the latest, if equal): a lock moved into avKAT after the vote week does not hide the vote it cast.</p>
-      <p><b>Rewards.</b> The vote incentives Merkl paid each vKAT lock, named by pool and lock (AragonBribes). Each belongs to the epoch its campaign ends in, which is that epoch's vote week, and is valued at its token's price when the campaign ended; vbUSDC is a dollar. Rewards are booked once and never re-valued.</p>
-      <p><b>APR.</b> An epoch's reward over the vKAT that voted, valued at KAT's price when that epoch's vote week closed, times the 26 epochs of a year. It is not compounded: the rewards are paid in dollars (vbUSDC, mostly) and stay in the wallet rather than going back into vKAT, so a compounded APY would describe a strategy that is not being run. The average is all the rewards over all the vKAT voted, for the epochs whose vote week has closed. Leaving vKAT takes a 60-day cooldown and a fee of 2.5% to 25%, which these rates do not include.</p>
-      <p><b>Sources.</b> Katana's gauge voter and voting escrow, Merkl's reward records and campaigns, and the KAT, vbETH and vbWBTC pools for prices at each moment. A six-hourly job keeps the ledger; anything newer is read when the page asks. This page reads only; it never connects a wallet.</p>
-    </details>
-  </div>
+  <noscript><div class="card">Turn on JavaScript to read your holdings.</div></noscript>
+  <div class="kat-method"><details><summary>How these holdings are counted</summary>
+    <p><b>vKAT.</b> KAT locked in the vKAT NFTs currently held by your two tracked wallets.</p>
+    <p><b>avKAT.</b> Wallet balances plus your avKAT collateral in Morpho, valued at the live KAT conversion rate. This is the gross token holding; borrowing is shown separately on Lending. avKAT inside LPs is accounted for on LP Book.</p>
+    <p><b>Katana network.</b> The network row keeps the escrow's total locked KAT, total avKAT supply and the live KAT-per-avKAT conversion rate. avKAT backing is already included in network vKAT.</p>
+  </details></div>
 </main>
-<script type="module" src="/vkat.js"></script>
+<script type="module" src="/vkat.js?v=166"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

@@ -78,7 +78,7 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `strategy-ranges.json`: each KAT-paying pool's hourly low/high tick for 31 days, and
      each pool without KAT the Strategy page shows (`FEE_POOLS`)
      (`scripts/strategy-ranges.mjs`, its own error boundary; added 1 Nov 2026)
-   - `kat-trades.json`: Alex's KAT trades since 27 Oct 2026, deposits waiting to be paid back,
+   - `kat-trades.json`: Alex's KAT swaps since the 14 Nov 2026 reset, deposits waiting to be paid back,
      and the KAT/vbUSDC pool's hourly closing tick (`scripts/kat-trades.mjs`, its own error
      boundary; added 1 Nov 2026)
    - `vkat-votes.json`: Alex's gauge vote events, the vote rewards Merkl paid with their
@@ -113,12 +113,12 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lp-all.html` | LP Book, **All-time**: closed positions, every figure fixed at close. |
 | `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
-| `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: Katana's KAT emissions for staked Sushi LPs, every paying pool by APR, and a per-pool range estimate. See §4. |
+| `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: the five requested Katana trading-fee pairs, with volume/fee/APR sorting, daily range estimates and optional hedges. The 14 Nov decision below supersedes the earlier emission interface. |
 | `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
-| `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` per KAT-paying pool and per `FEE_POOLS` pool, 31 days, from its Swap logs (read with `swapLogs`, which halves a window over Katana's 10,000-log cap: the KAT/vbUSDC pool had 59,758 swaps in the 31 days to 3 Nov 2026). The job reads only blocks since `last_block`; a new pool gets 31 days (~73 s for five pools; ~3 s incremental). Validated before any network read; saved after each pool. |
-| `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, the P&L chart and the trade table, from 27 Oct 2026. See §4. |
+| `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` for the requested `FEE_POOLS`, 31 days, from complete Swap logs. A successful result at the 10,000-log cap also splits; a saturated single block fails. Existing history remains; the writer reads only blocks since `last_block`, bootstraps a newly configured pool once, validates before reads and saves after each pool. No live emission campaign is required. |
+| `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, simulator and swap-only trade table, reset 14 Nov 2026 at 13:13:15 MYT. The old book is archived. See §4. |
 | `kat-core.mjs` | The KAT page's trade finder (from wallet transfers and receipts), the average-cost book, the P&L series and the ledger's validation, with no network: used by the page, `api/kat-trades.mjs`, `scripts/kat-trades.mjs` and `scripts/test-kat-trades.mjs`. |
-| `vkat.html`, `vkat.css`, `vkat.js` | **vKAT Votes**, the KAT section's second tab: vKAT held, epochs voted, total vote reward, average APY, the reward chart and the vote history. See §4. |
+| `vkat.html`, `vkat.css`, `vkat.js` | **vKAT/avKAT**, the main KAT destination: original network row plus personal vKAT and avKAT holdings. Reads `/api/vkat?view=holdings`; the legacy vote API/job remains available without exposing its interface here. |
 | `vkat-core.mjs`, `api/vkat.mjs`, `scripts/vkat-votes.mjs`, `vkat-votes.json` | Its maths (votes per epoch, rewards per epoch, APY, ledger validation), the API (ledger + anything newer + live locks, ~4 s) and the six-hourly job (first run ~37 s; then only new blocks and new campaigns). |
 | `api/kat-trades.mjs`, `scripts/kat-trades.mjs`, `kat-trades.json` | The ledger the job keeps (only blocks since `last_block`; ~2 s incremental), and the API that adds everything since it plus the KAT and ETH prices now (~1.8 s, ~5 KB on 1 Nov 2026). |
 | `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
@@ -131,7 +131,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
 Portfolio, both LP Book pages, Lending and Strategy have a menu bar under the header:
-**Portfolio · LP Book · Lending · Strategy**, with the open page lit. The standalone widget has no menu;
+**Portfolio · LP Book · Lending · Strategy · vKAT/avKAT**, with the open page lit. The standalone widget has no menu;
 tapping its Tiger Foundation masthead opens the full LP Book.
 
 The menu buttons must keep the same position and size when switching between
@@ -167,6 +167,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 - **Classy look.** Black background, Instrument Serif titles, Inter text, gold `#d6b97b` for
   what is selected. Values are off-white; only signed gains and losses are coloured. He
   said "don't want colourful".
+- **14 Nov 2026:** remove the theme switch from **every dashboard page**, including
+  the widget and Agent. Keep `theme.js`, `theme.css` and the saved `tf_theme2` preference;
+  this is a hidden control, not a theme deletion. The main KAT navigation now points to
+  `/vkat.html`, labelled **vKAT/avKAT**; KAT trades is its separate subtab.
 - **Headers** use the same *Tiger* Foundation masthead and subtitle as Portfolio on
   Portfolio, both LP Book pages and the widget: serif, italic gold Tiger, upright off-white
   Foundation. There is no extra LP Book title on the LP Book pages or widget; the
@@ -182,7 +186,14 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   opened. Under it: "$X still to claim" (the last-claim date was removed 3 Nov 2026, Alex). There is a claim-record icon
   and no token list.
 - **Live position cards:** each position's own fees since it opened, claimed or not.
-  - On Katana, that is the position's own Merkl KAT.
+  - On Katana, that is its own Merkl KAT plus owner trading fees when unstaked.
+    The 14 Nov fee transition uses optional `fee_accounting_version:1` on current/new
+    positions. Replay ownership and collections once, subtract withdrawn principal,
+    exclude collections while staked and keep owner collections in `trading_claims`.
+    This list must never enter Merkl claim matching or reward rollover. Old closed
+    and frozen records remain unchanged; keep `BOOK_VERSION` at 9. A non-stable pair
+    can use its same-block pool ratio and a verified KAT/ETH/BTC USD anchor; repair an
+    unpriced deposit only with its original amounts and its original block's prices.
   - Alex's Katana rollover rule (updated 30 Oct 2026): when a Katana LP closes, its unclaimed
     KAT follows a verified replacement in the **same wallet, with any token pair**,
     including KAT inherited from earlier LPs. Match the latest eligible mint within the
@@ -376,6 +387,20 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Strategy (Alex, 1 Nov 2026)
 
+**Superseded for the public page on 14 Nov 2026:** KAT LP emissions have ended.
+Show USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC, with each funded
+Sushi V3 fee tier separately. `FEE_POOLS` is verified against the factory; the hourly
+writer now follows that catalog without requiring active reward campaigns. Keep the
+range, daily earnings and hedge tools. Sort volume, LP fees and APR numerically in
+either direction while retaining open inputs. Volume is complete 24-hour Swap inputs,
+counted once and marked at current reference quotes; LP fees use the observed protocol
+split. APR annualises those fees over current TVL. Daily range income remains a
+conditional seven-day fee-growth estimate with a rolling seven-day comparison. A
+verified empty pool can show zero observed activity but cannot offer a live income
+or hedge estimate. avKAT hedges use KAT exposure at the observed conversion ratio and
+must state that avKAT/KAT ratio risk remains. Legacy emission readers below remain for
+historical integrations; do not restore their page sections.
+
 Alex's spec: a page that uses the Katana MCP as its primary source (other sources where
 appropriate) to show the current epoch number, the KAT allocated to it, KAT a day and its
 start and end dates; then every pool whose **staked** LPs earn KAT emissions, sorted by APR,
@@ -456,6 +481,15 @@ the end of the epoch's rewards. Built locally on 1 Nov 2026, not pushed.
 
 ### KAT Trades (Alex, 1 Nov 2026)
 
+**Owner-requested reset, 14 Nov 2026:** the active v2 book starts at block 47,890,384,
+13:13:15 MYT (`kat-tracking-config.mjs`). Its actual opening wallet dust is recorded
+for reconciliation, not as a synthetic purchase. The previous v1 book is preserved
+at `docs/archive/kat-trades-before-2026-11-14.json`. Active trades require a successful
+receipt with a supported Swap event and KAT movement through its emitter; opposing
+wallet transfers alone are insufficient. Claims, LP/lending/staking movements and
+pre-reset transactions must not become trades. Browser cache, API and scheduled writer
+share the reset. The original 27 Oct decision below describes only the archived book.
+
 Alex's spec: a page for KAT trading P&L with the KAT price, average buy price, unrealised and
 realised P&L, a line chart of unrealised and realised, and a trade history table (cost basis,
 units bought or sold, fees). He chose to **start on 27 Oct 2026 at 16:02 MYT** (block 46,345,344,
@@ -513,6 +547,15 @@ the first buy after the 26 Oct sales) over 12 Oct, after seeing a month of his h
   $0.12 in all.
 
 ### vKAT Votes (Alex, 1 Nov 2026)
+
+**Public interface superseded on 14 Nov 2026:** rename the page **vKAT/avKAT** and make
+it the main KAT destination. Keep the network row. Show only personal vKAT and avKAT
+holding cards below it, without epoch, gauge vote, reward, history or APR sections.
+Personal vKAT is the tracked wallets' wallet-held locks; personal avKAT is wallet
+balances plus configured Morpho avKAT collateral. These are gross token holdings;
+debt remains on Lending and LP exposure on LP Book. Read holdings/prices at one pinned
+block; incomplete reads retain dated browser values and never prove a zero. The older
+API/vote ledger and job stay available for existing backend integrations.
 
 Alex's spec: a page about his vKAT vote: on top the total vKAT, the number of votes, the total
 reward and the average APY (shown as APR since 1 Nov, his choice); a line chart of total reward against epoch with each epoch's
@@ -1168,6 +1211,17 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **14 Nov 2026, dashboard refresh, explicit push requested:** repair current Katana
+  non-stable LP valuation and original deposit pricing; account for owner fees on
+  unstaked positions without changing closed books or KAT rollover. Hide every theme
+  switch, retaining both themes and saved preference. Move Strategy to the requested
+  five fee pairs with sorting, daily estimates and hedges; make vKAT/avKAT the main
+  holdings destination; archive/reset KAT trades and require swap receipt evidence.
+  Cache 166; Vercel duration ceilings for the changed financial endpoints are 60 s.
+  No new key, paid service, D1 migration, wallet permission or model change. See
+  `docs/DASHBOARD-2026-11-14.md` for the progress checklist, measured chain evidence,
+  regression results and production-only verification limits.
 
 - **9 Nov 2026, autonomous weekly follow-up:** owner asks the agent to review
   itself and send one weekly account of lessons/improvements, without Telegram

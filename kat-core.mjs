@@ -1,3 +1,4 @@
+import {KAT_BOOK_VERSION,KAT_TRACKING_START,KAT_OPENING_RAW} from './kat-tracking-config.mjs';
 /* ============================================================================
    kat-core.mjs: the KAT trading book. Pure maths shared by the KAT page, its API
    (api/kat-trades.mjs) and the six-hourly job (scripts/kat-trades.mjs). No network:
@@ -15,7 +16,8 @@
    Transfers with a lending, staking or reward contract are never trades: borrowing or
    repaying KAT, avKAT deposits, Merkl claims and LPs stay off this page.
 
-   The book is average cost, long only, from 27 Oct 2026 16:02 MYT (Alex's choice, 1 Nov).
+   The active average-cost book restarts at the owner-requested, verified 14 Nov
+   2026 block. The previous book is archived separately and cannot enter this one.
    ========================================================================== */
 
 export const CHAIN = 747474;
@@ -24,8 +26,8 @@ export const KAT_DECIMALS = 18;
 export const KAT_POOL = '0x10045367e619caae6f60cc80046c43c6cd55f629';   /* Sushi KAT/vbUSDC 0.05%: vbUSDC token0 (6), KAT token1 (18) */
 export const ETH_POOL = '0x2a2c512beaa8eb15495726c235472d82effb7a6b';   /* vbUSDC token0 (6), vbETH token1 (18): prices the gas */
 export const WALLETS = ['0xb378207ab46aa2105eb1cb94ae8a5bab57316de1', '0x4da1d0d5f7b123364d7580f19b716de2ed4e9770'];
-/* the first buy after the 26 Oct sales: 25 vbUSDC for 5,978.85 KAT, 27 Oct 2026 16:02:35 MYT */
-export const START = { block: 46345344, ts: 1793088155 };
+/* The same verified reset is shared by the browser, API and scheduled writer. */
+export const START = KAT_TRACKING_START;
 export const STABLES = {
   '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36': { symbol: 'vbUSDC', decimals: 6 },
   '0x2dca96907fde857dd3d816880a0df407eeb2d2f2': { symbol: 'vbUSDT', decimals: 6 },
@@ -39,6 +41,9 @@ export const NOT_TRADES = new Set([
   '0x3ef3d8ba38ebe18db133cec108f4d14ce00dd9ae',   /* Merkl distributor */
   '0x2659c6085d26144117d904c46b48b6d180393d27',   /* Sushi V3 positions (NPM) */
   '0xbe12e1b5c4859a3d141412748279b67458f729e9',   /* Sushi LP staker */
+  '0x4d6fc15ca6258b168225d283262743c623c13ead',   /* vKAT escrow */
+  '0x106f7d67ea25cb9eff5064cf604ebf6259ff296d',   /* vKAT NFT */
+  '0x6de9caab658c744ad337ca5d92d084c97fff578d',   /* vKAT exit queue */
 ]);
 /* where the swap routes he uses take their cut, read off his Oct 2026 trades */
 export const FEE_TAKERS = {
@@ -126,13 +131,29 @@ function feesOf(receipts, katUsd, ethUsd, own) {
 const sumLegs = (legs, pick) => legs.filter(pick).reduce((s, l) => s + l.amount, 0);
 const isStable = (token) => !!STABLES[token];
 
+/* Opposing transfers alone can be a claim, refund or liquidity action. New
+   books require a successful receipt with a real KAT transfer through a pool
+   which emitted a supported swap event in that same transaction. */
+const SWAP_EVENTS=new Set([
+ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67',
+ '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822',
+ '0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f',
+]);
+export function hasKatSwap(receipt){
+ if(receipt?.status!=='0x1')return false;
+ const emitters=new Set((receipt.logs||[]).filter(l=>SWAP_EVENTS.has(l.topics?.[0])).map(l=>lc(l.address)));
+ return (receipt.logs||[]).map(rawTransfer).filter(Boolean).some(t=>t.token===KAT&&(emitters.has(t.from)||emitters.has(t.to)));
+}
+
 /* Walk the wallets' transactions in chain order and add what they trade to the book.
    state = { trades, pending }; getReceipt(hash) reads a receipt; ethUsd prices the gas. The
    deposits still waiting to be paid back carry over to the next run in state.pending. */
 export async function scanTrades(state, txs, { getReceipt, ethUsd }) {
+  const strict=state.version>=2;
   const trades = [...(state.trades || [])], pending = [...(state.pending || [])].map((p) => ({ ...p }));
   const known = new Set(trades.flatMap((t) => [t.hash, t.deposit_hash].filter(Boolean)));
   for (const tx of txs) {
+    if(state.start&&(tx.block<state.start.block||tx.ts<state.start.ts))continue;
     if (known.has(tx.hash)) continue;
     const legs = tx.legs.filter((l) => !NOT_TRADES.has(l.counterparty));
     if (!legs.length) continue;
@@ -142,9 +163,10 @@ export async function scanTrades(state, txs, { getReceipt, ethUsd }) {
     /* one transaction: KAT one way, a stablecoin the other */
     if ((kat > 0 && usd < 0) || (kat < 0 && usd > 0)) {
       const rc = await getReceipt(tx.hash);
+      if(strict&&!hasKatSwap(rc))continue;
       const side = kat > 0 ? 'buy' : 'sell', k = Math.abs(kat), u = Math.abs(usd);
       trades.push({ hash: tx.hash, deposit_hash: null, block: tx.block, ts: tx.ts, side, kat: k, usd: u,
-        token: STABLES[stableToken].symbol, route: 'swap', fees: feesOf([rc], u / k, ethUsd, [rc]) });
+        token: STABLES[stableToken].symbol, route: 'swap', ...(strict?{swap_verified:true}:{}), fees: feesOf([rc], u / k, ethUsd, [rc]) });
       known.add(tx.hash);
       continue;
     }
@@ -168,6 +190,7 @@ export async function scanTrades(state, txs, { getReceipt, ethUsd }) {
       const waiting = pending.filter((p) => (gotKat ? isStable(p.token) : p.token === KAT) && tx.ts >= p.ts && tx.ts - p.ts <= PENDING_SECONDS);
       if (!waiting.length) continue;
       const rc = await getReceipt(tx.hash);
+      if(strict&&!hasKatSwap(rc))continue;
       const sent = new Map();
       for (const t of (rc.logs || []).map(rawTransfer).filter(Boolean)) sent.set(t.from + t.token, (sent.get(t.from + t.token) || 0n) + BigInt(t.raw));
       const p = waiting.find((w) => {
@@ -182,7 +205,7 @@ export async function scanTrades(state, txs, { getReceipt, ethUsd }) {
       const side = gotKat ? 'buy' : 'sell';
       const k = gotKat ? received : p.amount, u = gotKat ? p.amount : received;
       trades.push({ hash: tx.hash, deposit_hash: p.hash, block: tx.block, ts: tx.ts, side, kat: k, usd: u,
-        token: STABLES[gotKat ? p.token : got.find((l) => isStable(l.token)).token].symbol, route: 'deposit',
+        token: STABLES[gotKat ? p.token : got.find((l) => isStable(l.token)).token].symbol, route: 'deposit', ...(strict?{swap_verified:true}:{}),
         fees: feesOf([rc], u / k, ethUsd, [own]) });
       pending.splice(pending.indexOf(p), 1);
       known.add(tx.hash);
@@ -333,13 +356,13 @@ export function pnlSeries(trades, hours, { now, priceUsd }) {
 }
 
 /* the ledger file the job keeps, checked before anything is added to it */
-export const emptyBook = () => ({ version: 1, chain: CHAIN, start: { ...START }, last_block: START.block - 1, last_ts: START.ts, start_kat: 0, flows: noFlows(), trades: [], pending: [], hours: [] });
+export const emptyBook = () => ({ version: KAT_BOOK_VERSION, chain: CHAIN, start: { ...START }, last_block: START.block - 1, last_ts: START.ts, start_kat: Number(KAT_OPENING_RAW)/1e18, flows: noFlows(), trades: [], pending: [], hours: [] });
 
 export function validateBook(f) {
   const fail = (why) => { throw new Error('Invalid KAT trades file: ' + why + '. Existing file was not changed.'); };
   const num = (v) => typeof v === 'number' && Number.isFinite(v);
   if (!f || typeof f !== 'object' || Array.isArray(f)) fail('expected an object');
-  if (f.version !== 1 || f.chain !== CHAIN) fail('unsupported version or chain');
+  if (f.version !== KAT_BOOK_VERSION || f.chain !== CHAIN) fail('unsupported version or chain');
   if (!f.start || f.start.block !== START.block || f.start.ts !== START.ts) fail('the start moved');
   if (!Number.isSafeInteger(f.last_block) || f.last_block < START.block - 1 || !Number.isSafeInteger(f.last_ts)) fail('bad last block');
   if (!Array.isArray(f.trades) || !Array.isArray(f.pending) || !Array.isArray(f.hours)) fail('trades, pending and hours must be lists');
@@ -347,7 +370,7 @@ export function validateBook(f) {
   const hashes = new Set();
   for (const t of f.trades) {
     if (!t || !/^0x[0-9a-f]{64}$/.test(t.hash) || hashes.has(t.hash) || !['buy', 'sell'].includes(t.side) || !(t.kat > 0) || !(t.usd > 0)
-      || !Number.isSafeInteger(t.block) || t.block < START.block || !Number.isSafeInteger(t.ts) || !t.fees || !num(t.fees.usd)) fail('bad trade ' + (t && t.hash));
+      || t.swap_verified!==true || !Number.isSafeInteger(t.block) || t.block < START.block || !Number.isSafeInteger(t.ts) || !t.fees || !num(t.fees.usd)) fail('bad trade ' + (t && t.hash));
     hashes.add(t.hash);
   }
   for (const p of f.pending) if (!p || !/^0x[0-9a-f]{40}$/.test(p.to) || !(p.amount > 0) || !Number.isSafeInteger(p.ts) || !/^0x[0-9a-f]{64}$/.test(p.hash)) fail('bad pending deposit');

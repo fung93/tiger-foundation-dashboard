@@ -31,6 +31,7 @@ function position(id, overrides = {}) {
     opened_ts: opened, opened_block: 1, cost_usd: 900,
     deposits: [{ ts: opened, block: 1, a0: .005, a1: 500, usd: 900 }],
     out_usd: 0, withdrawals: [], fees: {}, start_uncollected: {}, start_merkl: {},
+    fee_accounting_version:1,fees_mine:false,trading_claims:[],
     merkl: {}, claimed_seen: {}, claims: [], ...overrides };
 }
 function opened(id, ts, overrides = {}) {

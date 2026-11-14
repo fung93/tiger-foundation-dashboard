@@ -331,7 +331,7 @@ eq(edgeOutcome(btc, fresh.range, 0, 1000), null, 'no liquidity, nothing to show'
   ok(wider.usdPerDay < e.usdPerDay, 'a wider range earns less per dollar');
   const outside = estimateFees(pool, { capitalUsd: 1000, lowerPrice: katUsd * 1.1, upperPrice: katUsd * 1.2, startTs: now }, ctx);
   eq([outside.inRange, outside.share, outside.usdPerDay], [false, 0, 0], 'out of range it earns nothing');
-  eq(estimateFees({ ...kp, fees: null }, { capitalUsd: 1000, lowerPrice: lo, upperPrice: hi }, ctx).error, 'This pool\'s fees could not be read this time.', 'unread fees are said, not zero');
+  eq(estimateFees({ ...kp, fees: null }, { capitalUsd: 1000, lowerPrice: lo, upperPrice: hi }, ctx).error, 'This pool\'s fee history could not be verified this time.', 'unread fees are said, not zero');
 
   /* the same hedge, on KAT-USD: KAT is the volatile token, vbUSDC the dollar */
   const perps = { withdraw_fee: 0.05,

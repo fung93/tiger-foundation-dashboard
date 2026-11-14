@@ -13,6 +13,7 @@
    ========================================================================== */
 
 import '../rpc-reader.js';
+import {KATANA_ASSETS,KATANA_USD_POOLS} from './_katana-config.mjs';
 import { attributedAprBaseline, prepareBookRewards, registerKatanaRollovers, anchorRewardRollovers } from './_reward-attribution.mjs';
 export { attributeMerklRewards, prepareBookRewards, REWARD_ATTRIBUTION_VERSION } from './_reward-attribution.mjs';
 
@@ -429,13 +430,21 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
     if (p.pool === '0x' + '0'.repeat(40)) throw new Error('Position pool is unavailable');
   });
 
+  const needsBridge=live.some(p=>!meta[p.token0].stable&&!meta[p.token1].stable);
+  const valuationBlock=needsBridge?Number(BigInt(await rpc(ch.rpc,'eth_blockNumber',[]))):null;
   const slotRes = await multi(ch.rpc, live.flatMap((p) => p.pool ? [
     { to: p.pool, data: '0x3850c7bd' },                      /* slot0 */
     { to: p.pool, data: '0xf3058399' },                      /* feeGrowthGlobal0 */
     { to: p.pool, data: '0x46141319' },                      /* feeGrowthGlobal1 */
     { to: p.pool, data: '0xf30dba93' + enc24(p.lo) },        /* ticks(lower) */
     { to: p.pool, data: '0xf30dba93' + enc24(p.hi) },        /* ticks(upper) */
-  ] : []));
+  ] : []),valuationBlock===null?'latest':hx(valuationBlock));
+  const dollarPrices=await Promise.all(live.map(async(p,j)=>{
+    if(meta[p.token0].stable||meta[p.token1].stable)return null;
+    try{return await pairDollarPrices(ch,{t0:tkey(meta[p.token0].s,ch.key),t1:tkey(meta[p.token1].s,ch.key),a0:p.token0,a1:p.token1,
+      d0:meta[p.token0].d,d1:meta[p.token1].d,stable0:false,stable1:false},Number(toBig(w(requiredRead(slotRes[j*5],2,'pool price'),0)))/2**96,valuationBlock);}
+    catch{return null;}
+  }));
 
   /* The entry price: from archive state where the ledger says when it opened, otherwise
      from the mint's own numbers. The book keeps its own costs and does not need either. */
@@ -478,6 +487,7 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
       pending: !p.ledger && !(entry[j] && entry[j].usd),
       staked: p.staked, feesMine: !p.staked,
       T0, T1, lo: p.lo, hi: p.hi, sqrtP, sqrtEntry: entry[j] && entry[j].sqrt, liq: p.liq,
+      dollarPrices:dollarPrices[j],
       a0: a0 / 10 ** T0.d, a1: a1 / 10 ** T1.d,
       fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d,
       inUsd: L.open_value_usd !== undefined ? L.open_value_usd : (entry[j] && entry[j].usd),
@@ -491,6 +501,7 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
       t0: { s: T0.s, d: T0.d, stable: T0.stable, a: p.token0 },
       t1: { s: T1.s, d: T1.d, stable: T1.stable, a: p.token1 },
       fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d,
+      ...(dollarPrices[j]?{prices:dollarPrices[j],valuation_block:valuationBlock}:{}),
     };
     out.push(row);
   });
@@ -563,8 +574,9 @@ function shape(p) {
   const upper = invert ? 1 / raw[0] : raw[1];
   const base = invert ? T1.s : T0.s, quote = invert ? T0.s : T1.s;
 
-  const priced = !!(T0.stable || T1.stable);
-  const usd = (x0, x1) => (T1.stable ? x0 * px + x1 : x1 / px + x0);
+  const bridge=p.dollarPrices,bridge0=bridge?.[tkey(T0.s,p.chain)],bridge1=bridge?.[tkey(T1.s,p.chain)];
+  const priced = !!(T0.stable || T1.stable||bridge0>0&&bridge1>0);
+  const usd = (x0, x1) => (T1.stable ? x0 * px + x1 : T0.stable?x1 / px + x0:x0*bridge0+x1*bridge1);
   const liq = priced ? usd(p.a0, p.a1) : null;
   const fees = priced ? usd(p.fee0, p.fee1) : null;
   /* Uncollected fees are part of what the position is worth only when they are his. */
@@ -579,7 +591,7 @@ function shape(p) {
      than assumed: priced at the entry price the reconstructed amounts must come back to
      what went in. */
   let market = null, il = null, hodl = null, entryValue = null, exact = false;
-  if (priced && value !== null && p.sqrtEntry) {
+  if ((T0.stable||T1.stable) && value !== null && p.sqrtEntry) {
     const pxEntry = poolPrice(p.sqrtEntry, T0.d, T1.d);
     const e = v3Amounts(p.liq, p.lo, p.hi, p.sqrtEntry);
     const i0 = e[0] / 10 ** T0.d, i1 = e[1] / 10 ** T1.d;
@@ -798,6 +810,7 @@ export async function sqrtAt(ch, pool, block) {
 export function rowPrices(row) {
   const R = row && row.raw;
   if (!R) return {};
+  if(R.prices&&Object.values(R.prices).every(v=>Number.isFinite(v)&&v>0))return {...R.prices};
   return legPrices({ t0: tkey(R.t0.s, row.chain), t1: tkey(R.t1.s, row.chain), d0: R.t0.d, d1: R.t1.d,
     stable0: R.t0.stable, stable1: R.t1.stable }, Number(BigInt(R.sqrt)) / 2 ** 96);
 }
@@ -808,6 +821,23 @@ function legPrices(P, sp) {
   if (P.stable0 && P.stable1) return { [P.t0]: 1, [P.t1]: 1 };
   if (P.stable1) return { [P.t0]: px, [P.t1]: 1 };
   if (P.stable0) return { [P.t0]: 1, [P.t1]: 1 / px };
+  return {};
+}
+
+export async function katanaAnchorPrice(address,block='latest'){
+  const asset=Object.values(KATANA_ASSETS).find(t=>t.address===lc(address)),pool=KATANA_USD_POOLS[lc(address)];
+  if(!asset||!pool)return null;
+  const tag=block==='latest'?'latest':hx(block),raw=requiredRead({ok:true,data:await rpc(CFG.katRpc,'eth_call',[{to:pool,data:'0x3850c7bd'},tag])},2,'Katana dollar quote');
+  const sp=Number(toBig(w(raw,0)))/2**96,assetFirst=asset.address<KATANA_ASSETS.USDC.address,
+    ratio=sp*sp*10**(assetFirst?asset.decimals-6:6-asset.decimals),price=assetFirst?ratio:1/ratio;
+  if(!(price>0)||!Number.isFinite(price))throw Error('Katana dollar quote is unavailable');return price;
+}
+export async function pairDollarPrices(ch,P,sp,block='latest'){
+  const direct=legPrices(P,sp);if(Object.keys(direct).length)return direct;
+  if(ch.key!=='katana')return {};
+  const px=sp*sp*10**(P.d0-P.d1);if(!(px>0))return {};
+  if(KATANA_USD_POOLS[lc(P.a1)]){const anchor=await katanaAnchorPrice(P.a1,block);return {[P.t0]:px*anchor,[P.t1]:anchor};}
+  if(KATANA_USD_POOLS[lc(P.a0)]){const anchor=await katanaAnchorPrice(P.a0,block);return {[P.t0]:anchor,[P.t1]:anchor/px};}
   return {};
 }
 
@@ -824,7 +854,7 @@ async function valueRaw(ch, P, L, r0, r1, block) {
     sp = await sqrtAt(ch, P.pool, block);
     if (!sp) return { usd: null, sp: null };
   }
-  const p = legPrices(P, sp);
+  const p = await pairDollarPrices(ch,P,sp,block);
   if (p[P.t0] === undefined) return { usd: null, sp };
   return { usd: x0 * p[P.t0] + x1 * p[P.t1], sp };
 }
@@ -838,6 +868,7 @@ function registerToken(book, chain, meta, pool, other) {
     chain, a: meta.a, s: meta.s, d: meta.d, stable: meta.stable,
     pool: meta.stable ? null : (other && other.stable ? pool : null),
     other: other ? { a: other.a, d: other.d } : null,
+    ...(chain==='katana'&&!meta.stable&&other&&KATANA_USD_POOLS[other.a]?{quote_pool:pool}:{}),
   };
   return k;
 }
@@ -880,6 +911,9 @@ export async function livePrices(book, extra) {
       for (const [k, e] of list) { const v = priceFromSqrt(e, sp[at(e)]); if (v) out[k] = v; }
     } catch { /* a chain that cannot be read leaves its tokens unpriced, and the page says so */ }
   }));
+  for(const [k,e]of Object.entries(book.tokens||{}))if(!out[k]&&e.chain==='katana'&&e.quote_pool){
+    try{const value=await quotedTokenPrice(e,'latest');if(value>0)out[k]=value;}catch{/* Retain an explicit missing quote. */}
+  }
   /* a reward token with no pool of its own still has the price Merkl quotes for it */
   for (const [k, v] of Object.entries(extra || {})) if (out[k] === undefined && v) out[k] = v;
   return out;
@@ -889,9 +923,15 @@ export async function priceAtBlock(book, key, block) {
   if (!e) return null;
   if (e.stable) return 1;
   if (e.v4) return priceFromSqrt(e, await sqrtAtV4(chainOf(e.chain), e.v4.pool_id, block));
-  if (!e.pool) return null;
+  if (!e.pool) return e.quote_pool?quotedTokenPrice(e,block):null;
   const sp = await sqrtAt(chainOf(e.chain), e.pool, block);
   return priceFromSqrt(e, sp);
+}
+async function quotedTokenPrice(e,block){
+  const anchor=await katanaAnchorPrice(e.other?.a,block);if(!(anchor>0))return null;
+  const sp=await sqrtAt(chainOf(e.chain),e.quote_pool,block==='latest'?Number(BigInt(await rpc(CFG.katRpc,'eth_blockNumber',[]))):block);
+  if(!(sp>0))return null;const first=lc(e.a)<lc(e.other.a),ratio=sp*sp*10**(first?e.d-e.other.d:e.other.d-e.d);
+  return first?ratio*anchor:anchor/ratio;
 }
 
 /* What a position has earned since tracking started, as token amounts. A position that was
@@ -902,6 +942,7 @@ export function feeTokensOf(P, uncollectedNow) {
   if (ch.yield === 'merkl') {
     sumInto(out, P.merkl);
     sumInto(out, P.start_merkl, -1);
+    if(P.fee_accounting_version===1){sumInto(out,P.fees);if(P.status==='open')sumInto(out,uncollectedNow);sumInto(out,P.start_uncollected,-1);}
   } else {
     sumInto(out, P.fees);
     if (P.status === 'open' && uncollectedNow) sumInto(out, uncollectedNow);
@@ -910,7 +951,7 @@ export function feeTokensOf(P, uncollectedNow) {
   for (const k of Object.keys(out)) if (!(out[k] > 1e-12)) delete out[k];
   return out;
 }
-const uncollectedOf = (P, row) => row && row.raw
+const uncollectedOf = (P, row) => row && row.raw&&row.fees_mine!==false
   ? { [P.t0]: row.raw.fee0, [P.t1]: row.raw.fee1 } : null;
 
 /* A position, written into the book from what the chain says it is. */
@@ -919,6 +960,7 @@ function newPosition(chain, id, wallet, d, m0, m1, pool) {
     key: chain + ':' + id, chain, id: String(id), wallet: lc(wallet),
     pool, lo: d.lo, hi: d.hi, fee: d.fee,
     t0: tkey(m0.s, chain), t1: tkey(m1.s, chain),
+    a0:m0.a,a1:m1.a,
     s0: m0.s, s1: m1.s, d0: m0.d, d1: m1.d, stable0: m0.stable, stable1: m1.stable,
     pair: (m0.stable && !m1.stable) ? m1.s + ' / ' + m0.s : m0.s + ' / ' + m1.s,
     liq: '0', status: 'open', at_start: false,
@@ -926,6 +968,7 @@ function newPosition(chain, id, wallet, d, m0, m1, pool) {
     cost_usd: 0, deposits: [], out_usd: 0, withdrawals: [],
     owed: { r0: '0', r1: '0' },
     fees: {}, start_uncollected: {}, start_merkl: {}, merkl: {},
+    ...(chain==='katana'?{fee_accounting_version:1,fees_mine:true,trading_claims:[]}:{}),
     unpriced: false,
   };
 }
@@ -1011,10 +1054,9 @@ async function photograph(book, ch, wallets, { pos, data, merkl, ts }) {
     P.opened_block = head;
     P.cost_usd = row.liquidity_usd || 0;
     if (row.liquidity_usd === null) P.unpriced = true;
-    const sp = Number(BigInt(R.sqrt)) / 2 ** 96;
     const [x0, x1] = v3Amounts(BigInt(R.liq), R.lo, R.hi, BigInt(R.sqrt));
-    P.start = { a0: x0 / 10 ** P.d0, a1: x1 / 10 ** P.d1, prices: legPrices(P, sp), usd: r2(P.cost_usd) };
-    if (ch.yield === 'fees') P.start_uncollected = uncollectedOf(P, row);
+    P.start = { a0: x0 / 10 ** P.d0, a1: x1 / 10 ** P.d1, prices: rowPrices(row), usd: r2(P.cost_usd) };
+    if (ch.yield === 'fees'||ch.key==='katana'&&row.fees_mine) P.start_uncollected = uncollectedOf(P, row);
     if (ch.yield === 'merkl') P.start_merkl = { ...(((merkl || {}).earned_tokens_by_id || {})[row.id] || {}) };
     P.merkl = { ...(((merkl || {}).earned_tokens_by_id || {})[row.id] || {}) };
     book.positions[P.key] = P;
@@ -1227,6 +1269,9 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
   if (!watch.length) return;
   const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, fromBlock: hx(a), toBlock: hx(b),
     topics: [[INCREASE, DECREASE, COLLECT], watch.map((P) => '0x' + pad(BigInt(P.id).toString(16)))] }]);
+  const feeWatch=watch.filter(P=>P.fee_accounting_version===1);
+  if(ch.key==='katana'&&feeWatch.length)logs.push(...await rpc(ch.rpc,'eth_getLogs',[{address:ch.npm,fromBlock:hx(a),toBlock:hx(b),
+    topics:[TRANSFER,null,null,feeWatch.map(P=>'0x'+pad(BigInt(P.id).toString(16)))]}]));
   if (!logs.length) return;
   logs.sort((x, y) => (Number(toBig(x.blockNumber.slice(2))) - Number(toBig(y.blockNumber.slice(2))))
     || (Number(toBig(x.logIndex.slice(2))) - Number(toBig(y.logIndex.slice(2)))));
@@ -1235,11 +1280,12 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
 
   const closedNow = [];
   for (const l of logs) {
-    const P = book.positions[ch.key + ':' + String(toBig(l.topics[1].slice(2)))];
+    const P = book.positions[ch.key + ':' + String(toBig(l.topics[l.topics[0]===TRANSFER?3:1].slice(2)))];
     if (!P) continue;
     const block = Number(toBig(l.blockNumber.slice(2)));
     const ts = l.blockTimestamp && l.blockTimestamp !== '0x0' ? Number(BigInt(l.blockTimestamp)) : tsCache[block];
     const kind = l.topics[0];
+    if(kind===TRANSFER){if(l.topics[2]!==ZERO32)P.fees_mine=book.wallets.includes(lc(toAddr(l.topics[2].slice(2))));continue;}
     if (kind === INCREASE) {
       const L = toBig(w(l.data, 0)), r0 = toBig(w(l.data, 1)), r1 = toBig(w(l.data, 2));
       const v = await valueRaw(ch, P, L, r0, r1, block);
@@ -1268,19 +1314,20 @@ async function windowEvents(book, ch, a, b, merkl, tsCache) {
       const o0 = big0(P.owed.r0), o1 = big0(P.owed.r1);
       const p0 = c0 < o0 ? c0 : o0, p1 = c1 < o1 ? c1 : o1;
       P.owed = { r0: (o0 - p0).toString(), r1: (o1 - p1).toString() };
-      if (ch.yield === 'fees') {
+      if (ch.yield === 'fees'||P.fee_accounting_version===1&&P.fees_mine===true) {
         const f0 = Number(c0 - p0) / 10 ** P.d0, f1 = Number(c1 - p1) / 10 ** P.d1;
         sumInto(P.fees, { [P.t0]: f0, [P.t1]: f1 });
         /* a collection of fees is this position's claim: dated, at the pool's price of its block */
         if (f0 > 0 || f1 > 0) {
           const sp = await sqrtAt(ch, P.pool, block).catch(() => null);
-          const px = sp ? legPrices(P, sp) : {};
+          const px = sp ? await pairDollarPrices(ch,P,sp,block) : {};
           const tokens = {};
           if (f0 > 0) tokens[P.t0] = f0;
           if (f1 > 0) tokens[P.t1] = f1;
           let usd = 0, ok = true;
           for (const [k, a] of Object.entries(tokens)) { if (px[k] === undefined) ok = false; else usd += a * px[k]; }
-          (P.claims = P.claims || []).push({ ts, block, tokens, prices: px, usd: ok ? r2(usd) : null });
+          const key=ch.key==='katana'?'trading_claims':'claims';
+          (P[key] = P[key] || []).push({ ts, block, tokens, prices: px, usd: ok ? r2(usd) : null });
         }
       }
     }
@@ -1297,7 +1344,7 @@ async function freeze(book, ch, P, merkl) {
   let sp = P.close_sp || null;
   if (!sp && P.pool) sp = await sqrtAt(ch, P.pool, P.closed_block);
   if (!sp && P.pool_id) sp = await sqrtAtV4(ch, P.pool_id, P.closed_block);
-  const prices = sp ? legPrices(P, sp) : {};
+  const prices = sp ? await pairDollarPrices(ch,P,sp,P.closed_block) : {};
   for (const k of Object.keys(tokens)) {
     if (prices[k] === undefined) {
       const v = await priceAtBlock(book, k, P.closed_block);
@@ -1320,6 +1367,56 @@ async function freeze(book, ch, P, merkl) {
     prices: prices,
     incomplete: !!(P.unpriced || unpricedFee) || undefined,
   };
+}
+
+/* Replay only open Katana positions when introducing owner trading fees. Older
+   closed/frozen records and the reward attribution ledger remain unchanged. */
+export function replayKatanaFeeHistory(P,logs,wallets){
+  const fees={},claims=[];let mine=true,owed0=0n,owed1=0n;
+  for(const l of [...logs].sort((a,b)=>Number(BigInt(a.blockNumber)-BigInt(b.blockNumber))||Number(BigInt(a.logIndex)-BigInt(b.logIndex)))){
+    const type=l.topics[0],id=BigInt(l.topics[type===TRANSFER?3:1]).toString();if(id!==String(P.id))continue;
+    if(type===TRANSFER){if(l.topics[2]!==ZERO32)mine=wallets.includes(lc(toAddr(l.topics[2].slice(2))));continue;}
+    if(type===DECREASE){owed0+=toBig(w(l.data,1));owed1+=toBig(w(l.data,2));continue;}
+    if(type!==COLLECT)continue;
+    const c0=toBig(w(l.data,1)),c1=toBig(w(l.data,2)),p0=c0<owed0?c0:owed0,p1=c1<owed1?c1:owed1;
+    owed0-=p0;owed1-=p1;
+    if(!mine)continue;
+    const f0=Number(c0-p0)/10**P.d0,f1=Number(c1-p1)/10**P.d1,tokens={};if(f0>0)tokens[P.t0]=f0;if(f1>0)tokens[P.t1]=f1;
+    if(Object.keys(tokens).length){sumInto(fees,tokens);claims.push({block:Number(BigInt(l.blockNumber)),
+      ts:l.blockTimestamp?Number(BigInt(l.blockTimestamp)):null,tokens,transactionHash:l.transactionHash});}
+  }
+  return {fees,claims,feesMine:mine};
+}
+export async function repairKatanaOpenPositions(book,ch){
+  const open=Object.values(book.positions).filter(P=>P.chain==='katana'&&P.status==='open'&&Number.isSafeInteger(P.opened_block));
+  const upgrade=open.filter(P=>P.fee_accounting_version!==1),at=book.last_block.katana;
+  let logs=[];
+  if(upgrade.length){const from=Math.min(...upgrade.map(P=>P.opened_block)),ids=upgrade.map(P=>'0x'+pad(BigInt(P.id).toString(16)));
+    logs.push(...await rpc(ch.rpc,'eth_getLogs',[{address:ch.npm,fromBlock:hx(from),toBlock:hx(at),topics:[[DECREASE,COLLECT],ids]}]),
+      ...await rpc(ch.rpc,'eth_getLogs',[{address:ch.npm,fromBlock:hx(from),toBlock:hx(at),topics:[TRANSFER,null,null,ids]}]));
+  }
+  for(const P of open){
+    const a=book.tokens[P.t0],b=book.tokens[P.t1];
+    if(a?.a&&b?.a){P.a0=a.a;P.a1=b.a;registerToken(book,ch.key,a,P.pool,b);registerToken(book,ch.key,b,P.pool,a);}
+    if(P.unpriced&&!P.stable0&&!P.stable1){
+      for(const row of [...P.deposits,...P.withdrawals])if(row.usd===null){
+        const sp=await sqrtAt(ch,P.pool,row.block),px=sp?await pairDollarPrices(ch,P,sp,row.block):{};
+        if(px[P.t0]>0&&px[P.t1]>0)row.usd=r2(row.a0*px[P.t0]+row.a1*px[P.t1]);
+      }
+      if([...P.deposits,...P.withdrawals].every(row=>Number.isFinite(row.usd))){
+        P.cost_usd=r2(P.deposits.reduce((sum,row)=>sum+row.usd,0));P.out_usd=r2(P.withdrawals.reduce((sum,row)=>sum+row.usd,0));P.unpriced=false;
+        P.pricing_repair={basis:'Original event amounts at their original blocks, anchored through a verified Katana USD pool.',at_block:at};
+      }
+    }
+    if(P.fee_accounting_version===1)continue;
+    const history=replayKatanaFeeHistory(P,logs,book.wallets);
+    for(const c of history.claims){if(!c.ts){const block=await rpc(ch.rpc,'eth_getBlockByNumber',[hx(c.block),false]);c.ts=Number(BigInt(block.timestamp));}
+      const sp=await sqrtAt(ch,P.pool,c.block),px=sp?await pairDollarPrices(ch,P,sp,c.block):{};c.prices=px;
+      c.usd=Object.entries(c.tokens).every(([k])=>Number.isFinite(px[k]))?r2(Object.entries(c.tokens).reduce((sum,[k,n])=>sum+n*px[k],0)):null;
+    }
+    P.fees=history.fees;P.trading_claims=history.claims;P.fees_mine=history.feesMine;P.fee_accounting_version=1;
+    P.fee_accounting_since=Math.floor(Date.now()/1000);
+  }
 }
 
 /* ---------- move the book forward to the head of every chain ----------
@@ -1354,6 +1451,7 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ra
   for (const ch of V3) {
     const before = JSON.stringify(book);
     try {
+      if(ch.key==='katana')await repairKatanaOpenPositions(book,ch);
       const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
       let from = (book.last_block[ch.key] || head) + 1;
       const tsCache = {};
@@ -1468,6 +1566,7 @@ export function feeTotals(book, rows) {
   const total = carriedTokens(book);
   for (const P of Object.values(book.positions)) {
     if (!isMerkl(P.chain)) sumInto(total, feeTokensOf(P, uncollectedOf(P, (rows || {})[P.key])));
+    else if(P.fee_accounting_version===1)sumInto(total,P.fees);
   }
   sumInto(total, book.merkl_claimed || {});
   return total;
@@ -1562,6 +1661,11 @@ function livePerformanceTokens(P, row, merkl) {
       return { reason: 'The last saved rewards have no matching fresh per-position reading.' };
     source = Object.hasOwn(fresh, P.id) ? fresh[P.id] : {};
     initial = P.start_merkl || {};
+    if(P.fee_accounting_version===1){
+      if(!validTokenAmounts(P.fees)||!row.raw||![row.raw.fee0,row.raw.fee1].every(n=>Number.isFinite(n)&&n>=0))
+        return {reason:'The owner trading-fee reading is incomplete.'};
+      source=sumInto({...source},P.fees);sumInto(source,uncollectedOf(P,row));initial=sumInto({...initial},P.start_uncollected);
+    }
   } else {
     if (!validTokenAmounts(P.fees) || !row.raw || !Number.isFinite(row.raw.fee0) || row.raw.fee0 < 0
       || !Number.isFinite(row.raw.fee1) || row.raw.fee1 < 0)
@@ -1626,6 +1730,7 @@ function positionApr(book, P, cashflows, tokensNow, prices, now) {
   // chain is unavailable; aggregate fee/PnL history still requires every chain.
   const independent = (book.apr_series || []).filter((p) => p.pos && Object.hasOwn(p.pos, P.key));
   const candidates = [...(book.fee_series || []), ...independent].filter((p) => Number.isFinite(p.ts)
+    &&(!P.fee_accounting_since||p.ts>=P.fee_accounting_since)
     && p.ts >= cashflows.latest && now - p.ts >= 3 * 3600 && now - p.ts <= 26 * 3600)
     .sort((x, y) => x.ts - y.ts);
   const base = candidates.find((p) => p.pos && Object.hasOwn(p.pos, P.key));
@@ -1761,9 +1866,10 @@ function attributeClaims(book, merkl) {
     }
   }
 }
+export const positionClaims=P=>[...(P.claims||[]),...(P.trading_claims||[])];
 const claimedTokensOf = (P) => {
   const out = {};
-  for (const c of P.claims || []) sumInto(out, c.tokens);
+  for (const c of positionClaims(P)) sumInto(out, c.tokens);
   return out;
 };
 
@@ -1826,7 +1932,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     const got = claimedTokensOf(P);
     sumInto(feeTokens, got);
     C.fees_usd += usdOf(got).usd;
-    for (const c of P.claims || []) for (const [k, a] of Object.entries(c.tokens)) {
+    for (const c of positionClaims(P)) for (const [k, a] of Object.entries(c.tokens)) {
       claimList.push({ ts: c.ts, chain: P.chain, pair: P.pair, token: sym(k), amount: a,
         wallet_address: lc(P.wallet), position_id: String(P.id), contract: P.kind === 'fables' ? FABLES.ramp : chainOf(P.chain)?.npm || null,
         usd_now: prices[k] === undefined ? null : r2(a * prices[k]) });
@@ -1912,7 +2018,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   const start = open.length ? Math.min(...open.map((P) => P.opened_ts || nowTs)) : nowTs;
   const claimedAt = (t) => {
     const tok = {};
-    for (const P of open) for (const c of P.claims || []) if (c.ts <= t) sumInto(tok, c.tokens);
+    for (const P of open) for (const c of positionClaims(P)) if (c.ts <= t) sumInto(tok, c.tokens);
     return usdOf(tok).usd;
   };
   const pnlAt = (p) => {
@@ -1928,7 +2034,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
   };
   const marks = new Map();
   marks.set(start, 0);
-  for (const P of open) for (const c of P.claims || []) { marks.set(c.ts - 1, null); marks.set(c.ts, null); }
+  for (const P of open) for (const c of positionClaims(P)) { marks.set(c.ts - 1, null); marks.set(c.ts, null); }
   const points = {};
   for (const p of book.fee_series || []) if (p.ts > start && p.ts < nowTs) { marks.set(p.ts, null); points[p.ts] = p; }
   const series = [...marks.keys()].filter((t) => t >= start && t < nowTs).sort((x, y) => x - y).map((t) => {
@@ -1956,7 +2062,7 @@ export function bookView(book, { rows, prices, merkl, errors, behind }) {
     if (P.closed_ts) fixedEvents.push({ ts: P.closed_ts, position: P, pnl });
     let fees = 0, feeInc = false;
     const ftok = {};
-    for (const c of P.claims || []) {
+    for (const c of positionClaims(P)) {
       sumInto(ftok, c.tokens);
       if (c.usd === null || c.usd === undefined) feeInc = true; else { fees += c.usd; fixedEvents.push({ ts: c.ts, position: P, fees: c.usd }); }
     }

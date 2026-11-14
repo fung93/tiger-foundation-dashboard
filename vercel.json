@@ -1,5 +1,9 @@
 {
   "functions": {
+    "api/lpbook.mjs": { "maxDuration": 60 },
+    "api/strategy.mjs": { "maxDuration": 60 },
+    "api/vkat.mjs": { "maxDuration": 60 },
+    "api/kat-trades.mjs": { "maxDuration": 60 },
     "api/agent.mjs": { "maxDuration": 60 },
     "api/agent-telegram.mjs": { "maxDuration": 60 },
     "api/agent-monitor.mjs": { "maxDuration": 60 }

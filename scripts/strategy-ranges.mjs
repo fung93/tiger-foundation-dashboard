@@ -1,5 +1,5 @@
-/* Hourly low and high tick of every pool paying KAT to staked LPs, and of the pools without
-   KAT the page also shows (FEE_POOLS): strategy-ranges.json, for the Strategy page's
+/* Hourly low and high tick of the requested trading-fee pools (FEE_POOLS):
+   strategy-ranges.json, for the Strategy page's
    7D / 14D / 21D / 30D range buttons.
 
    Each run reads only the swaps since the last one; a pool seen for the first time gets its
@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CFG, rpc } from '../api/_core.mjs';
-import { readCampaigns, FEE_POOLS, swapLogs } from '../api/strategy.mjs';
+import { FEE_POOLS, swapLogs } from '../api/strategy.mjs';
 import { mergeSwapHours, pruneHours, swapFromLog, RANGE_KEEP_DAYS, HOUR } from '../strategy-core.mjs';
 
 export const RANGES_FILE = 'strategy-ranges.json';
@@ -72,7 +72,7 @@ export function formatRanges(f) {
 export async function updateStrategyRanges(root) {
   const path = join(root, RANGES_FILE);
   const file = existsSync(path) ? validateRanges(JSON.parse(readFileSync(path, 'utf8'))) : emptyRanges();
-  const pools = [...new Set([...(await readCampaigns(Math.floor(Date.now() / 1000))).map((p) => p.pool), ...FEE_POOLS.map((p) => p.pool)])];
+  const pools = [...new Set(FEE_POOLS.map((p) => p.pool))];
   const head = Number(BigInt(await rpc(CFG.katRpc, 'eth_blockNumber', [])));
   const [hb, ob] = await Promise.all([head, head - 1000000].map((n) => rpc(CFG.katRpc, 'eth_getBlockByNumber', ['0x' + n.toString(16), false])));
   const headTs = Number(BigInt(hb.timestamp));

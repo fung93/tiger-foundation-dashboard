@@ -1,7 +1,7 @@
-/* kat.js: lays out /api/kat-trades. The book (average cost from 27 Oct 2026), the P&L
+/* kat.js: lays out /api/kat-trades. The book (average cost from the 14 Nov reset), the P&L
    chart, the trade simulator and the trade table are worked out here with kat-core.mjs,
    from the trades and hourly prices the API returns. */
-import { replay, summary, pnlSeries, usdAtTick, simulate, reconcile } from './kat-core.mjs';
+import { replay, summary, pnlSeries, usdAtTick, simulate, reconcile, START } from './kat-core.mjs?v=166';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -19,7 +19,7 @@ const clockTime = (ts) => new Date(ts * 1000).toLocaleTimeString('en-GB', { time
 const nowS = () => Date.now() / 1000;
 const TX = 'https://explorer.katana.network/tx/';
 
-const KEY = 'tf_kat', POLL = 30000, FRESH = 75;
+const KEY = 'tf_kat_swaps_2026_11_14', POLL = 30000, FRESH = 75;
 let view = null, readAt = 0, lastOk = false, busy = false, failure = '', days = 7;   /* the chart opens on 7D (Alex, 1 Nov) */
 
 function renderOverview(s) {
@@ -40,7 +40,7 @@ function renderOverview(s) {
 }
 
 /* the "!" beside the average buy price: why the KAT held here differs from the wallets'.
-   Everything since 27 Oct that moved KAT and is not a trade, then the wallets now. */
+   Other movements since the reset reconcile the wallet without becoming trades. */
 function renderHeldInfo() {
   const tip = $('heldInfo').querySelector('.info-tip');
   if (!Number.isFinite(view.wallet_kat) || !view.flows) {
@@ -53,14 +53,10 @@ function renderHeldInfo() {
   tip.innerHTML = '<span class="info-title">KAT held here and in your wallets</span>'
     + `<span class="info-row"><span>Held on this page</span><span>${kat(r.held)}</span></span>`
     + row('Sold from outside this book', -r.outside)
-    + row('In the wallets before 27 Oct', r.start)
-    + row('Rewards claimed', r.rewards, true)
-    + row('Moved into avKAT', r.avkat, true)
-    + row('Morpho, borrowed or collateral', r.morpho)
-    + row('Locked in vKAT', r.vkat)
-    + row('Other (a sale in progress, a transfer, an LP)', r.other)
+    + row('In the wallets at the reset', r.start)
+    + row('Other wallet movements · excluded from trading', r.rewards+r.avkat+r.morpho+r.vkat+r.other, true)
     + `<span class="info-row total"><span>In your wallets now</span><span>${kat(r.wallet)}</span></span>`
-    + '<span class="info-foot">Since 27 Oct 16:02 MYT. Rewards and avKAT are not trades, so this page leaves them out.</span>';
+    + '<span class="info-foot">Since the 14 Nov reset. Rewards and avKAT are not trades, so this page leaves them out.</span>';
 }
 
 /* ---- the chart: one dollar axis, three lines, the trades marked on the total ---- */
@@ -259,7 +255,7 @@ $('simAdd').addEventListener('click', () => {
 function renderTrades(s) {
   const rows = replay(view.trades).rows.reverse();
   const body = $('trades').querySelector('tbody');
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="trades-empty">No trades since 27 Oct yet.</td></tr>'; $('tradesFoot').textContent = ''; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="trades-empty">No swaps since the 14 Nov reset yet.</td></tr>'; $('tradesFoot').textContent = ''; return; }
   body.innerHTML = rows.map((r) => {
     const pill = `<span class="side ${r.side}">${r.side === 'buy' ? 'Buy' : 'Sell'}</span>`;
     const parts = (r.fees.parts || []).map((p) => `${p.what}: ${fmt(p.amount, p.token === 'KAT' ? 4 : 6)} ${p.token} (${money(p.usd, 4)})`)
@@ -304,7 +300,7 @@ function render() {
   renderStamp();
 }
 
-const usable = (v) => v && Array.isArray(v.trades) && Array.isArray(v.hours) && v.price_usd > 0;
+const usable = (v) => v && Array.isArray(v.trades) && v.start?.block===START.block && Array.isArray(v.hours) && v.price_usd > 0;
 
 async function load(force) {
   if (busy || (!force && document.hidden)) return;

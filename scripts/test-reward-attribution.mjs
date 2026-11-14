@@ -45,6 +45,7 @@ function position(id, overrides = {}) {
     opened_ts: opened, opened_block: 1, cost_usd: 851.78,
     deposits: [{ ts: opened, block: 1, a0: .00355262, a1: 562.265331, usd: 851.78 }],
     out_usd: 0, withdrawals: [], fees: {}, start_uncollected: {}, start_merkl: {},
+    fee_accounting_version:1, fees_mine:false, trading_claims:[],
     merkl: { [KAT]: id === TARGET ? OWN : CUTOFF + CARRY }, claimed_seen: {}, claims: [],
     ...overrides };
 }
