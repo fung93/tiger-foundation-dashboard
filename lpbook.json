@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 47895127,
-  "robinhood": 113966827
+  "katana": 47922772,
+  "robinhood": 114213646
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -333,11 +333,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1794637939,
-    "block": 113966827,
+    "ts": 1794665583,
+    "block": 114213646,
     "in": true,
-    "in_s": 2490600,
-    "all_s": 2490600
+    "in_s": 2518244,
+    "all_s": 2518244
    },
    "claims": [
     {
@@ -2024,11 +2024,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1794637938,
-    "block": 47895127,
+    "ts": 1794665583,
+    "block": 47922772,
     "in": true,
-    "in_s": 93549,
-    "all_s": 102832
+    "in_s": 121194,
+    "all_s": 130477
    },
    "claimed_seen": {},
    "a0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
@@ -2089,11 +2089,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1794637938,
-    "block": 47895127,
+    "ts": 1794665583,
+    "block": 47922772,
     "in": true,
-    "in_s": 74648,
-    "all_s": 76290
+    "in_s": 102293,
+    "all_s": 103935
    },
    "claimed_seen": {},
    "a0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
@@ -4688,16 +4688,48 @@
     "katana:494956": 0,
     "katana:495384": 0
    }
+  },
+  {
+   "ts": 1794665588,
+   "tokens": {
+    "WETH@robinhood": 0.01521693,
+    "USDG@robinhood": 33.247249,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 51018.85413436,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -612.32,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.01521693,
+     "USDG@robinhood": 32.862105
+    },
+    "katana:495384": {
+     "KAT@katana": 2.58934919,
+     "avKAT@katana": 3.53086812
+    },
+    "katana:495640": {
+     "vbWBTC@katana": 0.00001136,
+     "vbUSDC@katana": 0.489815
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -483.9,
+    "katana:495384": -3.03,
+    "katana:495640": -5.89
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0,
+    "katana:494956": 0,
+    "katana:495384": 0
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1793736536,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1793777548,
    "behind": {
@@ -4896,6 +4928,13 @@
   },
   {
    "ts": 1794637938,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1794665583,
    "behind": {
     "katana": 0,
     "robinhood": 0
