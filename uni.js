@@ -1,4 +1,4 @@
-import {uniDefaultInput,uniEstimate,uniPoolLink} from './uni-core.mjs?v=168';
+import {uniDefaultInput,uniEstimate,uniPoolLink,validateUniSnapshot,mergeUniSnapshots} from './uni-core.mjs?v=169';
 const $=id=>document.getElementById(id),states=new Map(),rows=new Map();
 const FRESH=180,REFRESH=60000,CACHE='tf_uni_pools_v1';let busy=false,chains=[],lastError=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,15 +18,20 @@ function accept(value,{saved=false}={}){
   const incoming=new Set(value.pools.filter(validPool).map(p=>p.id));
   for(const [id,old] of rows){const source=value.chains.find(c=>c.key===old.chain);if(!incoming.has(id)){if(source?.status==='fresh')rows.delete(id);else old.retained=true;}}
   for(const p of value.pools){if(!validPool(p))continue;const old=rows.get(p.id);if(old&&p.at<old.at)continue;
-    // Retain the complete prior reading if a later pass loses its fee history.
-    if(old?.feeWindow?.verified&&!p.feeWindow?.verified){old.retained=true;continue;}
-    rows.set(p.id,{...p,retained:saved||false});}
+    // Price/TVL and history have separate evidence times. A failed fee method
+    // must not freeze a later valid TVL or erase its last dated fee observation.
+    const next={...p};
+    if(old&&old.at<=p.at&&p.at-old.at<=8*3600){
+      if(!next.feeWindow&&old.feeWindow?.verified&&p.at-old.feeWindow.toTs<=8*3600){next.feeWindow=old.feeWindow;next.feeHistoryRetained=true;}
+      if(next.fees24hUsd===null&&Number.isFinite(old.fees24hUsd)&&p.at-(old.tradingWindow?.toTs??old.at)<=8*3600){next.fees24hUsd=old.fees24hUsd;next.volume24hUsd=old.volume24hUsd;next.apr=old.apr;next.tradingWindow=old.tradingWindow||{toTs:old.at};next.tradingRetained=true;}
+    }
+    rows.set(p.id,{...next,retained:saved?(old?.at===p.at?old.retained:true):!!p.retained});}
   chains=value.chains;
   if(!saved)try{localStorage.setItem(CACHE,JSON.stringify({schemaVersion:1,chains,pools:[...rows.values()]}));}catch{}
 }
 function poolCard(p){
   const id='uni-'+p.chain+'-'+p.pool.slice(2),s=state(p),card=document.createElement('article');card.className='card pool-card uni-pool';card.id=id;
-  card.innerHTML=`<button class="pool-head" aria-expanded="false" aria-controls="${id}-body"><div class="pool-name"><h3>UNI / ${esc(p.stable)}</h3><span class="uni-pill">${percent(p.fee/1e6)}</span><span class="uni-chain">${esc(p.chainName)} · Uniswap V3</span></div><div class="pool-figs"><div><div class="metric-label">UNI price · ${esc(p.stable)}</div><div class="pool-fig" data-read="price"></div></div><div><div class="metric-label">Pool TVL</div><div class="pool-fig" data-read="tvl"></div></div><div><div class="metric-label">Volume · 24h</div><div class="pool-fig" data-read="volume"></div></div><div><div class="metric-label">Pool fee APR · 24h</div><div class="pool-fig apr" data-read="apr"></div></div></div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+  card.innerHTML=`<button class="pool-head" aria-expanded="false" aria-controls="${id}-body"><div class="pool-name"><h3>UNI / ${esc(p.stable)}</h3><span class="uni-pill">${percent(p.fee/1e6)}</span><span class="uni-chain">${esc(p.chainName)} · Uniswap V3</span></div><div class="pool-figs"><div><div class="metric-label">Pool TVL</div><div class="pool-fig" data-read="tvl"></div></div><div><div class="metric-label">Volume · 24h</div><div class="pool-fig" data-read="volume"></div></div><div><div class="metric-label">LP fees · 24h</div><div class="pool-fig" data-read="fees"></div></div><div><div class="metric-label">Pool fee APR · 24h</div><div class="pool-fig apr" data-read="apr"></div></div></div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="pool-body" id="${id}-body" hidden><div class="pool-context" data-read="reading"></div>
   <fieldset class="uni-step"><legend>Step 1 · What will you deposit?</legend><div class="mode-options">
   <label class="mode-option"><input type="radio" name="${id}-mode" value="uni"><strong>Single sided UNI</strong><span>Start with UNI. Sell gradually if its price rises.</span></label>
@@ -34,11 +39,13 @@ function poolCard(p){
   <label class="mode-option"><input type="radio" name="${id}-mode" value="balanced"><strong>Balance</strong><span>Use both tokens and start earning while in range.</span></label>
   </div><p class="mode-hint" data-read="modeHint">Choose an option to set your price range.</p></fieldset>
   <fieldset class="uni-step" data-step="2" hidden><legend>Step 2 · Choose your price range</legend><div class="uni-current" data-read="current"></div><div class="uni-inputs"><label><span data-read="amountLabel"></span><input type="number" min="0" step="any" inputmode="decimal" data-input="amount"></label><label>Minimum price · ${esc(p.stable)} per UNI<input type="number" min="0" step="any" inputmode="decimal" data-input="lowerPrice"></label><label>Maximum price · ${esc(p.stable)} per UNI<input type="number" min="0" step="any" inputmode="decimal" data-input="upperPrice"></label></div><div class="uni-result" aria-live="polite"></div></fieldset>
-  <div class="uni-actions" hidden><a class="uni-link" href="${uniPoolLink(p.chain,p.pool)}" target="_blank" rel="noopener noreferrer">Copy pool link</a><small class="copy-status" role="status">Copies the link and opens this pool on Uniswap.</small></div></div>`;
+  <div class="uni-actions" hidden><button type="button" class="uni-link">Copy pool link</button><small class="copy-status" role="status">Copy the link, then paste it in your browser.</small><input class="copy-fallback" aria-label="Pool link to copy" readonly hidden></div></div>`;
   card.querySelector('.pool-head').addEventListener('click',()=>{s.open=!s.open;expand(card,s);});
   card.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{if(!r.checked)return;s.input=uniDefaultInput(rows.get(p.id),r.value);setInputs(card,s);updateCard(card,rows.get(p.id));}));
   card.querySelectorAll('[data-input]').forEach(input=>input.addEventListener('input',()=>{if(!s.input)return;s.input[input.dataset.input]=Number(input.value);updateResult(card,rows.get(p.id),s);}));
-  card.querySelector('.uni-link').addEventListener('click',()=>{const status=card.querySelector('.copy-status');try{navigator.clipboard.writeText(uniPoolLink(p.chain,p.pool)).then(()=>{status.textContent='Pool link copied. Uniswap opened in a new tab.';},()=>{status.textContent='Uniswap opened. Copy the link from the address bar.';});}catch{status.textContent='Uniswap opened. Copy the link from the address bar.';}});
+  card.querySelector('.uni-link').addEventListener('click',async()=>{const status=card.querySelector('.copy-status'),field=card.querySelector('.copy-fallback'),link=uniPoolLink(p.chain,p.pool);
+    try{await navigator.clipboard.writeText(link);field.hidden=true;status.textContent='Pool link copied. Paste it in your browser.';}
+    catch{field.hidden=false;field.value=link;field.focus();field.select();status.textContent='Select and copy this link, then paste it in your browser.';}});
   expand(card,s);return card;
 }
 function expand(card,s){card.classList.toggle('open',s.open);card.querySelector('.pool-head').setAttribute('aria-expanded',String(s.open));card.querySelector('.pool-body').hidden=!s.open;}
@@ -53,13 +60,13 @@ function updateResult(card,p,s){
   out.innerHTML=`<div class="uni-result-grid">${cell('Upper edge P&amp;L',pnl(r.edges?.upper.pnlUsd),r.edges?.upper.pnlUsd>=0?'up':'down')}${cell('Lower edge P&amp;L',pnl(r.edges?.lower.pnlUsd),r.edges?.lower.pnlUsd>=0?'up':'down')}${cell('Estimated fees / day',feeMoney(earnings))}${cell('Estimated fee APR',percent(apr))}</div>
     <p class="uni-result-note"><strong>Deposit:</strong> ${number(r.deposit.uni)} UNI + ${number(r.deposit.stable)} ${esc(p.stable)} · about ${money(r.capitalUsd)}.</p>
     <p class="uni-result-note">Uniswap’s usable range: <strong>${price(r.range.lowerPrice)}–${price(r.range.upperPrice)} ${esc(p.stable)} per UNI</strong>. ${r.inRange?'Your position starts in range.':'Your position starts outside the range. Fees and APR are 0 until the price enters it.'}</p>
-    <p class="uni-result-note">${old?'The reading is stale. Live income estimates will return after a successful refresh.':r.inRange?(r.feeBasis?`Based on actual fee growth from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. Assumes a similar trading pace while your price stays in range.`:'The recent fee history is unavailable, so an income estimate cannot be verified.'):'A single-sided deposit is a waiting position, not immediate yield.'}</p>
+    <p class="uni-result-note">${old?'The reading is stale. Live income estimates will return after a successful refresh.':r.inRange?(r.feeBasis?`${r.feeBasis.method==='swap_fee_lower_bound'?'Conservative estimate from verified recent swaps':'Based on recorded fee growth'} from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. Assumes a similar trading pace while your price stays in range.`:'The recent fee history is unavailable, so an income estimate cannot be verified.'):'A single-sided deposit is a waiting position, not immediate yield.'}</p>
     <p class="uni-result-note">Edge P&amp;L excludes fees and transaction costs. Below the lower edge you hold UNI, so losses can grow if its price keeps falling.</p>`;
 }
 function updateCard(card,p){
   const s=state(p),put=(key,value)=>{card.querySelector(`[data-read="${key}"]`).textContent=value;};
-  put('price',price(p.price));put('tvl',compact(p.tvlUsd));put('volume',compact(p.volume24hUsd));put('apr',percent(p.apr));
-  put('reading',`${age(p)>FRESH||p.retained||lastError?'STALE · ':p.status==='partial'?'Partial reading · ':''}${time(p.at)} · LP fees in the recorded day: ${feeMoney(p.fees24hUsd)}${p.note?' · '+p.note:''}`);
+  put('tvl',compact(p.tvlUsd));put('volume',compact(p.volume24hUsd));put('fees',feeMoney(p.fees24hUsd));put('apr',percent(p.apr));
+  put('reading',`${age(p)>FRESH||p.retained||lastError?'STALE · ':p.status==='partial'?'Partial reading · ':''}${time(p.at)} · LP fees in the recorded day: ${feeMoney(p.fees24hUsd)}${p.tradingWindow?.toTs?' · Fee/volume period ends '+time(p.tradingWindow.toTs):''}${p.note?' · '+p.note:''}`);
   put('current',`Current price: ${price(p.price)} ${p.stable} per UNI`);
   card.querySelector('[data-step="2"]').hidden=!s.input;
   card.querySelector('.uni-actions').hidden=!s.input;
@@ -80,8 +87,9 @@ function render(){
   container.setAttribute('aria-busy','false');
 }
 async function refresh(){if(busy||document.hidden)return;busy=true;
-  try{const r=await fetch('/api/uni',{cache:'no-store',signal:AbortSignal.timeout(55000)}),value=await r.json();if(!r.ok)throw Error('Pool source unavailable');accept(value);lastError=false;}
+  try{const r=await fetch('/api/uni',{cache:'no-store',signal:AbortSignal.timeout(55000)}),value=await r.json();validateUniSnapshot(value);accept(value);lastError=!r.ok||value.chains.every(c=>c.status==='unavailable');}
   catch{lastError=true;}finally{busy=false;render();}}
 try{const saved=JSON.parse(localStorage.getItem(CACHE));if(saved){accept(saved,{saved:true});render();}}catch{}
+fetch('/uni-pools.json',{cache:'no-store',signal:AbortSignal.timeout(6000)}).then(r=>{if(!r.ok)throw Error('Saved pool readings unavailable');return r.json();}).then(value=>{validateUniSnapshot(value);const merged=mergeUniSnapshots({schemaVersion:1,checkedAt:Date.now()/1000,chains,pools:[...rows.values()]},value);if(value.pools.length){accept(merged,{saved:true});render();}}).catch(()=>{});
 $('chainFilter').addEventListener('change',render);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 refresh();setInterval(refresh,REFRESH);setInterval(()=>{if(!document.hidden)render();},15000);

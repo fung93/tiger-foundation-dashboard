@@ -2,7 +2,7 @@
   "functions": {
     "api/lpbook.mjs": { "maxDuration": 60 },
     "api/strategy.mjs": { "maxDuration": 60 },
-    "api/uni.mjs": { "maxDuration": 60 },
+    "api/uni.mjs": { "maxDuration": 60, "includeFiles": "uni-pools.json" },
     "api/vkat.mjs": { "maxDuration": 60 },
     "api/kat-trades.mjs": { "maxDuration": 60 },
     "api/agent.mjs": { "maxDuration": 60 },

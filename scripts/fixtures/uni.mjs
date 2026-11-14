@@ -3,7 +3,7 @@ import {UNI_CHAINS,UNI_MULTICALL} from '../../api/_uni-config.mjs';
 import {UNI_SWAP_TOPIC} from '../../api/_uni-reader.mjs';
 const pad=v=>BigInt.asUintN(256,BigInt(v)).toString(16).padStart(64,'0');
 const data=(...v)=>'0x'+v.map(pad).join('');
-export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,logsFailure=false,reorg=false,missingDiscovery=false,empty=false}={}){
+export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,currentGrowthFailure=false,swapCount=1,logsFailure=false,reorg=false,missingDiscovery=false,empty=false}={}){
   const chain=UNI_CHAINS[chainKey],stable=chain.stables[0],head=1000000,pool=chainKey==='base'?'0x'+'1'.repeat(40):'0x'+'2'.repeat(40),fee=500,
     tokens=[chain.uni,stable].sort((a,b)=>a.address.localeCompare(b.address)),baseIndex=tokens[0].address===chain.uni.address?0:1,
     ratio=(baseIndex===0?8:1/8)/10**(tokens[0].decimals-tokens[1].decimals),sqrt=BigInt(Math.floor(Math.sqrt(ratio)*2**96)),tick=Math.floor(Math.log(ratio)/Math.log(1.0001)),
@@ -17,6 +17,7 @@ export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,
     if(selector==='0x313ce567'){const token=[chain.uni,...chain.stables].find(t=>t.address===to);return {ok:true,data:data(token.decimals)};}
     if(selector==='0x70a08231')return {ok:true,data:data(to===chain.uni.address?1000n*10n**18n:10000n*10n**BigInt(stable.decimals))};
     if(to!==pool)return {ok:false,data:'0x'};
+    if(currentGrowthFailure&&block===head&&['0xf3058399','0x46141319'].includes(selector))return {ok:false,data:'0x'};
     if(archiveFailure&&block<head)return {ok:false,data:'0x'};
     const values={
       '0x3850c7bd':data(sqrt,tick,0,1,1,0,1),'0x1a686502':data(L),'0xd0c93a7c':data(10),'0xc45a0155':data(BigInt(chain.factory)),
@@ -42,7 +43,7 @@ export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,
     if(method==='eth_getBlockByNumber'){const n=Number(BigInt(params[0]));if(n===head)heads++;return {number:params[0],timestamp:'0x'+(now-(head-n)*2).toString(16),hash:'0x'+pad(n+(reorg&&heads>1?1:0))};}
     if(method==='eth_call'){if(params[0].to!==UNI_MULTICALL)throw Error('Unexpected direct call');return multicall(params[0].data,Number(BigInt(params[1])));}
     if(method==='eth_getCode')return '0x6000';
-    if(method==='eth_getLogs'){if(logsFailure)throw Error('Provider timed out');return empty?[]:[swap];}
+    if(method==='eth_getLogs'){if(logsFailure)throw Error('Provider timed out');return empty?[]:Array.from({length:swapCount},(_,i)=>({...swap,blockNumber:'0x'+(head-10+i).toString(16),logIndex:'0x'+(1+i).toString(16)}));}
     throw Error('Unsupported closed RPC');
   };
   return {chain,rpc,now,pool,requests,swap};

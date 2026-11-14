@@ -1,0 +1,54 @@
+name: Update UNI pool readings
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '31 */6 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-uni-pools.yml'
+      - 'api/_uni-*.mjs'
+      - 'api/uni.mjs'
+      - 'uni-core.mjs'
+      - 'scripts/uni-pools.mjs'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-uni-pools
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Read public UNI pools
+        run: node scripts/uni-pools.mjs
+      - name: Save independent UNI snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uni-pools.json
+          if git diff --staged --quiet; then
+            echo "No new UNI readings"
+            exit 0
+          fi
+          git commit -m "chore: update UNI pool readings"
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Confirm both networks were read
+        run: |
+          node --input-type=module - <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const value=JSON.parse(readFileSync('uni-pools.json','utf8'));
+          if(value.chains.some(c=>c.status==='unavailable'))throw Error('A UNI network source is unavailable; available readings and diagnostics were retained.');
+          NODE

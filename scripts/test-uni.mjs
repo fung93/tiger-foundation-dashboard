@@ -73,7 +73,7 @@ await assert.rejects(rpc('eth_blockNumber',[]),/limit/);checks++;eq(sent,1,'The 
 eq(uniPoolLink('bnb','0x'+'A'.repeat(40)),'https://app.uniswap.org/explore/pools/bnb/0x'+'a'.repeat(40),'Links are normalized and fixed to Uniswap');
 for(const chain of ['ethereum','https://evil.example']){assert.throws(()=>uniPoolLink(chain,p.pool));checks++;}
 for(const chain of Object.values(UNI_CHAINS))for(const token of [chain.uni,...chain.stables])ok(/^0x[0-9a-f]{40}$/.test(token.address),'Every configured token address is well formed');
-const html=readFileSync(new URL('../uni.html',import.meta.url),'utf8');ok(html.includes('src="/uni.js?v=168"'),'The UNI page loads its versioned module');
+const html=readFileSync(new URL('../uni.html',import.meta.url),'utf8');ok(html.includes('src="/uni.js?v=169"'),'The UNI page loads its versioned module');
 // Exercise the actual public handler, its JSON-safe results and its cache through
 // closed RPC transports. Concurrent visitors must not duplicate a full chain scan.
 const originalFetch=globalThis.fetch,originalNow=Date.now,apiFixtures=Object.fromEntries(['base','bnb'].map(key=>[key,uniFixture(key,{now:Math.floor(Date.now()/1000)})]));

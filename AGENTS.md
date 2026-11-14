@@ -1221,6 +1221,34 @@ It has four views: Planner, simulated positions, My real LPs and History.
 
 ## 9. Release contents
 
+- **14 Nov 2026, UNI TVL/fees repair and copy-only links — explicit push requested:**
+  keep current pool reads independent of archive/log budgets. Recheck the current
+  block before history, use smaller Multicall batches and retry incomplete HTTP-200
+  contract results through alternate verified RPCs. Read token decimals only for
+  discovered pairs; optional fee-growth calls cannot erase valid balances/TVL.
+  Complete Swap/SetFeeProtocol logs reconstruct the initial fee split backwards
+  from current state, so pool fee totals no longer need archived slot0. Prefer
+  actual fee growth for personal income; if unavailable, label the conservative
+  non-crossing-swap calculation and exclude unknown first/crossing trades.
+  Retained history has its own original period and expires after eight hours;
+  current price/TVL may refresh independently. `uni-pools.json` is a separate public
+  snapshot, collected only by `scripts/uni-pools.mjs` and its own six-hourly/push
+  workflow. Never change portfolio/LP/claim histories from that job. Failed network
+  reads retain original observations and sanitized reason codes. The API bundles
+  the snapshot; the page can load it independently and cannot let a late saved
+  reading replace newer live figures. Show TVL, volume, LP fees and APR in collapsed
+  cards; fix the 900–1000 px Strategy-style collision. **Copy pool link only copies**;
+  no anchor, navigation or new tab. Clipboard denial reveals a selectable exact URL.
+  Current reads, archive reads and swap logs have separate budgets; archives/logs
+  run in parallel. The snapshot job has a larger bounded history allowance than
+  a live API request. A slow archive must never starve swap-based pool fee totals.
+  Cache 169. Tests: 292 original UNI assertions, 41 reliability assertions, 440
+  browser flow assertions (both themes, 320/360/768/960/1366 px), plus 11 saved-data
+  outage/race browser assertions. All 80 portable project suites passed, followed
+  by the focused checks after separating the archive/log allowance. Real network/source verification follows the
+  first independent snapshot workflow after the authorized push; direct RPC,
+  GitHub API and Vercel access remain workspace-proxy blocked.
+
 - **14 Nov 2026, UNI guide — explicit push requested after local review:** add the UNI
   main navigation tab and a beginner guide for Uniswap V3 UNI/stablecoin pools on
   Base and BNB Chain. Discover supported fee tiers through the official factories;

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": 0,
+  "chains": [
+    { "key": "base", "name": "Base", "status": "unavailable", "at": null, "pools": [] },
+    { "key": "bnb", "name": "BNB Chain", "status": "unavailable", "at": null, "pools": [] }
+  ],
+  "pools": []
+}
