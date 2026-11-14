@@ -1250,9 +1250,13 @@ It has four views: Planner, simulated positions, My real LPs and History.
   Cache 169. Tests: 292 original UNI assertions, 45 reliability assertions, 440
   browser flow assertions (both themes, 320/360/768/960/1366 px), plus 11 saved-data
   outage/race browser assertions. All 80 portable project suites passed, followed
-  by the focused checks after separating the archive/log allowance. Real network/source verification follows the
-  first independent snapshot workflow after the authorized push; direct RPC,
-  GitHub API and Vercel access remain workspace-proxy blocked.
+  by the focused checks after separating the archive/log allowance. Independent
+  run `43610756907` succeeded and snapshot `a1597fe` records TVL, volume, fees and
+  APR for all three real pools at 14 Nov, 23:32:57 MYT. Base uses actual fee growth;
+  BNB uses the clearly labeled conservative swap method. Their real observations
+  also pass 168 browser assertions for both themes at 360/960/1366 px, including
+  range income and copy-only behavior. Direct RPC, GitHub API and Vercel requests
+  remain proxy blocked; GitHub workflow HTML and normal git reads are available.
 
 - **14 Nov 2026, UNI guide — explicit push requested after local review:** add the UNI
   main navigation tab and a beginner guide for Uniswap V3 UNI/stablecoin pools on

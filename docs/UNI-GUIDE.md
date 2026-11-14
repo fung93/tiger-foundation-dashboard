@@ -20,9 +20,10 @@ explicitly requested **push**. Publication of this update is authorized.
 - [x] Add the separate public snapshot and its bounded collection workflow.
 - [x] Validate math and the real UI using closed chain responses.
 - [x] Run `npm run check`; all portable checks pass.
-- [ ] Verify live pool inventory and displayed values against Base and BNB RPCs.
-  Every attempted public RPC is blocked here by the outbound proxy; the real local
-  endpoint correctly reports both networks unavailable rather than inventing pools.
+- [x] Verify live pool inventory, TVL, volume, fee totals and APR against Base and
+  BNB RPCs through the independent workflow, then validate the real collected
+  observations in the page and deterministic range calculator. Direct workspace
+  RPC requests remain blocked; see the successful run and dated results below.
 - [ ] Verify external Uniswap pages against the actual discovered pools.
   Closed-browser tests verify network/address routing and clipboard behavior only.
 - [x] Receive the owner's explicit instruction to publish this update.
@@ -148,6 +149,9 @@ renewing the original observation timestamps.
   pools versus unavailable sources, clipboard denial without navigation, visible
   collapsed-card TVL/fees, independent field recovery and no page overflow/errors.
 - Independent saved snapshot/outage and late-response race: **11** browser checks.
+- Actual collected observations: **168** additional browser assertions across
+  both themes at 360/960/1366 px, showing every real TVL/volume/fee/APR field,
+  conditional range income and copy-only links without page errors or overflow.
 - All nine full pages' navigation: **288** assertions at the same themes/widths;
   six destinations fit on one row without horizontal overflow.
 - `npm run check` passes all **80** suites, including syntax and byte-identical
@@ -155,9 +159,9 @@ renewing the original observation timestamps.
   An existing automation test depended on the wall clock and crossed MYT midnight
   during its simulated updates; its test clock is now anchored at tomorrow noon.
   No production agent behavior was changed.
-- Actual preview: `/uni.html` HTTP 200; `/api/uni` HTTP 503 with truthful network
-  unavailable states under the workspace's blocked RPC access. No real market
-  rates, active pool list or archive-provider capability is claimed verified.
+- Direct preview RPC access remains blocked. Real market verification instead
+  uses the production snapshot workflow, whose successful RPC readings are
+  independently validated below. The Vercel page itself is still proxy blocked.
 - Local preview: <http://127.0.0.1:4300/uni.html>.
 - Closed-fixture screenshots and logs (not live market evidence):
   `/workspace/tiger-agent-validation/uni-guide/`.
@@ -176,3 +180,18 @@ one BNB UNI/USDT tier. Its trading totals were missing, exposing the need for th
 smaller single-pool log queries and actionable range-error fallback above. The
 workflow's acceptance check now rejects missing fee/volume/APR totals instead of
 accepting connectivity alone. Subsequent live results must verify those fields.
+
+The follow-up [run 43610756907](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/43610756907)
+**succeeded**, saving snapshot `a1597fe` at **14 November 2026, 23:32:57 MYT**.
+All three actual pool readings have TVL, complete-day volume, LP fees and pool APR;
+their balanced-range calculations produce finite deterministic income estimates.
+
+| Network / pool | TVL at reading | LP fees in recorded day | Personal estimate source |
+|---|---:|---:|---|
+| Base UNI/USDC 0.3% · `0x1261d6c23a2d719e2543d2d51aec87656050b70d` | $52,713.14 | $72.88 | Recorded fee growth |
+| Base UNI/USDC 1% · `0x35d84ae687f0d3bf8548d5470fd04d2abe74f074` | $35,898.35 | $22.32 | Recorded fee growth |
+| BNB UNI/USDT 0.3% · `0xbd045175d2a1451a015079f5f3f59ca5c05524ea` | $144,764.72 | $122.45 | Conservative non-crossing swaps |
+
+BNB's unavailable archive method remains explicit; it no longer blocks its pool
+totals or conservatively estimated range income. These are dated validation
+observations, not hand-entered dashboard rates or promised returns.
