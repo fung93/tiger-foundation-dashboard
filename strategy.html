@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/theme.css">
 <!--
-  Strategy: the five requested Katana trading-fee pairs, sortable by 24-hour volume,
+  Strategy: the six requested Katana trading-fee pairs, sortable by 24-hour volume,
   LP fees or APR, with daily range estimates and optional hedge simulations.
   The figures come finished from /api/strategy; the estimate runs here with strategy-core.mjs.
 -->
@@ -51,7 +51,7 @@
     <div class="card overview-card"><div class="metric-label">Pool TVL</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">Volume · 24h</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
     <div class="card overview-card"><div class="metric-label">LP fees · 24h</div><div class="overview-value">—</div><div class="metric-sub">&nbsp;</div></div>
-    <div class="card overview-card"><div class="metric-label">Fee pools</div><div class="overview-value">—</div><div class="metric-sub">Five token pairs</div></div>
+    <div class="card overview-card"><div class="metric-label">Fee pools</div><div class="overview-value">—</div><div class="metric-sub">Six token pairs</div></div>
   </div>
   <div class="pools-head"><div class="label">Compare pools</div><div class="pool-sorting">
     <label for="poolSortMetric">Sort by</label><select id="poolSortMetric"><option value="apr">Fee APR</option><option value="volume">24h volume</option><option value="fees">24h LP fees</option></select>
@@ -60,14 +60,14 @@
   <div class="pools" id="pools"></div>
   <noscript><div class="card">Turn on JavaScript to read the pools.</div></noscript>
   <div class="strategy-method"><details><summary>How these numbers are made</summary>
-    <p><b>Trading fees.</b> The five pairs are USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC. Funded Sushi V3 fee tiers appear separately. KAT LP emissions are excluded.</p>
+    <p><b>Trading fees.</b> The six pairs are KAT/USDC, USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC. Funded Sushi V3 fee tiers appear separately. KAT LP emissions are excluded.</p>
     <p><b>Volume and APR.</b> Volume counts each swap's input once over the last 24 hours, valued at this reading's token prices. LP fees apply the observed protocol fee split. Fee APR annualises those fees over the pool's current TVL; it is not a forecast.</p>
     <p><b>Your daily estimate.</b> Your capital and range determine liquidity. The estimate uses the last seven days of fee growth and your conditional share of current active liquidity. The price must stay in range; future volume and competition can change. Totals and hedges use a seven-day comparison period.</p>
     <p><b>Hedge.</b> BTC and ETH exposure use their corresponding Katana Perps markets. avKAT exposure can use KAT at its observed conversion ratio, which leaves avKAT/KAT ratio risk. Live venue prices, funding and costs are required; an unavailable hedge quote does not become a free hedge.</p>
     <p><b>Sources.</b> Verified Sushi pools and archive state on Katana, complete swap logs, and Katana Perps. This page reads only and never connects a wallet.</p>
   </details></div>
 </main>
-<script type="module" src="/strategy.js?v=166"></script>
+<script type="module" src="/strategy.js?v=167"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,1310 @@
+{
+  "version": 1,
+  "chain": 747474,
+  "updatedAt": "2026-11-14T10:15:58.000Z",
+  "observations": {
+    "swap": [
+      {
+        "day": "2026-10-15",
+        "usdMicros": "154556298",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45279589,
+        "toBlock": 45365988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "71278383",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "21320622754251198",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "24046",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "690989",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "2572079736942515340420",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "45161133051502480763"
+        }
+      },
+      {
+        "day": "2026-10-16",
+        "usdMicros": "105952616",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45365989,
+        "toBlock": 45452388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "47083501",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "16624895412235231",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "15820",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "676961",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1175343947932663508894",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "40585393203789267359"
+        }
+      },
+      {
+        "day": "2026-10-17",
+        "usdMicros": "52340528",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45452389,
+        "toBlock": 45538788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "16870758",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "6124852990912779",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "6136",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "5184292",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "2074631212881120903216",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "417382968798093467118"
+        }
+      },
+      {
+        "day": "2026-10-18",
+        "usdMicros": "58294289",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45538789,
+        "toBlock": 45625188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "26250099",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "9481490875184002",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "6625",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "781114",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "596801489146805824412",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "139502017416265514692"
+        }
+      },
+      {
+        "day": "2026-10-19",
+        "usdMicros": "107131326",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45625189,
+        "toBlock": 45711588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "49298829",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "14719325975972521",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "5874",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "1212334",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "3321712312765259415828",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "567025767781693084826"
+        }
+      },
+      {
+        "day": "2026-10-20",
+        "usdMicros": "115060536",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45711589,
+        "toBlock": 45797988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "56394638",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "17777166340487547",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "7198",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "2014203",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1120727431597141263511",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "462381012653181719182"
+        }
+      },
+      {
+        "day": "2026-10-21",
+        "usdMicros": "89929414",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45797989,
+        "toBlock": 45884388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "42353806",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "12973207097333730",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "6156",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "2453607",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1491011089819199770064",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "309156423480507841104"
+        }
+      },
+      {
+        "day": "2026-10-22",
+        "usdMicros": "92223119",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45884389,
+        "toBlock": 45970788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "28835217",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "11863544408371811",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "20112",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "1791034",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "2329263250629181248465",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "1406850037564593793762"
+        }
+      },
+      {
+        "day": "2026-10-23",
+        "usdMicros": "60443165",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 45970789,
+        "toBlock": 46057188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "28005002",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "9259691801775795",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "4048",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "761033",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1381525078875743098130",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "91158651140706156297"
+        }
+      },
+      {
+        "day": "2026-10-24",
+        "usdMicros": "338510971",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46057189,
+        "toBlock": 46143588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "164888233",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "12143043125769405",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "10414",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "2879343",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "28959119946439124688340",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "389900481386408216220"
+        }
+      },
+      {
+        "day": "2026-10-25",
+        "usdMicros": "78320238",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46143589,
+        "toBlock": 46229988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "34857959",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "8933203557841847",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "8285",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "633735",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "3751108477354029259577",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "117122286964177517908"
+        }
+      },
+      {
+        "day": "2026-10-26",
+        "usdMicros": "230234155",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46229989,
+        "toBlock": 46316388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "99300050",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "11059990765855546",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "25073",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "4312435",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "16127991926300804139728",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "1742619691138052807078"
+        }
+      },
+      {
+        "day": "2026-10-27",
+        "usdMicros": "96437448",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46316389,
+        "toBlock": 46402788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "46550295",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "7045873128669741",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "3661",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "1305830",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "5812401082101100347190",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "800375300727414075732"
+        }
+      },
+      {
+        "day": "2026-10-28",
+        "usdMicros": "254551377",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46402789,
+        "toBlock": 46489188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "66919999",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "11912786195072781",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "6291",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "3057070",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "32414132578679161566406",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "1252129545576329448055"
+        }
+      },
+      {
+        "day": "2026-10-29",
+        "usdMicros": "233594403",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46489189,
+        "toBlock": 46575588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "104253163",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "24461358490566235",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "20925",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "3944879",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "11301103782340802128838",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "1107864574096647834006"
+        }
+      },
+      {
+        "day": "2026-10-30",
+        "usdMicros": "220140641",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46575589,
+        "toBlock": 46661988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "85776653",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "25820514941108906",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "43013",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "4349273",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "3972030842286063464929",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "3908109851340827784117"
+        }
+      },
+      {
+        "day": "2026-10-31",
+        "usdMicros": "53997713",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46661989,
+        "toBlock": 46748388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "21688244",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "5840865662578855",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "13022",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "178070",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1499753775804375173848",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "505623480631320439348"
+        }
+      },
+      {
+        "day": "2026-11-01",
+        "usdMicros": "36334278",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46748389,
+        "toBlock": 46834788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "18953583",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "3719949971835840",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "5488",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "41646",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "978333536776660862585",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "117051883366361327543"
+        }
+      },
+      {
+        "day": "2026-11-02",
+        "usdMicros": "95391538",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46834789,
+        "toBlock": 46921188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "44579805",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "13833845227113194",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "17021",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "625203",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1347155224451836295333",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "161627973204910679320"
+        }
+      },
+      {
+        "day": "2026-11-03",
+        "usdMicros": "51065359",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 46921189,
+        "toBlock": 47007588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "25393204",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "7655418694850452",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "5088",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "173071",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "508674706935595905637",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "412199551273981162611"
+        }
+      },
+      {
+        "day": "2026-11-04",
+        "usdMicros": "167139053",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47007589,
+        "toBlock": 47093988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "84932722",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "25129432547893373",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "16229",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "2070853",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "681873339998830282241",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "660627070553539027927"
+        }
+      },
+      {
+        "day": "2026-11-05",
+        "usdMicros": "167728292",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47093989,
+        "toBlock": 47180388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "59174850",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "33963020976504028",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "13653",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "4803018",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1057744838268183381690",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "2780115809968957223913"
+        }
+      },
+      {
+        "day": "2026-11-06",
+        "usdMicros": "64113631",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47180389,
+        "toBlock": 47266788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "30219084",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "10179339067809645",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "7696",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "117300",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "444507434456789682930",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "689590964264619268354"
+        }
+      },
+      {
+        "day": "2026-11-07",
+        "usdMicros": "27685745",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47266789,
+        "toBlock": 47353188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "11363026",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "2873261578432053",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "3885",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "565769",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1114675641500675242772",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "403522657520963868542"
+        }
+      },
+      {
+        "day": "2026-11-08",
+        "usdMicros": "53520776",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47353189,
+        "toBlock": 47439588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "14960731",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "10345434182136752",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "11106",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "521094",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1561455047388759935741",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "512016838104189850238"
+        }
+      },
+      {
+        "day": "2026-11-09",
+        "usdMicros": "82680504",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47439589,
+        "toBlock": 47525988,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "34962389",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "10701612126410871",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "13018",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "747204",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "3182937278238833800071",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "753415929194412605030"
+        }
+      },
+      {
+        "day": "2026-11-10",
+        "usdMicros": "69150366",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47525989,
+        "toBlock": 47612388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "27908577",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "13252700403794194",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "10296",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "384246",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "597836945588530232265",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "877390549193413421354"
+        }
+      },
+      {
+        "day": "2026-11-11",
+        "usdMicros": "94627946",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47612389,
+        "toBlock": 47698788,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "44433796",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "15772852760042594",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "8695",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "934676",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "2444944390629271384427",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "534993247286621709981"
+        }
+      },
+      {
+        "day": "2026-11-12",
+        "usdMicros": "68094462",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47698789,
+        "toBlock": 47785188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "28197020",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "11991530010960447",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "14608",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "1025848",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "778928355579253204860",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "366971815709281871039"
+        }
+      },
+      {
+        "day": "2026-11-13",
+        "usdMicros": "100825781",
+        "observedAt": "2026-11-14T10:15:58.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47785189,
+        "toBlock": 47871588,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "39033899",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "16656219297555978",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "28073",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "1894030",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "1717008891546716957283",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "586878597628333501907"
+        }
+      }
+    ],
+    "perps": [
+      {
+        "day": "2026-10-15",
+        "usdMicros": "4410630474",
+        "observedAt": "2026-11-14T10:10:59.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "441063047412",
+        "trades": 26829,
+        "fromBlock": 45279589,
+        "toBlock": 45365988
+      },
+      {
+        "day": "2026-10-16",
+        "usdMicros": "4196656980",
+        "observedAt": "2026-11-14T10:10:59.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "419665698032",
+        "trades": 26374,
+        "fromBlock": 45365989,
+        "toBlock": 45452388
+      },
+      {
+        "day": "2026-10-17",
+        "usdMicros": "6943933231",
+        "observedAt": "2026-11-14T10:10:59.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "694393323050",
+        "trades": 44518,
+        "fromBlock": 45452389,
+        "toBlock": 45538788
+      },
+      {
+        "day": "2026-10-18",
+        "usdMicros": "10645539169",
+        "observedAt": "2026-11-14T10:10:59.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1064553916872",
+        "trades": 59511,
+        "fromBlock": 45538789,
+        "toBlock": 45625188
+      },
+      {
+        "day": "2026-10-19",
+        "usdMicros": "17252075060",
+        "observedAt": "2026-11-14T10:10:59.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1725207505961",
+        "trades": 69419,
+        "fromBlock": 45625189,
+        "toBlock": 45711588
+      },
+      {
+        "day": "2026-10-20",
+        "usdMicros": "9036100386",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "903610038635",
+        "trades": 38173,
+        "fromBlock": 45711589,
+        "toBlock": 45797988
+      },
+      {
+        "day": "2026-10-21",
+        "usdMicros": "7833339868",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "783333986793",
+        "trades": 41304,
+        "fromBlock": 45797989,
+        "toBlock": 45884388
+      },
+      {
+        "day": "2026-10-22",
+        "usdMicros": "8339159889",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "833915988929",
+        "trades": 30883,
+        "fromBlock": 45884389,
+        "toBlock": 45970788
+      },
+      {
+        "day": "2026-10-23",
+        "usdMicros": "9003844360",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "900384436033",
+        "trades": 28851,
+        "fromBlock": 45970789,
+        "toBlock": 46057188
+      },
+      {
+        "day": "2026-10-24",
+        "usdMicros": "9945767479",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "994576747854",
+        "trades": 33180,
+        "fromBlock": 46057189,
+        "toBlock": 46143588
+      },
+      {
+        "day": "2026-10-25",
+        "usdMicros": "5793414051",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "579341405134",
+        "trades": 27334,
+        "fromBlock": 46143589,
+        "toBlock": 46229988
+      },
+      {
+        "day": "2026-10-26",
+        "usdMicros": "5766992766",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "576699276582",
+        "trades": 27472,
+        "fromBlock": 46229989,
+        "toBlock": 46316388
+      },
+      {
+        "day": "2026-10-27",
+        "usdMicros": "5080557419",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "508055741926",
+        "trades": 17134,
+        "fromBlock": 46316389,
+        "toBlock": 46402788
+      },
+      {
+        "day": "2026-10-28",
+        "usdMicros": "7336218707",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "733621870712",
+        "trades": 21957,
+        "fromBlock": 46402789,
+        "toBlock": 46489188
+      },
+      {
+        "day": "2026-10-29",
+        "usdMicros": "9689534448",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "968953444774",
+        "trades": 43307,
+        "fromBlock": 46489189,
+        "toBlock": 46575588
+      },
+      {
+        "day": "2026-10-30",
+        "usdMicros": "3884946589",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "388494658860",
+        "trades": 24978,
+        "fromBlock": 46575589,
+        "toBlock": 46661988
+      },
+      {
+        "day": "2026-10-31",
+        "usdMicros": "5291735849",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "529173584949",
+        "trades": 20942,
+        "fromBlock": 46661989,
+        "toBlock": 46748388
+      },
+      {
+        "day": "2026-11-01",
+        "usdMicros": "5010128659",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "501012865911",
+        "trades": 17843,
+        "fromBlock": 46748389,
+        "toBlock": 46834788
+      },
+      {
+        "day": "2026-11-02",
+        "usdMicros": "8048878163",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "804887816311",
+        "trades": 31725,
+        "fromBlock": 46834789,
+        "toBlock": 46921188
+      },
+      {
+        "day": "2026-11-03",
+        "usdMicros": "9243046666",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "924304666607",
+        "trades": 40221,
+        "fromBlock": 46921189,
+        "toBlock": 47007588
+      },
+      {
+        "day": "2026-11-04",
+        "usdMicros": "15844217639",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1584421763884",
+        "trades": 54768,
+        "fromBlock": 47007589,
+        "toBlock": 47093988
+      },
+      {
+        "day": "2026-11-05",
+        "usdMicros": "14178502820",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1417850281996",
+        "trades": 49020,
+        "fromBlock": 47093989,
+        "toBlock": 47180388
+      },
+      {
+        "day": "2026-11-06",
+        "usdMicros": "8244617459",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "824461745937",
+        "trades": 40392,
+        "fromBlock": 47180389,
+        "toBlock": 47266788
+      },
+      {
+        "day": "2026-11-07",
+        "usdMicros": "3201991847",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "320199184716",
+        "trades": 16048,
+        "fromBlock": 47266789,
+        "toBlock": 47353188
+      },
+      {
+        "day": "2026-11-08",
+        "usdMicros": "7497327204",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "749732720352",
+        "trades": 26115,
+        "fromBlock": 47353189,
+        "toBlock": 47439588
+      },
+      {
+        "day": "2026-11-09",
+        "usdMicros": "18358362087",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1835836208744",
+        "trades": 53646,
+        "fromBlock": 47439589,
+        "toBlock": 47525988
+      },
+      {
+        "day": "2026-11-10",
+        "usdMicros": "10658402899",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "1065840289946",
+        "trades": 37962,
+        "fromBlock": 47525989,
+        "toBlock": 47612388
+      },
+      {
+        "day": "2026-11-11",
+        "usdMicros": "6290500907",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "629050090734",
+        "trades": 27663,
+        "fromBlock": 47612389,
+        "toBlock": 47698788
+      },
+      {
+        "day": "2026-11-12",
+        "usdMicros": "5795036330",
+        "observedAt": "2026-11-14T10:03:57.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "579503633001",
+        "trades": 36852,
+        "fromBlock": 47698789,
+        "toBlock": 47785188
+      },
+      {
+        "day": "2026-11-13",
+        "usdMicros": "8402919495",
+        "observedAt": "2026-11-14T10:01:53.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "840291949464",
+        "trades": 36022,
+        "fromBlock": 47785189,
+        "toBlock": 47871588
+      }
+    ],
+    "vault_bridge": [],
+    "sequencer": []
+  },
+  "grossFees": {
+    "swap": [],
+    "perps": [],
+    "vault_bridge": [],
+    "sequencer": []
+  },
+  "sourceState": {
+    "vault_bridge": {
+      "checkedAt": "2026-11-14T10:15:58.000Z",
+      "completeRevenue": false,
+      "status": "unconfigured",
+      "note": "A verified Vault Bridge revenue feed is not connected. The advertised extra yield is not network revenue."
+    },
+    "swap": {
+      "checkedAt": "2026-11-14T10:15:58.000Z",
+      "completeRevenue": false,
+      "note": "Protocol fees from 49 priced V3 pools out of 5525 discovered pools. Other tokens/deployments are excluded. Each day uses its closing token prices, before operating costs.",
+      "status": "reported"
+    },
+    "sequencer": {
+      "checkedAt": "2026-11-14T10:15:58.000Z",
+      "completeRevenue": false,
+      "status": "unavailable",
+      "note": "A verified sequencer revenue reading is unavailable."
+    },
+    "perps": {
+      "checkedAt": "2026-11-14T10:15:58.000Z",
+      "completeRevenue": false,
+      "note": "Normal-trade fees less maker rebates, in vbUSDC at $1; excludes funding, liquidation/withdrawal fees and operating costs.",
+      "status": "reported"
+    }
+  },
+  "allocations": [],
+  "buybacks": [],
+  "allocationCoverage": null,
+  "buybackCoverage": null,
+  "swapCatalog": {
+    "factory": "0x203e8740894c8955cb8950759876d7e7e45e04c1",
+    "toBlock": 47908548,
+    "totalPools": 5525,
+    "pools": [
+      {
+        "pool": "0x105f833d8522f33d8dc3e9599455e9412b63d049",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 2136960
+      },
+      {
+        "pool": "0x8d6daef922532571e33924dccc5aa09edd9eef77",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 2582453
+      },
+      {
+        "pool": "0x4488005fd5eea2e22a80cb2a0e820ed6066e687f",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "createdBlock": 2582605
+      },
+      {
+        "pool": "0x944eafcff72516499f99cf8097af1e56781046cc",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "createdBlock": 2582677
+      },
+      {
+        "pool": "0x2a2c512beaa8eb15495726c235472d82effb7a6b",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 2582784
+      },
+      {
+        "pool": "0x5ee63f441aa80e8c8d3ba80df8371754c052b027",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 2582859
+      },
+      {
+        "pool": "0x5f88eeb3a5662489eb2d5da9f0c73f03355f3009",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "createdBlock": 2582939
+      },
+      {
+        "pool": "0x91bded8c778fdd675ea7b797b378e8abda3e5031",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 4474978
+      },
+      {
+        "pool": "0x92c97b702b5f8dfea8b87535d63f7dbe8e40e3e8",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "createdBlock": 4562879
+      },
+      {
+        "pool": "0x136e82d68b61bcf76334c6227f53e43b8f79b3e8",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 4563366
+      },
+      {
+        "pool": "0x2745f7410b6b06c2995c61a13087c363e417cbd7",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "createdBlock": 4576775
+      },
+      {
+        "pool": "0x7eddaad3a1d875f4c6d76f0f2f6a9e0852bcf411",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "createdBlock": 5325344
+      },
+      {
+        "pool": "0x744676b3ced942d78f9b8e9cd22246db5c32395c",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "createdBlock": 6045392
+      },
+      {
+        "pool": "0xeb638f16ab412705fce43572cb5d0d251051ed32",
+        "token0": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 7163687
+      },
+      {
+        "pool": "0x7765b6069f49db172b71b9fecea89c865bb393d0",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 7891956
+      },
+      {
+        "pool": "0x0f9d3b0769838214524848aa7039231449b72355",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 13625523
+      },
+      {
+        "pool": "0x69b2741ad2b1323d97a4352c36cc6c76a4428731",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 17886515
+      },
+      {
+        "pool": "0x6d8a30f4b2501de8f0b443cb11eb512f12d5355f",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 23990058
+      },
+      {
+        "pool": "0x4dc349c34c8c2728c5d018871b20291728bb4c77",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27028617
+      },
+      {
+        "pool": "0x8a463ca6c26ed557aa212ce6e7baf244b91cede8",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27041627
+      },
+      {
+        "pool": "0x358004bf9ecd5128821bcd385e8018c403038f51",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27078963
+      },
+      {
+        "pool": "0xaa7bb0c80a30b61a5bb20a804f6cc96651bad37a",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27079107
+      },
+      {
+        "pool": "0x13eb0e4c0f4bb8fd7282bbfa610643bb90ac72b3",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27082530
+      },
+      {
+        "pool": "0xfe4e52ccf659705141e6fa5dee01432a3e637904",
+        "token0": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 27087904
+      },
+      {
+        "pool": "0x10045367e619caae6f60cc80046c43c6cd55f629",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27088157
+      },
+      {
+        "pool": "0x246d6209ecd04195cf6ea29dd2fe5665efef5a33",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27092210
+      },
+      {
+        "pool": "0x334476cd696890e9b3e319e9658bc787e01d770c",
+        "token0": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 27092222
+      },
+      {
+        "pool": "0x603b6a949d49cd6905266ee924699190806a6ea2",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27092999
+      },
+      {
+        "pool": "0x1d1f00a79bcd17e4ca05c0204a84a806c4417ced",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27093236
+      },
+      {
+        "pool": "0x8a3200ecd2f76a3f552f895257d46048442a0dc5",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 27112081
+      },
+      {
+        "pool": "0x64d1394d5de80a08d20fd9778c8698a2b3ea1913",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 27114228
+      },
+      {
+        "pool": "0x8640e1867bd563b2ab865160e77cb7b875243b13",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27124250
+      },
+      {
+        "pool": "0x3aefc75192aae0576e70ff885414fafe874dc1b6",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27125121
+      },
+      {
+        "pool": "0x8dd86b9e521354ca5ec01654cd4f4995cdc3034b",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27126920
+      },
+      {
+        "pool": "0xe1159bf7d05c5e7bae56fb12605c5783a77a54f0",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 27230733
+      },
+      {
+        "pool": "0x2b69ff73aaae44bc6b888c7fd52ff8695c4d1bbb",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 27409794
+      },
+      {
+        "pool": "0xa9fea41b64abf365c8ec2216d913dc5f38942bb9",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 28297657
+      },
+      {
+        "pool": "0x4ff59d9681e298b8d7c03e169beea758ae3f28ce",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 30233105
+      },
+      {
+        "pool": "0xc25cdc40b24e3b90c984f483fe57759a3fccf446",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 30235586
+      },
+      {
+        "pool": "0x140c8a9587786967a896c74b4ad226375deabe27",
+        "token0": "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 30243881
+      },
+      {
+        "pool": "0x5217f943bfb95e791e28fee609ccaa726021a24a",
+        "token0": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 30401929
+      },
+      {
+        "pool": "0x001c9eefc7dce25a719e87aadb81dae73378d44d",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 30403230
+      },
+      {
+        "pool": "0xfbf9b092607263027a3e8c565faaf65c13728eaf",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 30453769
+      },
+      {
+        "pool": "0x6d321417437307599db9ba4fb188d20b0b2706e3",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 30457900
+      },
+      {
+        "pool": "0x6185e3a26c80a8d7dcca8ceb06d3b5d310b1ab4f",
+        "token0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 31004249
+      },
+      {
+        "pool": "0x4254b2dce86ccb7bdf0fa4fbf2f5f2b0855b7b18",
+        "token0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
+        "token1": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "createdBlock": 34589964
+      },
+      {
+        "pool": "0x60512f3a39a0a95c3eda16a64e320508e7fe6209",
+        "token0": "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d",
+        "token1": "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62",
+        "createdBlock": 34600861
+      },
+      {
+        "pool": "0xc1810e0a1278b772c23a35ba5a590dbceb941e16",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 38416497
+      },
+      {
+        "pool": "0xeb3d7feeba7c2286c6df74391c2192080da0f2e9",
+        "token0": "0x2dca96907fde857dd3d816880a0df407eeb2d2f2",
+        "token1": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
+        "createdBlock": 42814107
+      }
+    ]
+  }
+}

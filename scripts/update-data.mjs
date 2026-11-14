@@ -2476,3 +2476,11 @@ try {
 } catch (e) {
   console.warn('vkat votes could not be updated, keeping the existing ones:', e.message);
 }
+
+/* Network revenue has its own sources and history, separate from personal P&L. */
+try {
+  const { updateKatanaRevenue } = await import('./katana-revenue.mjs');
+  await updateKatanaRevenue(ROOT);
+} catch (e) {
+  console.warn('katana revenue could not be updated, keeping the existing readings:', e.message);
+}

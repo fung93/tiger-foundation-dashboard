@@ -67,8 +67,35 @@
     <p><b>avKAT.</b> Wallet balances plus your avKAT collateral in Morpho, valued at the live KAT conversion rate. This is the gross token holding; borrowing is shown separately on Lending. avKAT inside LPs is accounted for on LP Book.</p>
     <p><b>Katana network.</b> The network row keeps the escrow's total locked KAT, total avKAT supply and the live KAT-per-avKAT conversion rate. avKAT backing is already included in network vKAT.</p>
   </details></div>
+  <section class="revenue-section" aria-labelledby="revenueTitle">
+    <div class="revenue-heading"><div><h2 id="revenueTitle">Katana revenue &amp; KAT buybacks</h2><p>Income from Katana’s products, and where the money goes.</p></div><span class="revenue-status" id="revenueStatus" role="status">Loading</span></div>
+    <div class="card revenue-announcement">
+      <p><b>From 17 November:</b> a share of Swap, Perps, Vault Bridge and sequencer fees is announced to flow to avKAT. Buybacks launch later; their start date has not been announced.</p>
+      <p><b>100% of KAT bought goes to avKAT stakers.</b> This is the destination of purchased KAT, not the percentage of revenue spent buying it.</p>
+      <a href="https://x.com/katana/status/2120517054558093364" target="_blank" rel="noopener noreferrer">Foundation announcement ↗</a>
+      <a href="https://katana.network/blog/kat-tokenomics-update-avkat-katana-revenue" target="_blank" rel="noopener noreferrer">Tokenomics details ↗</a>
+    </div>
+    <div class="revenue-overview" aria-live="polite">
+      <div class="card overview-card"><div class="metric-label" id="revenueTotalLabel">Recorded income · 30 days</div><div class="overview-value" id="revenueTotal">—</div><div class="metric-sub" id="revenueCoverage">Waiting for verified readings</div></div>
+      <div class="card overview-card"><div class="metric-label">Allocated to buybacks · 30 days</div><div class="overview-value" id="revenueAllocation">—</div><div class="metric-sub" id="revenueAllocationNote">Revenue share not disclosed in the supplied article</div></div>
+      <div class="card overview-card"><div class="metric-label">Buybacks spent · 30 days</div><div class="overview-value" id="revenueSpent">—</div><div class="metric-sub" id="revenueSpentNote">Requires confirmed purchase records</div></div>
+      <div class="card overview-card"><div class="metric-label">KAT bought · 30 days</div><div class="overview-value" id="revenueKat">—</div><div class="metric-sub">100% of purchased KAT is announced for avKAT stakers</div></div>
+    </div>
+    <div class="card revenue-table-card">
+      <h3>Income by source</h3><p class="revenue-period-note" id="revenuePeriod">Daily = last completed reporting day. Weekly = 7 days. Monthly = 30 days.</p>
+      <div class="revenue-table-wrap"><table class="revenue-table"><thead><tr><th scope="col">Income source</th><th scope="col">Daily</th><th scope="col">Weekly · 7D</th><th scope="col">Monthly · 30D</th></tr></thead><tbody id="revenueRows"><tr><td colspan="4" class="revenue-empty">Checking the four revenue sources…</td></tr></tbody><tfoot id="revenueTotals"></tfoot></table></div>
+    </div>
+    <div class="card revenue-table-card">
+      <h3>Buyback allocation &amp; execution</h3><p class="revenue-period-note">An allocation is a budget. Spending and KAT purchased require separate execution evidence.</p>
+      <div class="revenue-table-wrap"><table class="revenue-table"><thead><tr><th scope="col">Period</th><th scope="col">Allocated · USD</th><th scope="col">Spent · USD</th><th scope="col">KAT bought</th></tr></thead><tbody id="buybackRows"><tr><td colspan="4" class="revenue-empty">The article does not disclose the revenue-to-buyback percentage.</td></tr></tbody></table></div>
+      <p class="revenue-period-note" id="buybackPolicy">The share of revenue going to buybacks still needs a published allocation rule or verified budget.</p>
+      <details class="revenue-details"><summary>Purchase records &amp; sources</summary><div id="buybackHistory">A verified buyback execution feed is not connected yet.</div><div id="revenueEvidence"></div></details>
+    </div>
+    <p class="revenue-health" id="revenueHealth" role="status"></p>
+  </section>
 </main>
-<script type="module" src="/vkat.js?v=166"></script>
+<script type="module" src="/vkat.js?v=167"></script>
+<script type="module" src="/katana-revenue.js?v=167"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

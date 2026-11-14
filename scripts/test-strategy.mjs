@@ -3,11 +3,17 @@
 import assert from 'node:assert/strict';
 import { orientation, priceAtTick, tickAtPrice, snapRange, amountsPerLiquidity, liquidityForCapital,
   epochOf, scoreWeights, estimateReward, byApr, SECONDS_PER_DAY } from '../strategy-core.mjs';
+import {FEE_POOLS} from '../api/strategy.mjs';
 
 let checks = 0;
 const ok = (cond, note) => { assert.ok(cond, note); checks++; };
 const near = (a, b, tol, note) => { assert.ok(Math.abs(a - b) <= tol, `${note}: ${a} vs ${b}`); checks++; };
 const eq = (a, b, note) => { assert.deepEqual(a, b, note); checks++; };
+const katPools=FEE_POOLS.filter(p=>p.pairKey==='KAT/USDC');
+eq(katPools.map(p=>p.fee),[100,500,3000,10000],'KAT/USDC includes its verified standard fee tiers');
+eq(katPools.find(p=>p.fee===500).pool,'0x10045367e619caae6f60cc80046c43c6cd55f629','The primary KAT/USDC fee pool is the verified quote pool');
+ok(katPools.every(p=>p.baseIndex===1&&p.token0.decimals===6&&p.token1.decimals===18),'KAT/USDC is quoted dollars per KAT with the correct token order and decimals');
+eq(new Set(FEE_POOLS.map(p=>p.pairKey)).size,6,'Strategy covers all six requested token pairs');
 
 /* vbWBTC/vbUSDC 0.05% as /api/strategy read it on 1 Nov 2026: vbWBTC is token0 */
 const tick = 66581;

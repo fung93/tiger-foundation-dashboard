@@ -184,7 +184,7 @@ function marketIsInactive(row) {
   return !!row && !row.error && row.no_position===true;
 }
 function marketIsHidden(m,row) {
-  return m.key==='avkat-usdc' && marketIsInactive(row);
+  return marketIsInactive(row);
 }
 function lendingOverview(rows) {
   let collateral=0,debt=0;
@@ -242,6 +242,7 @@ function render() {
       find('.action-sub').textContent=money(metric.borrow_usd)+(Number.isFinite(row.health)&&row.health<1?' · no further borrowing below health 1':` · keep health at least ${number(Math.max(target,1),6)}`)+(stale?' · at last reading':'')+(metric.protocol_limited?' · capped by Morpho’s liquidation limit':'')+(metric.liquidity_limited?' · capped by market liquidity':'');
     } else { find('.action-label').textContent='Borrow or repay'; action.textContent='—'; find('.action-sub').textContent=metric.status==='no-position'?'No collateral in this market.':'Oracle or debt reading unavailable.'; }
   }
+  $('emptyMarkets').hidden=!MARKETS.every(m=>marketIsInactive(records.get(m.id)));
   const overview=lendingOverview(MARKETS.map(m=>records.get(m.id)));
   $('overview').innerHTML=priceCard('KAT price',katQuote,'kat')+priceCard('avKAT price',avkatQuote,'avkat')+`<div class="card overview-card"><div class="metric-label">Oracle collateral</div><div class="overview-value">${money(overview.oracle_collateral_usd)}</div></div><div class="card overview-card"><div class="metric-label">Borrowed</div><div class="overview-value">${money(overview.debt_usd)}</div></div><div class="card overview-card"><div class="metric-label">Average LTV</div><div class="overview-value" title="Total debt divided by total oracle collateral">${Number.isFinite(overview.average_ltv)?pct(overview.average_ltv):'—'}</div></div>`;
   const age=Date.now()/1000-lastRead, fresh=lastFull&&age<=90;

@@ -122,7 +122,7 @@ export async function rpc(url, method, params) {
   throw last;
 }
 
-function encodeAgg3(calls) {
+export function encodeAgg3(calls) {
   const head = '0x82ad56cb' + pad('20') + pad(calls.length.toString(16));
   let offsets = '', tails = '';
   const base = calls.length * 32;
@@ -134,7 +134,7 @@ function encodeAgg3(calls) {
   }
   return head + offsets + tails;
 }
-function decodeAgg3(hex, expected) {
+export function decodeAgg3(hex, expected) {
   if (typeof hex !== 'string' || !/^0x(?:[0-9a-f]{2})+$/i.test(hex) || hex.length < 130)
     throw new Error('Malformed multicall response');
   const h = hex.replace(/^0x/, '');

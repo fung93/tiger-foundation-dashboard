@@ -346,7 +346,7 @@ function renderOverview(){
 
 function renderStamp() {
   const age = nowS() - readAt, fresh = lastOk && age <= FRESH,
-    partial=!!view&&(view.fee_pools.some(p=>p.status!=='fresh')||new Set(view.fee_pools.map(p=>p.pairKey)).size<5);
+    partial=!!view&&(view.fee_pools.some(p=>p.status!=='fresh')||new Set(view.fee_pools.map(p=>p.pairKey)).size<(view.expected_pair_count||6));
   $('stamp').className = 'stamp' + (fresh ? '' : ' stale');
   $('stamp').innerHTML = `<span class="dot"></span><span class="st">${fresh ? partial?'PARTIAL':'LIVE' : readAt ? 'STALE' : 'LOADING'}</span><br>${readAt ? clockTime(readAt) : '—'}`;
 }

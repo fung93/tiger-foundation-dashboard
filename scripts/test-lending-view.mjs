@@ -34,11 +34,16 @@ for(const row of [undefined,null,{},
 }
 check(view.marketIsInactive(closed),true,'A confirmed empty position is inactive');
 check(view.marketIsHidden(avkatUsdc,closed),true,'The empty avKAT/USDC market is hidden');
-check(view.marketIsHidden(katUsdc,closed),false,'The empty KAT/USDC market stays visible for its inactive label and history');
-check(view.marketIsHidden(avkatKat,closed),false,'Other requested markets are not removed');
+check(view.marketIsHidden(katUsdc,closed),true,'The confirmed inactive KAT/USDC lending market is hidden');
+check(view.marketIsHidden(avkatKat,closed),true,'Every confirmed inactive lending market is hidden');
 check(view.marketIsHidden(avkatUsdc,active(100,50)),false,'A new avKAT/USDC position restores its visibility');
 check(view.marketIsHidden(avkatUsdc,{...closed,error:'Unreadable'}),false,'An unreadable market cannot be mistaken for a closed market');
 check(view.marketIsHidden(avkatUsdc,undefined),false,'A market without any reading is not silently removed');
+for(const market of MARKETS){
+  check(view.marketIsHidden(market,active(100,50)),false,'A verified reopened position restores '+market.label);
+  check(view.marketIsHidden(market,{...closed,error:'Unreadable'}),false,'A failed reading cannot hide '+market.label);
+  check(view.marketIsHidden(market,undefined),false,'A missing reading cannot hide '+market.label);
+}
 
 const unequal=[active(1000,500),active(100,80),closed];
 check(overview(unequal),{oracle_collateral_usd:1100,debt_usd:580,average_ltv:580/1100},

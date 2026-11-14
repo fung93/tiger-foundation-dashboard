@@ -84,6 +84,9 @@ Chains with less than $5 and no LP show as INACTIVE.
    - `vkat-votes.json`: Alex's gauge vote events, the vote rewards Merkl paid with their
      campaign dates and payout prices, and KAT's price when each vote week closed
      (`scripts/vkat-votes.mjs`, its own error boundary; added 1 Nov 2026)
+   - `katana-revenue.json`: completed UTC days of verified network product fees,
+     coverage and incremental Swap pool discovery, separate from personal income
+     (`scripts/katana-revenue.mjs`, its own bounded error boundary; added 14 Nov 2026)
 2. **Browser live overlay, every 15 seconds.** The pages read the chain and the `/api/*`
    functions directly. The Portfolio starts from the saved snapshot. The LP Book and
    widget can show their shared last full browser reading immediately; refresh failures
@@ -98,7 +101,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `api/vault.mjs` | The second wallet's live value. |
 | `api/fables.mjs` | Fables LP ranges and veFABLES locks. |
 | `api/morpho.mjs` | Current Katana Morpho positions, including accrued debt and oracle values. |
-| `api/strategy.mjs` | The Strategy page's reading: the epoch, the live KAT staking campaigns and each pool's eligible in-range liquidity. `s-maxage=30, swr=30`. |
+| `api/strategy.mjs` | The Strategy page's six requested trading-fee pairs, verified volume/fees and range estimates, plus read-only hedge quotes. `s-maxage=30, swr=30`. |
 | `api/lp.mjs` | Legacy widget endpoint; no longer used by the widget. |
 | `api/agent.mjs` | Private owner login, shared chat/preferences and Telegram pairing. Private status uses POST, never GET. |
 | `api/agent-telegram.mjs` | Secret-verified private Telegram webhook; approved owner only. |
@@ -113,12 +116,12 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lp-all.html` | LP Book, **All-time**: closed positions, every figure fixed at close. |
 | `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
-| `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: the five requested Katana trading-fee pairs, with volume/fee/APR sorting, daily range estimates and optional hedges. The 14 Nov decision below supersedes the earlier emission interface. |
+| `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: the six requested Katana trading-fee pairs, with volume/fee/APR sorting, daily range estimates and optional hedges. The 14 Nov decision below supersedes the earlier emission interface. |
 | `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
 | `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` for the requested `FEE_POOLS`, 31 days, from complete Swap logs. A successful result at the 10,000-log cap also splits; a saturated single block fails. Existing history remains; the writer reads only blocks since `last_block`, bootstraps a newly configured pool once, validates before reads and saves after each pool. No live emission campaign is required. |
 | `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, simulator and swap-only trade table, reset 14 Nov 2026 at 13:13:15 MYT. The old book is archived. See §4. |
 | `kat-core.mjs` | The KAT page's trade finder (from wallet transfers and receipts), the average-cost book, the P&L series and the ledger's validation, with no network: used by the page, `api/kat-trades.mjs`, `scripts/kat-trades.mjs` and `scripts/test-kat-trades.mjs`. |
-| `vkat.html`, `vkat.css`, `vkat.js` | **vKAT/avKAT**, the main KAT destination: original network row plus personal vKAT and avKAT holdings. Reads `/api/vkat?view=holdings`; the legacy vote API/job remains available without exposing its interface here. |
+| `vkat.html`, `vkat.css`, `vkat.js` | **vKAT/avKAT**, the main KAT destination: original network row plus personal vKAT and avKAT holdings. Reads `/api/vkat?view=holdings`; the independent `katana-revenue.js` panel reads `?view=revenue`. The legacy vote API/job remains available without exposing its interface here. |
 | `vkat-core.mjs`, `api/vkat.mjs`, `scripts/vkat-votes.mjs`, `vkat-votes.json` | Its maths (votes per epoch, rewards per epoch, APY, ledger validation), the API (ledger + anything newer + live locks, ~4 s) and the six-hourly job (first run ~37 s; then only new blocks and new campaigns). |
 | `api/kat-trades.mjs`, `scripts/kat-trades.mjs`, `kat-trades.json` | The ledger the job keeps (only blocks since `last_block`; ~2 s incremental), and the API that adds everything since it plus the KAT and ETH prices now (~1.8 s, ~5 KB on 1 Nov 2026). |
 | `scripts/morpho.mjs`, `morpho-history.json` | Daily older archive observations and six-hour recent observations, valued at their own pinned blocks. |
@@ -303,10 +306,10 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Katana Lending (Alex, 25 Oct 2026)
 
-- The Lending page shows avKAT/KAT and KAT/USDC separately. avKAT/USDC is hidden while
-  inactive and returns if a position opens again (Alex, 26 Oct 2026). A successful
+- The Lending page shows only active positions (Alex, 14 Nov 2026). All three markets
+  are hidden while confirmed inactive and return automatically if a position opens. A successful
   `no_position` reading confirms no collateral, lending or borrowing; a failed read must
-  never imply inactivity. KAT/USDC remains visible with an Inactive badge when empty.
+  never imply inactivity. If every market is confirmed empty, show the empty-state message.
   Keep all three markets in the reader, API and history. The actual USDC loan token is
   vbUSDC; keep that token identity visible. Portfolio still rolls them into one Morpho card.
 - Personal maximum LTV starts at **70% for avKAT/KAT, 35% for avKAT/USDC and 35% for
@@ -388,10 +391,12 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 ### Strategy (Alex, 1 Nov 2026)
 
 **Superseded for the public page on 14 Nov 2026:** KAT LP emissions have ended.
-Show USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC, with each funded
+Show KAT/USDC, USDT/USDC, avKAT/KAT, avKAT/USDC, vbETH/USDC and vbWBTC/USDC, with each funded
 Sushi V3 fee tier separately. `FEE_POOLS` is verified against the factory; the hourly
 writer now follows that catalog without requiring active reward campaigns. Keep the
-range, daily earnings and hedge tools. Sort volume, LP fees and APR numerically in
+API's `expected_pair_count` tied to that catalog so missing-pair status covers all six.
+KAT/USDC includes its verified 0.01%, 0.05%, 0.3% and 1% tiers; dust tiers are filtered.
+Keep the range, daily earnings and hedge tools. Sort volume, LP fees and APR numerically in
 either direction while retaining open inputs. Volume is complete 24-hour Swap inputs,
 counted once and marked at current reference quotes; LP fees use the observed protocol
 split. APR annualises those fees over current TVL. Daily range income remains a
@@ -1196,7 +1201,7 @@ It has four views: Planner, simulated positions, My real LPs and History.
   is `scripts/backfill-morpho-starts.mjs`; keep its checkpoint outside the repository.
 - **Lending market view:** `node scripts/test-lending-view.mjs` checks weighted average
   LTV, unknown and zero values, inactive markets, reactivation and source preservation
-  against the actual browser functions; 40 assertions pass.
+  against the actual browser functions; 49 assertions pass.
 - **Cross-check figures** against an independent read of the same position.
 - **Portfolio Katana reader:** `node scripts/test-portfolio-katana.mjs` exercises the actual
   browser reader with 42 assertions covering required read failures, closures, transfers,
@@ -1211,6 +1216,35 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **14 Nov 2026, revenue draft approved for publication with Lending/Strategy changes:**
+  After requesting local review, Alex asks to remove inactive lending markets, add
+  KAT/USDC and **push**. That latest instruction authorizes publishing the combined
+  draft. All confirmed empty lending cards are hidden, with failed readings retained
+  and reopening detected by the unchanged three-market reader/history. Strategy adds
+  the factory-verified KAT/USDC fee tiers and reports six-pair coverage. Live reads
+  confirm one active avKAT/KAT loan and KAT/USDC fee data. Browser acceptance: 162
+  Lending/Strategy assertions plus 132 revenue assertions, both themes and
+  320/360/1366 px; 49 Lending-view and 163 Strategy unit assertions pass.
+  Final `npm run check` passes all 78 portable suites and matching Portfolio copies.
+  Cache 167 combines these changes with the revenue panel below. No wallet action,
+  Lending default change, old financial-ledger rewrite or agent policy change.
+
+- **14 Nov 2026, Katana revenue draft (initially local review; publication approved above):** Alex asks
+  for daily/weekly/monthly Katana revenue by source and KAT buyback allocation on
+  vKAT/avKAT. He supplies the complete Foundation article from X status
+  `2120517054558093364`; the linked tokenomics page remains workspace-blocked.
+  Four sources: Swap, Perps, Vault Bridge, sequencer. Fees to avKAT are announced
+  from 17 Nov; buybacks launch later. **100% of purchased KAT to avKAT is not
+  100% of revenue for buybacks.** Keep the undisclosed revenue share/budget and
+  unconnected execution amounts unknown. The new panel/ledger is separate from
+  personal holdings and LP/trade accounting. Historical product fee observations
+  use completed UTC days (08:00 MYT), integer USD millionths and explicit partial
+  scope; no missing-day or rate extrapolation. Current local evidence covers
+  30 days of normal Perps fees and protocol-fee accrual in 49 priced V3 Swap pools,
+  not all Katana revenue. Vault Bridge and retained sequencer revenue still need
+  verified feeds. See `docs/KATANA-REVENUE-REVIEW.md` for evidence, tests, remaining
+  data gates and the local preview. Cache 167 is used for the combined approved release.
 
 - **14 Nov 2026, dashboard refresh, explicit push requested:** repair current Katana
   non-stable LP valuation and original deposit pricing; account for owner fees on

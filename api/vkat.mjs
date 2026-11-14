@@ -11,10 +11,20 @@
    ========================================================================== */
 import { CFG, multi, rpc, keccakHex } from './_core.mjs';
 import {MARKETS,MORPHO} from '../morpho-core.mjs';
+import {collectKatanaRevenue} from './_katana-revenue.mjs';
+import {createLiveCache,fetchJSON,requestOrigin} from './_live-cache.mjs';
 import { VOTER, VKAT_NFT, ESCROW, KAT, WALLETS, VOTE_TOPIC, RESET_TOPIC, epochOf, epochStart, voteClose, voteFromLog,
   bribeRows, voteBook, standingVotes, emptyLedger, validateLedger } from '../vkat-core.mjs';
 
 const RPC = CFG.katRpc, MERKL = 'https://api.merkl.xyz/v4';
+const revenueCheckpoints=new Map(),readRevenueCached=createLiveCache({ttlMs:300000,complete:v=>v?.schemaVersion==='katana-revenue-v1'});
+async function readRevenue(origin){
+  const saved=await fetchJSON(origin+'/katana-revenue.json'),identity=JSON.stringify(saved),old=revenueCheckpoints.get(origin),
+    input=old?.identity===identity?old.ledger:saved,result=await collectKatanaRevenue(input);
+  revenueCheckpoints.set(origin,{identity,ledger:result.ledger});
+  if(revenueCheckpoints.size>8)revenueCheckpoints.delete(revenueCheckpoints.keys().next().value);
+  return result.view;
+}
 const SPAN = 5000000;
 const hex = (n) => '0x' + n.toString(16);
 const pad = (x) => '0x' + String(x).replace(/^0x/, '').padStart(64, '0');
@@ -221,6 +231,11 @@ export default async function handler(req, res) {
   res.setHeader('cache-control', 's-maxage=60, stale-while-revalidate=60');
   res.setHeader('content-type', 'application/json; charset=utf-8');
   const query=req.query||Object.fromEntries(new URL(req.url||'/','https://dashboard.invalid').searchParams);
+  if(query.view==='revenue'){
+    try{const origin=requestOrigin(req);res.setHeader('cache-control','s-maxage=300, stale-while-revalidate=30');
+      return res.status(200).end(JSON.stringify(await readRevenueCached(origin,()=>readRevenue(origin))));
+    }catch{res.setHeader('cache-control','no-store');return res.status(502).end(JSON.stringify({error:'The Katana revenue reading is unavailable.'}));}
+  }
   if(query.view==='holdings'){
     try{return res.status(200).end(JSON.stringify(await readVkatHoldings()));}
     catch(e){res.setHeader('cache-control','no-store');return res.status(502).end(JSON.stringify({error:String(e.message||e)}));}

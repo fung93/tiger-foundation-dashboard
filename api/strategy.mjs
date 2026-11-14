@@ -42,9 +42,13 @@ const SEL = {
   feeGrowthGlobal0X128: '0xf3058399', feeGrowthGlobal1X128: '0x46141319',
 };
 
-/* Five requested token pairs and their Sushi V3 fee tiers, verified through the
+/* Six requested token pairs and their Sushi V3 fee tiers, verified through the
    factory on 14 November 2026. Empty tiers are filtered by observed balances. */
 export const FEE_POOLS = [
+  ["KAT", "USDC", 100, "0x1d1f00a79bcd17e4ca05c0204a84a806c4417ced"],
+  ["KAT", "USDC", 500, "0x10045367e619caae6f60cc80046c43c6cd55f629"],
+  ["KAT", "USDC", 3000, "0x6d8a30f4b2501de8f0b443cb11eb512f12d5355f"],
+  ["KAT", "USDC", 10000, "0xaa7bb0c80a30b61a5bb20a804f6cc96651bad37a"],
   ["USDT", "USDC", 100, "0x5f88eeb3a5662489eb2d5da9f0c73f03355f3009"],
   ["USDT", "USDC", 3000, "0x2745f7410b6b06c2995c61a13087c363e417cbd7"],
   ["USDT", "USDC", 10000, "0x7eddaad3a1d875f4c6d76f0f2f6a9e0852bcf411"],
@@ -370,7 +374,7 @@ export async function readStrategy(now=Math.floor(Date.now()/1000),{ranges}={}){
   const expected=new Set(FEE_POOLS.map(p=>p.pairKey)),covered=new Set(feePools.map(p=>p.pairKey));
   for(const pair of expected)if(!covered.has(pair))notes.push(pair+': the pool reading is unavailable.');
   if(feePools.some(p=>p.status!=='fresh'))notes.push('Some 24-hour volume and fee readings could not be verified.');
-  return {at:now,mode:'trading-fees',epoch:null,reward:{start:now,end:now+7*86400},estimate_days:7,
+  return {at:now,mode:'trading-fees',expected_pair_count:expected.size,epoch:null,reward:{start:now,end:now+7*86400},estimate_days:7,
     total:{kat:0,katPerDay:0},kat_usd:feePools.find(p=>p.kat_usd>0)?.kat_usd??null,pools:[],fee_pools:feePools,perps:await perpsP,health:{notes}};
 }
 

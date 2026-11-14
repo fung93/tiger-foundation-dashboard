@@ -11,6 +11,7 @@
 .overview-card[data-status=stale] .price-status{color:var(--warn)}
 @media(max-width:1200px){.lending-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.lending-overview>.overview-card:last-child{grid-column:1/-1}}
 .markets{display:grid;gap:24px}
+.market-empty{padding:24px 26px;color:var(--dim);font-size:13px;line-height:1.6}
 .market-card[hidden]{display:none}
 .market-card{padding:25px 26px 20px;min-width:0}
 .market-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
