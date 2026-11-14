@@ -117,6 +117,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `lending.html`, `lending.css`, `lending.js` | Katana Morpho markets, personal lending limits and historical value/health charts. |
 | `morpho-core.mjs` | Browser-safe shared Morpho reader and target maths used by the page, API and history job. |
 | `strategy.html`, `strategy.css`, `strategy.js` | **Strategy**: the six requested Katana trading-fee pairs, with volume/fee/APR sorting, daily range estimates and optional hedges. The 14 Nov decision below supersedes the earlier emission interface. |
+| `uni.html`, `uni.css`, `uni.js`, `uni-core.mjs` | **UNI**: beginner Uniswap V3 guide for Base and BNB Chain. Select a verified UNI/stablecoin pool, a deposit mode, amount and range; see edge P&L and conditional daily fees/APR. `api/uni.mjs` discovers pools and reads pinned current/archive state independently of portfolio accounting. See `docs/UNI-GUIDE.md`. |
 | `strategy-core.mjs` | The Strategy estimate's maths and the recent-range maths, with no network: used by the page, `api/strategy.mjs`, `scripts/strategy-ranges.mjs` and `scripts/test-strategy.mjs`. |
 | `scripts/strategy-ranges.mjs`, `strategy-ranges.json` | Hourly `[hour, low tick, high tick, swaps, close tick]` for the requested `FEE_POOLS`, 31 days, from complete Swap logs. A successful result at the 10,000-log cap also splits; a saturated single block fails. Existing history remains; the writer reads only blocks since `last_block`, bootstraps a newly configured pool once, validates before reads and saves after each pool. No live emission campaign is required. |
 | `kat.html`, `kat.css`, `kat.js` | **KAT Trades**: KAT price, average buy price, unrealised and realised P&L, simulator and swap-only trade table, reset 14 Nov 2026 at 13:13:15 MYT. The old book is archived. See §4. |
@@ -134,7 +135,7 @@ Chains with less than $5 and no LP show as INACTIVE.
 | `manifest.webmanifest`, `icons/` | PWA files. The site icon is a white metallic tiger: `icons/tiger.svg`, drawn by `scripts/tiger-icon.py`. |
 
 Portfolio, both LP Book pages, Lending and Strategy have a menu bar under the header:
-**Portfolio · LP Book · Lending · Strategy · vKAT/avKAT**, with the open page lit. The standalone widget has no menu;
+**Portfolio · LP Book · Lending · Strategy · vKAT/avKAT · UNI**, with the open page lit. The standalone widget has no menu;
 tapping its Tiger Foundation masthead opens the full LP Book.
 
 The menu buttons must keep the same position and size when switching between
@@ -149,6 +150,9 @@ letter spacing and 14 px icons; at 420 px and below also hide the icons. With th
 line down to 320 px (measured 1 Nov 2026 on all six pages at 320, 340, 359, 360, 375, 390, 401,
 420 and 540 px: one row, no sideways scroll; 11 px spare at 320). `lpbook.css` carries the
 rules for every page but the Portfolio, which has them inline in both copies.
+The 14 Nov UNI addition brings the menu to six destinations. `theme.css` adds the
+shared tighter 420/359 px overrides, including Portfolio. All six remain on one row
+in both themes down to 320 px; retain the same tab order on every full page.
 
 The cards' outside edges must also match between Portfolio, both LP Book pages, Lending, Strategy and KAT.
 Portfolio's `.wrap` and the LP Book's `.book-content` use a 1200 px outer frame with
@@ -1216,6 +1220,26 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **14 Nov 2026, UNI guide — explicit push requested after local review:** add the UNI
+  main navigation tab and a beginner guide for Uniswap V3 UNI/stablecoin pools on
+  Base and BNB Chain. Discover supported fee tiers through the official factories;
+  verify pool/token identity and decimals at a pinned block. No pool addresses,
+  market rates or active liquidity are fabricated. Current price, TVL and complete
+  24-hour swaps are separate from archive fee-growth availability. UNI-only ranges
+  must be above spot; stablecoin-only ranges below; both-token ranges include spot.
+  Single-sided positions earn zero until price enters. Show deterministic deposit
+  amounts, edge P&L, conditional fees/day and APR, plus a copy-and-open Uniswap link.
+  Never label future income exact or infer zero from a failed reader. Preserve
+  inputs and original timestamps on refresh failures; suppress stale income quotes.
+  No wallet access, transaction, paid service, portfolio-ledger change or agent
+  runtime change. One existing automation test now starts at a fixed MYT daytime
+  relative to tomorrow so wall-clock midnight cannot double its daily snapshot
+  count; keep it future-dated for SQLite's real-time lease guard. Cache 168 is the
+  approved release. Tests: UNI 292 assertions, browser flow 280, all-page navigation 288;
+  `npm run check` passes. Real Base/BNB pool inventory, archive support and yield
+  values remain unverified because the workspace proxy blocks their public RPCs.
+  Details and the progress checklist are in `docs/UNI-GUIDE.md`.
 
 - **14 Nov 2026, revenue draft approved for publication with Lending/Strategy changes:**
   After requesting local review, Alex asks to remove inactive lending markets, add

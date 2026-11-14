@@ -11,7 +11,10 @@ import { priceAtTick } from '../strategy-core.mjs';
 import { recordAgentDecision } from '../api/_agent-decisions.mjs';
 import {WEEKLY_STATE,weeklyPeriod} from '../api/_agent-weekly-learning.mjs';
 
-let count=0,queries=0,maxQueries=0,now=Date.now()+1000,near=false,empty=false,incomplete=false,walletFails=false,loads=0,failPublish=false,closedHistory=[];
+// Start at tomorrow's noon MYT: this one-day scenario must not randomly cross
+// midnight. Keep it in the future because SQLite lease guards also use real time.
+const scenarioStart=(Math.floor((Date.now()+8*3600000)/86400000)+1)*86400000+4*3600000;
+let count=0,queries=0,maxQueries=0,now=scenarioStart,near=false,empty=false,incomplete=false,walletFails=false,loads=0,failPublish=false,closedHistory=[];
 const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;};
 const fixture=createAgentSQLiteFixture({usage:true});
 const db={prepare(sql){return {bind(...args){const statement=fixture.db.prepare(sql).bind(...args);return {...statement,

@@ -6,7 +6,7 @@ import {dirname, extname, isAbsolute, relative, resolve, sep} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const DEFAULT_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','kat-trades','vkat','agent','agent-telegram','agent-monitor']);
+const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','uni','kat-trades','vkat','agent','agent-telegram','agent-monitor']);
 const AGENT_POSTS=new Set(['/api/agent','/api/agent-telegram','/api/agent-monitor']);
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8',
   '.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8',
