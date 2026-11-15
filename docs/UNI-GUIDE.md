@@ -4,6 +4,21 @@ The original page and previous data/display repairs were explicitly approved for
 push. The owner also explicitly requested **push** for the 15 November single-sided
 estimate follow-up after local implementation and validation.
 
+## Input alignment follow-up — push requested, 15 November 2026
+
+- [x] Reproduce a **15 px** vertical input offset at 600 px in the tiger theme,
+  caused by different label wrapping in the same calculator row.
+- [x] Use explicit label spans and flexible label space above each input, with
+  a minimum input height of 44 px. Preserve the mobile amount/full-width row and
+  paired price row, and the desktop three-column layout.
+- [x] Keep all three deposit modes, entered values, price rounding, fees and P&L
+  calculations unchanged. Publish the page module with cache version **175**.
+- [x] **5,184** actual browser assertions pass across all pools/modes, both
+  themes/languages and eight widths; maximum input row offset is **0 px**.
+- [x] `npm run check` passes all **82** suites and final syntax/copy checks pass.
+- [x] Prepare and rebase the validated release for the owner's requested push.
+  See `docs/LANGUAGE.md` for shared mobile work.
+
 ## LIVE badge follow-up — publication approved, 15 November 2026
 
 The owner confirmed that the page says **LIVE in gray**. This is a visual defect:

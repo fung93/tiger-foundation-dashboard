@@ -180,6 +180,9 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   His subsequent placement request puts this control **next to LIVE/status inside
   the header**. On narrow phones, status and language share a row below the brand.
   The owner explicitly approved pushing this placement follow-up after review.
+  The subsequent mobile-spacing fix uses 44 × 44 px language targets with separate
+  outlines and 6 px between them. Keep the group 14 px from LIVE and allow the
+  shared header action row through 768 px. Navigation must fit those widths too.
 
 - **On Portfolio, one card per DeFi type, never one per position.** All LPs roll into one "Liquidity
   Pools" card and Morpho into one card. Each card has a record icon that opens the detail.
@@ -1232,6 +1235,18 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **15 Nov 2026, mobile language spacing and aligned UNI fields — push requested:**
+  enlarge mobile language choices to 44 × 44 px with 12 px labels, separated
+  outlines and a 6 px gap, retaining the group beside LIVE. Give the header room
+  through 768 px and keep six navigation labels in bounds at 421–768 px. UNI
+  labels use explicit spans and flexible space above equal-height input fields;
+  preserve all modes, values, tick rounding and financial calculations. Before
+  the fix, a 15 px row offset reproduced at 600 px in the tiger theme. Cache 175.
+  Header geometry/touch checks pass 4,304 browser assertions; UNI alignment,
+  values and all modes pass 5,184 assertions with a 0 px maximum row offset.
+  `npm run check` passes all 82 suites; Portfolio copies and the plan are unchanged.
+  Validation/push progress is in `docs/LANGUAGE.md` and `docs/UNI-GUIDE.md`.
 
 - **15 Nov 2026, language control beside LIVE — explicit push requested:**
   move `.tf-language-bar` into the existing masthead status/action group. For

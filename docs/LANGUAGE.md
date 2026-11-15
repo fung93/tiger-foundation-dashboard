@@ -3,6 +3,37 @@
 Requested 15 November 2026. The owner explicitly approved **push** after local
 implementation and validation, including the pending UNI LIVE badge correction.
 
+## Mobile spacing and UNI fields — push requested, 15 November 2026
+
+The owner reported cramped mobile language controls and misaligned UNI inputs,
+and explicitly requested fixes and **push**.
+
+- [x] Give mobile language choices at least **44 × 44 px** touch targets, 12 px
+  text, separate rounded outlines and a 6 px gap. Keep the group beside LIVE with
+  14 px separation from the status; allow room below the brand through 768 px.
+- [x] Keep the six navigation links within the viewport between 421 and 768 px,
+  using compact labels without icons. The prior English UNI link extended beyond
+  the 540 px viewport and made the mobile page wider than its screen.
+- [x] Give all UNI labels explicit text spans and a shared flexible label row,
+  then place equal-height inputs beneath it. A **15 px** offset was reproduced
+  in the tiger theme at 600 px before the fix.
+- [x] Preserve desktop styling, calculator values, both languages, theme state,
+  original quote times and financial behavior. Bump the shell/assets to **175**.
+- [x] **4,304** header/browser assertions pass on all 12 page URLs in both
+  themes/languages across eight phone/tablet/desktop widths, including tap target
+  size, spacing, clickability, status alignment and navigation fit.
+- [x] **5,184** UNI assertions pass for all three pools and all deposit modes in
+  both themes/languages across eight widths. Maximum input row offset is **0 px**;
+  values and editable ranges survive language changes and estimates still render.
+- [x] `npm run check` passes all **82** suites. Final syntax, diff formatting,
+  unchanged implementation plan and byte-identical Portfolio copies pass.
+- [x] Prepare the approved release and rebase onto the latest main branch,
+  preserving the incoming automatic pool snapshot for the requested push.
+- [ ] Verify production where network access permits. Direct Vercel reads remain
+  proxy blocked in this workspace.
+
+Evidence: `/workspace/tiger-agent-validation/mobile-uni-layout/`.
+
 ## Header placement follow-up — approved for publication, 15 November 2026
 
 The owner subsequently requested the language control **next to LIVE**. This

@@ -11,5 +11,16 @@
 html[lang=zh-CN] .label,html[lang=zh-CN] .metric-label,html[lang=zh-CN] .menu a,html[lang=zh-CN] .sub{letter-spacing:.03em}
 html[lang=zh-CN] .metric-label,html[lang=zh-CN] .note,html[lang=zh-CN] .agent-help{overflow-wrap:anywhere}
 html[lang=zh-CN] .mode-option,html[lang=zh-CN] .uni-step,html[lang=zh-CN] .agent-settings-grid>label{line-height:1.7}
-@media(max-width:600px){header .hdr-inner,.hdr .hdr-inner{flex-wrap:wrap;row-gap:8px}.tf-header-actions{width:100%;margin-left:auto}}
+@media(max-width:768px){
+  header .hdr-inner,.hdr .hdr-inner{flex-wrap:wrap;row-gap:12px}
+  .tf-header-actions{width:100%;margin-left:auto;gap:14px}
+  .tf-language-bar{gap:6px}
+  .tf-language-button{min-width:44px;min-height:44px;padding:8px 9px;font-size:12px;line-height:1.2}
+  .tf-language-button:first-child,.tf-language-button:last-child{border-radius:999px;margin-left:0}
+}
+@media(min-width:421px) and (max-width:768px){
+  .menu{gap:4px}
+  .menu a,html.classy .menu a{padding-left:6px;padding-right:6px;gap:0;font-size:9.5px;letter-spacing:0}
+  .menu a svg,html.classy .menu a svg{display:none}
+}
 @media(prefers-reduced-motion:reduce){.tf-language-button{transition:none}}
