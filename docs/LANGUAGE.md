@@ -3,6 +3,28 @@
 Requested 15 November 2026. The owner explicitly approved **push** after local
 implementation and validation, including the pending UNI LIVE badge correction.
 
+## Header placement follow-up — approved for publication, 15 November 2026
+
+The owner subsequently requested the language control **next to LIVE**. This
+placement change was implemented and validated locally, then explicitly approved
+for **push** by the owner.
+
+- [x] Insert the existing EN / 中文 control into the header's status/action group,
+  immediately to the right of the LIVE/stale stamp, rather than beneath the header.
+- [x] Use the same header position on pages without a LIVE stamp. Retained legacy
+  headers wrap their existing timestamp and control in one action group.
+- [x] Keep both controls together on narrow phones, below the brand inside the
+  header; preserve the reading time, theme and saved language.
+- [x] Validate **1,744** browser assertions on all 12 retained page URLs, both
+  themes, English/Chinese and 320/360/768/1366 px. Checks cover actual adjacency,
+  alignment, bounds, click targets, navigation fit and hidden embedded controls.
+- [x] Existing **69** language assertions, syntax, diff formatting and identical
+  Portfolio copies pass. No financial calculations or data readers changed.
+- [x] Bump shared language assets and the service worker to cache **174**.
+- [x] Receive explicit authorization before committing, pushing or deploying this follow-up.
+
+Evidence: `/workspace/tiger-agent-validation/language-placement/`.
+
 ## Progress
 
 - [x] Add an accessible **EN / 中文** control to every full dashboard page, LP
@@ -18,9 +40,10 @@ implementation and validation, including the pending UNI LIVE badge correction.
   payload changes. Keep the Lending page's per-visit target reset independent.
 - [x] Leave saved conversations, owner-authored journal notes, source quotations,
   URLs, wallet addresses, token names and financial data in their original form.
-- [x] Keep both existing themes with their switches hidden. Put language controls
-  in a separate row so they cannot crowd the masthead, quote time or navigation.
-- [x] Cache the local translation assets in the PWA shell; cache version **173**.
+- [x] Keep both existing themes with their switches hidden. Language controls now
+  sit beside LIVE/status; see the subsequent placement change above.
+- [x] Cache the local translation assets in the PWA shell; published language
+  release **173**, local header-placement follow-up **174**.
 - [x] Portable language/storage/financial-copy checks pass **69** assertions.
 - [x] Multi-page browser checks pass **978** assertions, plus **54** follow-up
   assertions for Lending reset, canvas labels/tooltips, keyboard access and a real

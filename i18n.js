@@ -128,8 +128,14 @@
       button.setAttribute('aria-label',pair[0]==='en'?'Use English':'使用简体中文');
       button.addEventListener('click',function(){apply(pair[0],true);});bar.appendChild(button);
     });
-    var header=document.querySelector('header,.hdr');
-    if(header&&header.parentElement===document.body)header.insertAdjacentElement('afterend',bar);
+    var header=document.querySelector('header,.hdr'),actions=header&&header.querySelector('.theme-actions,.hdr-side');
+    if(header&&!actions){
+      actions=document.createElement('div');
+      var stamp=header.querySelector('.stamp,.ts'),frame=header.querySelector('.hdr-inner')||header;
+      if(stamp){stamp.parentElement.insertBefore(actions,stamp);actions.appendChild(stamp);}
+      else frame.appendChild(actions);
+    }
+    if(actions){actions.classList.add('tf-header-actions');actions.appendChild(bar);}
     else document.body.insertBefore(bar,document.body.firstChild);
     controls();
   }

@@ -177,6 +177,9 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   journal prose and evidence quotations original. Do not use paid translation or
   send content to a translation service. See `docs/LANGUAGE.md` for implementation
   and validation. The owner explicitly approved publication after local review.
+  His subsequent placement request puts this control **next to LIVE/status inside
+  the header**. On narrow phones, status and language share a row below the brand.
+  The owner explicitly approved pushing this placement follow-up after review.
 
 - **On Portfolio, one card per DeFi type, never one per position.** All LPs roll into one "Liquidity
   Pools" card and Morpho into one card. Each card has a record icon that opens the detail.
@@ -1229,6 +1232,16 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **15 Nov 2026, language control beside LIVE — explicit push requested:**
+  move `.tf-language-bar` into the existing masthead status/action group. For
+  retained legacy headers, group their timestamp and the same control without
+  replacing the timestamp. Keep both adjacent on phones using a header row below
+  the brand. Pages without a stamp use the same header action position. Preserve
+  language storage, translation and financial behavior. Cache 174. All 69 focused
+  language checks and 1,744 browser assertions pass across all 12 retained URLs,
+  both themes/languages and four phone/tablet/desktop widths. Node syntax, diff
+  formatting and identical Portfolio copies pass. See `docs/LANGUAGE.md`.
 
 - **15 Nov 2026, English / Chinese switch — explicit push requested:** shared
   `i18n.js`, `i18n-zh.js` and `i18n.css` add a remembered EN / 中文 control across
