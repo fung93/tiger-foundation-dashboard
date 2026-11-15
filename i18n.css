@@ -4,7 +4,8 @@
 .tf-header-actions>.ts{flex:0 1 auto;min-width:0;white-space:normal;overflow-wrap:anywhere}
 .tf-language-bar{position:relative;z-index:1;margin:0;padding:0;display:inline-flex;flex:0 0 auto;justify-content:flex-end;gap:0;color:var(--dim,#8f8b82)}
 .tf-language-button{display:inline-flex;align-items:center;justify-content:center;min-width:39px;min-height:28px;padding:4px 10px;border:1px solid var(--line,rgba(255,255,255,.12));background:transparent;color:inherit;cursor:pointer;font:500 10px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.03em}
-.tf-language-button:first-child{border-radius:999px 0 0 999px}.tf-language-button:last-child{border-radius:0 999px 999px 0;margin-left:-1px}
+.tf-language-button[data-tf-language=en]{border-radius:999px 0 0 999px}.tf-language-button[data-tf-language=zh-CN]{border-radius:0 999px 999px 0;margin-left:-1px}
+.tf-language-compact{display:none}
 .tf-language-button[aria-pressed=true]{position:relative;border-color:var(--gold,#d6b97b);color:var(--gold,#d6b97b);background:rgba(214,185,123,.07)}
 .tf-language-button:focus-visible{outline:2px solid var(--gold,#d6b97b);outline-offset:3px;z-index:1}
 .agent-embedded .tf-language-bar{display:none}
@@ -12,11 +13,28 @@ html[lang=zh-CN] .label,html[lang=zh-CN] .metric-label,html[lang=zh-CN] .menu a,
 html[lang=zh-CN] .metric-label,html[lang=zh-CN] .note,html[lang=zh-CN] .agent-help{overflow-wrap:anywhere}
 html[lang=zh-CN] .mode-option,html[lang=zh-CN] .uni-step,html[lang=zh-CN] .agent-settings-grid>label{line-height:1.7}
 @media(max-width:768px){
-  header .hdr-inner,.hdr .hdr-inner{flex-wrap:wrap;row-gap:12px}
-  .tf-header-actions{width:100%;margin-left:auto;gap:14px}
-  .tf-language-bar{gap:6px}
-  .tf-language-button{min-width:44px;min-height:44px;padding:8px 9px;font-size:12px;line-height:1.2}
-  .tf-language-button:first-child,.tf-language-button:last-child{border-radius:999px;margin-left:0}
+  header,.hdr{padding-left:16px;padding-right:16px}
+  header .hdr-inner,.hdr .hdr-inner{flex-wrap:nowrap;gap:8px}
+  .hdr-inner>.theme-brand,.hdr-inner>.hdr-brand{min-width:0;flex:0 0 auto;gap:6px}
+  .tf-header-actions{width:auto;flex:0 1 auto;margin-left:auto;gap:8px}
+  header .tf-header-actions>.stamp,.tf-header-actions>.ts{min-width:0;font-size:10px;letter-spacing:0;white-space:normal}
+  header h1,.hdr h1,html.classy .hdr h1{font-size:clamp(18px,4.5vw,27px);letter-spacing:0}
+  html.tiger .themed-page header h1,html.tiger .hdr h1{font-size:clamp(14px,3.6vw,21px);letter-spacing:0}
+  header .sub,.hdr .sub,html.classy .hdr .sub,html.tiger .themed-page header .sub,html.tiger .hdr .sub{font-size:clamp(6px,1.7vw,10px);letter-spacing:.02em}
+  html.tiger .theme-mascot,html.tiger .brand-mark svg{width:24px;height:24px}
+  .tf-language-button[data-tf-language]{display:none}
+  .tf-language-compact{display:inline-flex;min-width:44px;min-height:44px;padding:8px;border-radius:999px;font-size:12px;line-height:1.2;border-color:var(--gold,#d6b97b);color:var(--gold,#d6b97b);background:rgba(214,185,123,.07)}
+}
+@media(max-width:400px){
+  header .hdr-inner,.hdr .hdr-inner{gap:6px}
+  .tf-header-actions{gap:6px}
+  header .tf-header-actions>.stamp,.tf-header-actions>.ts{font-size:9px}
+  .tf-header-actions .dot{margin-right:4px}
+  .hdr h1{font-size:16px;letter-spacing:0;white-space:nowrap}
+  html.tiger .theme-mascot,html.tiger .brand-mark svg{width:20px;height:20px}
+}
+@media(max-width:359px){
+  .tf-header-actions .st{font-size:8px}
 }
 @media(min-width:421px) and (max-width:768px){
   .menu{gap:4px}

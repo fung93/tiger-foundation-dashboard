@@ -3,6 +3,39 @@
 Requested 15 November 2026. The owner explicitly approved **push** after local
 implementation and validation, including the pending UNI LIVE badge correction.
 
+## One mobile header row — push requested, 15 November 2026
+
+The owner now wants **Tiger Foundation, LIVE/status and the language button on
+one row on every mobile page**, and explicitly requested **fix and push**. This
+supersedes the earlier mobile layout below the brand.
+
+- [x] Keep the masthead in one flex row through 768 px, with responsive brand
+  typography and 6–8 px between the status and language control.
+- [x] Use one 44 × 44 px native language action on phones: **中文** switches to
+  Chinese and **EN** switches to English. Keep the explicit two desktop choices,
+  translated accessible labels and stable keyboard focus.
+- [x] Preserve all pages, both themes, the saved language and original readings.
+  The vKAT header uses a compact MYT clock; its full reading date remains in the
+  tooltip and existing failure message. No financial readers or calculations change.
+- [x] Version the shared language assets and shell at **176**, and vKAT's updated
+  header script at **176**. Keep Portfolio copies byte-identical.
+- [x] **5,488** final header assertions pass across all 12 pages, both languages
+  and themes, and eight widths from 320 to 1366 px. Check actual brand/status/
+  control alignment, navigation fit, visible button count, touch targets and taps.
+- [x] **5,696** status layout assertions pass for LIVE, loading, stale, recorded,
+  partial, unavailable and failed readings, with no overlap at 320–768 px.
+- [x] **66** behavior assertions pass for language persistence, repeated keyboard
+  actions and focus, embedded Agent sync, untouched chart values/privacy and
+  Lending's independent visit-only settings reset.
+- [x] `npm run check` passes all **82** suites; focused language checks pass **69**
+  assertions. Syntax, diff formatting, unchanged implementation plan and identical
+  Portfolio copies pass.
+- [x] Prepare the explicitly authorized release for rebase and push. The incoming
+  automatic changes affect saved data only and must be preserved.
+- [ ] Verify production where network access permits.
+
+Evidence: `/workspace/tiger-agent-validation/mobile-header-row/`.
+
 ## Mobile spacing and UNI fields — push requested, 15 November 2026
 
 The owner reported cramped mobile language controls and misaligned UNI inputs,

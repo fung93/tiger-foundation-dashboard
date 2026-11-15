@@ -19,7 +19,8 @@ function render(){
  $('health').textContent=failure;$('health').classList.toggle('on',!!failure);stamp();
 }
 function stamp(){const fresh=lastOk&&Date.now()/1000-readAt<=FRESH,box=$('stamp');box.className='stamp'+(fresh?'':' stale');
- box.replaceChildren();const dot=document.createElement('span');dot.className='dot';box.append(dot,document.createTextNode(fresh?'LIVE':readAt?'STALE':'LOADING'),document.createElement('br'),document.createTextNode(readAt?when(readAt)+' MYT':'—'));}
+ box.title=readAt?when(readAt)+' MYT':'';
+ box.replaceChildren();const dot=document.createElement('span');dot.className='dot';box.append(dot,document.createTextNode(fresh?'LIVE':readAt?'STALE':'LOADING'),document.createElement('br'),document.createTextNode(readAt?new Date(readAt*1000).toLocaleTimeString('en-GB',{timeZone:MYT,hour12:false}):'—'));}
 async function load(force=false){if(busy||!force&&document.hidden)return;busy=true;
  try{const r=await fetch('/api/vkat?view=holdings',{cache:'no-store',signal:AbortSignal.timeout(25000)}),v=await r.json();if(!r.ok||!usable(v))throw Error(v.error||'Incomplete holdings reading');
   view=v;readAt=v.head_ts||Date.now()/1000;lastOk=true;failure='';try{localStorage.setItem(KEY,JSON.stringify({t:readAt,v}));}catch{}

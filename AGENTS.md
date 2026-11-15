@@ -178,11 +178,13 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   send content to a translation service. See `docs/LANGUAGE.md` for implementation
   and validation. The owner explicitly approved publication after local review.
   His subsequent placement request puts this control **next to LIVE/status inside
-  the header**. On narrow phones, status and language share a row below the brand.
-  The owner explicitly approved pushing this placement follow-up after review.
-  The subsequent mobile-spacing fix uses 44 × 44 px language targets with separate
-  outlines and 6 px between them. Keep the group 14 px from LIVE and allow the
-  shared header action row through 768 px. Navigation must fit those widths too.
+  the header**. His latest request keeps **Tiger Foundation, LIVE/status and the
+  language control on the same mobile row** on every page. Through 768 px, use one
+  44 × 44 px native button showing the other language (中文 in English mode, EN
+  in Chinese mode); desktop retains the explicit EN / 中文 choices. Keep the
+  button beside the status with a 6–8 px gap and preserve keyboard focus, saved
+  language and theme state. Navigation must fit those widths too. The owner
+  explicitly requested **fix and push** for this placement change.
 
 - **On Portfolio, one card per DeFi type, never one per position.** All LPs roll into one "Liquidity
   Pools" card and Morpho into one card. Each card has a record icon that opens the detail.
@@ -1235,6 +1237,19 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **15 Nov 2026, single-row mobile masthead — explicit fix and push requested:**
+  keep Tiger Foundation, LIVE/status and language in one row on every page through
+  768 px. A 44 × 44 px native language action offers 中文 in English mode and EN
+  in Chinese mode; desktop keeps both explicit choices. Responsive brand and
+  status sizing prevents overlap, including longer failure labels on 320 px
+  phones. vKAT uses a short MYT header clock with the original full date retained
+  in its tooltip. Preserve both themes, form edits, language storage, navigation,
+  embedded Agent hiding and Lending's intentional per-visit reset. Cache 176.
+  Final browser checks pass 5,488 header, 5,696 status and 66 behavior assertions;
+  all 82 project suites and 69 focused language assertions pass. Portfolio copies
+  and the implementation plan are unchanged. See `docs/LANGUAGE.md` for progress
+  and production-verification limits.
 
 - **15 Nov 2026, mobile language spacing and aligned UNI fields — push requested:**
   enlarge mobile language choices to 44 × 44 px with 12 px labels, separated

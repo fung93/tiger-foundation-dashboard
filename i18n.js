@@ -116,6 +116,11 @@
   }
   function controls(){
     document.querySelectorAll('[data-tf-language]').forEach(function(button){button.setAttribute('aria-pressed',String(button.dataset.tfLanguage===language));});
+    var compact=document.querySelector('.tf-language-compact');
+    if(compact){
+      compact.textContent=language==='zh-CN'?'EN':'中文';compact.lang=language==='zh-CN'?'en':'zh-CN';
+      compact.setAttribute('aria-label',language==='zh-CN'?'切换到英语':'Switch to Simplified Chinese');
+    }
     var bar=document.querySelector('.tf-language-bar');
     if(bar)bar.setAttribute('aria-label',language==='zh-CN'?'界面语言':'Interface language');
   }
@@ -128,6 +133,8 @@
       button.setAttribute('aria-label',pair[0]==='en'?'Use English':'使用简体中文');
       button.addEventListener('click',function(){apply(pair[0],true);});bar.appendChild(button);
     });
+    var compact=document.createElement('button');compact.type='button';compact.className='tf-language-button tf-language-compact';
+    compact.addEventListener('click',function(){apply(language==='zh-CN'?'en':'zh-CN',true);});bar.appendChild(compact);
     var header=document.querySelector('header,.hdr'),actions=header&&header.querySelector('.theme-actions,.hdr-side');
     if(header&&!actions){
       actions=document.createElement('div');
