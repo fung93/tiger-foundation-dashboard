@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v171';  /* UNI single-sided in-range estimates alongside zero earnings while waiting */
+var CACHE_VERSION = 'tiger-v173';  /* Shared English / Simplified Chinese interface preference on every page */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -41,6 +41,9 @@ var SHELL_ASSETS = [
   '/index.html',
   '/manifest.webmanifest',
   '/theme.js',
+  '/i18n-zh.js?v=173',
+  '/i18n.js?v=173',
+  '/i18n.css?v=173',
   '/rpc-reader.js',
   '/theme.css',
   '/icons/cute-tiger.svg',

@@ -1,0 +1,12 @@
+/* A separate row preserves the existing masthead/status space on small phones. */
+.tf-language-bar{position:relative;z-index:1;max-width:1200px;margin:8px auto 0;padding:0 28px;display:flex;justify-content:flex-end;gap:0;color:var(--dim,#8f8b82)}
+.tf-language-button{display:inline-flex;align-items:center;justify-content:center;min-width:39px;min-height:28px;padding:4px 10px;border:1px solid var(--line,rgba(255,255,255,.12));background:transparent;color:inherit;cursor:pointer;font:500 10px/1.4 var(--sans,system-ui,sans-serif);letter-spacing:.03em}
+.tf-language-button:first-child{border-radius:999px 0 0 999px}.tf-language-button:last-child{border-radius:0 999px 999px 0;margin-left:-1px}
+.tf-language-button[aria-pressed=true]{position:relative;border-color:var(--gold,#d6b97b);color:var(--gold,#d6b97b);background:rgba(214,185,123,.07)}
+.tf-language-button:focus-visible{outline:2px solid var(--gold,#d6b97b);outline-offset:3px;z-index:1}
+.agent-embedded .tf-language-bar{display:none}
+html[lang=zh-CN] .label,html[lang=zh-CN] .metric-label,html[lang=zh-CN] .menu a,html[lang=zh-CN] .sub{letter-spacing:.03em}
+html[lang=zh-CN] .metric-label,html[lang=zh-CN] .note,html[lang=zh-CN] .agent-help{overflow-wrap:anywhere}
+html[lang=zh-CN] .mode-option,html[lang=zh-CN] .uni-step,html[lang=zh-CN] .agent-settings-grid>label{line-height:1.7}
+@media(max-width:768px){.tf-language-bar{padding:0 16px}}
+@media(prefers-reduced-motion:reduce){.tf-language-button{transition:none}}

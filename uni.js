@@ -87,7 +87,9 @@ function render(){
   $('chainStatus').textContent=selectedChains.map(c=>{const list=visible.filter(p=>p.chain===c.key),latest=list.reduce((n,p)=>Math.max(n,p.at),0);return `${c.name}: ${list.length?(list.every(p=>reading(p).live)?'updated ':'recorded ')+time(latest):c.status==='fresh'?'no funded pools':'waiting for a reading'}`;}).join(' · ');
   const missingNetworks=selectedChains.filter(c=>c.status!=='fresh'&&!visible.some(p=>p.chain===c.key&&reading(p).quote)).map(c=>c.name);
   const allReady=visible.length>0&&statuses.every(s=>s.ready)&&!missingNetworks.length,allLive=allReady&&statuses.every(s=>s.live),anyQuote=statuses.some(s=>s.quote);
-  $('stamp').className='stamp'+(allLive?'':' stale');$('stamp').textContent=allLive?'LIVE':allReady?'RECORDED':anyQuote?'PARTIAL':visible.length?'STALE':'UNAVAILABLE';
+  const status=allLive?'LIVE':allReady?'RECORDED':anyQuote?'PARTIAL':visible.length?'STALE':'UNAVAILABLE',readAt=visible.length?Math.min(...visible.map(p=>p.at)):0;
+  $('stamp').className='stamp'+(allLive?'':' stale');
+  $('stamp').innerHTML=`${readAt?'<span class="dot" aria-hidden="true"></span>':''}<span class="st">${status}</span><br>${readAt?new Date(readAt*1000).toLocaleTimeString('en-GB',{timeZone:'Asia/Kuala_Lumpur',hour12:false}):'—'}`;
   let warning='';
   if(!visible.length&&(lastError||missingNetworks.length))warning='Pool readings are unavailable. Retrying automatically.';
   else if(visible.length&&!anyQuote)warning='A newer pool reading is needed for estimates. Retrying automatically.';

@@ -50,5 +50,6 @@
 .uni-actions small{color:var(--dim);font-size:10px}
 .uni-method{font-size:11px;color:var(--dim);line-height:1.8;margin:28px 0 8px;max-width:850px}
 .uni-method summary{cursor:pointer}.uni-method p{margin-top:12px}
+@media(prefers-reduced-motion:reduce){.stamp .dot{animation:none}}
 @media(max-width:1000px){.uni-pool .pool-head{grid-template-columns:minmax(0,1fr) 22px;gap:16px}.uni-pool .pool-name{grid-column:1}.uni-pool .pool-figs{grid-column:1/-1;grid-row:2}.uni-pool .chev{grid-column:2;grid-row:1}}
 @media(max-width:540px){.uni-pool .pool-fig{font-size:clamp(17px,5.2vw,21px)}.uni-intro h2{font-size:34px}.mode-options{grid-template-columns:1fr}.mode-option{padding:11px 12px}.uni-inputs{grid-template-columns:1fr 1fr;gap:12px}.uni-inputs label:first-child{grid-column:1/-1}.uni-result-grid{grid-template-columns:1fr 1fr;gap:18px 12px}.uni-result-value{font-size:23px}.uni-pool .pool-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.uni-pool .pool-head,.uni-pool .pool-body{padding:20px 17px}.uni-intro{margin-top:22px}.chain-filter{font-size:10px}.chain-filter select{padding:6px 8px}}

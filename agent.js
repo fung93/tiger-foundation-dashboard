@@ -830,7 +830,7 @@ async function loadJournal(older=false){
   try{const page=await request('decisions',{cursor:older?journalCursor:null});if(!samePrivateView(view))return;
     const box=$('agentJournalList');if(!older)box.replaceChildren();
     if(!page.items?.length&&!older)box.append(element('p','agent-help','No saved briefs yet. Research or compare a strategy to begin a prospective record.'));
-    for(const item of page.items||[]){const row=element('article','agent-alert');row.append(element('p','',item.thesis||'Saved brief'),element('p','agent-help',agentLabel(item.state)+' · '+agentLabel(item.reviewStatus)+' · '+date(item.createdAt)));
+    for(const item of page.items||[]){const row=element('article','agent-alert');row.append(element('p','agent-owner-text',item.thesis||'Saved brief'),element('p','agent-help',agentLabel(item.state)+' · '+agentLabel(item.reviewStatus)+' · '+date(item.createdAt)));
       const button=element('button','agent-button agent-quiet','Review entry');button.type='button';button.addEventListener('click',()=>openJournal(item.decisionId));row.append(button);box.append(row);}
     journalCursor=page.cursor||null;$('agentJournalMore').hidden=!journalCursor;
   }catch(error){if(samePrivateView(view))notice(error.message,true);}finally{if(samePrivateView(view))journalBusy=false;}
@@ -845,8 +845,8 @@ async function openJournal(id,more=false){
     if(!more){$('agentJournalEvents').replaceChildren();$('agentJournalReportText').replaceChildren();$('agentJournalForm').reset();journalPending=null;
       const choice=$('agentJournalChoice'),unset=element('option','','No option chosen');unset.value='';choice.replaceChildren(unset);
       for(const option of value.decision.options||[]){const node=element('option','',option.label+' · '+option.status);node.value=option.id;choice.append(node);}}
-    for(const event of value.events||[]){const row=element('article','agent-alert');row.append(element('p','agent-help',date(event.ts)+' · '+agentLabel(event.type)),element('p','',event.rationale||event.measurement||'Original review saved.'),element('p','',event.outcome||''));
-      if(event.transaction)row.append(element('p','', 'Owner-reported transaction · unverified: '+event.transaction.description));
+    for(const event of value.events||[]){const row=element('article','agent-alert');row.append(element('p','agent-help',date(event.ts)+' · '+agentLabel(event.type)),element('p','agent-owner-text',event.rationale||event.measurement||'Original review saved.'),element('p','agent-owner-text',event.outcome||''));
+      if(event.transaction)row.append(element('p','agent-owner-text', 'Owner-reported transaction · unverified: '+event.transaction.description));
       for(const mark of event.marks||[])if(Number.isFinite(mark.paperMarkBeforeEarningsUsd))row.append(element('p','',mark.optionId+' · paper mark before earnings $'+mark.paperMarkBeforeEarningsUsd.toFixed(2)+' · versus hold $'+mark.differenceBeforeEarningsUsd.toFixed(2)));
       if(event.earningsLimit)row.append(element('p','agent-help',event.earningsLimit));
       if(event.limitations)row.append(element('p','agent-help',event.limitations.join(' ')));$('agentJournalEvents').append(row);}

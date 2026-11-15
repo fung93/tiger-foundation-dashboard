@@ -169,6 +169,15 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Display
 
+- **15 Nov 2026, language switch:** every dashboard page, widget and Agent
+  has **EN / 中文** for English / Simplified Chinese. English remains the default.
+  Store only `tf_language_v1`, independently of Lending targets and agent policy.
+  Switching must preserve forms, active edits and financial state without reloading.
+  Translate newly rendered UI too; keep numbers, tokens, addresses, owner messages,
+  journal prose and evidence quotations original. Do not use paid translation or
+  send content to a translation service. See `docs/LANGUAGE.md` for implementation
+  and validation. The owner explicitly approved publication after local review.
+
 - **On Portfolio, one card per DeFi type, never one per position.** All LPs roll into one "Liquidity
   Pools" card and Morpho into one card. Each card has a record icon that opens the detail.
 - **Classy look.** Black background, Instrument Serif titles, Inter text, gold `#d6b97b` for
@@ -1220,6 +1229,32 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **15 Nov 2026, English / Chinese switch — explicit push requested:** shared
+  `i18n.js`, `i18n-zh.js` and `i18n.css` add a remembered EN / 中文 control across
+  all current pages and retained legacy URLs. A local copy catalog, live-DOM
+  updates and a Chart.js presentation plugin translate labels without modifying
+  financial data or form semantics. Skip user text and source quotations. The
+  control has its own row and sits above the Portfolio tiger background so both
+  buttons stay clickable. Portfolio copies remain identical. Cache 173 includes
+  the previously local UNI badge fix. All 82 project suites, 69 focused language
+  assertions and 1,032 browser assertions pass. Tests cover values, unsaved edits,
+  restored English, privacy, option semantics, phone layouts, chart tooltips,
+  cross-tab/frame preference and the independent Lending reset. See
+  `docs/LANGUAGE.md` for evidence and production-verification limits.
+
+- **15 Nov 2026, UNI LIVE badge — publication approved with the language switch:**
+  the owner confirmed that UNI says LIVE but in gray. Its live reader already
+  polls every minute; the renderer omitted the shared `.st` and `.dot` markup
+  needed for green text and a pulsing dot. Use that existing design with the
+  actual oldest displayed quote time on the second line. Retained, incomplete
+  and expired readings keep their existing status rules and amber styling; never
+  recolor saved data as live. With no observation, omit the dot and show an
+  unavailable clock. Honor reduced motion. Cache 172; no financial calculations,
+  reader, data ledgers or agent behavior change. All 81 project suites and 640
+  browser assertions pass (both themes, four widths, normal/reduced motion,
+  computed colors, source clock, failures, expiry and recovery). Validation is
+  recorded in `docs/UNI-GUIDE.md`.
 
 - **15 Nov 2026, UNI single-sided active estimates — explicit push requested:**
   the owner reported zero fees/APR for single-sided modes while Balance had an

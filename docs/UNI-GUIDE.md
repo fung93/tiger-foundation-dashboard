@@ -4,6 +4,26 @@ The original page and previous data/display repairs were explicitly approved for
 push. The owner also explicitly requested **push** for the 15 November single-sided
 estimate follow-up after local implementation and validation.
 
+## LIVE badge follow-up — publication approved, 15 November 2026
+
+The owner confirmed that the page says **LIVE in gray**. This is a visual defect:
+UNI's one-minute live refresh is already running. The stamp used plain text while
+the shared green status styling requires `.st` and `.dot` children.
+
+- [x] Use the shared green LIVE label and pulsing dot, with the oldest displayed
+  quote's actual MYT clock time beneath it; do not stamp quotes with browser time.
+- [x] Keep recorded, incomplete and expired readings amber under the existing
+  freshness rules. An unavailable observation has no activity dot or clock value.
+- [x] Honor reduced motion; bump the page module and service worker to cache 172.
+- [x] **640** browser assertions pass across both themes at 320/360/960/1366 px,
+  with normal/reduced motion: actual computed text/dot colors, source-time retention,
+  outage, expiry, partial/empty data, recovery and small-screen fit.
+- [x] `npm run check` passes all **81** suites; final UNI JavaScript syntax,
+  clean diff formatting, unchanged implementation plan and identical Portfolio
+  copies also pass. Evidence: `/workspace/tiger-agent-validation/uni-live-diagnosis/`.
+- [x] Receive explicit authorization before committing, pushing or deploying this follow-up,
+  together with the English / Chinese language switch.
+
 ## Single-sided estimate follow-up — 15 November 2026
 
 - [x] Separate conditional fees/day and APR while active from current-price earnings.
