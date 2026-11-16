@@ -1,7 +1,7 @@
 {
   "version": 1,
   "chain": 747474,
-  "updatedAt": "2026-11-16T02:47:40.000Z",
+  "updatedAt": "2026-11-16T11:31:07.000Z",
   "observations": {
     "swap": [
       {
@@ -1017,6 +1017,18 @@
         "trades": 20602,
         "fromBlock": 47871589,
         "toBlock": 47957988
+      },
+      {
+        "day": "2026-11-15",
+        "usdMicros": "2986014809",
+        "observedAt": "2026-11-16T11:31:07.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "298601480879",
+        "trades": 23190,
+        "fromBlock": 47957989,
+        "toBlock": 48044388
       }
     ],
     "vault_bridge": [],
@@ -1030,28 +1042,28 @@
   },
   "sourceState": {
     "vault_bridge": {
-      "checkedAt": "2026-11-16T02:47:40.000Z",
+      "checkedAt": "2026-11-16T11:31:07.000Z",
       "completeRevenue": false,
       "status": "unconfigured",
       "note": "A verified Vault Bridge revenue feed is not connected. The advertised extra yield is not network revenue."
     },
     "swap": {
-      "checkedAt": "2026-11-16T02:47:40.000Z",
+      "checkedAt": "2026-11-16T11:31:07.000Z",
       "completeRevenue": false,
       "note": "Protocol fees from 49 priced V3 pools out of 5525 discovered pools. Other tokens/deployments are excluded. Each day uses its closing token prices, before operating costs.",
       "status": "reported"
     },
     "sequencer": {
-      "checkedAt": "2026-11-16T02:47:40.000Z",
+      "checkedAt": "2026-11-16T11:31:07.000Z",
       "completeRevenue": false,
       "status": "unavailable",
       "note": "A verified sequencer revenue reading is unavailable."
     },
     "perps": {
-      "checkedAt": "2026-11-16T02:47:40.000Z",
+      "checkedAt": "2026-11-16T11:31:07.000Z",
       "completeRevenue": false,
-      "status": "retained",
-      "note": "The complete Perps fee day could not be read. Previously verified days are retained."
+      "note": "Normal-trade fees less maker rebates, in vbUSDC at $1; excludes funding, liquidation/withdrawal fees and operating costs.",
+      "status": "reported"
     }
   },
   "allocations": [],
@@ -1060,7 +1072,7 @@
   "buybackCoverage": null,
   "swapCatalog": {
     "factory": "0x203e8740894c8955cb8950759876d7e7e45e04c1",
-    "toBlock": 48054449,
+    "toBlock": 48085856,
     "totalPools": 5525,
     "pools": [
       {
