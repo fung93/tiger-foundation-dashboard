@@ -1,7 +1,7 @@
 {
   "version": 1,
   "chain": 747474,
-  "updatedAt": "2026-11-15T17:46:35.000Z",
+  "updatedAt": "2026-11-16T02:47:40.000Z",
   "observations": {
     "swap": [
       {
@@ -623,6 +623,26 @@
           "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "2406233787373142299526",
           "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "3006888145578910922894"
         }
+      },
+      {
+        "day": "2026-11-15",
+        "usdMicros": "92969476",
+        "observedAt": "2026-11-16T02:47:40.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 47957989,
+        "toBlock": 48044388,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "45966494",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "18252729291381180",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "14805",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "582060",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "896645438713562673316",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "125488644001583654340"
+        }
       }
     ],
     "perps": [
@@ -1010,28 +1030,28 @@
   },
   "sourceState": {
     "vault_bridge": {
-      "checkedAt": "2026-11-15T17:46:35.000Z",
+      "checkedAt": "2026-11-16T02:47:40.000Z",
       "completeRevenue": false,
       "status": "unconfigured",
       "note": "A verified Vault Bridge revenue feed is not connected. The advertised extra yield is not network revenue."
     },
     "swap": {
-      "checkedAt": "2026-11-15T17:46:35.000Z",
+      "checkedAt": "2026-11-16T02:47:40.000Z",
       "completeRevenue": false,
       "note": "Protocol fees from 49 priced V3 pools out of 5525 discovered pools. Other tokens/deployments are excluded. Each day uses its closing token prices, before operating costs.",
       "status": "reported"
     },
     "sequencer": {
-      "checkedAt": "2026-11-15T17:46:35.000Z",
+      "checkedAt": "2026-11-16T02:47:40.000Z",
       "completeRevenue": false,
       "status": "unavailable",
       "note": "A verified sequencer revenue reading is unavailable."
     },
     "perps": {
-      "checkedAt": "2026-11-15T17:46:35.000Z",
+      "checkedAt": "2026-11-16T02:47:40.000Z",
       "completeRevenue": false,
-      "note": "Normal-trade fees less maker rebates, in vbUSDC at $1; excludes funding, liquidation/withdrawal fees and operating costs.",
-      "status": "reported"
+      "status": "retained",
+      "note": "The complete Perps fee day could not be read. Previously verified days are retained."
     }
   },
   "allocations": [],
@@ -1040,7 +1060,7 @@
   "buybackCoverage": null,
   "swapCatalog": {
     "factory": "0x203e8740894c8955cb8950759876d7e7e45e04c1",
-    "toBlock": 48021984,
+    "toBlock": 48054449,
     "totalPools": 5525,
     "pools": [
       {
