@@ -33,8 +33,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 48147190,
-  "robinhood": 116311247
+  "katana": 48183069,
+  "robinhood": 116649002
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -93,7 +93,7 @@
    "stable": true,
    "pool": null,
    "other": {
-    "a": "0xb63d07cef74be747231d601bb2faa6b252c68106",
+    "a": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
     "d": 18
    }
   },
@@ -325,19 +325,19 @@
     "r1": "0"
    },
    "fees": {
-    "WETH@robinhood": 0.015365908986236536,
-    "USDG@robinhood": 33.134074
+    "WETH@robinhood": 0.015392528736698231,
+    "USDG@robinhood": 33.184509
    },
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1794890000,
-    "block": 116311247,
+    "ts": 1794925880,
+    "block": 116649002,
     "in": false,
     "in_s": 2521500.0276606083,
-    "all_s": 2742661
+    "all_s": 2778541
    },
    "claims": [
     {
@@ -716,6 +716,19 @@
       "USDG@robinhood": 1
      },
      "usd": 2.56
+    },
+    {
+     "ts": 1794904684,
+     "block": 116444521,
+     "tokens": {
+      "WETH@robinhood": 0.000026619750461694,
+      "USDG@robinhood": 0.050435
+     },
+     "prices": {
+      "WETH@robinhood": 1819.351418728654,
+      "USDG@robinhood": 1
+     },
+     "usd": 0.1
     }
    ]
   },
@@ -2037,11 +2050,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1794890001,
-    "block": 48147190,
+    "ts": 1794925880,
+    "block": 48183069,
     "in": true,
-    "in_s": 345612,
-    "all_s": 354895
+    "in_s": 381491,
+    "all_s": 390774
    },
    "claimed_seen": {},
    "a0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
@@ -2102,11 +2115,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1794890001,
-    "block": 48147190,
+    "ts": 1794925880,
+    "block": 48183069,
     "in": true,
-    "in_s": 326711,
-    "all_s": 328353
+    "in_s": 362590,
+    "all_s": 364232
    },
    "claimed_seen": {},
    "a0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
@@ -2115,6 +2128,850 @@
    "fees_mine": true,
    "fee_accounting_version": 1,
    "fee_accounting_since": 1794637938
+  },
+  "robinhood:1602731": {
+   "key": "robinhood:1602731",
+   "chain": "robinhood",
+   "id": "1602731",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201213,
+   "hi": -201064,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794901123,
+   "opened_block": 116411998,
+   "cost_usd": 25.63,
+   "deposits": [
+    {
+     "block": 116411998,
+     "ts": 1794901123,
+     "a0": 0.014026613496979623,
+     "a1": 0,
+     "usd": 25.63
+    }
+   ],
+   "out_usd": 25.52,
+   "withdrawals": [
+    {
+     "block": 116444305,
+     "ts": 1794904661,
+     "a0": 0.01402661349697962,
+     "a1": 0,
+     "usd": 25.52
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 0.000002492539757642,
+    "USDG@robinhood": 0.004559
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.00004265640634643847,
+   "closed_ts": 1794904661,
+   "closed_block": 116444305,
+   "claims": [
+    {
+     "ts": 1794904661,
+     "block": 116444305,
+     "tokens": {
+      "WETH@robinhood": 0.000002492539757642,
+      "USDG@robinhood": 0.004559
+     },
+     "prices": {
+      "WETH@robinhood": 1819.5690023924762,
+      "USDG@robinhood": 1
+     },
+     "usd": 0.01
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794904661,
+    "at_block": 116444305,
+    "cost_usd": 25.63,
+    "principal_usd": 25.52,
+    "pnl_usd": -0.11,
+    "fee_tokens": {
+     "WETH@robinhood": 0.000002492539757642,
+     "USDG@robinhood": 0.004559
+    },
+    "fee_usd": 0.01,
+    "net_usd": -0.1,
+    "net_pct": -0.39,
+    "prices": {
+     "WETH@robinhood": 1819.5690023924762,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794904661,
+    "block": 116444305,
+    "in": false,
+    "in_s": 2058.947679758072,
+    "all_s": 3538
+   }
+  },
+  "robinhood:1602782": {
+   "key": "robinhood:1602782",
+   "chain": "robinhood",
+   "id": "1602782",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201242,
+   "hi": -201064,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794905170,
+   "opened_block": 116449235,
+   "cost_usd": 26.91,
+   "deposits": [
+    {
+     "block": 116449235,
+     "ts": 1794905170,
+     "a0": 0.014769394631196888,
+     "a1": 0,
+     "usd": 26.91
+    }
+   ],
+   "out_usd": 26.88,
+   "withdrawals": [
+    {
+     "block": 116450292,
+     "ts": 1794905286,
+     "a0": 0.014769394631196888,
+     "a1": 0,
+     "usd": 26.88
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 3.655142614e-9,
+    "USDG@robinhood": 0.000006
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.00004266260162340093,
+   "closed_ts": 1794905286,
+   "closed_block": 116450292,
+   "claims": [
+    {
+     "ts": 1794905286,
+     "block": 116450292,
+     "tokens": {
+      "WETH@robinhood": 3.655142614e-9,
+      "USDG@robinhood": 0.000006
+     },
+     "prices": {
+      "WETH@robinhood": 1820.0975772770116,
+      "USDG@robinhood": 1
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794905286,
+    "at_block": 116450292,
+    "cost_usd": 26.91,
+    "principal_usd": 26.88,
+    "pnl_usd": -0.03,
+    "fee_tokens": {
+     "WETH@robinhood": 3.655142614e-9,
+     "USDG@robinhood": 0.000006
+    },
+    "fee_usd": 0,
+    "net_usd": -0.03,
+    "net_pct": -0.11,
+    "prices": {
+     "WETH@robinhood": 1820.0975772770116,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794905286,
+    "block": 116450292,
+    "in": false,
+    "in_s": 0,
+    "all_s": 116
+   }
+  },
+  "robinhood:1602786": {
+   "key": "robinhood:1602786",
+   "chain": "robinhood",
+   "id": "1602786",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201252,
+   "hi": -201064,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794905339,
+   "opened_block": 116450780,
+   "cost_usd": 26.82,
+   "deposits": [
+    {
+     "block": 116450780,
+     "ts": 1794905339,
+     "a0": 0.014733451328127345,
+     "a1": 0,
+     "usd": 26.82
+    }
+   ],
+   "out_usd": 26.74,
+   "withdrawals": [
+    {
+     "block": 116461078,
+     "ts": 1794906428,
+     "a0": 0.014733451328127345,
+     "a1": 0,
+     "usd": 26.74
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 6.9739744832e-8,
+    "USDG@robinhood": 0.000126
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.00004260154148416071,
+   "closed_ts": 1794906428,
+   "closed_block": 116461078,
+   "claims": [
+    {
+     "ts": 1794906428,
+     "block": 116461078,
+     "tokens": {
+      "WETH@robinhood": 6.9739744832e-8,
+      "USDG@robinhood": 0.000126
+     },
+     "prices": {
+      "WETH@robinhood": 1814.8913368266662,
+      "USDG@robinhood": 1
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794906428,
+    "at_block": 116461078,
+    "cost_usd": 26.82,
+    "principal_usd": 26.74,
+    "pnl_usd": -0.08,
+    "fee_tokens": {
+     "WETH@robinhood": 6.9739744832e-8,
+     "USDG@robinhood": 0.000126
+    },
+    "fee_usd": 0,
+    "net_usd": -0.08,
+    "net_pct": -0.3,
+    "prices": {
+     "WETH@robinhood": 1814.8913368266662,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794906428,
+    "block": 116461078,
+    "in": false,
+    "in_s": 52.460654735565186,
+    "all_s": 1089
+   }
+  },
+  "robinhood:1602931": {
+   "key": "robinhood:1602931",
+   "chain": "robinhood",
+   "id": "1602931",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201275,
+   "hi": -201064,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794906505,
+   "opened_block": 116461835,
+   "cost_usd": 26.75,
+   "deposits": [
+    {
+     "block": 116461835,
+     "ts": 1794906505,
+     "a0": 0.014733521067872195,
+     "a1": 0,
+     "usd": 26.75
+    }
+   ],
+   "out_usd": 26.68,
+   "withdrawals": [
+    {
+     "block": 116465905,
+     "ts": 1794906928,
+     "a0": 0.014733521067872193,
+     "a1": 0,
+     "usd": 26.68
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 0,
+    "USDG@robinhood": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.0000425511241758494,
+   "closed_ts": 1794906928,
+   "closed_block": 116465905,
+   "frozen": {
+    "at_ts": 1794906928,
+    "at_block": 116465905,
+    "cost_usd": 26.75,
+    "principal_usd": 26.68,
+    "pnl_usd": -0.07,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": -0.07,
+    "net_pct": -0.26,
+    "prices": {
+     "WETH@robinhood": 1810.5981686285552,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794906928,
+    "block": 116465905,
+    "in": false,
+    "in_s": 0,
+    "all_s": 423
+   }
+  },
+  "robinhood:1603177": {
+   "key": "robinhood:1603177",
+   "chain": "robinhood",
+   "id": "1603177",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201304,
+   "hi": -201064,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794907069,
+   "opened_block": 116467239,
+   "cost_usd": 26.68,
+   "deposits": [
+    {
+     "block": 116467239,
+     "ts": 1794907069,
+     "a0": 0.01473352106787234,
+     "a1": 0,
+     "usd": 26.68
+    }
+   ],
+   "out_usd": 26.62,
+   "withdrawals": [
+    {
+     "block": 116472701,
+     "ts": 1794907627,
+     "a0": 0.014733521067872337,
+     "a1": 0,
+     "usd": 26.62
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 8.616243556e-9,
+    "USDG@robinhood": 0.000015
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.00004250561246375754,
+   "closed_ts": 1794907627,
+   "closed_block": 116472701,
+   "claims": [
+    {
+     "ts": 1794907627,
+     "block": 116472701,
+     "tokens": {
+      "WETH@robinhood": 8.616243556e-9,
+      "USDG@robinhood": 0.000015
+     },
+     "prices": {
+      "WETH@robinhood": 1806.7270909191402,
+      "USDG@robinhood": 1
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794907627,
+    "at_block": 116472701,
+    "cost_usd": 26.68,
+    "principal_usd": 26.62,
+    "pnl_usd": -0.06,
+    "fee_tokens": {
+     "WETH@robinhood": 8.616243556e-9,
+     "USDG@robinhood": 0.000015
+    },
+    "fee_usd": 0,
+    "net_usd": -0.06,
+    "net_pct": -0.22,
+    "prices": {
+     "WETH@robinhood": 1806.7270909191402,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794907627,
+    "block": 116472701,
+    "in": false,
+    "in_s": 0,
+    "all_s": 558
+   }
+  },
+  "robinhood:1603251": {
+   "key": "robinhood:1603251",
+   "chain": "robinhood",
+   "id": "1603251",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201300,
+   "hi": -201173,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794908078,
+   "opened_block": 116477112,
+   "cost_usd": 26.68,
+   "deposits": [
+    {
+     "block": 116477112,
+     "ts": 1794908078,
+     "a0": 0.01473352968411586,
+     "a1": 0,
+     "usd": 26.68
+    }
+   ],
+   "out_usd": 26.65,
+   "withdrawals": [
+    {
+     "block": 116490766,
+     "ts": 1794909509,
+     "a0": 0.01473352968411586,
+     "a1": 0,
+     "usd": 26.65
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 0.000001508494429016,
+    "USDG@robinhood": 0.002735
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.000042530235808653035,
+   "closed_ts": 1794909509,
+   "closed_block": 116490766,
+   "claims": [
+    {
+     "ts": 1794909509,
+     "block": 116490766,
+     "tokens": {
+      "WETH@robinhood": 0.000001508494429016,
+      "USDG@robinhood": 0.002735
+     },
+     "prices": {
+      "WETH@robinhood": 1808.8209579396328,
+      "USDG@robinhood": 1
+     },
+     "usd": 0.01
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794909509,
+    "at_block": 116490766,
+    "cost_usd": 26.68,
+    "principal_usd": 26.65,
+    "pnl_usd": -0.03,
+    "fee_tokens": {
+     "WETH@robinhood": 0.000001508494429016,
+     "USDG@robinhood": 0.002735
+    },
+    "fee_usd": 0.01,
+    "net_usd": -0.02,
+    "net_pct": -0.09,
+    "prices": {
+     "WETH@robinhood": 1808.8209579396328,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794909509,
+    "block": 116490766,
+    "in": false,
+    "in_s": 741.7915282249451,
+    "all_s": 1431
+   }
+  },
+  "robinhood:1603309": {
+   "key": "robinhood:1603309",
+   "chain": "robinhood",
+   "id": "1603309",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201307,
+   "hi": -201173,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794909581,
+   "opened_block": 116491467,
+   "cost_usd": 26.66,
+   "deposits": [
+    {
+     "block": 116491467,
+     "ts": 1794909581,
+     "a0": 0.014735038178544886,
+     "a1": 0,
+     "usd": 26.66
+    }
+   ],
+   "out_usd": 26.42,
+   "withdrawals": [
+    {
+     "block": 116508611,
+     "ts": 1794911398,
+     "a0": 0.014735038178544884,
+     "a1": 0,
+     "usd": 26.42
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 1.3680857624e-8,
+    "USDG@robinhood": 0.000024
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 0.00004234535022365983,
+   "closed_ts": 1794911398,
+   "closed_block": 116508611,
+   "claims": [
+    {
+     "ts": 1794911398,
+     "block": 116508611,
+     "tokens": {
+      "WETH@robinhood": 1.3680857624e-8,
+      "USDG@robinhood": 0.000024
+     },
+     "prices": {
+      "WETH@robinhood": 1793.1286855644075,
+      "USDG@robinhood": 1
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794911398,
+    "at_block": 116508611,
+    "cost_usd": 26.66,
+    "principal_usd": 26.42,
+    "pnl_usd": -0.24,
+    "fee_tokens": {
+     "WETH@robinhood": 1.3680857624e-8,
+     "USDG@robinhood": 0.000024
+    },
+    "fee_usd": 0,
+    "net_usd": -0.24,
+    "net_pct": -0.9,
+    "prices": {
+     "WETH@robinhood": 1793.1286855644075,
+     "USDG@robinhood": 1
+    }
+   },
+   "range": {
+    "ts": 1794911398.6491466,
+    "block": 116508611,
+    "in": false,
+    "in_s": 5.8526084423065186,
+    "all_s": 1817.6491465568542
+   }
+  },
+  "robinhood:1603402": {
+   "key": "robinhood:1603402",
+   "chain": "robinhood",
+   "id": "1603402",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201408,
+   "hi": -201227,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1794911467,
+   "opened_block": 116509273,
+   "cost_usd": 26.41,
+   "deposits": [
+    {
+     "block": 116509273,
+     "ts": 1794911467,
+     "a0": 0.014735051859402524,
+     "a1": 0,
+     "usd": 26.41
+    }
+   ],
+   "out_usd": 26.36,
+   "withdrawals": [
+    {
+     "block": 116529026,
+     "ts": 1794913567,
+     "a0": 0.014735051859402524,
+     "a1": 0,
+     "usd": 26.36
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "WETH@robinhood": 0.000001024084783079,
+    "USDG@robinhood": 0.001836
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1794913567,
+    "block": 116529026,
+    "in": false,
+    "in_s": 827.6076059341431,
+    "all_s": 2100
+   },
+   "close_sp": 0.00004229881883858023,
+   "closed_ts": 1794913567,
+   "closed_block": 116529026,
+   "claims": [
+    {
+     "ts": 1794913567,
+     "block": 116529026,
+     "tokens": {
+      "WETH@robinhood": 0.000001024084783079,
+      "USDG@robinhood": 0.001836
+     },
+     "prices": {
+      "WETH@robinhood": 1789.1900751390294,
+      "USDG@robinhood": 1
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1794913567,
+    "at_block": 116529026,
+    "cost_usd": 26.41,
+    "principal_usd": 26.36,
+    "pnl_usd": -0.05,
+    "fee_tokens": {
+     "WETH@robinhood": 0.000001024084783079,
+     "USDG@robinhood": 0.001836
+    },
+    "fee_usd": 0,
+    "net_usd": -0.05,
+    "net_pct": -0.18,
+    "prices": {
+     "WETH@robinhood": 1789.1900751390294,
+     "USDG@robinhood": 1
+    }
+   }
+  },
+  "robinhood:1603450": {
+   "key": "robinhood:1603450",
+   "chain": "robinhood",
+   "id": "1603450",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "lo": -201406,
+   "hi": -201200,
+   "fee": 100,
+   "t0": "WETH@robinhood",
+   "t1": "USDG@robinhood",
+   "a0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "a1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "s0": "WETH",
+   "s1": "USDG",
+   "d0": 18,
+   "d1": 6,
+   "stable0": false,
+   "stable1": true,
+   "pair": "WETH / USDG",
+   "liq": "60889704084809",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1794913709,
+   "opened_block": 116530377,
+   "cost_usd": 26.41,
+   "deposits": [
+    {
+     "block": 116530377,
+     "ts": 1794913709,
+     "a0": 0.0147360759441854,
+     "a1": 0,
+     "usd": 26.41
+    }
+   ],
+   "out_usd": 0,
+   "withdrawals": [],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {},
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1794925880,
+    "block": 116649002,
+    "in": true,
+    "in_s": 12118.814706325531,
+    "all_s": 12171
+   }
   }
  },
  "events": [
@@ -2333,6 +3190,142 @@
    "id": "495640",
    "block": 47818837,
    "ts": 1794561648
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602731",
+   "block": 116411998,
+   "ts": 1794901123
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602782",
+   "block": 116449235,
+   "ts": 1794905170
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602786",
+   "block": 116450780,
+   "ts": 1794905339
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602931",
+   "block": 116461835,
+   "ts": 1794906505
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603177",
+   "block": 116467239,
+   "ts": 1794907069
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603251",
+   "block": 116477112,
+   "ts": 1794908078
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603309",
+   "block": 116491467,
+   "ts": 1794909581
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603402",
+   "block": 116509273,
+   "ts": 1794911467
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602731",
+   "block": 116444305,
+   "ts": 1794904661
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602782",
+   "block": 116450292,
+   "ts": 1794905286
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602786",
+   "block": 116461078,
+   "ts": 1794906428
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1602931",
+   "block": 116465905,
+   "ts": 1794906928
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603177",
+   "block": 116472701,
+   "ts": 1794907627
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603251",
+   "block": 116490766,
+   "ts": 1794909509
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603309",
+   "block": 116508611,
+   "ts": 1794911398
+  },
+  {
+   "t": "open",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603450",
+   "block": 116530377,
+   "ts": 1794913709
+  },
+  {
+   "t": "close",
+   "chain": "robinhood",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "1603402",
+   "block": 116529026,
+   "ts": 1794913567
   }
  ],
  "fee_series": [
@@ -5013,16 +6006,53 @@
     "katana:494956": 0,
     "katana:495384": 0
    }
+  },
+  {
+   "ts": 1794925908,
+   "tokens": {
+    "WETH@robinhood": 0.01541721,
+    "USDG@robinhood": 33.615694,
+    "FABLES@robinhood": 25.22319939,
+    "KAT@katana": 51018.85413436,
+    "vbUSDC@katana": 5.208745
+   },
+   "pnl_usd": -702.74,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.01539253,
+     "USDG@robinhood": 33.184509
+    },
+    "katana:495384": {
+     "KAT@katana": 9.58955502,
+     "avKAT@katana": 11.57958236
+    },
+    "katana:495640": {
+     "vbWBTC@katana": 0.00003881,
+     "vbUSDC@katana": 2.01395
+    },
+    "robinhood:1603450": {
+     "WETH@robinhood": 0.00001956,
+     "USDG@robinhood": 0.03674
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -562.13,
+    "katana:495384": -5.28,
+    "katana:495640": -15.39,
+    "robinhood:1603450": 0.23
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0,
+    "katana:494956": 0,
+    "katana:495384": 0
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1794006816,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1794046773,
    "behind": {
@@ -5221,6 +6251,13 @@
   },
   {
    "ts": 1794890001,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
+   }
+  },
+  {
+   "ts": 1794925880,
    "behind": {
     "katana": 0,
     "robinhood": 0
