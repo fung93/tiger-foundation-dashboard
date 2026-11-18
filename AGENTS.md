@@ -52,6 +52,7 @@ Telegram credentials; the financial readers and public ledgers remain independen
 - **Katana** (747474): Sushi V3 LPs (some staked), Morpho Blue loans, avKAT/vKAT, Merkl KAT rewards.
 - **Robinhood Chain** (4663): Uniswap V3 LPs, Fables (a Uniswap V4 hook) and veFABLES.
 - **Arc** (5042, Circle; gas is USDC): Uniswap V3 and V4.
+- **Base** (8453): wallet-held Uniswap V3 LPs, owner fees and configured loose assets, in both tracked wallets (18 Nov 2026).
 - **Solana**: Meteora DLMM.
 
 Chains with less than $5 and no LP show as INACTIVE.
@@ -1015,6 +1016,30 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
 - **Merkl API** (`api.merkl.xyz/v4`) allows CORS only from https origins. It fails on
   localhost; that is not a bug.
 
+### Base
+
+- `base-config.mjs` holds chain 8453, official Uniswap V3 NPM
+  `0x03a520b32c04bf3beef7beb72e919cf822ed34f1`, factory and public RPC fallbacks.
+  Base was previously present only in the independent UNI guide, not holdings.
+- Base joins `V3` in `_core.mjs`. Missing chain cursors must initialize from the
+  current open NFTs' original mints; starting at head silently skips those LPs.
+  Add the new chain without resetting book version **9** or any old ledger.
+- Pin wallet/NFT enumeration, owner, token metadata, pool state and unclaimed fee
+  growth to one block. Enumerate the whole wallet list, including old NFTs before
+  the tail. Recognize stablecoin anchors by contract and decimals, not ticker.
+- `api/_base-portfolio.mjs` powers the live Portfolio and Base part of Tiger Vault;
+  the main wallet uses `/api/lpbook?view=base-portfolio` independently of the full
+  book. No thirteenth Vercel function is added. Both wallets remain separate.
+- Query logs in at most 5,000-block windows. Archive NFT existence can bracket a
+  recent mint quickly, but confirm its IncreaseLiquidity event; failed reads are
+  never absence. Required descriptions/pools must succeed before advancing cursors.
+  First discovery/replay, future unreadable mints and recovery have fixture coverage.
+- Run `scripts/test-base-lps.mjs` and `scripts/test-portfolio-base.mjs`. Optional
+  `scripts/verify-base-lps.mjs` and its read-only GitHub workflow verify real
+  ownership, pinned readings and LP Book inclusion without writing any ledger.
+  Local proxy-blocked RPC probes do not establish actual holdings. See
+  `docs/BASE-LP.md` for progress and account/network acceptance evidence.
+
 ### Robinhood Chain
 
 - **Logs:** only `rpc.mainnet.chain.robinhood.com` serves `eth_getLogs`.
@@ -1237,6 +1262,24 @@ It has four views: Planner, simulated positions, My real LPs and History.
 ---
 
 ## 9. Release contents
+
+- **18 Nov 2026, missing Base Uniswap V3 LP — explicit fix and push requested:**
+  the owner confirms holdings / LP Book and Uniswap V3. Add Base to the shared V3
+  book, additive original-mint bootstrap, pinned direct holdings/vault reads,
+  Portfolio totals/fee split/chain rows, source retention and future snapshots.
+  Preserve existing version-9 accounting and frozen outcomes. The canonical
+  portfolio recognizes chain 8453. Shared live cards identify chain and NFT;
+  the existing header layout and themes remain. Keep Base's current-day/CSV
+  contribution explicit without rewriting historical JSON. Cache 177 includes
+  the translated short Base warnings; no new key, paid service or API function.
+  Verification passes 370 Base, 65 browser-reader, 100 core and 144 API assertions,
+  246 Chromium checks and all 84 project suites. Two pre-existing test issues
+  exposed by current data/date are fixed only in tests: signed zero in a rounded
+  closed comparison and the weekly fixture's past SQLite lease clock. A small
+  canvas width cap keeps the positive compounding chart within 320 px. A new
+  read-only Actions check verifies the actual Base wallets after code pushes.
+  Local RPC/production connectivity remains proxy blocked at preparation time;
+  see `docs/BASE-LP.md` and that workflow for real-account evidence.
 
 - **15 Nov 2026, single-row mobile masthead — explicit fix and push requested:**
   keep Tiger Foundation, LIVE/status and language in one row on every page through

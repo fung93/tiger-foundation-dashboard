@@ -2175,6 +2175,19 @@ const arcLpUsd = round2(arc.lps.reduce((a, l) => a + (l.value_usd || 0), 0));
 const arcWalletUsd = round2(arc.walletUsd);
 const arcTotal = round2(arcWalletUsd + arcLpUsd + arcMerkl.total_usd);
 
+/* Base's wallet and V3 positions use the same pinned reader as the live overlay.
+   A failed reading retains the complete prior source, including its original time. */
+let base;
+try {
+  const { readBasePortfolio } = await import('../api/_base-portfolio.mjs');
+  base = await readBasePortfolio();
+} catch (error) {
+  console.warn('base: keeping the previous reading:', error.message);
+  base = prevChain('base') ? { ...prevChain('base'), live: false, fromSnapshot: true }
+    : { name: 'Base', chain_id: 8453, color: '#0052ff', live: false, complete: false, unavailable: true,
+      read_at: null, onchain_usd: null, lp_total_usd: null, total_usd: null, lp_positions: [], defi_positions: [] };
+}
+
 for (const lp of kat.lps) {
   const key = `${lp.pair}|${lp.pool_fee}`;
   if (aprMap[key] !== undefined) lp.apr = round2(aprMap[key]);
@@ -2244,9 +2257,9 @@ for (const [id, o] of Object.entries(positions.open || {})) {
     noteUntracked('katana', id, 'open in the ledger but not valued this run — ' + (o.pair || 'LP'));
 }
 
-const grandAll = round2(grand + rhTotal + arcTotal);
-const onchainAll = round2(onchainUsd + rh.walletUsd + arcWalletUsd);
-const lpAll = round2(lpUsd + rhLpUsd + arcLpUsd);
+const grandAll = round2(grand + rhTotal + arcTotal + (base.total_usd || 0));
+const onchainAll = round2(onchainUsd + rh.walletUsd + arcWalletUsd + (base.onchain_usd || 0));
+const lpAll = round2(lpUsd + rhLpUsd + arcLpUsd + (base.lp_total_usd || 0));
 const pendingAll = round2(merkl.total_usd + arcMerkl.total_usd);
 const now = new Date();
 const days = Math.floor((now - new Date(CFG.startDate + 'T00:00:00Z')) / 86400000);
@@ -2330,6 +2343,7 @@ const data = {
       staked_ids: arcKnown.staked,
       last_block: (positions.arc && positions.arc.last_block) || 0,
     },
+    base,
     solana: {
       name: 'Solana', chain_id: 'solana-mainnet', explorer: 'https://solscan.io',
       wallet_address: CFG.solWallet,
@@ -2348,9 +2362,9 @@ const data = {
   },
   summary: {
     grand_total_usd: grandAll,
-    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: round2(rhTotal), arc_usd: arcTotal,
+    katana_usd: katTotal, solana_usd: solTotal, robinhood_usd: round2(rhTotal), arc_usd: arcTotal, base_usd: base.total_usd,
     onchain_usd: onchainAll, lp_usd: lpAll, merkl_usd: pendingAll,
-    total_defi_positions: defiPositions.length, chains_count: 4,
+    total_defi_positions: defiPositions.length, chains_count: 5,
     untracked_count: UNTRACKED.length,
   },
   /* held but not valued — the page shows these so a silent gap cannot open again */
@@ -2358,7 +2372,7 @@ const data = {
   merkl_rewards: merkl,
   lp_positions: [...kat.lps, ...sol.lps,
     ...rh.lps.map((l) => { const c = { ...l }; Object.keys(c).forEach((k) => k[0] === '_' && delete c[k]); return c; }),
-    ...arc.lps],
+    ...arc.lps, ...base.lp_positions],
   defi_positions: defiPositions,
   meteora_refs: sol.refs,
   usdc_ata: sol.usdcAta,
@@ -2410,6 +2424,7 @@ const entry = {
   solana_usd: solTotal,
   robinhood_usd: round2(rhTotal),
   arc_usd: arcTotal,
+  base_usd: base.total_usd,
   total_usd: grandAll,
   /* the vault as it stood that day, so a peak is always measured against what was held */
   vault_usd: vaultUsd,

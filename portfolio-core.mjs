@@ -1,7 +1,7 @@
 /* Canonical, read-only portfolio observations. Browser-safe and network-free.
    Historical values are references, never silently promoted to a current NAV. */
 export const PORTFOLIO_SCHEMA_VERSION = 'portfolio-v1';
-export const CHAIN_IDS = Object.freeze({ katana: 747474, robinhood: 4663, arc: 5042, solana: 'solana-mainnet' });
+export const CHAIN_IDS = Object.freeze({ katana: 747474, robinhood: 4663, arc: 5042, base: 8453, solana: 'solana-mainnet' });
 const finite = n => Number.isFinite(n) ? n : null;
 const amount = n => Number.isFinite(n) && n >= 0 ? n : null;
 const integer = n => Number.isSafeInteger(n) && n >= 0 ? n : null;

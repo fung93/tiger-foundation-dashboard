@@ -16,6 +16,7 @@ const elements=new Map(),element=id=>{
 const ctx=vm.createContext({Date:Clock,Number,Array,Math,Promise,console:{warn(){}},
   CFG:{wallet:'0x'+'1'.repeat(40),startDate:'2026-10-01',startValue:100,target:10000,katClaimed:0},
   getArcLive:async()=>({walletUsd:0,lps:[],merkl:{total_usd:0}}),
+  getBaseLive:async()=>({complete:true,read_at:new Clock().toISOString(),onchain_usd:0,lp_total_usd:0,total_usd:0,lp_positions:[]}),
   getSolanaLive:async()=>({sol:0,usdc:0,solPrice:1,lps:[]}),discoverMorpho:async()=>{},morphoMarketList:()=>[],
   getKatanaLive:async()=>({lp_discovery_complete:false}),getSushiAprs:async()=>({}),
   robinhoodSourceTime:()=>new Clock().toISOString(),

@@ -1,0 +1,29 @@
+name: Verify Base LP discovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'base-config.mjs'
+      - 'api/_base-portfolio.mjs'
+      - 'api/_core.mjs'
+      - 'scripts/verify-base-lps.mjs'
+      - '.github/workflows/verify-base-lps.yml'
+permissions:
+  contents: read
+concurrency:
+  group: verify-base-lps
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check Base readers without network
+        run: node scripts/test-base-lps.mjs
+      - name: Verify live wallet positions and LP Book inclusion
+        run: node scripts/verify-base-lps.mjs

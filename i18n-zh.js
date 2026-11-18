@@ -272,6 +272,8 @@
     'Each position at its own close; fees at their recorded claim prices':'各仓位分别按平仓时价格计值，手续费按已记录的领取价计值',
     'Complete position lifetimes with unchanged capital are required for this annualised measurement.':'此年化指标需要完整的持仓周期，且期间本金没有变动。',
     'Katana could not be read. Previous figures keep their original reading time.':'无法读取 Katana，原有数据保留其最初读取时间。',
+    'Base could not be read; keeping its previous figures.':'无法读取 Base，保留原有数据及其读取时间。',
+    'Base could not be read; its holdings are not included yet.':'暂时无法读取 Base，当前总额尚未包含其持仓。',
     'My minimum health':'我的最低健康系数','Saved target · choose Edit to change':'已保存目标 · 点击编辑可修改',
     'Collateral · oracle':'抵押品 · 预言机估值','Collateral & borrowing':'抵押品与借款',
     'Reading over 5 minutes old. Waiting for refresh.':'数据已超过 5 分钟，正在等待刷新。',

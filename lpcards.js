@@ -159,6 +159,7 @@
 
   function card(W) {
     var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
+    var identity = [W.chain && W.chain.charAt(0).toUpperCase() + W.chain.slice(1), W.id].filter(Boolean).join(' · ');
     return '<div class="lpw"><div class="top"><div><div class="pair">' + esc(W.pair) + '</div>'
       + apr(W) + '</div>'
       + '<div class="badge ' + (oor ? 'out' : 'in') + '">' + esc(W.status) + '</div></div>'
@@ -170,7 +171,7 @@
       + '<div><div class="k">P&amp;L' + edgeInfo(W) + '</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
       + comparison(W.comparison, { row: true })
-      + '<div class="foot"><span>' + esc(W.since)
+      + '<div class="foot"><span>' + (identity ? esc(identity) + ' · ' : '') + esc(W.since)
       + (W.in_range_pct != null ? ' · ' + W.in_range_pct + '% in range' : '') + '</span><span>cost ' + esc(W.cost)
       + (W.value_now ? ' · value ' + esc(W.value_now) : '') + '</span></div></div>';
   }

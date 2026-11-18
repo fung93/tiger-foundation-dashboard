@@ -28,12 +28,12 @@ function handler(file, dependencies) {
     createLiveCache, requestOrigin, lpViewComplete, responseHeaders, savedBookValid, savedFables,
     BOOK_VERSION: seed.version, V3, FABLES, compactLPPositions, ...dependencies }, { filename: file });
 }
-async function call(run, host = 'dashboard.example') {
+async function call(run, host = 'dashboard.example', query) {
   const response = { headers: {}, code: null, text: '',
     setHeader(key, value) { this.headers[key] = value; },
     status(code) { this.code = code; return this; },
     end(text) { this.text = text; } };
-  await run({ headers: { host, 'x-forwarded-host': 'untrusted.example', 'x-forwarded-proto': 'https' } }, response);
+  await run({ headers: { host, 'x-forwarded-host': 'untrusted.example', 'x-forwarded-proto': 'https' }, query }, response);
   return { code: response.code, headers: response.headers, body: JSON.parse(response.text) };
 }
 const healthy = () => ({ errors: {}, unread: [], unpriced: [], behind: { katana: 0, robinhood: 0 } });
@@ -245,6 +245,28 @@ try {
     globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => malformed });
     await assert.rejects(fetchJSON('https://dashboard.example/lpbook.json'), /malformed/); checks++;
   }
+  let baseReads = 0, baseFailed = false;
+  const baseEndpoint = handler('lpbook.mjs', { readBasePortfolio: async () => {
+    baseReads++; if (baseFailed) throw Error('Base source unavailable');
+    return { schemaVersion: 'base-portfolio-v1', complete: true, read_at: new TestDate().toISOString(), total_usd: 123 };
+  }, fetchJSON: async () => { throw Error('Book source unavailable'); } });
+  const baseRequests = await Promise.all(Array.from({ length: 6 }, () => call(baseEndpoint, 'dashboard.example', { view: 'base-portfolio' })));
+  check(baseReads, 1, 'Concurrent Base portfolio reads share one independent chain request');
+  check(baseRequests.every(r => r.code === 200 && r.body.total_usd === 123), true, 'Base holdings do not depend on another chain or the saved LP book');
+  check(baseRequests[0].headers['cache-control'].startsWith('s-maxage=10'), true, 'Complete Base data uses the existing short cache');
+  const baseTime = baseRequests[0].body.read_at;
+  check((await call(baseEndpoint)).code, 502, 'An unavailable full book remains an independent failure');
+  check((await call(baseEndpoint, 'dashboard.example', { view: 'base-portfolio' })).body.read_at, baseTime,
+    'The full-book request cannot overwrite or renew the Base cache');
+  clock += 9000; baseFailed = true;
+  const unavailableBase = await call(baseEndpoint, 'dashboard.example', { view: 'base-portfolio' });
+  check(unavailableBase.code, 502, 'A failed Base source is not converted to an empty successful reading');
+  check(unavailableBase.headers['cache-control'], 'no-store', 'A failed Base reading never becomes a cached success');
+  const baseBeforeRetry = baseReads;
+  await call(baseEndpoint, 'dashboard.example', { view: 'base-portfolio' });
+  check(baseReads, baseBeforeRetry + 1, 'A failed Base reading is retried');
+  baseFailed = false;
+  check((await call(baseEndpoint, 'dashboard.example', { view: 'base-portfolio' })).code, 200, 'The Base endpoint recovers without a page reload');
   check(JSON.stringify(seed), originalSeed, 'Fault scenarios never mutate the saved seed ledger');
 } finally { Date.now = realNow; globalThis.fetch = realFetch; }
 

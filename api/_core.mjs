@@ -13,6 +13,7 @@
    ========================================================================== */
 
 import '../rpc-reader.js';
+import { BASE } from '../base-config.mjs';
 import {KATANA_ASSETS,KATANA_USD_POOLS} from './_katana-config.mjs';
 import { attributedAprBaseline, prepareBookRewards, registerKatanaRollovers, anchorRewardRollovers } from './_reward-attribution.mjs';
 export { attributeMerklRewards, prepareBookRewards, REWARD_ATTRIBUTION_VERSION } from './_reward-attribution.mjs';
@@ -21,6 +22,7 @@ export const CFG = {
   katRpc: 'https://rpc.katanarpc.com',
   arcRpc: 'https://rpc.mainnet.arc.io',
   rhRpc: 'https://rpc.mainnet.chain.robinhood.com',
+  baseRpc: BASE.rpcs[0],
   /* Every wallet the LP book follows. Add one here and both chains are scanned for it;
      a label, if given, is what the page shows instead of the shortened address. */
   wallets: [
@@ -35,6 +37,8 @@ export const CFG = {
   lpStaker: '0xbe12e1b5c4859a3d141412748279b67458f729e9',   /* holds staked Sushi position NFTs */
   rhNpm: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
   rhFactory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
+  baseNpm: BASE.npm,
+  baseFactory: BASE.factory,
   stakedChunk: 1000,
   stakedChunks: 6,
   stakedLookback: 250000,   /* about three days of Katana blocks */
@@ -74,6 +78,12 @@ export const V3 = [
     mintLookback: 600000, logSpan: 100000,
     refPools: [],
   },
+  {
+    key: 'base', protocol: 'Uniswap V3', archive: true, yield: 'fees', merklChain: null,
+    rpc: CFG.baseRpc, npm: CFG.baseNpm, factory: CFG.baseFactory, staker: null,
+    open: (pos) => pos.base?.open || {}, closed: (pos) => pos.base?.closed || [],
+    mintLookback: 2000000, logSpan: 5000, refPools: [],
+  },
 ];
 export const chainOf = (key) => V3.find((c) => c.key === key);
 
@@ -88,8 +98,28 @@ export const enc24 = (t) => pad(BigInt.asUintN(256, BigInt(t)).toString(16));
 export const lc = (s) => String(s).toLowerCase();
 export const hx = (n) => '0x' + Number(n).toString(16);
 const robinhoodRpc = globalThis.TigerRpc.create();
+const baseRpc = globalThis.TigerRpc.create(), baseEndpoints = new Map();
+async function baseRead(method, params) {
+  let last;
+  for (const url of [...new Set([CFG.baseRpc, ...BASE.rpcs])]) {
+    try {
+      let verified = baseEndpoints.get(url);
+      if (!verified) {
+        verified = baseRpc(url, 'eth_chainId', [], { maxAttempts: 1, timeoutMs: 3000, totalTimeoutMs: 4000 })
+          .then(id => { if (BigInt(id) !== BigInt(BASE.id)) throw Error('Wrong Base chain ID'); return true; });
+        baseEndpoints.set(url, verified);
+        verified.catch(() => { if (baseEndpoints.get(url) === verified) baseEndpoints.delete(url); });
+      }
+      await verified;
+      return method === 'eth_chainId' ? hx(BASE.id) : await baseRpc(url, method, params,
+        { maxAttempts: 1, timeoutMs: 4000, totalTimeoutMs: CFG.patient ? 20000 : 6500 });
+    } catch (error) { last = error; }
+  }
+  throw last;
+}
 
 export async function rpc(url, method, params) {
+  if (url === CFG.baseRpc) return baseRead(method, params);
   if (url === CFG.rhRpc) return robinhoodRpc(url, method, params, CFG.patient
     ? { maxAttempts: 7, totalTimeoutMs: 120000, retryMaxMs: 20000 } : undefined);
   /* The public nodes drop a connection now and then; a figure that fails because of one
@@ -224,6 +254,7 @@ const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523
 const ZERO32 = '0x' + '0'.repeat(64);
 
 export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
+  const tag = opts.tag || 'latest';
   const owner = new Map();
   const first = CFG.wallets[0].address;
   /* positions.json only ever knew the first wallet, so its ids are seeds only when that
@@ -236,7 +267,7 @@ export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
 
   const wallets = opts.wallets || CFG.wallets.map((x) => x.address);
   const held = wallets.map(async (address) => {
-    const balance = await rpc(ch.rpc, 'eth_call', [{ to: ch.npm, data: '0x70a08231' + pad(address) }, 'latest']);
+    const balance = await rpc(ch.rpc, 'eth_call', [{ to: ch.npm, data: '0x70a08231' + pad(address) }, tag]);
     const bal = Number(toBig(w(requiredRead({ ok: true, data: balance }, 1, ch.key + ' NFT count'), 0)));
     if (!Number.isSafeInteger(bal) || bal > 10000) throw new Error('Invalid NFT count');
     if (!bal) return [];
@@ -250,7 +281,7 @@ export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
       const batch = [];
       for (let j = k; j < Math.min(bal, k + 60); j++)
         batch.push({ to: ch.npm, data: '0x2f745c59' + pad(address) + pad(j.toString(16)) });
-      const r = await multi(ch.rpc, batch);
+      const r = await multi(ch.rpc, batch, tag);
       r.forEach((x) => { out.push([String(toBig(w(requiredRead(x, 1, ch.key + ' NFT enumeration'), 0))), address]); });
     }
     return out;
@@ -289,14 +320,14 @@ export async function v3Candidates(ch, pos, ledgerOpen, stakedSeed, opts = {}) {
    Robinhood was dropped without a word: the pair was real and the chain was reachable, and
    the code simply had no entry for USDG. */
 const STABLE = /^(vb)?(USDC|USDT|USDG|DAI|USDe|FRAX)$/i;
-export async function tokenMeta(ch, addrs) {
+export async function tokenMeta(ch, addrs, tag = 'latest') {
   const list = [...new Set(addrs.map(lc))];
   const out = {};
   if (!list.length) return out;
   const r = await multi(ch.rpc, list.flatMap((a) => [
     { to: a, data: '0x95d89b41' },   /* symbol() */
     { to: a, data: '0x313ce567' },   /* decimals() */
-  ]));
+  ]), tag);
   list.forEach((a, i) => {
     let sym = a.slice(0, 8);
     try {
@@ -307,7 +338,9 @@ export async function tokenMeta(ch, addrs) {
     } catch { /* a token with no readable symbol still gets decimals and a short name */ }
     const d = Number(toBig(w(requiredRead(r[i * 2 + 1], 1, ch.key + ' token decimals'), 0)));
     if (!Number.isInteger(d) || d < 0 || d > 255) throw new Error('Invalid token decimals');
-    out[a] = { s: sym, d: d, stable: STABLE.test(sym), a: a };
+    if (ch.key === 'base') sym = BASE.tokens.find(t => t.a === a)?.s || sym.replace(/[^\w./+-]/g, '').slice(0, 24) || a.slice(0, 8);
+    out[a] = { s: sym, d: d, stable: ch.key === 'base'
+      ? BASE.tokens.some(t => t.a === a && t.d === d && t.stable) : STABLE.test(sym), a: a };
   });
   return out;
 }
@@ -384,6 +417,7 @@ async function mintEntry(ch, p, T0, T1) {
 /* ---------- any uniswap-v3-shaped pool, on any of the chains ----------
    `candidates` is an array of ids, or a Map of id -> owning wallet. */
 export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
+  const tag = opts.tag || 'latest';
   const open = ledgerOpen || {};
   const walletOf = candidates instanceof Map ? candidates : null;
   const ids = walletOf ? [...walletOf.keys()] : (candidates || Object.keys(open));
@@ -393,7 +427,7 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
   const posRes = await multi(ch.rpc, ids.flatMap((id) => {
     const h = pad(BigInt(id).toString(16));
     return [{ to: ch.npm, data: '0x99fbab88' + h }, { to: ch.npm, data: '0x6352211e' + h }];
-  }));
+  }), tag);
 
   const live = [];
   ids.forEach((id, k) => {
@@ -422,8 +456,8 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
   const [poolRes, meta] = await Promise.all([
     multi(ch.rpc, live.map((p) => ({
       to: ch.factory, data: '0x1698ee82' + pad(p.token0) + pad(p.token1) + pad(p.fee.toString(16)),
-    }))),
-    tokenMeta(ch, live.flatMap((p) => [p.token0, p.token1])),
+    })), tag),
+    tokenMeta(ch, live.flatMap((p) => [p.token0, p.token1]), tag),
   ]);
   live.forEach((p, i) => {
     p.pool = lc(toAddr(w(requiredRead(poolRes[i], 1, ch.key + ' #' + p.id + ' pool'), 0)));
@@ -431,7 +465,7 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
   });
 
   const needsBridge=live.some(p=>!meta[p.token0].stable&&!meta[p.token1].stable);
-  const valuationBlock=needsBridge?Number(BigInt(await rpc(ch.rpc,'eth_blockNumber',[]))):null;
+  const valuationBlock=tag!=='latest'?Number(BigInt(tag)):needsBridge?Number(BigInt(await rpc(ch.rpc,'eth_blockNumber',[]))):null;
   const slotRes = await multi(ch.rpc, live.flatMap((p) => p.pool ? [
     { to: p.pool, data: '0x3850c7bd' },                      /* slot0 */
     { to: p.pool, data: '0xf3058399' },                      /* feeGrowthGlobal0 */
@@ -490,6 +524,7 @@ export async function v3Rows(ch, ledgerOpen, candidates, opts = {}) {
       dollarPrices:dollarPrices[j],
       a0: a0 / 10 ** T0.d, a1: a1 / 10 ** T1.d,
       fee0: Number(f0) / 10 ** T0.d, fee1: Number(f1) / 10 ** T1.d,
+      ...(tag !== 'latest' ? { valuation_block: valuationBlock } : {}),
       inUsd: L.open_value_usd !== undefined ? L.open_value_usd : (entry[j] && entry[j].usd),
       withdrawn: L.withdrawn_usd || 0, topup: L.topup_usd || 0,
       openedTs: L.opened_ts, opened: L.opened,
@@ -832,8 +867,38 @@ export async function katanaAnchorPrice(address,block='latest'){
     ratio=sp*sp*10**(assetFirst?asset.decimals-6:6-asset.decimals),price=assetFirst?ratio:1/ratio;
   if(!(price>0)||!Number.isFinite(price))throw Error('Katana dollar quote is unavailable');return price;
 }
+export async function baseDollarQuote(token, tag = 'latest', readMulti = multi) {
+  const usdc = BASE.tokens.find(t => t.s === 'USDC');
+  if (token.stable) return 1;
+  for (const fee of [500, 3000, 10000, 100]) {
+    const found = await readMulti(CFG.baseRpc, [{ to: BASE.factory,
+      data: '0x1698ee82' + pad(token.a) + pad(usdc.a) + pad(fee.toString(16)) }], tag);
+    const pool = lc(toAddr(w(requiredRead(found[0], 1, 'Base quote pool'), 0)));
+    if (pool === '0x' + '0'.repeat(40)) continue;
+    const values = await readMulti(CFG.baseRpc, ['0x3850c7bd', '0x0dfe1681', '0xd21220a7'].map(data => ({ to: pool, data })), tag);
+    const first = lc(toAddr(w(requiredRead(values[1], 1, 'Base quote token0'), 0))),
+      second = lc(toAddr(w(requiredRead(values[2], 1, 'Base quote token1'), 0))),
+      sqrt = toBig(w(requiredRead(values[0], 2, 'Base quote price'), 0));
+    if (![first, second].includes(token.a) || ![first, second].includes(usdc.a) || first === second || sqrt <= 0n || sqrt >= 1n << 160n)
+      throw Error('Base dollar quote identity is unavailable');
+    const direct = first === token.a, ratio = (Number(sqrt) / 2 ** 96) ** 2 * 10 ** (direct ? token.d - usdc.d : usdc.d - token.d);
+    const price = direct ? ratio : 1 / ratio;
+    if (!(price > 0) || !Number.isFinite(price)) throw Error('Base dollar quote is unavailable');
+    return price;
+  }
+  throw Error('No verified Base dollar pool for ' + token.s);
+}
 export async function pairDollarPrices(ch,P,sp,block='latest'){
   const direct=legPrices(P,sp);if(Object.keys(direct).length)return direct;
+  if(ch.key==='base'){
+    const ratio=sp*sp*10**(P.d0-P.d1),tag=block==='latest'?'latest':hx(block);
+    for(const [address,first]of [[P.a1,false],[P.a0,true]]){
+      const token=BASE.tokens.find(t=>t.a===lc(address));if(!token)continue;
+      const anchor=await baseDollarQuote(token,tag);
+      return first?{[P.t0]:anchor,[P.t1]:anchor/ratio}:{[P.t0]:ratio*anchor,[P.t1]:anchor};
+    }
+    return {};
+  }
   if(ch.key!=='katana')return {};
   const px=sp*sp*10**(P.d0-P.d1);if(!(px>0))return {};
   if(KATANA_USD_POOLS[lc(P.a1)]){const anchor=await katanaAnchorPrice(P.a1,block);return {[P.t0]:px*anchor,[P.t1]:anchor};}
@@ -868,7 +933,8 @@ function registerToken(book, chain, meta, pool, other) {
     chain, a: meta.a, s: meta.s, d: meta.d, stable: meta.stable,
     pool: meta.stable ? null : (other && other.stable ? pool : null),
     other: other ? { a: other.a, d: other.d } : null,
-    ...(chain==='katana'&&!meta.stable&&other&&KATANA_USD_POOLS[other.a]?{quote_pool:pool}:{}),
+    ...(!meta.stable&&other&&(chain==='katana'&&KATANA_USD_POOLS[other.a]
+      ||chain==='base'&&BASE.tokens.some(t=>t.a===other.a))?{quote_pool:pool}:{}),
   };
   return k;
 }
@@ -911,7 +977,7 @@ export async function livePrices(book, extra) {
       for (const [k, e] of list) { const v = priceFromSqrt(e, sp[at(e)]); if (v) out[k] = v; }
     } catch { /* a chain that cannot be read leaves its tokens unpriced, and the page says so */ }
   }));
-  for(const [k,e]of Object.entries(book.tokens||{}))if(!out[k]&&e.chain==='katana'&&e.quote_pool){
+  for(const [k,e]of Object.entries(book.tokens||{}))if(!out[k]&&['katana','base'].includes(e.chain)&&e.quote_pool){
     try{const value=await quotedTokenPrice(e,'latest');if(value>0)out[k]=value;}catch{/* Retain an explicit missing quote. */}
   }
   /* a reward token with no pool of its own still has the price Merkl quotes for it */
@@ -928,8 +994,9 @@ export async function priceAtBlock(book, key, block) {
   return priceFromSqrt(e, sp);
 }
 async function quotedTokenPrice(e,block){
-  const anchor=await katanaAnchorPrice(e.other?.a,block);if(!(anchor>0))return null;
-  const sp=await sqrtAt(chainOf(e.chain),e.quote_pool,block==='latest'?Number(BigInt(await rpc(CFG.katRpc,'eth_blockNumber',[]))):block);
+  const anchor=e.chain==='base'?await baseDollarQuote(BASE.tokens.find(t=>t.a===e.other?.a),block==='latest'?'latest':hx(block))
+    :await katanaAnchorPrice(e.other?.a,block);if(!(anchor>0))return null;
+  const sp=await sqrtAt(chainOf(e.chain),e.quote_pool,block==='latest'?Number(BigInt(await rpc(chainOf(e.chain).rpc,'eth_blockNumber',[]))):block);
   if(!(sp>0))return null;const first=lc(e.a)<lc(e.other.a),ratio=sp*sp*10**(first?e.d-e.other.d:e.other.d-e.d);
   return first?ratio*anchor:anchor/ratio;
 }
@@ -974,20 +1041,22 @@ function newPosition(chain, id, wallet, d, m0, m1, pool) {
 }
 
 /* what positions(), the factory and the tokens say about a set of ids */
-async function describe(ch, ids) {
-  const r = await multi(ch.rpc, ids.map((id) => ({ to: ch.npm, data: '0x99fbab88' + pad(BigInt(id).toString(16)) })));
+async function describe(ch, ids, tag = 'latest') {
+  const r = await multi(ch.rpc, ids.map((id) => ({ to: ch.npm, data: '0x99fbab88' + pad(BigInt(id).toString(16)) })), tag);
   const d = {};
   ids.forEach((id, i) => {
-    if (!r[i] || !r[i].ok) return;
-    const x = r[i].data;
+    const x = requiredRead(r[i], 12, ch.key + ' #' + id + ' description');
     d[id] = { token0: lc(toAddr(w(x, 2))), token1: lc(toAddr(w(x, 3))), fee: Number(toBig(w(x, 4))),
       lo: Number(toSigned(w(x, 5))), hi: Number(toSigned(w(x, 6))), liq: toBig(w(x, 7)) };
   });
   const list = Object.keys(d);
   const pools = await multi(ch.rpc, list.map((id) => ({ to: ch.factory,
-    data: '0x1698ee82' + pad(d[id].token0) + pad(d[id].token1) + pad(d[id].fee.toString(16)) })));
-  list.forEach((id, i) => { d[id].pool = pools[i] && pools[i].ok ? lc(toAddr(w(pools[i].data, 0))) : null; });
-  const meta = await tokenMeta(ch, list.flatMap((id) => [d[id].token0, d[id].token1]));
+    data: '0x1698ee82' + pad(d[id].token0) + pad(d[id].token1) + pad(d[id].fee.toString(16)) })), tag);
+  list.forEach((id, i) => {
+    d[id].pool = lc(toAddr(w(requiredRead(pools[i], 1, ch.key + ' #' + id + ' pool'), 0)));
+    if (d[id].pool === '0x' + '0'.repeat(40)) throw Error('Position pool is unavailable');
+  });
+  const meta = await tokenMeta(ch, list.flatMap((id) => [d[id].token0, d[id].token1]), tag);
   return { d, meta };
 }
 
@@ -1068,6 +1137,27 @@ async function photograph(book, ch, wallets, { pos, data, merkl, ts }) {
    window at a time until the deposits are behind it */
 async function firstDeposit(ch, id, head) {
   const topics = [INCREASE, '0x' + pad(BigInt(id).toString(16))];
+  /* Base's small public log windows make a months-wide backwards sweep too slow
+     for a live request. A current NFT's historical existence brackets its mint.
+     Only a successful archive multicall can establish absence; network failures
+     never mean "not minted". Confirm the result with the actual deposit event. */
+  if (ch.key === 'base') {
+    try {
+      let lo = Math.max(1, head - ch.mintLookback), hi = head;
+      const exists = async block => {
+        const values = await multi(ch.rpc, [{ to: ch.npm, data: '0x6352211e' + pad(BigInt(id).toString(16)) }], hx(block));
+        if (!values[0].ok) return false;
+        return toBig(w(requiredRead(values[0], 1, 'Base historical NFT owner'), 0)) > 0n;
+      };
+      if (!await exists(lo)) {
+        while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (await exists(mid)) hi = mid; else lo = mid; }
+        const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: ch.npm, topics, fromBlock: hx(hi), toBlock: hx(hi) }]);
+        if (logs.length) return hi;
+      }
+    } catch (error) {
+      if (!/archive|historical|missing trie|header not found|multicall|revert/i.test(String(error?.message))) throw error;
+    }
+  }
   const span = Math.min(ch.logSpan, 100000);
   let first = null;
   for (let to = head, n = 0; to > 0 && n < 600; n++) {
@@ -1090,6 +1180,49 @@ async function firstDeposit(ch, id, head) {
    (Alex, 2026-10-19. The first book photographed positions mid-life at the moment it
    started, so their PnL and fees missed everything before that moment.)
    A chain with nothing open starts at its head and picks up its next mint. */
+/* Add a newly configured chain from the mints of its currently open positions.
+   Never reset an existing chain's cursors, deposits, claims or frozen outcomes. */
+async function initializeBookChain(book, ch, { pos, data } = {}) {
+  await registerRefPools(book, ch);
+  const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
+  const seed = ch.key === 'katana' ? (((data || {}).chains || {}).katana || {}).staked_lp_ids || [] : [];
+  const owner = await v3Candidates(ch, pos || {}, ch.open(pos || {}), seed,
+    { wholeList: true, stakedLookback: 2500000, wallets: book.wallets, ...(ch.key === 'base' ? { tag: hx(head) } : {}) });
+  const ids = [...owner.keys()];
+  const { d } = ids.length ? await describe(ch, ids, ch.key === 'base' ? hx(head) : 'latest') : { d: {} };
+  if (ids.some(id => !d[id] || !d[id].pool)) throw Error(ch.key + ' LP descriptions are incomplete');
+  let start = head;
+  const opened = [];
+  for (const id of ids.filter((x) => d[x] && d[x].liq > 0n)) {
+    const b = await firstDeposit(ch, id, head);
+    if (b === null) throw new Error(ch.key + ' #' + id + ' is open but its mint could not be found');
+    opened.push(id);
+    start = Math.min(start, b - 1);
+  }
+  /* a Fables range held now starts the chain no later than the block its shares arrived */
+  if (ch.key === FABLES.chain) {
+    const fr = await fablesRead((data && data.fables) || FABLES.seed);
+    for (const r of fr.rows.filter((x) => book.wallets.includes(lc(x.wallet)))) {
+      const topics = [FB.T6909, null, '0x' + pad(r.wallet), '0x' + pad(r.raw.range_id)];
+      let firstIn = null;
+      for (let to = head, n = 0; to > 0 && n < 600; n++) {
+        const from = Math.max(0, to - 99999);
+        const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ramp, topics, fromBlock: hx(from), toBlock: hx(to) }]);
+        if (logs.length) firstIn = Number(toBig(logs[0].blockNumber.slice(2)));
+        else if (firstIn !== null) break;
+        to = from - 1;
+      }
+      if (firstIn !== null) { opened.push(r.id); start = Math.min(start, firstIn - 1); }
+    }
+  }
+  const blk = await rpc(ch.rpc, 'eth_getBlockByNumber', [hx(start + 1), false]);
+  const ts = Number(BigInt(blk.timestamp));
+  book.last_block[ch.key] = start;
+  book.started.blocks[ch.key] = start;
+  book.started.chains[ch.key] = { block: start, ts, iso: new Date(ts * 1000).toISOString(), positions: opened };
+  return head;
+}
+
 export async function startBook({ pos, data }) {
   const book = {
     version: BOOK_VERSION,
@@ -1097,44 +1230,7 @@ export async function startBook({ pos, data }) {
     wallets: CFG.wallets.map((x) => lc(x.address)),
     last_block: {}, tokens: {}, positions: {}, events: [], fee_series: [], runs: [], carried: { by_id: {} },
   };
-  for (const ch of V3) {
-    await registerRefPools(book, ch);
-    const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
-    const seed = ch.key === 'katana' ? (((data || {}).chains || {}).katana || {}).staked_lp_ids || [] : [];
-    const owner = await v3Candidates(ch, pos || {}, ch.open(pos || {}), seed,
-      { wholeList: true, stakedLookback: 2500000, wallets: book.wallets });
-    const ids = [...owner.keys()];
-    const { d } = ids.length ? await describe(ch, ids) : { d: {} };
-    let start = head;
-    const opened = [];
-    for (const id of ids.filter((x) => d[x] && d[x].liq > 0n)) {
-      const b = await firstDeposit(ch, id, head);
-      if (b === null) throw new Error(ch.key + ' #' + id + ' is open but its mint could not be found');
-      opened.push(id);
-      start = Math.min(start, b - 1);
-    }
-    /* a Fables range held now starts the chain no later than the block its shares arrived */
-    if (ch.key === FABLES.chain) {
-      const fr = await fablesRead((data && data.fables) || FABLES.seed);
-      for (const r of fr.rows.filter((x) => book.wallets.includes(lc(x.wallet)))) {
-        const topics = [FB.T6909, null, '0x' + pad(r.wallet), '0x' + pad(r.raw.range_id)];
-        let firstIn = null;
-        for (let to = head, n = 0; to > 0 && n < 600; n++) {
-          const from = Math.max(0, to - 99999);
-          const logs = await rpc(ch.rpc, 'eth_getLogs', [{ address: FABLES.ramp, topics, fromBlock: hx(from), toBlock: hx(to) }]);
-          if (logs.length) firstIn = Number(toBig(logs[0].blockNumber.slice(2)));
-          else if (firstIn !== null) break;
-          to = from - 1;
-        }
-        if (firstIn !== null) { opened.push(r.id); start = Math.min(start, firstIn - 1); }
-      }
-    }
-    const blk = await rpc(ch.rpc, 'eth_getBlockByNumber', [hx(start + 1), false]);
-    const ts = Number(BigInt(blk.timestamp));
-    book.last_block[ch.key] = start;
-    book.started.blocks[ch.key] = start;
-    book.started.chains[ch.key] = { block: start, ts, iso: new Date(ts * 1000).toISOString(), positions: opened };
-  }
+  for (const ch of V3) await initializeBookChain(book, ch, { pos, data });
   const first = Math.min(...Object.values(book.started.chains).map((c) => c.ts));
   book.started.ts = first;
   book.started.iso = new Date(first * 1000).toISOString();
@@ -1425,7 +1521,9 @@ export async function repairKatanaOpenPositions(book,ch){
    the others still move. A run takes at most `maxWindows` windows a chain, so it always
    finishes, and a book that has fallen behind catches up over several runs rather than
    timing out on one and never moving at all. */
-export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false, persistRollovers = false } = {}) {
+export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ranges = false, persistRollovers = false, onlyChains } = {}) {
+  if (onlyChains && (!Array.isArray(onlyChains) || !onlyChains.length || onlyChains.some(key => !chainOf(key))))
+    throw Error('Choose configured LP Book chains');
   const book = JSON.parse(JSON.stringify(input));
   const errors = {}, behind = {};
   const rawMerkl = merkl;
@@ -1448,12 +1546,14 @@ export async function advanceBook(input, { merkl, maxWindows = 60, pos, data, ra
     }
   }
 
-  for (const ch of V3) {
+  for (const ch of V3.filter(ch => !onlyChains || onlyChains.includes(ch.key))) {
     const before = JSON.stringify(book);
     try {
       if(ch.key==='katana')await repairKatanaOpenPositions(book,ch);
-      const head = Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)));
-      let from = (book.last_block[ch.key] || head) + 1;
+      const head = Object.hasOwn(book.last_block, ch.key)
+        ? Number(toBig((await rpc(ch.rpc, 'eth_blockNumber', [])).slice(2)))
+        : await initializeBookChain(book, ch, { pos, data });
+      let from = (book.last_block[ch.key] ?? head) + 1;
       const tsCache = {};
       for (let n = 0; from <= head && n < maxWindows; n++) {
         const to = Math.min(from + ch.logSpan - 1, head);
@@ -1545,7 +1645,8 @@ export async function bookLiveRows(book) {
       .filter((P) => P.chain === ch.key && P.status === 'open' && P.kind !== 'fables').map((P) => [P.id, P.wallet]));
     if (!owner.size) return;
     try {
-      for (const r of await v3Rows(ch, {}, owner, { noEntry: true })) rows[ch.key + ':' + r.id] = r;
+      const tag = ch.key === 'base' ? hx(Number(BigInt(await rpc(ch.rpc, 'eth_blockNumber', [])))) : 'latest';
+      for (const r of await v3Rows(ch, {}, owner, { noEntry: true, tag })) rows[ch.key + ':' + r.id] = r;
     } catch (e) { errors[ch.key] = String((e && e.message) || e).slice(0, 160); }
   }));
   const fp = Object.values(book.positions).filter((P) => P.status === 'open' && P.kind === 'fables');
@@ -2570,9 +2671,12 @@ export const VAULT = {
   },
 };
 
-export async function vaultValue(address = VAULT.address, { book, fables } = {}) {
+export async function vaultValue(address = VAULT.address, { book, fables, readBase } = {}) {
   const errors = {};
   const who = lc(address);
+  const baseP = Promise.resolve().then(async () => (readBase || (await import('./_base-portfolio.mjs')).readBasePortfolio)({ address }))
+    .then(view => { if (view?.complete !== true) throw Error('Base reading is incomplete'); return view; })
+    .catch(error => { errors.base = String(error?.message || error).slice(0, 120); return null; });
 
   /* Prices, LP positions and loose balances are read side by side; only putting dollars on
      the balances has to wait for the prices. */
@@ -2594,7 +2698,7 @@ export async function vaultValue(address = VAULT.address, { book, fables } = {})
      positions are the seeds; the wallet's own NFT list and a short reach back for anything
      staked since catch what the book has not met yet. That keeps a weeks-wide log search
      out of a request that runs every minute. */
-  const positionsP = Promise.all(V3.map(async (ch) => {
+  const positionsP = Promise.all(V3.filter(ch => ch.key !== 'base').map(async (ch) => {
     const out = [];
     try {
       const owner = await v3Candidates(ch, {}, {}, [], { wallets: [address], wholeList: true });
@@ -2624,7 +2728,10 @@ export async function vaultValue(address = VAULT.address, { book, fables } = {})
 
   /* Fables ranges and veFABLES locks held by this wallet */
   const fabP = fablesRead(fables || FABLES.seed).catch((e) => { errors.fables = String((e && e.message) || e).slice(0, 120); return { rows: [], locks: [] }; });
-  const [px, positions, raw, fab] = await Promise.all([pricesP, positionsP, rawP, fabP]);
+  const [px, positions, raw, fab, base] = await Promise.all([pricesP, positionsP, rawP, fabP, baseP]);
+  if (base) for (const row of base.lp_positions) positions.push({ chain: 'base', id: row.token_id,
+    pair: row.pair, protocol: row.protocol, value_usd: row.value_usd, liquidity_usd: row.liquidity_usd,
+    fees_usd: row.fees_usd, in_range: row.in_range });
   for (const r of fab.rows.filter((x) => lc(x.wallet) === who)) {
     if (r.value_usd === null) { errors['fables ' + r.id] = 'unpriced'; continue; }
     positions.push({ chain: r.chain, id: r.id, pair: r.pair, protocol: 'Fables', value_usd: r.value_usd,
@@ -2636,6 +2743,8 @@ export async function vaultValue(address = VAULT.address, { book, fables } = {})
     return true;
   });
   const balances = [];
+  if (base) for (const [sym, token] of Object.entries(base.wallet.balances.tokens)) if (token.balance > 0)
+    balances.push({ chain: 'base', sym, amount: token.balance, usd: r2(token.valueUSD) });
   for (const b of raw) {
     if (!(b.amount > 0)) continue;
     if (px[b.t.px] === undefined) { errors[b.chain + ' ' + b.t.s] = 'no price'; continue; }

@@ -70,7 +70,9 @@ const db={prepare(sql){return {bind(...params){const s=fixture.db.prepare(sql).b
  batch(statements){queries++;return fixture.db.batch(statements);}};
 const env={AGENT_DB:db,AGENT_ORIGIN:'https://weekly.fixture.test',TELEGRAM_BOT_TOKEN:'fixture-only',
  AI:{run(){throw Error('Weekly learning cannot use inference');}}};
-const store=createAgentStore(env,{now:()=>now}),binding={chatId:'42',userId:'42'},sent=[];
+// Keep the fixed Sunday calendar examples while SQLite's real-time lease guard
+// uses a future clock; the example date must not expire every lock after Nov 15.
+const store=createAgentStore(env,{now:()=>Math.max(now,Date.now()+DAY)}),binding={chatId:'42',userId:'42'},sent=[];
 let failure=false,replace=false;
 const fetcher=async(url,options)=>{
  check(new URL(url).hostname,'api.telegram.org','The weekly sender uses the fixed Telegram destination');

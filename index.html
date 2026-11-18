@@ -325,6 +325,8 @@ html.classy .menu a.on{border-color:rgba(214,185,123,.45);background:rgba(214,18
 .chain-solana{background:rgba(153,69,255,.15);color:var(--sol)}
 .chain-robinhood{background:rgba(0,200,5,.13);color:#00c805}
 .chain-arc{background:rgba(91,156,255,.15);color:#5b9cff}
+.chain-base{background:rgba(0,82,255,.15);color:#5b8cff}
+.chart-h canvas{max-width:100%}
 
 /* Position cards */
 /* opaque: these sit directly on the page, so the art must not show through the text */
@@ -571,9 +573,9 @@ html.classy .tbl th{font-weight:500;letter-spacing:.14em}
 @media(max-width:359px){.menu a{padding-left:3px;padding-right:3px;font-size:8.5px}}
 </style>
 <link rel="stylesheet" href="/theme.css">
-<script src="/i18n-zh.js?v=176"></script>
-<script src="/i18n.js?v=176"></script>
-<link rel="stylesheet" href="/i18n.css?v=176">
+<script src="/i18n-zh.js?v=177"></script>
+<script src="/i18n.js?v=177"></script>
+<link rel="stylesheet" href="/i18n.css?v=177">
 </head>
 <body>
 <div class="hdr">
@@ -2138,6 +2140,35 @@ function getSushiAprs(){
     }).catch(function(){return{};});
 }
 
+/* Base is a wallet/position reading, independent of the UNI guide's public pools. */
+var BASE_LAST_GOOD=null;
+function baseFallback(snap){
+  var previous=BASE_LAST_GOOD||snap&&snap.chains&&snap.chains.base;
+  if(previous){var retained=JSON.parse(JSON.stringify(previous));retained.fromSnapshot=true;retained.live=false;return retained;}
+  return {name:'Base',chain_id:8453,color:'#0052ff',complete:false,live:false,unavailable:true,
+    read_at:null,onchain_usd:null,lp_total_usd:null,total_usd:null,lp_positions:[],defi_positions:[],fromSnapshot:true};
+}
+function baseReadingValid(value){
+  return !!value&&value.schemaVersion==='base-portfolio-v1'&&value.chain_id===8453&&value.complete===true
+    &&value.owner===CFG.wallet.toLowerCase()&&Number.isSafeInteger(value.block)&&value.block>=0
+    &&['onchain_usd','lp_total_usd','total_usd'].every(function(k){return Number.isFinite(value[k])&&value[k]>=0;})
+    &&Math.abs(value.onchain_usd+value.lp_total_usd-value.total_usd)<0.03
+    &&Array.isArray(value.lp_positions)&&value.lp_positions.every(function(p){return p.chain==='base'&&p.wallet===value.owner
+      &&/^\d+$/.test(p.token_id)&&Number.isFinite(p.value_usd)&&p.value_usd>=0&&Number.isFinite(p.fees_usd)&&p.fees_usd>=0;})
+    &&Math.abs(value.lp_positions.reduce(function(sum,p){return sum+p.value_usd;},0)-value.lp_total_usd)<0.03;
+}
+function getBaseLive(){
+  var controller=new AbortController(),timer;
+  var deadline=new Promise(function(resolve,reject){timer=setTimeout(function(){controller.abort();reject(new Error('Base reading timed out'));},25000);});
+  var request=Promise.resolve().then(function(){return fetch('/api/lpbook?view=base-portfolio',{cache:'no-store',signal:controller.signal});})
+    .then(function(r){if(!r.ok)throw new Error('Base reading HTTP '+r.status);return r.json();});
+  return Promise.race([request,deadline]).then(function(value){clearTimeout(timer);return value;},function(error){clearTimeout(timer);controller.abort();throw error;}).then(function(value){
+    var age=Date.now()-Date.parse(value&&value.read_at);
+    if(!baseReadingValid(value)||!Number.isFinite(age)||age< -30000||age>90000)throw new Error('Base reading is incomplete or stale');
+    BASE_LAST_GOOD=JSON.parse(JSON.stringify(value));return value;
+  });
+}
+
 /* Fables is part of Robinhood's total. A failed API request keeps the latest complete
    Fables reading, with its own source time, instead of going back to the six-hour snapshot. */
 var FABLES_LAST_GOOD=null;
@@ -2172,6 +2203,7 @@ function robinhoodSourceTime(rh,fab,now){
 
 function loadLive(refs,snap){
   var readWarnings=[];
+  var baseP=getBaseLive().catch(function(e){console.warn('Base read failed, keeping previous figures',e);return baseFallback(snap);});
   /* Arc needs nothing from the other chains, so it starts at once. Its own catch: a dead or
      rate-limited Arc RPC costs that chain only — last good pass first, snapshot after. */
   var arcP=getArcLive(snap).catch(function(e){
@@ -2255,8 +2287,9 @@ function loadLive(refs,snap){
       var solTotal=solWalletUsd+solLpUsd;
       /* Fables (its V4-hook ranges and veFABLES locks) is read by /api/fables */
       var fabP=getFablesLive().catch(function(e){console.warn('Fables read failed, keeping previous figures',e);return fablesFallback(snap);});
-      return Promise.all([rhP,arcP,fabP]).then(function(pair){
-      var rh=pair[0],arc=pair[1],fab=pair[2];
+      return Promise.all([rhP,arcP,fabP,baseP]).then(function(pair){
+      var rh=pair[0],arc=pair[1],fab=pair[2],base=pair[3];
+      if(base.fromSnapshot)readWarnings.push(base.unavailable?'Base could not be read; its holdings are not included yet.':'Base could not be read; keeping its previous figures.');
       if(rh.fromSnapshot)readWarnings.push('Robinhood could not be read; keeping its previous figures.');
       if(arc.fromSnapshot)readWarnings.push('Arc LPs could not be refreshed; keeping their previous figures.');
       if(arc.merkl&&arc.merkl.fromSnapshot)readWarnings.push('Arc rewards could not be refreshed; showing their saved figures.');
@@ -2273,7 +2306,7 @@ function loadLive(refs,snap){
       var arcTotal=arc.walletUsd+arcLpUsd+arcMerklUsd;
       /* folded in before current/gain are derived, or the tracking figure would quietly
          exclude a chain while the headline total included it */
-      var grand=katTotal+solTotal+rhTotal+arcTotal;
+      var grand=katTotal+solTotal+rhTotal+arcTotal+(base.total_usd||0);
       var days=Math.floor((Date.now()-new Date(CFG.startDate+'T00:00:00Z').getTime())/86400000);
       var current=grand-katLpUsd;
       var gain=current-CFG.startValue;
@@ -2307,20 +2340,22 @@ function loadLive(refs,snap){
             lp_total_usd:rhLpUsd,total_usd:rhTotal,color:'#00c805',read_at:robinhoodSourceTime(rh,fab,new Date().toISOString())},
           arc:{name:'Arc',onchain_usd:arc.walletUsd,
             tokens:arc.tokens,merkl_rewards:arc.merkl,lp_positions:arc.lps,defi_positions:[],
-            lp_total_usd:arcLpUsd,total_usd:arcTotal,color:'#5b9cff'}
+            lp_total_usd:arcLpUsd,total_usd:arcTotal,color:'#5b9cff'},
+          base:base
         },
         summary:{grand_total_usd:grand,katana_usd:katTotal,solana_usd:solTotal,
-          robinhood_usd:rhTotal,arc_usd:arcTotal,
-          onchain_usd:katWalletUsd+solWalletUsd+rh.walletUsd+arc.walletUsd,
-          lp_usd:katLpUsd+solLpUsd+rhLpUsd+arcLpUsd,
+          robinhood_usd:rhTotal,arc_usd:arcTotal,base_usd:base.total_usd,
+          onchain_usd:katWalletUsd+solWalletUsd+rh.walletUsd+arc.walletUsd+(base.onchain_usd||0),
+          lp_usd:katLpUsd+solLpUsd+rhLpUsd+arcLpUsd+(base.lp_total_usd||0),
           /* claimable on every chain — the split into "earning" and "waiting to be claimed"
              reads this, so Arc's rewards must not be counted as DeFi value */
-          merkl_usd:merkl.total_usd+arcMerklUsd,chains_count:4},
+          merkl_usd:merkl.total_usd+arcMerklUsd,chains_count:5},
         merkl_rewards:merkl,
-        lp_positions:kat.lps.concat(sol.lps).concat(rh.lps).concat(arc.lps),
+        lp_positions:kat.lps.concat(sol.lps).concat(rh.lps).concat(arc.lps).concat(base.lp_positions),
         total_usd:grand
       };
-      d.live_health={read_at:robinhoodSourceTime(rh,fab,d.last_updated),warnings:readWarnings};
+      var times=[robinhoodSourceTime(rh,fab,d.last_updated),base.read_at].map(function(t){return Date.parse(t);});
+      d.live_health={read_at:times.every(Number.isFinite)?new Date(Math.min.apply(Math,times)).toISOString():'unavailable',warnings:readWarnings};
       return d;
       });
     });
@@ -3552,6 +3587,12 @@ function trackPendingOpens(lps){
     (L.closed||[]).forEach(function(c){booked[posKey({uid:c.uid,chain:ch,id:c.id},'id')]=1;});
   });
   lps.forEach(function(p){
+    if(p.chain==='base'&&p.token_id){
+      var baseKey=posKey(p,'token_id');
+      PENDING_OPEN[baseKey]={id:p.token_id,chain:'base',pair:p.pair,pool_fee:p.pool_fee,protocol:p.protocol,
+        opened:p.opened||null,opened_ts:p.opened_ts||null,open_value_usd:p.open_value_usd??null,pending:true};
+      return;
+    }
     if((p.chain!=='robinhood'&&p.chain!=='arc')||!p.meta||!p.token_id)return;
     var k=posKey(p,'token_id');
     if(booked[k]){delete PENDING_OPEN[k];return;}
@@ -3692,7 +3733,7 @@ function lockPosBodyHeight(){
    reads as "my position is missing" rather than "it is the row above". */
 function chainTag(chain){
   if(!chain||chain==='katana')return '';
-  var c={robinhood:'#00c805',solana:'#9945ff',arc:'#5b9cff'}[chain]||'var(--dim)';
+  var c={robinhood:'#00c805',solana:'#9945ff',arc:'#5b9cff',base:'#5b8cff'}[chain]||'var(--dim)';
   var label=chain.charAt(0).toUpperCase()+chain.slice(1);
   return ' <span style="color:'+c+';font-size:8px;border:1px solid '+c
     +';border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px">'+label+'</span>';
@@ -3821,7 +3862,7 @@ function openPositions(){
 }
 function closePositions(){document.getElementById('posModal').classList.remove('open');}
 /* the record behind the Liquidity Pools and Morpho Blue cards */
-var LP_DETAIL='',MORPHO_DETAIL='',CHAIN_NAME={katana:'Katana',solana:'Solana',robinhood:'Robinhood',arc:'Arc'};
+var LP_DETAIL='',MORPHO_DETAIL='',CHAIN_NAME={katana:'Katana',solana:'Solana',robinhood:'Robinhood',arc:'Arc',base:'Base'};
 var REC_ICON='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>';
 function openDetail(title,html){
   document.getElementById('detailTitle').textContent=title;
@@ -3866,11 +3907,11 @@ function buildMonthly(){
 }
 function downloadCsv(){
   if(!HIST)return;
-  var lines=['date,onchain_usd,pending_usd,lp_usd,solana_usd,robinhood_usd,arc_usd,total_usd'];
+  var lines=['date,onchain_usd,pending_usd,lp_usd,solana_usd,robinhood_usd,arc_usd,total_usd,base_usd'];
   var opt=function(v){return v!==undefined?v:'';};   /* blank before a chain was tracked */
   HIST.forEach(function(e){
     lines.push([e.date,e.onchain_usd||0,e.pending_usd||0,e.lp_usd||0,opt(e.solana_usd),
-      opt(e.robinhood_usd),opt(e.arc_usd),e.total_usd||0].join(','));
+      opt(e.robinhood_usd),opt(e.arc_usd),e.total_usd||0,opt(e.base_usd)].join(','));
   });
   var blob=new Blob([lines.join('\n')],{type:'text/csv'});
   var a=document.createElement('a');
@@ -4066,6 +4107,7 @@ function syncTodayPoint(){
       last.solana_usd=LAST_BREAKDOWN.solana_usd;
       last.robinhood_usd=LAST_BREAKDOWN.robinhood_usd;
       last.arc_usd=LAST_BREAKDOWN.arc_usd;
+      last.base_usd=LAST_BREAKDOWN.base_usd;
     }
   }else{
     var e={date:today,timestamp:new Date().toISOString(),total_usd:LAST_TOTAL};
@@ -4073,6 +4115,7 @@ function syncTodayPoint(){
       e.onchain_usd=LAST_BREAKDOWN.onchain_usd;e.pending_usd=LAST_BREAKDOWN.pending_usd;
       e.lp_usd=LAST_BREAKDOWN.lp_usd;e.solana_usd=LAST_BREAKDOWN.solana_usd;
       e.robinhood_usd=LAST_BREAKDOWN.robinhood_usd;e.arc_usd=LAST_BREAKDOWN.arc_usd;
+      e.base_usd=LAST_BREAKDOWN.base_usd;
     }
     HIST.push(e);   /* next call takes the branch above, so this can't push twice */
   }
@@ -4108,7 +4151,7 @@ var CHAIN_LOGO={
 };
 
 /* the order chains are listed in, everywhere */
-var CHAIN_ORDER=['katana','solana','robinhood','arc'];
+var CHAIN_ORDER=['katana','solana','robinhood','arc','base'];
 function render(d,isLive){
   if(!d)return;
   if(liveRendered&&!isLive)return; /* never overwrite live with snapshot */
@@ -4179,7 +4222,7 @@ function render(d,isLive){
   LAST_TOTAL=total;
   LAST_BREAKDOWN={onchain_usd:onchain,pending_usd:pending,
     lp_usd:s.lp_usd||0,solana_usd:s.solana_usd||0,
-    robinhood_usd:s.robinhood_usd||0,arc_usd:s.arc_usd||0};
+    robinhood_usd:s.robinhood_usd||0,arc_usd:s.arc_usd||0,base_usd:s.base_usd??null};
   syncTodayPoint();
   updateAvgDaily();
   updateChangeChips();
@@ -4200,15 +4243,15 @@ function render(d,isLive){
     var vLockUsd=vLock.reduce(function(a,l){return a+(l.value_usd||0);},0);
     var chTotal=(ch.total_usd||0)+vLpUsd+vBal+vLockUsd;
     var nPos=(ch.lp_positions||[]).length+(ch.defi_positions||[]).length+vLp.length+vLock.length;
-    var inactive=chTotal<5&&!(ch.lp_positions||[]).length&&!vLp.length;
+    var inactive=!ch.unavailable&&chTotal<5&&!(ch.lp_positions||[]).length&&!vLp.length;
     var chainHtml='<div class="chain-row'+(inactive?' inactive':'')+'">';
     chainHtml+=CHAIN_LOGO[key]
       ? '<div class="chain-logo">'+CHAIN_LOGO[key]+'</div>'
       : '<div class="chain-dot" style="background:'+dotColor+'"></div>';
     chainHtml+='<div class="chain-info"><div class="chain-name" style="color:'+dotColor+'">'+ch.name+(inactive?'<span class="chain-tag">INACTIVE</span>':'')+'</div>';
-    chainHtml+='<div class="chain-detail">'+fmt((ch.onchain_usd||0)+vBal)+' on-chain &nbsp;+&nbsp; '+fmt((ch.lp_total_usd||0)+vLpUsd)+' LP'
-      +' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s')+'</div></div>';
-    chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+fmt(chTotal)+'</div></div>';
+    chainHtml+='<div class="chain-detail">'+(ch.unavailable?'Reading unavailable':fmt((ch.onchain_usd||0)+vBal)+' on-chain &nbsp;+&nbsp; '+fmt((ch.lp_total_usd||0)+vLpUsd)+' LP'
+      +' &nbsp;|&nbsp; '+nPos+' position'+(nPos===1?'':'s'))+'</div></div>';
+    chainHtml+='<div class="chain-amt" style="color:'+dotColor+'">'+(ch.unavailable?'—':fmt(chTotal))+'</div></div>';
     chainList.push({inactive:inactive,total:chTotal,html:chainHtml});
   });
   chainList.sort(function(a,b){return (a.inactive-b.inactive)||(b.total-a.total);});
@@ -4411,7 +4454,7 @@ function askFacts(){
   f.left=Math.max(0,f.target-f.total);
   f.onchain=(LAST_BREAKDOWN&&LAST_BREAKDOWN.onchain_usd)||0;
   f.katana=s.katana_usd||0; f.solana=s.solana_usd||0;
-  f.robinhood=s.robinhood_usd||0; f.arc=s.arc_usd||0;
+  f.robinhood=s.robinhood_usd||0; f.arc=s.arc_usd||0; f.base=s.base_usd||0;
   f.pending=(LAST_BREAKDOWN&&LAST_BREAKDOWN.pending_usd)||0;   /* every chain, as the card uses */
   f.defi=f.portfolio-f.onchain-f.pending;
   /* the measured pace, not the cumulative gain that used to be labelled monthly */
@@ -4652,7 +4695,7 @@ var ASK={
   chains:function(f){
     var tot=f.total||1;
     var share=function(v){var p=v/tot*100;return p>0&&p<1?p.toFixed(1):p.toFixed(0);};
-    return [['Katana',f.katana],['Solana',f.solana],['Robinhood',f.robinhood],['Arc',f.arc]]
+    return [['Katana',f.katana],['Solana',f.solana],['Robinhood',f.robinhood],['Arc',f.arc],['Base',f.base]]
       .map(function(c){return c[0]+": <b>"+fmt(c[1])+"</b> ("+share(c[1])+"%)";}).join("\n")
       +"\nVault: <b>"+fmt(f.vault)+"</b> ("+share(f.vault)+"%, cold)";},
 

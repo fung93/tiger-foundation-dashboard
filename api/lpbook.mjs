@@ -14,9 +14,11 @@ import { compactLPPositions } from '../portfolio-core.mjs';
 import { attributeLPPerformance } from '../agent-performance.mjs';
 import { readPositionCostEvidence } from './_agent-cost-reader.mjs';
 import {createHash} from 'node:crypto';
+import { readBasePortfolio } from './_base-portfolio.mjs';
 
 const readLive = createLiveCache({ complete: lpViewComplete });
 const checkpoints = new Map();
+const readBase = createLiveCache({ complete: view => view?.complete === true });
 
 async function readBook(origin) {
   const source = await fetchJSON(origin + '/lpbook.json');
@@ -67,8 +69,13 @@ export default async function handler(req, res) {
   responseHeaders(res);
   try {
     const origin = requestOrigin(req);
-    const view = await readLive(origin, () => readBook(origin));
     const query=req.query||Object.fromEntries(new URL(req.url||'/','https://dashboard.invalid').searchParams);
+    if (query.view === 'base-portfolio') {
+      const base = await readBase(origin, () => readBasePortfolio());
+      responseHeaders(res, base.complete);
+      return res.status(200).end(JSON.stringify(base));
+    }
+    const view = await readLive(origin, () => readBook(origin));
     if(query.view==='cost-evidence'){
       res.setHeader('cache-control','no-store');
       const result=await readPositionCostEvidence({book:checkpoints.get(origin)?.book,chain:query.chain,positionId:query.positionId});

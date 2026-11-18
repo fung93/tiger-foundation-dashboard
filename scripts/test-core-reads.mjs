@@ -269,7 +269,7 @@ try {
   fablesMode = 'complete';
   check((await fablesRead(fablesState)).rows.length, 1, 'A full Fables recovery restores its range');
 
-  const emptyVault = { book: { positions: {} }, fables: { ranges: [], locks: [] } };
+  const emptyVault = { book: { positions: {} }, fables: { ranges: [], locks: [] }, readBase: async () => ({ complete: true, lp_positions: [], wallet: { balances: { tokens: {} } } }) };
   let vault = await vaultValue(VAULT.address, emptyVault);
   check(vault.complete, true, 'A vault with verified zero balances and positions is complete');
   check(vault.total_usd, 0, 'Verified zero wallet and position balances produce a zero vault');
@@ -278,12 +278,27 @@ try {
   check(vault.complete, false, 'One failed raw ERC-20 balance makes the vault incomplete');
   assert.match(vault.errors['katana wallet'], /vbUSDC balance/, 'The vault identifies the failed raw-token read'); checks++;
   fablesMode = 'unpriced-lock';
-  vault = await vaultValue(VAULT.address, { book: { positions: {} }, fables: { ranges: [], locks: [{ id: '560', wallet: VAULT.address }] } });
+  vault = await vaultValue(VAULT.address, { ...emptyVault, fables: { ranges: [], locks: [{ id: '560', wallet: VAULT.address }] } });
   check(vault.complete, false, 'A positive owned lock without a price makes the vault incomplete');
   check(vault.errors['Fables lock 560'], 'unpriced', 'The vault names its positive unpriced lock');
   fablesMode = 'complete';
   vault = await vaultValue(VAULT.address, emptyVault);
   check(vault.complete, true, 'A full vault recovery clears required-read and pricing failures');
+  const baseReading = { complete: true,
+    lp_positions: [{ token_id: '7', pair: 'UNI / USDC', protocol: 'Uniswap V3', value_usd: 110, liquidity_usd: 100, fees_usd: 10, in_range: true }],
+    wallet: { balances: { tokens: { ETH: { balance: .01, valueUSD: 20 }, USDC: { balance: 5, valueUSD: 5 } } } } };
+  vault = await vaultValue(VAULT.address, { ...emptyVault, readBase: async ({ address }) => {
+    check(address, VAULT.address, 'The vault reads its own Base wallet rather than the main wallet'); return baseReading;
+  } });
+  check(vault.complete, true, 'Complete Base holdings compose with existing chain readings');
+  check(vault.lp_usd, 110, 'Base owner fees are already included in vault LP value once');
+  check(vault.wallet_usd, 25, 'Only loose Base native/token balances enter the vault wallet value');
+  check(vault.total_usd, 135, 'Base principal, fees and loose assets are counted once');
+  check(vault.positions[0].chain, 'base', 'Vault LP rows retain the Base chain identity');
+  check(vault.positions[0].fees_usd, 10, 'The separate LP Fees card can use the same owner fee amount');
+  vault = await vaultValue(VAULT.address, { ...emptyVault, readBase: async () => { throw Error('Base source failed'); } });
+  check(vault.complete, false, 'A failed Base source cannot become a smaller complete vault');
+  check(vault.errors.base, 'Base source failed', 'Base failure is explicit for whole-vault retention');
 } finally {
   globalThis.fetch = originalFetch;
   V3.forEach((ch, i) => { ch.rpc = originalRpcs[i]; });

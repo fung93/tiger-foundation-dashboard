@@ -180,6 +180,7 @@ function assemblyHarness(mode='complete') {
   Object.assign(ctx,{
     AbortController,setTimeout,clearTimeout,
     getArcLive:async()=>({walletUsd:0,tokens:[],lps:[],merkl:{total_usd:0}}),
+    getBaseLive:async()=>({name:'Base',complete:true,read_at:new Date(h.now()).toISOString(),onchain_usd:0,lp_total_usd:0,total_usd:0,lp_positions:[],defi_positions:[]}),
     getSolanaLive:async()=>({sol:0,usdc:0,solPrice:1,lps:[]}),
     discoverMorpho:async()=>{},morphoMarketList:()=>[],
     getKatanaLive:async()=>({ethPrice:2000,katPrice:1,avkatRate:1,ethBal:0,bal:{},lps:[],morpho:[],vkat:{totalKat:0,ids:[]}}),

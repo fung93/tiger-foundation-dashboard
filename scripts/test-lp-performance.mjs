@@ -286,7 +286,7 @@ try {
     const hold = p.deposits.reduce((s, d) => s + d.a0 * p.frozen.prices[p.t0] + d.a1 * p.frozen.prices[p.t1], 0);
     const fees = (p.claims || []).reduce((s, claim) => s + (claim.usd ?? 0), 0);
     check(benchmark.hold_usd, r2(hold), 'Actual saved original deposit benchmark: ' + p.key);
-    check(benchmark.difference_usd, r2(p.frozen.principal_usd + r2(fees) - hold), 'Actual saved LP-versus-hold result: ' + p.key);
+    check(benchmark.difference_usd, r2(p.frozen.principal_usd + r2(fees) - hold) || 0, 'Actual saved LP-versus-hold result: ' + p.key);
     identities(benchmark, 'Actual saved comparison ' + p.key);
   }
   if (savedView.alltime.cards.comparison.available) identities(savedView.alltime.cards.comparison, 'Actual saved closed aggregate');
