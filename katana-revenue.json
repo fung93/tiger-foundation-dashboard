@@ -1,7 +1,7 @@
 {
   "version": 1,
   "chain": 747474,
-  "updatedAt": "2026-11-17T22:57:27.000Z",
+  "updatedAt": "2026-11-18T04:28:14.000Z",
   "observations": {
     "swap": [
       {
@@ -663,6 +663,26 @@
           "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "3054519266815093561829",
           "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "49813926310381813041"
         }
+      },
+      {
+        "day": "2026-11-17",
+        "usdMicros": "113645090",
+        "observedAt": "2026-11-18T04:28:14.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/sushiswap-v3.ts",
+        "metric": "priced_v3_protocol_fee_accrual",
+        "valuation": "Token fees valued at that UTC reporting day’s closing reference prices; before operating costs.",
+        "fromBlock": 48130789,
+        "toBlock": 48217188,
+        "trackedPools": 49,
+        "totalDiscoveredPools": 5525,
+        "tokenAmounts": {
+          "0x203a662b0bd271a6ed5a60edfbd04bfce608fd36": "28243276",
+          "0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62": "14406622288192218",
+          "0x0913da6da4b42f538b445599b46bb4622342cf52": "12786",
+          "0x2dca96907fde857dd3d816880a0df407eeb2d2f2": "217673",
+          "0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d": "780631407541591480732",
+          "0x7231dbacdfc968e07656d12389ab20de82fbfceb": "11423251771589655084758"
+        }
       }
     ],
     "perps": [
@@ -1061,6 +1081,18 @@
         "trades": 22816,
         "fromBlock": 48044389,
         "toBlock": 48130788
+      },
+      {
+        "day": "2026-11-17",
+        "usdMicros": "3248965992",
+        "observedAt": "2026-11-18T04:28:14.000Z",
+        "evidenceUrl": "https://github.com/DefiLlama/dimension-adapters/blob/9fef43d/dexs/katana-perps.ts",
+        "metric": "net_normal_trade_fees",
+        "quote": "vbUSDC valued at $1",
+        "quotePips": "324896599243",
+        "trades": 30598,
+        "fromBlock": 48130789,
+        "toBlock": 48217188
       }
     ],
     "vault_bridge": [],
@@ -1074,25 +1106,25 @@
   },
   "sourceState": {
     "vault_bridge": {
-      "checkedAt": "2026-11-17T22:57:27.000Z",
+      "checkedAt": "2026-11-18T04:28:14.000Z",
       "completeRevenue": false,
       "status": "unconfigured",
       "note": "A verified Vault Bridge revenue feed is not connected. The advertised extra yield is not network revenue."
     },
     "swap": {
-      "checkedAt": "2026-11-17T22:57:27.000Z",
+      "checkedAt": "2026-11-18T04:28:14.000Z",
       "completeRevenue": false,
       "note": "Protocol fees from 49 priced V3 pools out of 5525 discovered pools. Other tokens/deployments are excluded. Each day uses its closing token prices, before operating costs.",
       "status": "reported"
     },
     "sequencer": {
-      "checkedAt": "2026-11-17T22:57:27.000Z",
+      "checkedAt": "2026-11-18T04:28:14.000Z",
       "completeRevenue": false,
       "status": "unavailable",
       "note": "A verified sequencer revenue reading is unavailable."
     },
     "perps": {
-      "checkedAt": "2026-11-17T22:57:27.000Z",
+      "checkedAt": "2026-11-18T04:28:14.000Z",
       "completeRevenue": false,
       "note": "Normal-trade fees less maker rebates, in vbUSDC at $1; excludes funding, liquidation/withdrawal fees and operating costs.",
       "status": "reported"
@@ -1104,7 +1136,7 @@
   "buybackCoverage": null,
   "swapCatalog": {
     "factory": "0x203e8740894c8955cb8950759876d7e7e45e04c1",
-    "toBlock": 48213436,
+    "toBlock": 48233283,
     "totalPools": 5525,
     "pools": [
       {
