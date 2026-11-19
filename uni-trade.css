@@ -5,4 +5,4 @@
 
 .uni-guide-heading{display:flow-root}.uni-guide-heading .uni-trade-link{float:right;margin:0 0 12px 12px}
 
-@media(max-width:900px){.uni-fees-card{grid-column:1/-1}}
+@media(max-width:900px){.uni-pnl-card{grid-column:1/-1}}

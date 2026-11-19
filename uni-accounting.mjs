@@ -3,9 +3,9 @@
 const UNI={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},finite=Number.isFinite;
 const sum=xs=>xs.reduce((s,n)=>s+n,0),order=(a,b)=>a.block-b.block||a.index-b.index||a.id.localeCompare(b.id);
 export function buildUniLPAccounting(book,view){
- const positions=Object.values(book.positions||{}).filter(p=>UNI[p.chain]&&[p.a0?.toLowerCase(),p.a1?.toLowerCase()].includes(UNI[p.chain])&&book.wallets.some(w=>w.toLowerCase()===p.wallet?.toLowerCase())),rows=[],claims=[],tokens={};
+ const positions=Object.values(book.positions||{}).filter(p=>UNI[p.chain]&&[p.a0?.toLowerCase(),p.a1?.toLowerCase()].includes(UNI[p.chain])&&book.wallets.some(w=>w.toLowerCase()===p.wallet?.toLowerCase())),rows=[],claims=[],tokens={},earnedTokens={};
  const sourceGap=Object.keys(view.health?.errors||{}).some(key=>key==='base'||key.startsWith('base '))||Number(view.health?.behind?.base||0)>0;
- let complete=!sourceGap,feeComplete=!sourceGap,netUsd=0,claimedUsd=0;
+ let complete=!sourceGap,feeComplete=!sourceGap,earnedComplete=!sourceGap,netUsd=0,claimedUsd=0,earnedUsd=0;
  for(const p of positions){
   const metric=(view.position_metrics||[]).find(m=>m.key===p.key),closed=(view.alltime?.history||[]).find(m=>m.chain===p.chain&&String(m.id)===String(p.id)&&m.wallet_address?.toLowerCase()===p.wallet.toLowerCase());
   const net=p.status==='open'?metric?.netUsd:closed?.net_usd;
@@ -13,6 +13,19 @@ export function buildUniLPAccounting(book,view){
   const ready=finite(net)&&!p.unpriced&&!(p.status==='closed'&&closed?.incomplete)&&!affected;
   if(affected)feeComplete=false;
   if(!ready)complete=false;else netUsd+=net;
+  // Match LP Book's earnings: current LPs include both collected and uncollected
+  // fees; closed LPs keep their recorded claim prices. Net already includes them.
+  const fees=p.status==='open'?metric?.earnedUsd:closed?.fee_usd,
+   feeParts=p.status==='open'?[metric?.claimedTokens,metric?.unclaimedTokens]:[closed?.fee_tokens];
+  if(!ready||p.status==='open'&&metric?.complete!==true||!finite(fees)||fees<0||feeParts.some(part=>!part||typeof part!=='object'||Array.isArray(part))){earnedComplete=false;}
+  else{
+   earnedUsd+=fees;
+   for(const part of feeParts)for(const [key,raw]of Object.entries(part)){
+    const amount=typeof raw==='number'?raw:typeof raw==='string'&&/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(raw)?Number(raw):NaN;
+    if(!finite(amount)||amount<0)earnedComplete=false;
+    else{const symbol=book.tokens?.[key]?.s||key.split('@')[0];earnedTokens[symbol]=(earnedTokens[symbol]||0)+amount;}
+   }
+  }
   const uniKey=p.a0?.toLowerCase()===UNI[p.chain]?p.t0:p.t1;
   rows.push({key:p.key,id:String(p.id),chain:p.chain,owner:p.wallet,status:p.status,netUsd:ready?net:null});
   for(const c of [...(p.claims||[]),...(p.trading_claims||[])]){
@@ -21,8 +34,9 @@ export function buildUniLPAccounting(book,view){
    claims.push({position:p.key,chain:p.chain,owner:p.wallet,id:String(p.id),block:c.block,ts:c.ts,uni:c.tokens?.[uniKey]||0,uniPriceUsd:c.prices?.[uniKey]??null,open:p.status==='open'});
   }
  }
- return {schemaVersion:'uni-lp-accounting-v1',asOf:view.generated,complete,netUsd:complete?netUsd:null,claimedUsd:feeComplete?claimedUsd:null,tokens,positions:rows,claims,
-  basis:'LP Book net includes claimed and unclaimed earnings. Collected fees retain their recorded value at collection.'};
+ return {schemaVersion:'uni-lp-accounting-v1',asOf:view.generated,complete,netUsd:complete?netUsd:null,claimedUsd:feeComplete?claimedUsd:null,tokens,
+  earnedUsd:earnedComplete?earnedUsd:null,earnedTokens:earnedComplete?earnedTokens:null,positions:rows,claims,
+  basis:'LP Book net already includes all LP fees. Open LP fees include claimed and unclaimed amounts at live prices; closed fees and collected fee records keep their recorded prices.'};
 }
 export function uniPortfolioPerformance({lp,trades=[],flows=[],quotes={},wallets=[],historyComplete=false,coverage}={}){
  const quoteOwners=new Set(),balances={};let walletComplete=true;
@@ -58,6 +72,7 @@ export function uniPortfolioPerformance({lp,trades=[],flows=[],quotes={},wallets
  const lpNet=lp?.schemaVersion==='uni-lp-accounting-v1'&&lp.complete===true&&finite(lp.netUsd)?lp.netUsd:null,
   holding=holdingComplete?holdingUnrealized:null;
  return {lpNetUsd:lpNet,holdingUnrealizedUsd:holding,pnlUsd:lpNet!==null&&holding!==null?lpNet+holding:null,
+  lpFeesUsd:lp?.schemaVersion==='uni-lp-accounting-v1'&&finite(lp.earnedUsd)?lp.earnedUsd:null,lpFeeTokens:lp?.earnedTokens||{},
   collectedFeesUsd:lp?.schemaVersion==='uni-lp-accounting-v1'&&finite(lp.claimedUsd)?lp.claimedUsd:null,collectedTokens:lp?.tokens||{},
   basis:'LP Book net plus unrealised gain on actual wallet UNI. Open-LP claimed fee appreciation is already included in LP net and is not counted twice.'};
 }

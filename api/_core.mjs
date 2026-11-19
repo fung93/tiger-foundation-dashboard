@@ -82,7 +82,9 @@ export const V3 = [
     key: 'base', protocol: 'Uniswap V3', archive: true, yield: 'fees', merklChain: null,
     rpc: CFG.baseRpc, npm: CFG.baseNpm, factory: CFG.baseFactory, staker: null,
     open: (pos) => pos.base?.open || {}, closed: (pos) => pos.base?.closed || [],
-    mintLookback: 2000000, logSpan: 5000, refPools: [],
+    /* Filtered publicnode queries accept 50,000 blocks. Four live windows must
+       cover a normal snapshot gap on Base's fast chain, including cold starts. */
+    mintLookback: 2000000, logSpan: 50000, refPools: [],
   },
 ];
 export const chainOf = (key) => V3.find((c) => c.key === key);

@@ -100,7 +100,7 @@ Owner explicitly requests **push** for this follow-up.
 - [x] Add collected UNI + USDC fee value, preserving the recorded claim prices.
 - [x] Update both languages, app cache, source/accounting tests and mobile UI.
 - [x] Run `npm run check` (**89** suites) and final source/copy checks.
-- [ ] Publish and verify main-branch collection.
+- [x] Publish and verify main-branch collection (`e07ea66`, run 44513644625).
 
 Implementation and validation for the follow-up:
 
@@ -149,9 +149,51 @@ Remaining verification/blockers:
   archive logs or impose keyless rate limits. Current fills, inventory and P&L
   have their own verified reads and continue independently. The bounded job keeps
   partial progress; no historical absence or zero cost is fabricated.
-- [ ] Verify the published page and collector after the authorized push. Direct
-  Vercel requests from this workspace are blocked by its proxy.
+- [x] Verify the published page and collector after the authorized push through
+  a read-only Actions runner; direct workspace Vercel requests remain blocked.
+  The live check recovered all three fills and the exact weighted average.
+  On 19 November at 19:24 MYT, UNI LP net was **$0.49** (open **$0.93**,
+  closed **−$0.44**), wallet unrealised was **$0**, collected fees **$0.03**.
+  These are dated verification readings, not current fixed balances.
 
 Final local browser evidence: **254** assertions pass at 320/375/1366 px in both
 themes/languages. The five cards, LP/holding split and collected UNI/USDC fee
 breakdown preserve their source values through refresh failures and recovery.
+
+## All LP fees and two-decimal display — 19 November 2026
+
+The owner explicitly requests **push** after these changes. The environment
+became unavailable during implementation and has now recovered; resume the same
+work and preserve the previously published 1inch history.
+
+- [x] Replace **Collected LP fees** with **LP fees**: all current earnings,
+  whether claimed or not, plus the tracked closed positions' recorded fees.
+- [x] Place **LP fees** before **P&L**, including the phone layout.
+- [x] P&L retains LP net (which already contains claimed and unclaimed earnings)
+  plus actual wallet UNI gains. The fee card is never added a second time.
+- [x] Show UNI quantities, fee quantities and execution/average prices with two
+  decimal places; full stored precision and native gas precision remain.
+- [x] Update English/Chinese copy and app/translation cache **180**.
+- [x] Fix Base's live catch-up span so four windows can cover an ordinary
+  six-hour backlog on the first request. A regression reproduces **130,000**
+  blocks still behind with the previous span; the new span reaches head without
+  rewriting existing deposits, fees, claims or closed outcomes.
+- [x] Accounting checks: **45** assertions. Actual ABI-shaped Base checks:
+  **388** assertions, including total UNI/USDC fees and claiming neutrality for
+  both earnings and P&L. Missing fees, malformed data and old claimed-only
+  responses stay unavailable rather than producing false totals.
+- [x] `npm run check` passes all **89** suites. **305** Chromium assertions pass
+  at 320/375/1366 px, both themes/languages, including actual **19.10 UNI** and
+  **$5.23** average-cost display, card order, earnings/P&L, source failure and
+  recovery. Portfolio copies and final diff checks also pass.
+- [ ] Publish and verify the new shell, fee totals and P&L on the live site.
+
+`api/lpbook.mjs` retains its additive `uni-lp-accounting-v1` summary. New
+`earnedUsd` and `earnedTokens` fields reuse the existing numeric position
+metrics. Open LP earnings use live token prices as in LP Book; closed earnings
+keep their historical prices. Existing collected-fee fields and claim evidence
+remain available to older consumers. No database migration, secret, paid
+provider, wallet connection or new public function is required.
+
+The known older BNB archive backfill remains independent of verified live
+fills and inventory; the new fee/UI work does not claim that backfill is complete.

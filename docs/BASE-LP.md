@@ -60,3 +60,12 @@ require the post-push check; successful fixtures are not proof of either.
 
 Local browser/test evidence: `/workspace/tiger-agent-validation/base-browser/`,
 `base-browser.log`, `base-lps-test.log` and `base-project-check.log`.
+
+19 November follow-up: cold UNI LP fee/P&L reads exposed a normal six-hour Base
+backlog that needed many 5,000-block windows. Base's filtered ledger span now
+uses the verified publicnode **50,000-block** limit, retaining the four-window
+live budget and existing cursor/history semantics. The regression proves a
+150,000-block gap reaches head in one pass without rewriting positions; the old
+span leaves 130,000 blocks behind. The Base suite now passes **388** assertions,
+including claimed/unclaimed UNI fee totals and unchanged earnings/P&L after a
+fee claim. See `docs/UNI-TRADE.md` for the release checklist and live evidence.

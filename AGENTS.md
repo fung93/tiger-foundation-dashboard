@@ -1030,7 +1030,10 @@ estimate, range edges, recent ranges, hedge and "!" as a KAT pool, earning tradi
 - `api/_base-portfolio.mjs` powers the live Portfolio and Base part of Tiger Vault;
   the main wallet uses `/api/lpbook?view=base-portfolio` independently of the full
   book. No thirteenth Vercel function is added. Both wallets remain separate.
-- Query logs in at most 5,000-block windows. Archive NFT existence can bracket a
+- Query logs in at most 50,000-block windows (19 Nov: verified publicnode limit;
+  the previous 5,000-block span made cold live requests need many polls after a
+  normal snapshot gap). Keep the four-window API budget and filtered queries.
+  Archive NFT existence can bracket a
   recent mint quickly, but confirm its IncreaseLiquidity event; failed reads are
   never absence. Required descriptions/pools must succeed before advancing cursors.
   First discovery/replay, future unreadable mints and recovery have fixture coverage.
@@ -2078,3 +2081,29 @@ says **push**. This supersedes the sender-only UNI history assumptions above.
   `docs/UNI-TRADE.md` for release evidence and archive limitations. Older BNB logs
   may remain pending on free/keyless peers; never turn this into a false empty
   history or let it prevent independently verified current tracking.
+
+### Later 19 November 2026 — all UNI LP fees, card order and two decimals
+
+Owner explicitly requests **push**: replace Collected LP fees with **LP fees**,
+including current unclaimed fees; place it before P&L and display amounts/prices
+to two decimals. P&L includes all LP earnings exactly once.
+
+- Add `uni.earnedUsd` / `earnedTokens` to the additive LP API summary. Open
+  positions reuse numeric LP Book `earnedUsd`, `claimedTokens` and
+  `unclaimedTokens`; closed rows retain their original recorded earnings. Keep
+  `claimedUsd` / `tokens` and claim price evidence for existing consumers.
+  A response missing total earnings cannot fall back to claimed-only fees.
+- P&L still equals open/closed LP Book net plus actual loose UNI unrealised
+  gains. Net already includes fees; never add the fee card to net again. The
+  current open/closed fee token amounts exclude withdrawn principal.
+- `uni-trade.html` orders **UNI held · Value now · Average buy cost · LP fees ·
+  P&L**. On a phone, the final P&L card spans both columns. Two-decimal formatting
+  is only a display change: keep full precision in financial history and maths;
+  native gas keeps enough precision to remain meaningful. Both languages/themes,
+  the mobile masthead, per-visit Lending reset and private agent policy remain.
+- Shared app/translation assets are cache **180**. The Base log-span change
+  prevents six-hour history catch-up from needlessly blanking these cards on a
+  cold function. No ledger resets, repricing, signing, secrets or new APIs.
+- Validation/progress and publication evidence: `docs/UNI-TRADE.md`. Fee claims
+  must be neutral for total earnings/P&L; failed/unpriced readings remain
+  unavailable and must recover without erasing the last successful reading.

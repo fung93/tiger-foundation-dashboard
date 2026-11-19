@@ -6,6 +6,7 @@ import { CFG, V3, BOOK_VERSION, pad, hx, v3Amounts, v3Candidates, tokenMeta, adv
   bookLiveRows, bookView, livePrices, feeTokensOf, rpc } from '../api/_core.mjs';
 import { readBasePortfolio } from '../api/_base-portfolio.mjs';
 import { positionIdentity } from '../portfolio-core.mjs';
+import { buildUniLPAccounting, uniPortfolioPerformance } from '../uni-accounting.mjs';
 
 let checks = 0;
 const eq = (actual, expected, note) => { assert.deepEqual(actual, expected, note); checks++; };
@@ -33,8 +34,9 @@ const main = CFG.wallets[0].address, vault = CFG.wallets[1].address,
   usdc = BASE.tokens.find(t => t.s === 'USDC'), uni = BASE.tokens.find(t => t.s === 'UNI'), weth = BASE.tokens.find(t => t.s === 'WETH');
 const pool = '0x' + '3'.repeat(40), ethPool = '0x' + '4'.repeat(40), other = '0x' + '9'.repeat(40),
   tick = 255520, lo = tick - 1000, hi = tick + 1000, sqrt = BigInt(Math.round(1.0001 ** (tick / 2) * 2 ** 96)),
-  L = 10n ** 15n, remaining = L * 9n / 10n, Q128 = 1n << 128n, head = 12000,
+  L = 10n ** 15n, remaining = L * 9n / 10n, Q128 = 1n << 128n,
   now = Math.floor(Date.now() / 1000) * 1000, mint = { 7: 7001, 9: 10001 };
+let head = 12000;
 const price = 1 / ((Number(sqrt) / 2 ** 96) ** 2 * 10 ** (usdc.d - uni.d));
 const amounts = liquidity => v3Amounts(liquidity, lo, hi, sqrt).map(n => BigInt(Math.round(n)));
 const startAmounts = amounts(L), withdrawn = amounts(L / 10n);
@@ -92,6 +94,7 @@ globalThis.fetch = async (url, init) => {
   } else if (method === 'eth_getLogs') {
     if (mode === 'log-failed') throw Error('fixture log failure');
     const q = params[0], from = Number(BigInt(q.fromBlock)), to = Number(BigInt(q.toBlock));
+    assert.ok(to - from + 1 <= 50000, 'Base log windows stay within the verified public-provider limit');
     result = events.filter(e => Number(BigInt(e.blockNumber)) >= from && Number(BigInt(e.blockNumber)) <= to
       && q.topics.every((filter, i) => filter === null || filter === undefined || (Array.isArray(filter) ? filter.includes(e.topics[i]) : filter === e.topics[i])));
   } else throw Error('Unexpected Base fixture method ' + method);
@@ -153,6 +156,22 @@ try {
   const view = bookView(result.book, { rows: live.rows, prices, merkl: {}, errors: {}, behind: { base: 0 } });
   ok(view.live.some(row => row.chain === 'base' && row.id === '#7'), 'The new Base position is visible in the real LP Book card view');
   near(view.cards.chains.base.value_usd, mainRead.lp_positions[0].liquidity_usd + vaultRead.lp_positions[0].liquidity_usd, 'Base card principal matches both independently read wallets');
+  const earnings = buildUniLPAccounting(result.book, view);
+  near(earnings.earnedUsd, 6 + 1.1 * price, 'UNI fee totals use actual claimed plus unclaimed owner fees across both LPs');
+  near(earnings.earnedTokens.UNI, 1.1, 'UNI fee inventory includes unclaimed fees and excludes principal');
+  near(earnings.earnedTokens.USDC, 6, 'USDC fee inventory includes unclaimed fees and excludes principal');
+  near(earnings.netUsd, view.position_metrics.reduce((sum, metric) => sum + metric.pnlUsd, 0) + earnings.earnedUsd,
+    'Actual LP Book net already contains all claimed and unclaimed fees');
+  const afterClaim = structuredClone(result.book), afterRows = structuredClone(live.rows), claimed = afterClaim.positions['base:7'];
+  claimed.fees['USDC@base'] += 2; claimed.fees['UNI@base'] += .5;
+  claimed.claims.push({ block: head, ts: now / 1000, tokens: { 'USDC@base': 2, 'UNI@base': .5 }, usd: 2 + .5 * price, prices });
+  afterRows['base:7'].raw.fee0 = 0; afterRows['base:7'].raw.fee1 = 0;
+  const afterEarnings = buildUniLPAccounting(afterClaim, bookView(afterClaim, { rows: afterRows, prices, merkl: {}, errors: {}, behind: { base: 0 } }));
+  near(afterEarnings.earnedUsd, earnings.earnedUsd, 'Claiming existing earnings cannot increase total LP fees');
+  near(afterEarnings.netUsd, earnings.netUsd, 'Claiming existing earnings cannot increase P&L');
+  const emptyWallets = ['base', 'bnb'].flatMap(chain => CFG.wallets.map(wallet => ({ chain, owner: wallet.address, uni: 0 })));
+  near(uniPortfolioPerformance({ lp: earnings, wallets: emptyWallets }).pnlUsd, earnings.netUsd,
+    'The UNI page adds no extra fee amount on top of LP Book net');
   const outputIndex = process.argv.indexOf('--output');
   if (outputIndex >= 0) writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ holdings: mainRead, vaultHoldings: vaultRead,
     view: { ...bookView({ ...result.book, positions: Object.fromEntries(Object.entries(result.book.positions).filter(([, p]) => p.chain === 'base')) },
@@ -160,6 +179,14 @@ try {
   near(feeTokensOf(result.book.positions['base:7'], { 'USDC@base': 2, 'UNI@base': .5 })['USDC@base'], 4, 'Earned fees combine claims and outstanding owner fees');
   const second = await advanceBook(result.book, { onlyChains: ['base'], maxWindows: 4 });
   eq(second.book.positions['base:7'], result.book.positions['base:7'], 'A repeat refresh cannot replay deposits or collections twice');
+  const savedHead = head;
+  head += 150000; // A cold function after an ordinary six-hour snapshot gap.
+  const caughtUp = await advanceBook(result.book, { onlyChains: ['base'], maxWindows: 4 });
+  eq(caughtUp.errors, {}, 'Base catches up a six-hour backlog without provider errors');
+  eq(caughtUp.behind.base, 0, 'Four live windows cover the Base backlog on the first request');
+  eq(caughtUp.book.last_block.base, head, 'The complete Base cursor reaches the pinned head');
+  eq(caughtUp.book.positions, result.book.positions, 'Catch-up never rewrites existing deposits, fees, claims or frozen outcomes');
+  head = savedHead;
   mode = 'log-failed';
   const failed = await advanceBook(source, { onlyChains: ['base'], maxWindows: 4 });
   ok(!!failed.errors.base, 'A failed bootstrap reports Base as incomplete');
