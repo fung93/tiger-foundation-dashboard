@@ -1,7 +1,7 @@
 {
   "version": 1,
   "chain": 747474,
-  "updatedAt": "2026-11-19T13:18:59.000Z",
+  "updatedAt": "2026-11-19T22:12:39.000Z",
   "observations": {
     "swap": [
       {
@@ -1138,25 +1138,25 @@
   },
   "sourceState": {
     "vault_bridge": {
-      "checkedAt": "2026-11-19T13:18:59.000Z",
+      "checkedAt": "2026-11-19T22:12:39.000Z",
       "completeRevenue": false,
       "status": "unconfigured",
       "note": "A verified Vault Bridge revenue feed is not connected. The advertised extra yield is not network revenue."
     },
     "swap": {
-      "checkedAt": "2026-11-19T13:18:59.000Z",
+      "checkedAt": "2026-11-19T22:12:39.000Z",
       "completeRevenue": false,
       "note": "Protocol fees from 49 priced V3 pools out of 5526 discovered pools. Other tokens/deployments are excluded. Each day uses its closing token prices, before operating costs.",
       "status": "reported"
     },
     "sequencer": {
-      "checkedAt": "2026-11-19T13:18:59.000Z",
+      "checkedAt": "2026-11-19T22:12:39.000Z",
       "completeRevenue": false,
       "status": "unavailable",
       "note": "A verified sequencer revenue reading is unavailable."
     },
     "perps": {
-      "checkedAt": "2026-11-19T13:18:59.000Z",
+      "checkedAt": "2026-11-19T22:12:39.000Z",
       "completeRevenue": false,
       "note": "Normal-trade fees less maker rebates, in vbUSDC at $1; excludes funding, liquidation/withdrawal fees and operating costs.",
       "status": "reported"
@@ -1168,7 +1168,7 @@
   "buybackCoverage": null,
   "swapCatalog": {
     "factory": "0x203e8740894c8955cb8950759876d7e7e45e04c1",
-    "toBlock": 48351528,
+    "toBlock": 48383548,
     "totalPools": 5526,
     "pools": [
       {

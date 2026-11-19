@@ -42,9 +42,9 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 48351493,
-  "robinhood": 118246254,
-  "base": 59519670
+  "katana": 48383526,
+  "robinhood": 118561317,
+  "base": 59679841
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -368,11 +368,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1795094304,
-    "block": 118246254,
+    "ts": 1795126337,
+    "block": 118561317,
     "in": false,
     "in_s": 2521500.0276606083,
-    "all_s": 2946965
+    "all_s": 2978998
    },
    "claims": [
     {
@@ -2088,11 +2088,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795094304,
-    "block": 48351493,
+    "ts": 1795126337,
+    "block": 48383526,
     "in": true,
-    "in_s": 549915,
-    "all_s": 559198
+    "in_s": 581948,
+    "all_s": 591231
    },
    "claimed_seen": {},
    "a0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
@@ -2177,11 +2177,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795094304,
-    "block": 48351493,
+    "ts": 1795126337,
+    "block": 48383526,
     "in": true,
-    "in_s": 531014,
-    "all_s": 532656
+    "in_s": 563047,
+    "all_s": 564689
    },
    "claimed_seen": {},
    "a0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
@@ -3217,8 +3217,8 @@
    "stable0": true,
    "stable1": false,
    "pair": "UNI / USDC",
-   "liq": "754418026979001",
-   "status": "open",
+   "liq": "0",
+   "status": "closed",
    "at_start": false,
    "opened_ts": 1795053712,
    "opened_block": 59316683,
@@ -3230,6 +3230,107 @@
      "a0": 0,
      "a1": 19.345833589035173,
      "usd": 99.71
+    }
+   ],
+   "out_usd": 99.01,
+   "withdrawals": [
+    {
+     "block": 59544053,
+     "ts": 1795099186,
+     "a0": 0,
+     "a1": 19.345833589035173,
+     "usd": 99.01
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0.076758,
+    "UNI@base": 0.014758677777581504
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1795099186,
+    "block": 59544053,
+    "in": false,
+    "in_s": 33303,
+    "all_s": 45474
+   },
+   "close_sp": 442039.7574528896,
+   "closed_ts": 1795099186,
+   "closed_block": 59544053,
+   "claims": [
+    {
+     "ts": 1795099186,
+     "block": 59544053,
+     "tokens": {
+      "USDC@base": 0.076758,
+      "UNI@base": 0.014758677777581504
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 5.117729603676597
+     },
+     "usd": 0.15
+    }
+   ],
+   "frozen": {
+    "at_ts": 1795099186,
+    "at_block": 59544053,
+    "cost_usd": 99.71,
+    "principal_usd": 99.01,
+    "pnl_usd": -0.7,
+    "fee_tokens": {
+     "USDC@base": 0.076758,
+     "UNI@base": 0.014758677777581504
+    },
+    "fee_usd": 0.15,
+    "net_usd": -0.55,
+    "net_pct": -0.55,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 5.117729603676597
+    }
+   }
+  },
+  "base:6614022": {
+   "key": "base:6614022",
+   "chain": "base",
+   "id": "6614022",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 259860,
+   "hi": 260340,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "3670743518764375",
+   "status": "open",
+   "at_start": false,
+   "opened_ts": 1795105197,
+   "opened_block": 59574110,
+   "cost_usd": 193.41,
+   "deposits": [
+    {
+     "block": 59574110,
+     "ts": 1795105197,
+     "a0": 0,
+     "a1": 39.144553755599894,
+     "usd": 193.41
     }
    ],
    "out_usd": 0,
@@ -3244,11 +3345,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1795094309,
-    "block": 59519670,
+    "ts": 1795126343,
+    "block": 59679841,
     "in": false,
-    "in_s": 33303,
-    "all_s": 40597
+    "in_s": 15250,
+    "all_s": 21146
    }
   }
  },
@@ -3636,6 +3737,22 @@
    "id": "6611265",
    "block": 59316683,
    "ts": 1795053712
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6611265",
+   "block": 59544053,
+   "ts": 1795099186
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6614022",
+   "block": 59574110,
+   "ts": 1795105197
   }
  ],
  "fee_series": [
@@ -6642,16 +6759,57 @@
     "katana:494956": 0,
     "katana:495384": 0
    }
+  },
+  {
+   "ts": 1795126353,
+   "tokens": {
+    "WETH@robinhood": 0.01552805,
+    "USDG@robinhood": 33.814861,
+    "FABLES@robinhood": 25.22319939,
+    "avKAT@katana": 41.04061589,
+    "KAT@katana": 51028.4840866,
+    "vbWBTC@katana": 0.00005438,
+    "vbUSDC@katana": 8.031872,
+    "USDC@base": 0.653973,
+    "UNI@base": 0.13109437
+   },
+   "pnl_usd": -823.87,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.01539253,
+     "USDG@robinhood": 33.184509
+    },
+    "katana:495384": {
+     "KAT@katana": 55.50578659,
+     "avKAT@katana": 41.46965078
+    },
+    "katana:495640": {
+     "vbWBTC@katana": 0.00006991,
+     "vbUSDC@katana": 3.613269
+    },
+    "base:6614022": {
+     "USDC@base": 0.564639,
+     "UNI@base": 0.11332021
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -659.8,
+    "katana:495384": -2.64,
+    "katana:495640": -39.25,
+    "base:6614022": -0.56
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0,
+    "katana:494956": 0,
+    "katana:495384": 0
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1794211342,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1794250299,
    "behind": {
@@ -6853,6 +7011,14 @@
   },
   {
    "ts": 1795094304,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0,
+    "base": 0
+   }
+  },
+  {
+   "ts": 1795126337,
    "behind": {
     "katana": 0,
     "robinhood": 0,
