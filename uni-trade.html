@@ -16,10 +16,10 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/uni.css">
 <link rel="stylesheet" href="/theme.css">
-<script src="/i18n-zh.js?v=178"></script>
-<script src="/i18n.js?v=178"></script>
-<link rel="stylesheet" href="/i18n.css?v=178">
-<link rel="stylesheet" href="/uni-trade.css?v=178">
+<script src="/i18n-zh.js?v=179"></script>
+<script src="/i18n.js?v=179"></script>
+<link rel="stylesheet" href="/i18n.css?v=179">
+<link rel="stylesheet" href="/uni-trade.css?v=179">
 </head>
 <body class="themed-page">
 <header><div class="hdr-inner">
@@ -39,21 +39,22 @@
   <div id="tradeQuotes" class="uni-trade-quotes"></div>
   <div class="health" id="tradeHealth" role="status"></div>
   <div class="uni-trade-cards">
-    <div class="card"><div class="label">UNI held</div><div id="uniHeld" class="uni-trade-value">—</div><div class="uni-trade-help">Swap book · buys minus sells</div></div>
+    <div class="card"><div class="label">UNI held</div><div id="uniHeld" class="uni-trade-value">—</div><div class="uni-trade-help">Verified trades · buys minus sells</div></div>
     <div class="card"><div class="label">Value now</div><div id="uniWorth" class="uni-trade-value">—</div><div class="uni-trade-help">Trade balance at current prices</div></div>
-    <div class="card"><div class="label">Average buy cost</div><div id="uniAverage" class="uni-trade-value">—</div><div class="uni-trade-help">Remaining average cost per UNI</div></div>
-    <div class="card"><div class="label">Unrealised P&amp;L</div><div id="uniPnl" class="uni-trade-value">—</div><div class="uni-trade-help">Swap book · before network fees</div></div>
+    <div class="card"><div class="label">Average buy cost</div><div id="uniAverage" class="uni-trade-value">—</div><div class="uni-trade-help">Verified buy / sell fills</div></div>
+    <div class="card"><div class="label">P&amp;L</div><div id="uniPnl" class="uni-trade-value">—</div><div id="uniPnlDetail" class="uni-trade-help">LP net + wallet unrealised</div></div>
+    <div class="card uni-fees-card"><div class="label">Collected LP fees</div><div id="uniFees" class="uni-trade-value">—</div><div id="uniFeesDetail" class="uni-trade-help">UNI + USDC</div></div>
   </div>
   <div id="walletUni" class="uni-trade-help"></div>
   <div class="uni-trade-section"><div class="label">Current UNI LPs</div><a class="uni-trade-link" href="/lp.html">LP Book ↗</a></div>
   <p class="uni-trade-help" id="lpHealth" role="status"></p><div class="lpw-grid" id="uniLps"></div>
   <div class="uni-trade-section"><div class="label" id="tradeCount">Buy / sell history</div><label class="uni-trade-help" for="tradeNetwork">Network <select id="tradeNetwork"><option value="all">Both networks</option><option value="base">Base</option><option value="bnb">BNB Chain</option></select></label></div>
   <div class="card uni-trade-history" id="tradeHistory"></div>
-  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p>The swap book counts confirmed wallet-initiated UNI buys and sells on Base and BNB Chain. Each network keeps its own average cost; a sale removes the sold UNI at that cost. LP operations and claims are not buys or sells. Wallet balances and LP inventory are shown separately and are not added to the trade-book value.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. Network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
+  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>The swap book counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Each network keeps its own average cost; a sale removes the sold UNI at that cost. LP operations and claims are not buys or sells. Wallet balances and LP inventory are shown separately and are not added to the trade-book value.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. P&amp;L combines open and closed UNI LP net with unrealised gains on UNI actually held in the wallets. UNI inside an LP is excluded from holding gains. LP fees are counted once; collected fee value keeps its original claim prices. Owner-paid network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
   <noscript><div class="card uni-trade-empty">Turn on JavaScript to read your UNI trades.</div></noscript>
 </main>
 <script src="/lpcards.js"></script>
-<script type="module" src="/uni-trade.js?v=178"></script>
+<script type="module" src="/uni-trade.js?v=179"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {buildUniLPAccounting,uniPortfolioPerformance} from '../uni-accounting.mjs';
+let n=0;const eq=(a,b,m)=>{assert.deepEqual(a,b,m);n++;},near=(a,b,m)=>{assert.ok(Math.abs(a-b)<1e-8,m+': '+a+' vs '+b);n++;};
+const actual=JSON.parse(readFileSync(new URL('./fixtures/uni-accounting-book.json',import.meta.url))),uni=Object.values(actual.positions).filter(p=>p.chain==='base'),old=uni.find(p=>p.status==='closed'),open=uni.find(p=>p.status==='open');
+assert.ok(old&&open,'The public book supplies a real UNI open/closed pair');n++;
+const view={generated:'2026-11-19T10:00:00Z',health:{errors:{},behind:{},unread:[]},position_metrics:[{key:open.key,netUsd:10}],alltime:{history:[{chain:'base',id:old.id,wallet_address:old.wallet,net_usd:old.frozen.net_usd,incomplete:false}]}};
+const lp=buildUniLPAccounting(actual,view);near(lp.netUsd,10+old.frozen.net_usd,'Open numeric net and fixed closed net are added once');
+near(lp.claimedUsd,old.claims.reduce((s,c)=>s+c.usd,0),'Collected income retains the recorded claim value');near(lp.tokens.UNI,old.fees['UNI@base'],'Collected UNI does not include withdrawn principal');near(lp.tokens.USDC,old.fees['USDC@base'],'USDC is a separate fee token');eq(lp.positions.length,2,'Other chains and other tokens stay outside UNI LP performance');
+const damaged=structuredClone(view);damaged.health.errors.base='unavailable';const bad=buildUniLPAccounting(actual,damaged);eq(bad.netUsd,null,'An unread UNI chain cannot report a zero or partial total as complete');eq(bad.claimedUsd,null,'Behind/unread collections cannot claim a current complete income total');
+const other=structuredClone(view);other.health.errors.robinhood='unavailable';eq(buildUniLPAccounting(actual,other).netUsd,lp.netUsd,'An unrelated chain cannot erase a complete Base UNI reading');
+const frozen=JSON.stringify(old.frozen);buildUniLPAccounting(actual,{...view,prices:{'UNI@base':999}});eq(JSON.stringify(old.frozen),frozen,'No accounting helper rewrites closed history or old fee prices');
+const owner=actual.wallets[0],second=actual.wallets[1],wallets=q=>[{chain:'base',owner,uni:q},{chain:'base',owner:second,uni:0},{chain:'bnb',owner,uni:0},{chain:'bnb',owner:second,uni:0}],quotes={base:{priceUsd:7},bnb:{priceUsd:8}},summary={schemaVersion:'uni-lp-accounting-v1',complete:true,netUsd:11,claimedUsd:5,tokens:{UNI:1,USDC:0},claims:[]};
+const flow=(id,uni,kind='trade',more={})=>({id,chain:'base',block:Number(id),index:0,uni,kind,collections:[],...more}),buy=(id,q,cost)=>({id,chain:'base',side:'buy',uni:q,usd:cost,verified:true});
+const run=extra=>uniPortfolioPerformance({lp:summary,quotes,wallets:wallets(0),historyComplete:true,...extra});
+eq(run({historyComplete:false}).holdingUnrealizedUsd,0,'Verified empty wallets have no unrealised holding exposure even during backfill');eq(run({historyComplete:false}).pnlUsd,11,'Verified LP net can stand alone when no loose UNI exists');
+const holding=run({trades:[buy('1',10,50)],flows:[flow('1',10),flow('2',-5,'transfer')],wallets:wallets(5)});near(holding.holdingUnrealizedUsd,10,'Only the five actual loose UNI are marked above their $5 cost');near(holding.pnlUsd,21,'LP inventory is never valued again as a loose holding');
+const returned=run({trades:[buy('1',5,25)],flows:[flow('1',5),flow('2',-5,'transfer'),flow('3',6,'lp_return',{returnPriceUsd:6})],wallets:wallets(6)});near(returned.holdingUnrealizedUsd,6,'Returned LP principal starts its holding period at the verified withdrawal price');near(returned.pnlUsd,17,'LP period gains and subsequent wallet gains do not overlap');
+for(const openFee of [true,false]){
+ const result=run({lp:{...summary,netUsd:openFee?7:5,claims:[{chain:'base',block:3,id:'9',uni:1,uniPriceUsd:5,open:openFee}]},flows:[flow('3',1,'lp_return',{returnPriceUsd:5,collections:[{id:'9'}]})],wallets:wallets(1)});
+ near(result.holdingUnrealizedUsd,openFee?0:2,'Open-LP fee appreciation is already in LP net; closed fee appreciation is separate');near(result.pnlUsd,7,'Fee value appears exactly once across both accounting periods');eq(result.collectedFeesUsd,5,'The collected-fee card always retains original claim USD');
+}
+const unpriced=run({trades:[buy('1',2,10)],flows:[flow('1',2),flow('2',1,'transfer')],wallets:wallets(3)});eq(unpriced.holdingUnrealizedUsd,null,'An unexplained inbound token cannot acquire an invented cost');eq(unpriced.pnlUsd,null,'Unknown holding basis cannot fabricate a combined P&L');eq(unpriced.collectedFeesUsd,5,'A missing holding basis does not hide verified collected fees');
+const missingReturn=run({flows:[flow('1',2,'lp_return',{returnPriceUsd:null})],wallets:wallets(2)});eq(missingReturn.holdingUnrealizedUsd,null,'A failed historical withdrawal quote stays unavailable');
+eq(run({trades:[buy('1',2,10)],flows:[flow('1',2)],wallets:wallets(3)}).holdingUnrealizedUsd,null,'Inventory must reconcile with actual wallet balances');
+eq(run({wallets:[]}).holdingUnrealizedUsd,null,'Unread wallets cannot pretend to hold zero UNI');
+const incomplete=run({lp:{...summary,complete:false,netUsd:null}});eq(incomplete.pnlUsd,null,'An incomplete LP result is not silently omitted from total P&L');eq(incomplete.holdingUnrealizedUsd,0,'Independent verified wallet data remains useful');
+const partial=run({trades:[buy('1',2,10)],flows:[flow('1',2)],wallets:wallets(2),historyComplete:false});eq(partial.holdingUnrealizedUsd,null,'Partial transfer history blocks an unsupported holding-cost result');
+const sold=run({trades:[buy('1',10,50)],flows:[flow('1',10),flow('2',-4)],wallets:wallets(6)});near(sold.holdingUnrealizedUsd,12,'Sales leave only remaining units in unrealised P&L');
+const coverage={base:{complete:true,fromBlock:0,openingUni:{[owner]:'0',[second]:'0'}},bnb:{complete:true,fromBlock:0,openingUni:{[owner]:'0',[second]:'0'}}};
+const current=run({trades:[buy('1',5,25)],flows:[flow('1',5)],wallets:wallets(5),historyComplete:false,coverage});near(current.holdingUnrealizedUsd,10,'Complete current inventory can be verified independently of older unrelated backfill');
+const initialUnknown=run({trades:[buy('1',5,25)],flows:[flow('1',5)],wallets:wallets(7),historyComplete:false,coverage:{...coverage,base:{...coverage.base,openingUni:{[owner]:'2000000000000000000',[second]:'0'}}}});eq(initialUnknown.holdingUnrealizedUsd,null,'An existing opening balance never gets an invented buy cost');
+const reset=run({trades:[buy('3',5,30)],flows:[flow('1',-2),flow('3',5)],wallets:wallets(5),historyComplete:false,coverage:{...coverage,base:{...coverage.base,openingUni:{[owner]:'2000000000000000000',[second]:'0'}}}});near(reset.holdingUnrealizedUsd,5,'After all unknown opening units leave, verified new buys establish their own cost');
+console.log(`UNI combined LP/holding P&L and collected fee accounting: ${n} assertions passed.`);

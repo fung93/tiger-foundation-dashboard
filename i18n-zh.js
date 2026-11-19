@@ -2,6 +2,12 @@
 (function () {
   'use strict';
   window.TF_ZH = Object.freeze({
+    "Collected LP fees":"已领取 LP 手续费",
+    "LP net + wallet unrealised":"LP 净收益 + 钱包未实现盈亏",
+    "Resolver paid":"由撮合执行方支付",
+    "1inch limit":"1inch 限价单",
+    "The swap book counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Each network keeps its own average cost; a sale removes the sold UNI at that cost. LP operations and claims are not buys or sells. Wallet balances and LP inventory are shown separately and are not added to the trade-book value.":"交易账本记录 Base 和 BNB Chain 上已确认的 UNI 兑换及 1inch 限价成交，包括由撮合执行方提交的交易。各网络分别计算平均成本，卖出时按平均成本扣减持仓。LP 操作和领取不计为买卖。钱包余额与 LP 库存单独显示，不重复计入交易账本价值。",
+    "Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. P&L combines open and closed UNI LP net with unrealised gains on UNI actually held in the wallets. UNI inside an LP is excluded from holding gains. LP fees are counted once; collected fee value keeps its original claim prices. Owner-paid network fees are listed in their native token and are excluded from P&L. Source blocks and transaction links remain attached to the saved history.":"成交价按该笔交易实际支付或收到的代币计算；支持的美元稳定币按 $1 计值。缺少可验证成本时，不显示成本相关盈亏。总盈亏为当前及已关闭 UNI LP 的净收益，加上钱包实际持有 UNI 的未实现盈亏；LP 内的 UNI 不重复计入钱包持仓收益。手续费仅计算一次，已领取手续费保留领取时的价格。由持有人支付的网络费用按原生代币列出，未扣入盈亏。历史记录保留来源区块与交易链接。",
     "UNI Trade":"UNI 交易",
     "UNI Trade · Tiger Foundation":"UNI 交易 · Tiger Foundation",
     "LP guide":"LP 入门",
@@ -41,6 +47,9 @@
     "Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. Network fees are listed in their native token and are excluded from P&L. Source blocks and transaction links remain attached to the saved history.":"成交价按该笔交易实际支付或收到的代币计算；支持的美元稳定币按 $1 计值。兑换尚未验证或缺少美元成本时，不显示成本相关盈亏。网络费用按原生代币列出，未扣入盈亏。历史记录保留来源区块及交易链接。",
     "Turn on JavaScript to read your UNI trades.":"请开启 JavaScript 读取 UNI 交易。",
     "recorded swaps":"笔已记录兑换",
+    'Earlier history is syncing. New fills are tracked live.':'较早的历史记录正在同步；新成交会实时追踪。',
+    'Verified trades · buys minus sells':'已验证交易 · 买入减卖出',
+    'Verified buy / sell fills':'已验证的买卖成交',
     'Portfolio':'资产总览','LP Book':'LP 账本','Lending':'借贷','Strategy':'策略','Agent':'智能助手',
     'UNI liquidity guide':'UNI 流动性入门','Main navigation':'主导航','Open portfolio':'打开资产总览',
     'Wealth Overview':'资产总览','WEALTH & INVESTMENT DASHBOARD':'资产与投资仪表盘',

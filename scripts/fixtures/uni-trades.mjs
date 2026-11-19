@@ -13,9 +13,9 @@ export function tradeReceipt(chain, {owner=CFG.wallets[0].address,pool='0x'+'1'.
   {address:pool,topics:[[...SWAPS][0]],data:'0x',blockNumber:hex(block),blockHash,transactionHash:hash,logIndex:'0x2'}]}};
 }
 export function uniTradeFixture(key='base', options={}){
- const f=uniFixture(key),head=1000000,main=CFG.wallets[0].address,entries=options.entries||[
+ let entries;const f=uniFixture(key,{walletBalanceAt:(owner,block)=>CFG.wallets.some(w=>w.address===owner)?(entries||[]).filter(e=>Number(BigInt(e.receipt.blockNumber))<=block&&e.transaction.from===owner).reduce((s,e)=>s+(e.receipt.logs[0].topics[2].slice(-40)===owner.slice(2)?1n:-1n)*BigInt(e.receipt.logs[0].data),0n):null}),head=1000000,main=CFG.wallets[0].address,selected=options.entries||[
   tradeReceipt(f.chain,{pool:f.pool,block:head-50,nonce:0}),tradeReceipt(f.chain,{pool:f.pool,block:head-10,nonce:1,side:'sell',uni:4,usd:40})];
- const calls=[];
+ entries=selected;const calls=[];
  const count=(owner,block)=>entries.filter(e=>e.transaction.from===owner&&Number(BigInt(e.transaction.blockNumber))<=block).length;
  const rpc=async(method,params)=>{
   calls.push({method,params});
@@ -25,7 +25,9 @@ export function uniTradeFixture(key='base', options={}){
    const value=await f.rpc(method,params);if(params[1])value.transactions=entries.filter(e=>e.receipt.blockNumber===params[0]).map(e=>e.transaction);return value;
   }
   if(method==='eth_getTransactionReceipt')return entries.find(e=>e.transaction.hash===params[0])?.receipt||null;
-  if(method==='eth_getLogs')throw Error('A nonce-indexed trade reader must not scan pool logs');
+  if(method==='eth_call'&&params[0].to===f.chain.uni.address&&params[0].data.startsWith('0x70a08231')){const owner='0x'+params[0].data.slice(-40),n=Number(BigInt(params[1]));return H(entries.filter(e=>e.transaction.from===owner&&Number(BigInt(e.receipt.blockNumber))<=n).reduce((s,e)=>s+(e.receipt.logs[0].topics[2].slice(-40)===owner.slice(2)?1n:-1n)*BigInt(e.receipt.logs[0].data),0n));}
+  if(method==='eth_getTransactionByHash')return entries.find(e=>e.transaction.hash===params[0])?.transaction||null;
+  if(method==='eth_getLogs'){const q=params[0],from=Number(BigInt(q.fromBlock)),to=Number(BigInt(q.toBlock));return entries.flatMap(e=>e.receipt.logs.filter(l=>l.address===f.chain.uni.address&&Number(BigInt(l.blockNumber))>=from&&Number(BigInt(l.blockNumber))<=to&&q.topics.slice(1).every((topics,i)=>!topics||topics.includes(l.topics[i+1]))));}
   return f.rpc(method,params);
  };
  return {...f,head,main,entries,rpc,calls};

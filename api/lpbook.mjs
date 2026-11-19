@@ -14,6 +14,7 @@ import { compactLPPositions } from '../portfolio-core.mjs';
 import { attributeLPPerformance } from '../agent-performance.mjs';
 import { readPositionCostEvidence } from './_agent-cost-reader.mjs';
 import {createHash} from 'node:crypto';
+import {buildUniLPAccounting} from '../uni-accounting.mjs';
 import { readBasePortfolio } from './_base-portfolio.mjs';
 
 const readLive = createLiveCache({ complete: lpViewComplete });
@@ -62,6 +63,7 @@ async function readBook(origin) {
         original.transferred,original.at_start])).digest('hex');
     }
   }
+  view.uni = buildUniLPAccounting(now,view);
   return view;
 }
 

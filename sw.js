@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v178';  /* UNI swaps, cost basis and shared current LP cards */
+var CACHE_VERSION = 'tiger-v179';  /* 1inch maker fills, combined UNI P&L and collected fees */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -41,9 +41,9 @@ var SHELL_ASSETS = [
   '/index.html',
   '/manifest.webmanifest',
   '/theme.js',
-  '/i18n-zh.js?v=178',
-  '/i18n.js?v=178',
-  '/i18n.css?v=178',
+  '/i18n-zh.js?v=179',
+  '/i18n.js?v=179',
+  '/i18n.css?v=179',
   '/rpc-reader.js',
   '/theme.css',
   '/icons/cute-tiger.svg',
@@ -73,9 +73,10 @@ var SHELL_ASSETS = [
   '/uni.js',
   '/uni-core.mjs',
   '/uni-trade.html',
-  '/uni-trade.css?v=178',
-  '/uni-trade.js?v=178',
-  '/uni-trade-core.mjs?v=178',
+  '/uni-trade.css?v=179',
+  '/uni-trade.js?v=179',
+  '/uni-trade-core.mjs?v=179',
+  '/uni-accounting.mjs?v=179',
   /* the KAT page: trades since 27 Oct 2026, the book and its chart */
   '/kat.html',
   '/kat.css',

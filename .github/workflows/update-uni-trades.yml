@@ -5,7 +5,7 @@ on:
     - cron: '47 * * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/update-uni-trades.yml', 'api/_uni-trades.mjs', 'uni-trade-core.mjs', 'scripts/uni-trades.mjs']
+    paths: ['.github/workflows/update-uni-trades.yml', 'api/_uni-trades.mjs', 'api/_uni-flow-reader.mjs', 'api/_uni-orders.mjs', 'api/_uni-transfers.mjs', 'uni-trade-core.mjs', 'scripts/uni-trades.mjs']
 permissions:
   contents: write
 concurrency:

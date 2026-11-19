@@ -2036,3 +2036,45 @@ trade holdings/value/average cost/unrealised P&L and current UNI LP cards. He co
   histories, Lending reset behavior or agent authentication/policy are modified.
 - One date-sensitive agent test now creates its conversation campaign relative
   to the test clock; its fixed historical financial scenarios remain unchanged.
+
+### Later 19 November 2026 — 1inch fills, combined UNI P&L and collected fees
+
+The owner identifies **1inch limit buys**, requests UNI P&L = LP net plus actual
+loose-token unrealised gains, adds collected UNI + USDC LP fee value and explicitly
+says **push**. This supersedes the sender-only UNI history assumptions above.
+
+- Read owned UNI transfers in both directions, then verify receipts. External
+  resolver transactions can fill an owned maker order. `_uni-orders.mjs` binds the
+  actual eight-word order to the official protocol hash/event and supports its
+  FeeTaker receiver. Price actual net UNI received against actual USDC paid;
+  never price nominal unfilled amounts or charge resolver gas to the owner.
+- Actual recovered evidence: **2** orders, **3** fill transactions, **19.09969908869371
+  UNI**, **99.982335 USDC**, average **$5.2347596962501735**. Partial order hashes
+  repeat across distinct transactions; transaction IDs, not order hashes, dedup fills.
+- `_uni-flow-reader.mjs` and `_uni-transfers.mjs` keep current transfer checkpoints
+  independent of historical backfill. In the v2 API, `complete` describes current
+  readings; `historyComplete`/`historyErrors` describe the older archive separately.
+  Keep them separate so restricted old BNB logs cannot halt new fills or make all
+  current data stale. Source intervals and JSON-RPC batch IDs must be complete.
+- Current combined opening units = current balances minus net complete UNI
+  Transfer movements. UNI is non-rebasing; this proves opening units without an
+  archive balance call. Unknown starting cost remains unknown. Historical/current
+  intervals can overlap and their union proves inventory coverage. Checkpoint
+  hashes and an unchanged opening inventory detect inconsistent source data.
+- `uni-accounting.mjs` is deterministic and shared. `api/lpbook.mjs` adds `view.uni`
+  from existing numeric position metrics, fixed closed rows and fee claims.
+  Headline P&L uses that LP net plus gains on actual wallet UNI; do not use the
+  shadow swap-book quantity for wallet exposure. Returned LP principal starts a
+  new holding period at its withdrawal price. Fee appreciation already included
+  in live LP net cannot enter wallet gains a second time.
+- Collected LP fee USD retains original claim prices. Its UNI/USDC breakdown
+  excludes principal, and the card is not added to net again. Current recorded
+  closed claim: **$0.03**, **0.003015484484268225 UNI + 0.012576 USDC**.
+- App/translation cache **179**, trade browser cache `tf_uni_trades_v2`, five-decimal
+  unit buy prices. Preserve both themes, the shared mobile header, Lending reset,
+  agent policy/auth, LP `BOOK_VERSION=9` and every unrelated financial ledger.
+- Tests: 89 suites; recorded 1inch calldata/receipts are independently EIP-712
+  hashed, and source/fee/physical-inventory recovery cases are checked. See
+  `docs/UNI-TRADE.md` for release evidence and archive limitations. Older BNB logs
+  may remain pending on free/keyless peers; never turn this into a false empty
+  history or let it prevent independently verified current tracking.

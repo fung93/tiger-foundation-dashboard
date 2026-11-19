@@ -7,6 +7,7 @@ import vm from 'node:vm';
 import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders,
   savedBookValid, savedFables } from '../api/_live-cache.mjs';
 import { V3, FABLES } from '../api/_core.mjs';
+import {buildUniLPAccounting} from '../uni-accounting.mjs';
 import { compactLPPositions } from '../portfolio-core.mjs';
 
 let checks = 0;
@@ -26,7 +27,7 @@ function handler(file, dependencies) {
     .replace(/^import[^\n]*\n/gm, '').replace('export default async function handler', 'async function handler');
   return vm.runInNewContext(source + '\nhandler', { Date: TestDate, URL, Map, Promise,
     createLiveCache, requestOrigin, lpViewComplete, responseHeaders, savedBookValid, savedFables,
-    BOOK_VERSION: seed.version, V3, FABLES, compactLPPositions, ...dependencies }, { filename: file });
+    BOOK_VERSION: seed.version, V3, FABLES, compactLPPositions, buildUniLPAccounting, ...dependencies }, { filename: file });
 }
 async function call(run, host = 'dashboard.example', query) {
   const response = { headers: {}, code: null, text: '',

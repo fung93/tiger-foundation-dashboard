@@ -3,7 +3,7 @@ import {UNI_CHAINS,UNI_MULTICALL} from '../../api/_uni-config.mjs';
 import {UNI_SWAP_TOPIC} from '../../api/_uni-reader.mjs';
 const pad=v=>BigInt.asUintN(256,BigInt(v)).toString(16).padStart(64,'0');
 const data=(...v)=>'0x'+v.map(pad).join('');
-export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,currentGrowthFailure=false,swapCount=1,logsFailure=false,reorg=false,missingDiscovery=false,empty=false}={}){
+export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,currentGrowthFailure=false,swapCount=1,logsFailure=false,reorg=false,missingDiscovery=false,empty=false,walletBalanceAt}={}){
   const chain=UNI_CHAINS[chainKey],stable=chain.stables[0],head=1000000,pool=chainKey==='base'?'0x'+'1'.repeat(40):'0x'+'2'.repeat(40),fee=500,
     tokens=[chain.uni,stable].sort((a,b)=>a.address.localeCompare(b.address)),baseIndex=tokens[0].address===chain.uni.address?0:1,
     ratio=(baseIndex===0?8:1/8)/10**(tokens[0].decimals-tokens[1].decimals),sqrt=BigInt(Math.floor(Math.sqrt(ratio)*2**96)),tick=Math.floor(Math.log(ratio)/Math.log(1.0001)),
@@ -15,6 +15,7 @@ export function uniFixture(chainKey='base',{now=1794661200,archiveFailure=false,
       if(missingDiscovery&&f===100)return {ok:false,data:'0x'};
       return {ok:true,data:data(!empty&&f===fee&&[a,b].includes(stable.address)?BigInt(pool):0n)};}
     if(selector==='0x313ce567'){const token=[chain.uni,...chain.stables].find(t=>t.address===to);return {ok:true,data:data(token.decimals)};}
+    if(selector==='0x70a08231'&&to===chain.uni.address&&walletBalanceAt){const raw=walletBalanceAt('0x'+bytes.slice(-40),block);if(raw!==null)return {ok:true,data:data(raw)};}
     if(selector==='0x70a08231')return {ok:true,data:data(to===chain.uni.address?1000n*10n**18n:10000n*10n**BigInt(stable.decimals))};
     if(to!==pool)return {ok:false,data:'0x'};
     if(currentGrowthFailure&&block===head&&['0xf3058399','0x46141319'].includes(selector))return {ok:false,data:'0x'};

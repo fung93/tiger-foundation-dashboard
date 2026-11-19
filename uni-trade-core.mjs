@@ -1,6 +1,8 @@
 /* Pure UNI swap accounting. No providers, wallet access or ledger writes.
    The trade balance is buys minus sells; wallet/LP balances remain separate. */
 export const UNI_TRADE_VERSION = 1;
+export const ONEINCH_PROTOCOL = '0x111111125421ca6dc452d289314280a0f8842a65';
+export const ONEINCH_FILLED = '0xfec331350fce78ba658e082a71da20ac9f8d798a99b3c79681c8440cbfe77e07';
 export const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 export const SWAPS = new Set(['0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67',
   '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822',
@@ -21,32 +23,36 @@ export function uniTransfers(receipt) {
       to: '0x' + l.topics[2].slice(-40).toLowerCase(), raw: BigInt(l.data) };
   });
 }
-export function receiptUniTrade({ chain, wallets, receipt, transaction, ts, verifiedPools = [] }) {
+export function receiptUniTrade({ chain, wallets, receipt, transaction, ts, verifiedPools = [], verifiedOrders = [] }) {
   if (receipt.status !== '0x1' || !hash(receipt.transactionHash) || receipt.transactionHash !== transaction.hash
     || !Number.isSafeInteger(ts) || ts <= 0) throw Error('The UNI transaction could not be verified');
   const owned = new Set(wallets.map(w => w.toLowerCase())), transfers = uniTransfers(receipt), token = chain.uni.address;
-  if (!owned.has(transaction.from?.toLowerCase())) return { trade: null, reason: 'not_wallet_initiated' };
+  const orders = verifiedOrders.filter(order => owned.has(order.maker) && (owned.has(order.receiver || order.maker)||order.feeTaker===true)
+    && [order.makerAsset, order.takerAsset].includes(token) && receipt.logs.some(log => log.address?.toLowerCase() === ONEINCH_PROTOCOL
+      && log.topics?.[0] === ONEINCH_FILLED && log.data?.slice(0,66).toLowerCase() === order.hash));
+  const paidGas = owned.has(transaction.from?.toLowerCase());
+  if (!paidGas && !orders.length) return { trade: null, reason: 'not_wallet_initiated' };
   const net = address => transfers.filter(t => t.token === address).reduce((sum, t) => sum
     + (owned.has(t.to) ? t.raw : 0n) - (owned.has(t.from) ? t.raw : 0n), 0n);
   const raw = net(token);
   if (raw === 0n) return { trade: null, reason: 'internal_or_no_uni_change' };
-  if ((receipt.logs || []).some(l => LP_EVENTS.has(l.topics?.[0]))) return { trade: null, reason: 'liquidity_or_claim' };
+  if (!orders.length && (receipt.logs || []).some(l => LP_EVENTS.has(l.topics?.[0]))) return { trade: null, reason: 'liquidity_or_claim' };
   const swaps = receipt.logs.filter(l => SWAPS.has(l.topics?.[0]) && transfers.some(t => t.token === token
     && (t.from === l.address.toLowerCase() || t.to === l.address.toLowerCase())));
-  if (!swaps.length) return { trade: null, reason: 'transfer_only' };
+  if (!swaps.length && !orders.length) return { trade: null, reason: 'transfer_only' };
   const side = raw > 0n ? 'buy' : 'sell', parts = [];
   for (const stable of chain.stables) {
     const delta = net(stable.address);
     if (delta !== 0n) parts.push({ symbol: stable.symbol, address: stable.address, raw: delta.toString(), decimals: stable.decimals });
   }
   const opposite = parts.length > 0 && parts.every(p => side === 'buy' ? BigInt(p.raw) < 0n : BigInt(p.raw) > 0n);
-  const verified = swaps.some(l => verifiedPools.includes(l.address.toLowerCase()));
+  const verified = orders.length > 0 || swaps.some(l => verifiedPools.includes(l.address.toLowerCase()));
   const usd = verified && opposite ? parts.reduce((sum, p) => sum + Number(BigInt(p.raw) < 0n ? -BigInt(p.raw) : BigInt(p.raw)) / 10 ** p.decimals, 0) : null;
-  const gasRaw = receipt.gasUsed && receipt.effectiveGasPrice ? BigInt(receipt.gasUsed) * BigInt(receipt.effectiveGasPrice) + BigInt(receipt.l1Fee || '0') : null;
-  const owner = owned.has(transaction.from?.toLowerCase()) ? transaction.from.toLowerCase()
-    : transfers.find(t => t.token === token && (owned.has(t.from) || owned.has(t.to)))?.[side === 'buy' ? 'to' : 'from'];
+  const gasRaw = paidGas && receipt.gasUsed && receipt.effectiveGasPrice ? BigInt(receipt.gasUsed) * BigInt(receipt.effectiveGasPrice) + BigInt(receipt.l1Fee || '0') : null;
+  const owner = orders[0]?.maker || (owned.has(transaction.from?.toLowerCase()) ? transaction.from.toLowerCase()
+    : transfers.find(t => t.token === token && (owned.has(t.from) || owned.has(t.to)))?.[side === 'buy' ? 'to' : 'from']);
   return { reason: null, trade: { id: chain.key + ':' + receipt.transactionHash, chain: chain.key, chainId: chain.id,
-    hash: receipt.transactionHash, owner, side, raw: (raw < 0n ? -raw : raw).toString(), uni: units(raw < 0n ? -raw : raw),
+    hash: receipt.transactionHash, owner, side, route: orders.length ? '1inch_limit' : 'swap', orderHashes: orders.map(order => order.hash), gasPayer: paidGas ? 'wallet' : 'resolver', raw: (raw < 0n ? -raw : raw).toString(), uni: units(raw < 0n ? -raw : raw),
     usd, price: usd === null ? null : usd / units(raw < 0n ? -raw : raw), quote: parts, verified,
     block: Number(BigInt(receipt.blockNumber)), blockHash: receipt.blockHash, index: Number(BigInt(receipt.transactionIndex || '0')),
     ts, gasRaw: gasRaw?.toString() ?? null, gasToken: chain.key === 'bnb' ? 'BNB' : 'ETH', gas: gasRaw === null ? null : Number(gasRaw) / 1e18,
@@ -99,7 +105,7 @@ export function validateUniTradeBook(file, chains, wallets) {
       || !(t.price === null && t.usd === null || t.usd !== null && amount(t.price) && Math.abs(t.price * t.uni - t.usd) <= Math.max(1e-8, t.usd * 1e-10))) throw Error('Invalid UNI trade record');
     if (t.gasRaw !== null && !/^\d{1,78}$/.test(t.gasRaw) || !(t.gas === null || amount(t.gas)) || typeof t.note !== 'string' && t.note !== null) throw Error('Invalid UNI trade metadata');
     const coverage = file.chains[t.chain];
-    if (!coverage || t.block < coverage.startBlock || t.block > coverage.cursor) throw Error('UNI fill outside saved history coverage');
+    if (!coverage || t.block < Math.min(coverage.transferStart??coverage.startBlock,coverage.recentStart??Infinity) || t.block > Math.max(coverage.cursor,coverage.transferCursor??-1,coverage.recentCursor??-1)) throw Error('UNI fill outside saved history coverage');
     ids.add(t.id);
   }
   for (const [key, state] of Object.entries(file.chains)) {
@@ -109,6 +115,18 @@ export function validateUniTradeBook(file, chains, wallets) {
       || state.nonces && (Object.keys(state.nonces).length !== wallets.length || wallets.some(owner => !Number.isSafeInteger(state.nonces[owner]) || state.nonces[owner] < 0))
       || !(state.cursorHash === null || hash(state.cursorHash)) || (state.cursor >= state.startBlock && !state.cursorHash)) throw Error('Invalid UNI history cursor');
   }
+  if(file.flows!==undefined&&!Array.isArray(file.flows))throw Error('Invalid UNI transfer ledger');
+  const flowIds=new Set();
+  for(const flow of file.flows||[]){const state=file.chains[flow.chain];
+    if(!chains[flow.chain]||!state||!hash(flow.hash)||flow.id!==flow.chain+':'+flow.hash||flowIds.has(flow.id)||!Number.isSafeInteger(flow.block)||flow.block<Math.min(state.transferStart??state.startBlock,state.recentStart??Infinity)||flow.block>Math.max(state.transferCursor??-1,state.recentCursor??-1)
+      ||!hash(flow.blockHash)||!Number.isSafeInteger(flow.ts)||flow.ts<=0||!Number.isSafeInteger(flow.index)||flow.index<0||!/^[-]?\d{1,78}$/.test(flow.raw)||BigInt(flow.raw)===0n||!Number.isFinite(flow.uni)||Math.abs(units(flow.raw)-flow.uni)>1e-9
+      ||!['lp_return','trade','transfer'].includes(flow.kind)||!(flow.returnPriceUsd===null||Number.isFinite(flow.returnPriceUsd)&&flow.returnPriceUsd>0))throw Error('Invalid UNI transfer record');
+    flowIds.add(flow.id);
+  }
+  for(const state of Object.values(file.chains))if(state.transferCursor!==undefined&&(!Number.isSafeInteger(state.transferStart)||state.transferStart<1||!Number.isSafeInteger(state.transferCursor)||state.transferCursor<state.transferStart-1||state.transferCursor>state.head
+    ||state.transferCursor>=state.transferStart&&!hash(state.transferHash)||!state.openingUni||wallets.some(owner=>state.openingUni[owner]!=='0')))throw Error('Invalid UNI transfer checkpoint');
+  for(const state of Object.values(file.chains))if(state.recentCursor!==undefined&&(!Number.isSafeInteger(state.recentStart)||state.recentStart<1||!Number.isSafeInteger(state.recentCursor)||state.recentCursor<state.recentStart-1||state.recentCursor>state.head
+    ||state.recentCursor>=state.recentStart&&!hash(state.recentHash)||!(state.recentOpeningUni===null||state.recentOpeningUni&&Object.values(state.recentOpeningUni).length>0&&Object.values(state.recentOpeningUni).every(raw=>/^\d{1,78}$/.test(raw)))))throw Error('Invalid current UNI transfer checkpoint');
   for (const [key, quote] of Object.entries(file.quotes || {})) {
     if (!chains[key] || !(quote.priceUsd > 0) || !Number.isFinite(quote.priceUsd) || !address(quote.pool)
       || !Number.isSafeInteger(quote.block) || quote.block < 0 || !Number.isSafeInteger(quote.ts) || quote.ts <= 0) throw Error('Invalid saved UNI quote');

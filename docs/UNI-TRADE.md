@@ -1,5 +1,10 @@
 # UNI Trade
 
+Current follow-up: 1inch resolver fills are now included. Two actual orders
+filled in three transactions: **19.09969908869371 UNI** for **99.982335 USDC**,
+with weighted average **$5.2347596962501735**. Earlier nonce-only observations
+below describe the original release and are superseded by this follow-up.
+
 Requested 19 November 2026. The owner explicitly requests **push**, and confirms
 both Base and BNB Chain. Add a UNI-guide link to swap history, average cost and
 unrealised trade-book P&L, actual wallet balances and current UNI LP Book cards.
@@ -80,3 +85,73 @@ Release `5f8d387` was rebased and pushed to main as explicitly requested. No new
 production secrets, Cloudflare/D1 configuration or paid services are needed.
 GitHub Actions must retain the existing contents-write permission for its ledger.
 The live page is [UNI Trade](https://tiger-foundation-dashboard.vercel.app/uni-trade.html).
+
+## 1inch limit fills, combined P&L and collected fees — 19 November 2026
+
+Owner explicitly requests **push** for this follow-up.
+
+- [x] Identify the original gap: maker orders are filled by resolver transactions,
+  so outgoing wallet nonces do not discover every filled order.
+- [x] Verify actual 1inch receipts, actual UNI/stablecoin consideration and cost.
+- [x] Add complete UNI-transfer discovery, receipt/order verification, resumable
+  checkpoints, deduplication, partial-fill handling and source failure recovery.
+- [x] Combine numeric UNI LP net (open + closed) with unrealised P&L on actual
+  loose UNI; prevent double counting principal, LP inventory and fee tokens.
+- [x] Add collected UNI + USDC fee value, preserving the recorded claim prices.
+- [x] Update both languages, app cache, source/accounting tests and mobile UI.
+- [x] Run `npm run check` (**89** suites) and final source/copy checks.
+- [ ] Publish and verify main-branch collection.
+
+Implementation and validation for the follow-up:
+
+- `api/_uni-orders.mjs` authenticates the eight-word order against the deployed
+  1inch v4 `hashOrder` and the actual `OrderFilled` event. The official FeeTaker
+  receiver is supported; actual owned-wallet transfers price the fill **after**
+  fees. The two partial fills share an order hash and retain distinct transaction
+  IDs. Resolver gas is reported as resolver-paid, never charged to the owner.
+- `api/_uni-flow-reader.mjs` reads complete UNI Transfer windows in both directions;
+  a transfer alone never becomes a trade. Historical and current cursors stay
+  separate. `complete` means the current reading is complete; `historyComplete`
+  and `historyErrors` report the older backfill independently. Never interpret
+  a live success as proof that all older BNB orders have been indexed.
+- Current opening inventory is proven by ERC20 balance conservation: current
+  combined wallet units minus the complete interval's net UNI transfers. This
+  avoids an unavailable archive balance read and preserves unknown starting cost
+  when units already existed. Old and recent verified intervals can overlap;
+  their union supplies complete inventory coverage without replaying duplicates.
+- `uni-accounting.mjs` combines **LP Book** numeric net for tracked open/closed
+  UNI LPs with actual loose UNI gains. It excludes UNI still in LPs. LP principal
+  returned to the wallet takes its withdrawal-block cost; open-LP claimed fee
+  appreciation already in LP net is excluded from wallet gains. Unknown costs or
+  a wallet reconciliation gap remain unavailable. Already booked history is never
+  repriced. Actual zero wallet exposure has zero unrealised gain.
+- `api/lpbook.mjs` adds numeric `uni` accounting to the existing view, with no
+  change to existing cards, ledgers, authentication or accounting. Collected fee
+  USD and the UNI/USDC token breakdown reuse recorded claims, excluding withdrawn
+  principal. The first recorded claim is **$0.03**, from **0.003015484484268225 UNI**
+  and **0.012576 USDC**.
+- Both languages and hidden themes remain supported; shared cache is **179**,
+  trade cache key is `tf_uni_trades_v2`, and average/fill prices show five decimals.
+  No new public function, API key, Cloudflare setting or wallet permission is needed.
+- Targeted checks pass: **103** existing/new history assertions, **51** trade API
+  assertions, **50** independently hashed actual 1inch-fill assertions, **67**
+  batch/source recovery assertions, and **35** LP/wallet/fee accounting assertions.
+  Recorded test fixtures are frozen so daily ledger updates cannot change their
+  expected results. The existing LP API harness injects the new real accounting
+  helper; its **144** refresh/recovery assertions pass.
+- `npm run check` passes all **89** suites. Phone/desktop browser checks cover both
+  themes and languages, P&L/fee source bindings, filters, missing basis, source
+  failure, recovery and navigation. Final release evidence is recorded below.
+
+Remaining verification/blockers:
+
+- [ ] Older BNB maker-fill history is still catching up: free endpoints restrict
+  archive logs or impose keyless rate limits. Current fills, inventory and P&L
+  have their own verified reads and continue independently. The bounded job keeps
+  partial progress; no historical absence or zero cost is fabricated.
+- [ ] Verify the published page and collector after the authorized push. Direct
+  Vercel requests from this workspace are blocked by its proxy.
+
+Final local browser evidence: **254** assertions pass at 320/375/1366 px in both
+themes/languages. The five cards, LP/holding split and collected UNI/USDC fee
+breakdown preserve their source values through refresh failures and recovery.

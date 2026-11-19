@@ -1,7 +1,9 @@
-/* Read-only UNI trade book. Wallet nonce history bounds wallet-initiated swaps;
-   ERC20 transfers discover receipts, never determine a trade by themselves. */
+/* Read-only UNI trade book. Keep the existing sender checkpoints; UNI Transfer
+   intervals also discover resolver-filled maker orders. Current inventory and
+   bounded historical backfill have independent, hash-verified checkpoints. */
 import { CFG, encodeAgg3, decodeAgg3, pad } from './_core.mjs';
 import { UNI_CHAINS, UNI_FEE_TIERS, UNI_MULTICALL } from './_uni-config.mjs';
+import {scanUniFlows} from './_uni-flow-reader.mjs';
 import { createUniRpc } from './_uni-reader.mjs';
 import { UNI_TRADE_VERSION, SWAPS, receiptUniTrade, uniTransfers, replayUniTrades, validateUniTradeBook } from '../uni-trade-core.mjs';
 import { createLiveCache, fetchJSON, requestOrigin, responseHeaders } from './_live-cache.mjs';
@@ -10,6 +12,7 @@ const word = (value, n = 0) => { if (!/^0x[0-9a-f]+$/i.test(value || '') || valu
 const need = row => { if (!row?.ok) throw Error('Required UNI reading unavailable'); word(row.data); return row.data; };
 const addr = value => '0x' + word(value).toString(16).padStart(40, '0');
 const clone = value => JSON.parse(JSON.stringify(value));
+const historyCovered=state=>!!state&&Number.isSafeInteger(state.transferStart)&&!!state.openingUni&&(state.transferCursor===state.head||state.recentCursor===state.head&&state.transferCursor>=state.recentStart-1);
 async function multi(rpc, calls, at) {
   const result = [];
   for (let i = 0; i < calls.length; i += 60) {
@@ -52,6 +55,14 @@ export async function readUniSpot(chain, rpc, tip) {
   return { quote: pools[0], wallets: WALLETS.map((owner, i) => ({ owner, chain: chain.key, raw: word(need(held[i])).toString(), uni: Number(word(need(held[i]))) / 1e18,
     valueUsd: Number(word(need(held[i]))) / 1e18 * pools[0].priceUsd, ts: tip.ts, block: tip.number })) };
 }
+export async function readUniReturnPrice(chain,rpc,block,quote){
+ if(!quote?.pool)return null;
+ try{const r=await multi(rpc,[{to:quote.pool,data:'0x0dfe1681'},{to:quote.pool,data:'0xd21220a7'},{to:quote.pool,data:'0x3850c7bd'}],block),a0=addr(need(r[0])),a1=addr(need(r[1])),stable=chain.stables.find(t=>[a0,a1].includes(t.address));
+  if(!stable||![a0,a1].includes(chain.uni.address))return null;
+  const ratio=(Number(word(need(r[2])))/2**96)**2*10**(a0===chain.uni.address?18-stable.decimals:stable.decimals-18),price=a0===chain.uni.address?ratio:1/ratio;
+  return price>0&&Number.isFinite(price)?price:null;
+ }catch{return null;}
+}
 async function poolProof(chain, rpc, receipt) {
   const transfers = uniTransfers(receipt), emitters = [...new Set(receipt.logs.filter(l => SWAPS.has(l.topics?.[0]) && transfers.some(t => t.token === chain.uni.address
     && [t.from, t.to].includes(l.address.toLowerCase()))).map(l => l.address.toLowerCase()))], verified = [];
@@ -65,10 +76,11 @@ async function poolProof(chain, rpc, receipt) {
   }
   return verified;
 }
-export async function advanceUniTrades(input, { maxWindows = 2, rpcFactory, now = Date.now, job = false } = {}) {
-  validUniTradeBook(input); const book = clone(input), quotes = {}, wallets = [], errors = {}, at = Math.floor((typeof now === 'function' ? now() : now) / 1000);
+export async function advanceUniTrades(input, { maxWindows = 2, rpcFactory, now = Date.now, job = false, readTransferBatch, maxTransferWindows = job ? 4000 : 0, maxRecentWindows = 32 } = {}) {
+  validUniTradeBook(input); const book = clone(input), quotes = {}, wallets = [], errors = {}, historyErrors = {}, at = Math.floor((typeof now === 'function' ? now() : now) / 1000);
   for (const chain of Object.values(UNI_CHAINS)) {
-    const rpc = rpcFactory ? rpcFactory(chain) : createUniRpc(chain, { timeoutMs: job ? 180000 : 22000, maxRequests: job ? 6000 : 150, minIntervalMs: chain.key === 'bnb' ? 250 : 120, rateRetries: 2 });
+    const chainDeadline=Date.now()+(job?200000:22000);
+    const rpc = rpcFactory ? rpcFactory(chain) : createUniRpc(chain, { timeoutMs: job ? 200000 : 22000, maxRequests: job ? 6000 : 150, minIntervalMs: chain.key === 'bnb' ? 250 : 120, rateRetries: 2 });
     try {
       const head = Number(BigInt(await rpc('eth_blockNumber', []))), block = await rpc('eth_getBlockByNumber', [hex(head), false]),
         tip = { number: head, ts: Number(BigInt(block.timestamp)), hash: block.hash };
@@ -138,11 +150,22 @@ export async function advanceUniTrades(input, { maxWindows = 2, rpcFactory, now 
       }
       if ((await rpc('eth_getBlockByNumber', [hex(head), false])).hash !== tip.hash) throw Error('UNI source head changed during reading');
       state.head = head; state.ts = tip.ts;
+      const flowOptions={deadlineMs:chainDeadline,provePool:poolProof,readReturnPrice:readUniReturnPrice,quote:quotes[chain.key]||book.quotes?.[chain.key],
+        readBatch:readTransferBatch?filters=>readTransferBatch(chain,filters):rpcFactory?filters=>Promise.all(filters.map(f=>rpc('eth_getLogs',[f]))):undefined};
+      // Current fills have their own checkpoint and budget. An archive backfill
+      // must not hold live reads behind months of old empty BNB blocks.
+      await scanUniFlows(book,chain,rpc,tip,{...flowOptions,recent:true,maxWindows:maxRecentWindows});
+      if(maxTransferWindows>0)try{await scanUniFlows(book,chain,rpc,tip,{...flowOptions,maxWindows:historyCovered(state)?0:maxTransferWindows});}catch(error){historyErrors[chain.key]=String(error.message).slice(0,160);}
+      if(historyCovered(state))delete historyErrors[chain.key];
+      else if(!historyErrors[chain.key])historyErrors[chain.key]='Earlier transfer history is still syncing';
+
     } catch (error) { errors[chain.key] = String(error.message).slice(0, 160); }
   }
   validUniTradeBook(book);
-  const complete = Object.values(UNI_CHAINS).every(c => !!book.chains[c.key] && book.chains[c.key].cursor === book.chains[c.key].head && !errors[c.key]);
-  return { book, quotes, wallets, errors, complete, at };
+  const complete=Object.values(UNI_CHAINS).every(c=>!!book.chains[c.key]&&(book.chains[c.key].recentCursor===book.chains[c.key].head||book.chains[c.key].transferCursor===book.chains[c.key].head)&&!errors[c.key]),
+    historyComplete=Object.values(UNI_CHAINS).every(c=>historyCovered(book.chains[c.key])&&!historyErrors[c.key]&&!errors[c.key]);
+  const inventoryCoverage=Object.fromEntries(Object.entries(book.chains).map(([chain,state])=>{const full=historyCovered(state);return [chain,{complete:(full||state.recentCursor===state.head&&state.recentOpeningUni!==null)&&!errors[chain],fromBlock:full?state.transferStart:state.recentStart,throughBlock:full?state.head:state.recentCursor,openingUni:full?state.openingUni:state.recentOpeningUni}];}));
+  return {book,quotes,wallets,errors,historyErrors,historyComplete,inventoryCoverage,complete,at};
 }
 const cache = createLiveCache({ complete: v => v.complete === true && !Object.keys(v.errors).length }), checkpoints = new Map();
 export async function readUniTradeView(origin) {
@@ -158,7 +181,7 @@ export async function readUniTradeView(origin) {
   const walletReadings = [...balances.values()];
   checkpoints.set(origin, { identity, book: next.book, quotes, wallets: walletReadings });
   if (checkpoints.size > 8) checkpoints.delete(checkpoints.keys().next().value);
-  return { schemaVersion: 'uni-trade-view-v1', ...next, quotes, wallets: walletReadings, trades: next.book.trades, summary: replayUniTrades(next.book.trades, quotes) };
+  return { schemaVersion: 'uni-trade-view-v1', accountingVersion:2, ...next, quotes, wallets: walletReadings, trades: next.book.trades, flows:next.book.flows||[], summary: replayUniTrades(next.book.trades, quotes) };
 }
 export async function handleUniTrades(req, res) {
   const query = req.query || Object.fromEntries(new URL(req.url || '/', 'https://local.invalid').searchParams);

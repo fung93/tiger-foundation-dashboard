@@ -16,7 +16,7 @@ try{
  globalThis.fetch=async(url,options)=>{
   const u=new URL(url);if(u.pathname==='/uni-trades.json')return Response.json(badLedger?{version:99}:source);
   reads++;if(broken)throw Error('Offline');const chain=Object.values(UNI_CHAINS).find(c=>c.rpcs.includes(url));if(!chain)throw Error('Unexpected external source');
-  const request=JSON.parse(options.body);return Response.json({jsonrpc:'2.0',id:1,result:await fx[chain.key].rpc(request.method,request.params)});
+  const request=JSON.parse(options.body);if(Array.isArray(request))return Response.json(await Promise.all(request.map(async q=>({jsonrpc:'2.0',id:q.id,result:await fx[chain.key].rpc(q.method,q.params)}))));return Response.json({jsonrpc:'2.0',id:1,result:await fx[chain.key].rpc(request.method,request.params)});
  };
  const a=response(),b=response();await Promise.all([handler({method:'GET',query:{view:'trades'},headers:{host:'uni-test.invalid'}},a),handler({method:'GET',query:{view:'trades'},headers:{host:'uni-test.invalid'}},b)]);
  eq(a.statusCode,200,'The existing UNI endpoint serves the independent trade view');eq(a.body.schemaVersion,'uni-trade-view-v1','Trade responses cannot be confused with pool-guide responses');eq(a.body,b.body,'Concurrent visitors share the same trade reading');eq(a.body.complete,true,'Both real-head-shaped fixtures are completely covered');eq(a.body.trades.length,2,'Buy and sell receipts reach the public API');eq(a.body.summary.qty,6,'API totals use the shared deterministic cost basis');ok(a.headers['cache-control'].includes('s-maxage=10'),'Only complete current readings receive a short cache');
@@ -45,6 +45,6 @@ for(const key of ['base','bnb']){
 }
 const recorded=JSON.parse(readFileSync(new URL('./fixtures/uni-trades-recorded.json',import.meta.url),'utf8'));
 for(const entry of recorded.entries){const found=receiptUniTrade({chain:UNI_CHAINS.base,wallets:CFG.wallets.map(w=>w.address),...entry});eq(found.trade,null,'Recorded Base approvals, transfers and LP operations remain outside UNI buy/sell history');}
-const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=178','/uni-trade.css?v=178','/uni-trade-core.mjs?v=178'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
+const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=179','/uni-trade.css?v=179','/uni-trade-core.mjs?v=179'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
 const apis=(await import('node:fs/promises')).readdir;eq((await apis(new URL('../api/',import.meta.url))).filter(p=>p.endsWith('.mjs')&&!p.startsWith('_')).length,12,'UNI Trade does not exceed Vercel Hobby’s function limit');
 console.log(`UNI trade API isolation, source recovery, recorded receipts and read-only access: ${checks} assertions passed.`);
