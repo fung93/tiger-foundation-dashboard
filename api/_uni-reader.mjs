@@ -13,16 +13,24 @@ const S={slot:'0x3850c7bd',liquidity:'0x1a686502',spacing:'0xd0c93a7c',factory:'
 export function uniLogRangeError(error){const text=String(error?.message||'');return !/rate limit|too many requests|HTTP 429|quota/i.test(text)&&(/log.*limit|more than.*(?:results|logs)|block range|range.*(?:large|exceed)|too many results|response size|limited to.*blocks|limit.*(?:blocks|results|logs|range)|query.*(?:exceed|limit)/i.test(text)||error?.rpcCode===-32005);}
 const unavailableMethod=error=>error?.rpcCode===-32601||/method.*(?:not supported|disabled|not available|not found|does not exist)|unsupported method/i.test(String(error?.message||''));
 
-export function createUniRpc(chain,{fetcher=fetch,timeoutMs=14000,maxRequests=64,nowMs=()=>Date.now()}={}){
-  const deadline=nowMs()+timeoutMs,verified=new Set(),disabled=new Map();let used=0,preferred=0;
-  async function send(url,method,params){
+export function createUniRpc(chain,{fetcher=fetch,timeoutMs=14000,maxRequests=64,nowMs=()=>Date.now(),minIntervalMs=0,rateRetries=0,retryDelayMs=250}={}){
+  const deadline=nowMs()+timeoutMs,verified=new Set(),disabled=new Map();let used=0,preferred=0,nextSend=0;
+  async function sendOnce(url,method,params){
+    const slot=Math.max(nowMs(),nextSend);nextSend=slot+minIntervalMs;
+    if(slot>nowMs())await new Promise(resolve=>setTimeout(resolve,slot-nowMs()));
     if(++used>maxRequests||nowMs()>=deadline)throw Error('Pool reading limit reached');
     const r=await fetcher(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),
       signal:AbortSignal.timeout(Math.max(1,Math.min(3500,deadline-nowMs())))});
     if(!r.ok)throw Error('Pool source HTTP '+r.status);const j=await r.json();if(j.error)throw Object.assign(Error(String(j.error.message).slice(0,180)),{rpcCode:j.error.code});if(!Object.hasOwn(j,'result'))throw Error('Missing RPC result');return j.result;
   }
+  async function send(url,method,params){
+    for(let attempt=0;;attempt++)try{return await sendOnce(url,method,params);}catch(error){
+      if(attempt>=rateRetries||!/429|rate limit|too many requests|compute units|per second capacity/i.test(error.message)||nowMs()+retryDelayMs>=deadline)throw error;
+      await new Promise(resolve=>setTimeout(resolve,retryDelayMs));
+    }
+  }
   return async(method,params,{validate}={})=>{
-    if(!['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getLogs','eth_call','eth_getCode'].includes(method))throw Error('Read-only RPC methods only');
+    if(!['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getLogs','eth_call','eth_getCode','eth_getTransactionCount','eth_getTransactionReceipt','eth_getTransactionByHash'].includes(method))throw Error('Read-only RPC methods only');
     let last,rangeError;
     for(let n=0;n<chain.rpcs.length;n++){
       const index=(preferred+n)%chain.rpcs.length,url=chain.rpcs[index];

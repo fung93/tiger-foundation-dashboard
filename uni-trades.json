@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "wallets": [
+    "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+    "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
+  ],
+  "chains": {
+    "base": {
+      "chainId": 8453,
+      "uni": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+      "startBlock": 58688016,
+      "cursor": 59452656,
+      "cursorHash": "0x16f5e8debaeb10eccaddf21b548b58d43f11bc65fcc79c5ef21d920ad9d9b687",
+      "head": 59452656,
+      "ts": 1795080906,
+      "readAt": 1795080906,
+      "nonces": {
+        "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 2,
+        "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 8
+      }
+    },
+    "bnb": {
+      "chainId": 56,
+      "uni": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
+      "startBlock": 94965697,
+      "cursor": 134480217,
+      "cursorHash": "0xdc10c252d59c5d2338ad0dd635a0734d480abc809852b456c45277770037836e",
+      "head": 134480217,
+      "ts": 1795080908,
+      "readAt": 1795080908,
+      "nonces": {
+        "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 7,
+        "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 7
+      }
+    }
+  },
+  "trades": [],
+  "runs": [
+    {
+      "at": 1795080497,
+      "complete": false,
+      "errors": {
+        "bnb": "missing trie node"
+      }
+    },
+    {
+      "at": 1795080655,
+      "complete": false,
+      "errors": {
+        "bnb": "missing trie node"
+      }
+    },
+    {
+      "at": 1795080757,
+      "complete": false,
+      "errors": {
+        "bnb": "missing trie node"
+      }
+    },
+    {
+      "at": 1795080906,
+      "complete": true,
+      "errors": {}
+    }
+  ],
+  "quotes": {
+    "base": {
+      "priceUsd": 5.215442999816829,
+      "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+      "block": 59452656,
+      "ts": 1795080906,
+      "tvl": 65034.83382163874
+    },
+    "bnb": {
+      "priceUsd": 5.211908348070849,
+      "pool": "0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
+      "block": 134480217,
+      "ts": 1795080908,
+      "tvl": 106788.1721833482
+    }
+  },
+  "walletReadings": [
+    {
+      "owner": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+      "chain": "base",
+      "raw": "0",
+      "uni": 0,
+      "valueUsd": 0,
+      "ts": 1795080906,
+      "block": 59452656
+    },
+    {
+      "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+      "chain": "base",
+      "raw": "13614",
+      "uni": 1.3614e-14,
+      "valueUsd": 7.100304099950631e-14,
+      "ts": 1795080906,
+      "block": 59452656
+    },
+    {
+      "owner": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
+      "chain": "bnb",
+      "raw": "0",
+      "uni": 0,
+      "valueUsd": 0,
+      "ts": 1795080908,
+      "block": 134480217
+    },
+    {
+      "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+      "chain": "bnb",
+      "raw": "0",
+      "uni": 0,
+      "valueUsd": 0,
+      "ts": 1795080908,
+      "block": 134480217
+    }
+  ],
+  "lastAttempt": 1795080906,
+  "errors": {}
+}

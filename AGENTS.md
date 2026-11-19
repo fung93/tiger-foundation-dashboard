@@ -1992,3 +1992,47 @@ It has four views: Planner, simulated positions, My real LPs and History.
 - **Open positions** at hand-off, for orientation only (read the chain for current
   figures): Katana vbWBTC/vbUSDC #491037; Robinhood WETH/USDG #1458357 (vault wallet);
   Robinhood FABLES/USDG range (main wallet).
+
+### 19 November 2026 — UNI Trade, Base and BNB Chain (push requested)
+
+The owner asks for a **UNI Trade** button on UNI, automatic UNI buy/sell records,
+trade holdings/value/average cost/unrealised P&L and current UNI LP cards. He confirms
+**Base and BNB Chain** and explicitly requests push. See `docs/UNI-TRADE.md`.
+
+- `uni-trade.html`, `uni-trade.css`, `uni-trade.js`, `uni-trade-core.mjs` form the new
+  page. The UNI guide links to it; the six-item main menu stays unchanged. English
+  and Chinese and both themes use shared controls; cache/translation assets are
+  **178**. The two Portfolio copies stay identical.
+- `/api/uni?view=trades` delegates to private `api/_uni-trades.mjs`; the default
+  guide response/cache stays separate. There are still **12** public functions.
+- History follows all wallet-initiated transaction nonces for both configured
+  wallets, reconciling full block transaction counts and successful receipts.
+  It does not label ordinary transfers or LP deposits/withdrawals/collections as
+  trades. The public BNB Blast RPC supplies archive nonce reads unavailable from
+  the usual BNB endpoints. Trade reads pace requests and retry capacity errors
+  within fixed time/request limits; no paid key or wallet signing is used.
+- `uni-trades.json` is an independent immutable swap ledger and per-chain progress
+  checkpoint. Block hashes/nonces detect changed/truncated source data; failed
+  blocks retain previous checkpoints. First backfill completed at Base 59,452,656
+  and BNB 134,480,217, with no wallet-initiated UNI swaps in those receipts. Those
+  are actual observed results, not an assumed empty history.
+- `scripts/uni-trades.mjs` and `.github/workflows/update-uni-trades.yml` update only
+  that ledger, hourly at :47 and on relevant main-branch changes. Before publishing
+  data it validates the saved file; malformed history never causes a silent reset.
+- Average cost is weighted within each chain. Net UNI bought minus sold is the
+  **swap book**, like KAT Trades; wallet UNI and current LP inventory stay separate.
+  P&L excludes native network fees, which are listed beside each transaction.
+  Supported dollar stablecoins use the explicit $1 anchor. Unverified swaps/dollar
+  costs remain unavailable, never repriced at today's price. Unknown sale basis
+  cannot report invented realised profit.
+- Current UNI LPs reuse `LPCards` and `/api/lpbook` canonical token contracts at
+  `position_data[].raw.token0/1.address`; don't filter by ticker or assume those
+  fields are at the position root. LP/UNI refreshes fail independently. LP Book
+  chain coverage remains unchanged (the actual current UNI LP is on Base).
+- Regression evidence: `scripts/test-uni-trades.mjs`, `test-uni-trade-api.mjs` and
+  recorded Base receipts in `scripts/fixtures/uni-trades-recorded.json`. Browser
+  checks cover both themes/languages at 320/375/1366 px, retained values on failure,
+  missing cost, filters, navigation and shared LP cards. No existing financial
+  histories, Lending reset behavior or agent authentication/policy are modified.
+- One date-sensitive agent test now creates its conversation campaign relative
+  to the test clock; its fixed historical financial scenarios remain unchanged.

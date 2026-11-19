@@ -15,13 +15,13 @@ import { usdAtTick } from '../kat-core.mjs';
 let count=0;
 const check=(a,b,n)=>{assert.deepEqual(a,b,n);count++;},near=(a,b,n)=>check(Math.abs(a-b)<=Math.max(1e-7,Math.abs(b)*1e-7),true,n);
 const at=Date.parse('2026-11-08T10:00:00Z'),stamp=new Date(at).toISOString();
-function fixture(reverse=false){
-  const c=incomeContext(at,{reverse,katPerDay:930000}),p=c.lp.positions[0].canonical,q=c.strategy.pools[0];
+function fixture(reverse=false,now=at){
+  const c=incomeContext(now,{reverse,katPerDay:930000}),p=c.lp.positions[0].canonical,q=c.strategy.pools[0];
   const range=snapRange(98000,110000,q),liquidity=Math.round(liquidityForCapital(500,range.tickLower,range.tickUpper,q).liquidity);
   Object.assign(p.raw,{lowerTick:range.tickLower,upperTick:range.tickUpper,liquidity:String(liquidity)});
   q.eligible.liquidity=liquidity*1000;
-  c.lp.positions[0].rewardPace={start:at/1000-43200,end:at/1000,hours:12,katEarned:465,carryExcluded:true,source:'/api/lpbook'};
-  c.lpAdviceFunding={schemaVersion:'agent-lp-funding-v1',chain:'katana',owner:p.owner,observedAt:stamp,priceObservedAt:stamp,
+  c.lp.positions[0].rewardPace={start:now/1000-43200,end:now/1000,hours:12,katEarned:465,carryExcluded:true,source:'/api/lpbook'};
+  c.lpAdviceFunding={schemaVersion:'agent-lp-funding-v1',chain:'katana',owner:p.owner,observedAt:new Date(now).toISOString(),priceObservedAt:new Date(now).toISOString(),
     gasUsd:6,gasUnits:2000000,gasPriceWei:'1000000000',nativePriceUsd:3000,block:1234};
   return c;
 }
@@ -116,7 +116,9 @@ check((await loadAgentSupplementalContext({origin:'https://advice.fixture.test',
 const question='Suggest a range for katana USDC/WBTC to earn $10 of KAT daily';
 let inference=0;
 const env={AGENT_ORIGIN:'https://advice.fixture.test',AI:{run:async()=>{inference++;return {response:{tool:{name:'getPortfolioSnapshot',args:{}}}};}}};
-const c=fixture();c.asOf=new Date().toISOString();c.lp.ts=c.asOf;c.lp.positions[0].canonical.observedAt=c.asOf;c.strategy.ts=c.asOf;c.strategy.pools[0].ts=c.asOf;
+// Conversation routing uses a current hypothetical campaign; fixed November 8
+// scenarios above remain unchanged after that historical campaign expires.
+const c=fixture(false,Date.now());c.asOf=new Date().toISOString();c.lp.ts=c.asOf;c.lp.positions[0].canonical.observedAt=c.asOf;c.strategy.ts=c.asOf;c.strategy.pools[0].ts=c.asOf;
 const history=[{role:'user',content:question}];
 for(const [text,focus,target]of [['Is resetting worth it?','reset',10],['What if KAT drops 10%?','reward_price',10],['What if BTC drops 5%?','market',10],
   ['Why that range?','balanced',10],['What about $12/day?',null,12],['My floor is $7/day','reward_price',10]]){

@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v177';  /* Base Uniswap V3 holdings and LP Book discovery */
+var CACHE_VERSION = 'tiger-v178';  /* UNI swaps, cost basis and shared current LP cards */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -41,9 +41,9 @@ var SHELL_ASSETS = [
   '/index.html',
   '/manifest.webmanifest',
   '/theme.js',
-  '/i18n-zh.js?v=177',
-  '/i18n.js?v=177',
-  '/i18n.css?v=177',
+  '/i18n-zh.js?v=178',
+  '/i18n.js?v=178',
+  '/i18n.css?v=178',
   '/rpc-reader.js',
   '/theme.css',
   '/icons/cute-tiger.svg',
@@ -72,6 +72,10 @@ var SHELL_ASSETS = [
   '/uni.css',
   '/uni.js',
   '/uni-core.mjs',
+  '/uni-trade.html',
+  '/uni-trade.css?v=178',
+  '/uni-trade.js?v=178',
+  '/uni-trade-core.mjs?v=178',
   /* the KAT page: trades since 27 Oct 2026, the book and its chart */
   '/kat.html',
   '/kat.css',
@@ -161,7 +165,7 @@ self.addEventListener('fetch', function (e) {
      Strip the cache-buster ?t= so offline lookups hit. */
   var isData = url.pathname === '/data.json' || url.pathname === '/history.json' ||
                url.pathname === '/claims.json' || url.pathname === '/positions.json' ||
-               url.pathname === '/morpho-history.json';
+               url.pathname === '/morpho-history.json' || url.pathname === '/uni-trades.json';
   var isCrossOrigin = url.origin !== self.location.origin;
   /* /api/* reads the chain on every request — the widget's whole point is that the price is
      current, so it must never be answered from the cache first. Without this it fell through
