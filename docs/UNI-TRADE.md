@@ -58,8 +58,11 @@ Verified implementation and evidence (19 November 2026):
 - [x] Final complete `npm run check` passes all **86** suites, including the
   current hypothetical agent-campaign regression; final changed-file syntax and
   byte-identical Portfolio copies pass. Release is ready for the authorized push.
-- [ ] Verify the main-branch collector after publication. Direct Vercel access
-  is blocked by the workspace proxy; do not claim a live-browser verification.
+- [x] Main-branch collector [run 44499457355](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44499457355)
+  succeeded after publication, with complete coverage and no errors: Base through
+  **59,456,062** and BNB through **134,481,731**, saved in `39e5248`.
+- [ ] Direct Vercel page verification remains blocked by the workspace proxy
+  (HTTP 403); no live-browser verification is claimed.
 
 One existing agent test used a November 8 hypothetical campaign in a conversation
 executed against the actual clock; the campaign expired before this release.
@@ -72,3 +75,8 @@ The browser refreshes trade readings every 30 seconds and shared LP cards every
 The UNI writer modifies only `uni-trades.json`, keeping LP/KAT ledgers and NAV
 accounting independent. Current LP cards follow LP Book's supported chains; the
 current UNI position is on Base. This change does not add BNB to global NAV/LP Book.
+
+Release `5f8d387` was rebased and pushed to main as explicitly requested. No new
+production secrets, Cloudflare/D1 configuration or paid services are needed.
+GitHub Actions must retain the existing contents-write permission for its ledger.
+The live page is [UNI Trade](https://tiger-foundation-dashboard.vercel.app/uni-trade.html).
