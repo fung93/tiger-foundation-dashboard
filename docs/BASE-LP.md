@@ -19,7 +19,8 @@ previously started after the current head instead of finding its open LP mints.
   regressions, browser checks and `npm run check`.
 - [x] Prepare the authorized release for rebase and push, preserving incoming
   automatic financial-data commits.
-- [ ] Verify live deployment and actual wallet positions where network permits.
+- [x] Verify live deployment and actual wallet positions through the read-only
+  Actions runner (19 November follow-up below).
 
 No wallet connection, signing, key, paid service, risk-policy change or historical
 portfolio rewrite is involved. The public Base RPC probe currently fails in this
@@ -69,3 +70,7 @@ live budget and existing cursor/history semantics. The regression proves a
 span leaves 130,000 blocks behind. The Base suite now passes **388** assertions,
 including claimed/unclaimed UNI fee totals and unchanged earnings/P&L after a
 fee claim. See `docs/UNI-TRADE.md` for the release checklist and live evidence.
+Main-branch [verification run 44541917604](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44541917604)
+succeeds after `bcf53a6`, including actual wallet/NFT discovery, fee reads and
+LP Book inclusion. The separate live release probe confirms the 50,000-block
+provider limit and complete UNI fee/P&L totals; no financial ledger was written.

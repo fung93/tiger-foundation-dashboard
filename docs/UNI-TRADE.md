@@ -19,7 +19,8 @@ unrealised trade-book P&L, actual wallet balances and current UNI LP Book cards.
 - [x] Run `npm run check` (**86** suites), finish final syntax/copy checks and
   prepare the release for the explicitly approved push.
 - [x] Verify real Base/BNB collection through the bounded public-chain runner.
-- [ ] Verify the deployed page directly: the workspace proxy blocks Vercel (403).
+- [x] Verify the deployed page through the read-only Actions runner; the local
+  workspace proxy still blocks Vercel (403).
 
 Initial source checks: Base Blockscout returns HTTP 403 from the runner; Routescan
 does not support these two networks. Use verified on-chain receipts rather than
@@ -66,8 +67,8 @@ Verified implementation and evidence (19 November 2026):
 - [x] Main-branch collector [run 44499457355](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44499457355)
   succeeded after publication, with complete coverage and no errors: Base through
   **59,456,062** and BNB through **134,481,731**, saved in `39e5248`.
-- [ ] Direct Vercel page verification remains blocked by the workspace proxy
-  (HTTP 403); no live-browser verification is claimed.
+- [x] Published page/API verification completed through the read-only Actions
+  runner during the follow-up; direct workspace requests remain blocked (403).
 
 One existing agent test used a November 8 hypothetical campaign in a conversation
 executed against the actual clock; the campaign expired before this release.
@@ -186,7 +187,18 @@ work and preserve the previously published 1inch history.
   at 320/375/1366 px, both themes/languages, including actual **19.10 UNI** and
   **$5.23** average-cost display, card order, earnings/P&L, source failure and
   recovery. Portfolio copies and final diff checks also pass.
-- [ ] Publish and verify the new shell, fee totals and P&L on the live site.
+- [x] Published [`bcf53a6`](https://github.com/fung93/tiger-foundation-dashboard/commit/bcf53a63855f88a9f5d5e366a02aeb4f3b431685)
+  to main. The live page, cache **180**, fee-before-P&L order, two-decimal
+  formatting, actual three fills and fee/P&L components all verified in
+  [read-only run 44541962049](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44541962049).
+  On **19 November, 22:16 MYT**, LP fees were **$0.18** (collected **$0.03**),
+  LP net/P&L **−$0.58**, wallet unrealised **$0**. Totals matched the separate
+  open/closed LP Book metrics; these are dated verification readings.
+- [x] A real Base probe accepts both filtered **50,000-block** query types at
+  block **59,537,112**. The main-branch
+  [Base verification run 44541917604](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44541917604)
+  also succeeds, checking real ownership, fees and LP Book inclusion without
+  modifying any ledger.
 
 `api/lpbook.mjs` retains its additive `uni-lp-accounting-v1` summary. New
 `earnedUsd` and `earnedTokens` fields reuse the existing numeric position
