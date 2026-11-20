@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {buildUniLPAccounting,uniPortfolioPerformance,uniPnlRecord} from '../uni-accounting.mjs';
+import {buildUniLPAccounting,uniPortfolioPerformance,uniPnlRecord,uniTradeOverview} from '../uni-accounting.mjs';
 let n=0;const eq=(a,b,m)=>{assert.deepEqual(a,b,m);n++;},near=(a,b,m)=>{assert.ok(Math.abs(a-b)<1e-8,m+': '+a+' vs '+b);n++;};
 const actual=JSON.parse(readFileSync(new URL('./fixtures/uni-accounting-book.json',import.meta.url))),uni=Object.values(actual.positions).filter(p=>p.chain==='base'),old=uni.find(p=>p.status==='closed'),open=uni.find(p=>p.status==='open');
 assert.ok(old&&open,'The public book supplies a real UNI open/closed pair');n++;
@@ -71,4 +71,73 @@ const holdingRecord=uniPnlRecord(lp,{...totals,holdingUnrealizedUsd:2,pnlUsd:tot
 near(holdingRecord.totalUsd,holdingRecord.lpNetUsd+holdingRecord.holdingUnrealizedUsd,'Loose UNI gain is a separate line, never allocated to an LP');
 const emptyLP={schemaVersion:'uni-lp-accounting-v1',complete:true,netUsd:0,positions:[]};
 eq(uniPnlRecord(emptyLP,{lpNetUsd:0,holdingUnrealizedUsd:0,pnlUsd:0}).reconciled,true,'A verified empty LP book can accurately show zero contributions');
+const inventoryTrade={book:{wallets:[owner,second]},wallets:wallets(2),quotes, trades:[buy('1',10,50)],historyComplete:true};
+const inventoryLP={uni:lp,position_data:[{chain:'base',id:open.id,owner:open.wallet,status:'observed',feesMine:true,principalUsd:31,
+ raw:{token0:{address:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',symbol:'UNI',decimals:18},token1:{address:'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',symbol:'USDC',decimals:6}},amounts:{UNI:3,USDC:10}}],
+ position_metrics:[{key:open.key,owner:open.wallet,complete:true,unclaimedUsd:1.5,unclaimedTokens:{'UNI@base':'0.2','USDC@base':'0.1'}}]};
+const overview=extra=>uniTradeOverview({trade:inventoryTrade,lpView:inventoryLP,...extra}),inventoryBefore=JSON.stringify([inventoryTrade,inventoryLP]);
+near(overview().heldUni,5.2,'Held UNI uses actual wallets and LP units, not the ten-UNI swap-book balance');
+near(overview().walletUni,2,'Both tracked wallets on both networks contribute loose UNI once');
+near(overview().lpPrincipalUni,3,'Only current UNI principal enters LP inventory');
+near(overview().unclaimedUni,.2,'Unclaimed owner UNI fees are part of actual token exposure');
+near(overview().lpUni,3.2,'LP token total includes its unclaimed UNI fees');
+near(overview().capitalUsd,50,'Capital is actual dollars paid for confirmed UNI buys');
+eq(overview().capitalComplete,true,'Fully recorded purchase history can claim a complete capital total');
+const claimedTrade=structuredClone(inventoryTrade),claimedLP=structuredClone(inventoryLP);
+claimedTrade.wallets[0].uni+=.2;claimedLP.position_metrics[0].unclaimedTokens['UNI@base']='0';claimedLP.position_metrics[0].unclaimedUsd=.1;
+near(overview({trade:claimedTrade,lpView:claimedLP}).heldUni,5.2,'Claiming fees moves UNI to the wallet without increasing total held');
+const depositTrade=structuredClone(inventoryTrade),depositLP=structuredClone(inventoryLP);
+depositTrade.wallets[0].uni-=1;depositLP.position_data[0].amounts.UNI+=1;depositLP.position_data[0].principalUsd+=7;
+near(overview({trade:depositTrade,lpView:depositLP}).heldUni,5.2,'Moving UNI into an LP does not create more holdings');
+near(overview({trade:depositTrade,lpView:depositLP}).capitalUsd,50,'LP deposits never become additional purchase capital');
+const withSale={...inventoryTrade,trades:[...inventoryTrade.trades,{id:'2',chain:'base',side:'sell',verified:true,usd:20,uni:4}]};
+near(overview({trade:withSale}).capitalUsd,50,'Capital means gross purchase spending; sales do not silently turn it into remaining cost');
+const partialBuys={...inventoryTrade,historyComplete:false};
+near(overview({trade:partialBuys}).capitalUsd,50,'Confirmed recorded buys remain visible during older backfill');
+eq(overview({trade:partialBuys}).capitalComplete,false,'A recorded subtotal cannot pretend the full history is complete');
+eq(overview({trade:{...partialBuys,trades:[]}}).capitalUsd,null,'Missing earlier buys cannot appear as zero capital');
+eq(overview({trade:{...inventoryTrade,trades:[]}}).capitalUsd,0,'A proven empty purchase history has zero capital');
+for(const trades of [[buy('1',10,null)],[{...buy('1',10,50),verified:false}],[buy('1',10,50),buy('1',10,50)],[null]])
+ eq(overview({trade:{...inventoryTrade,trades}}).capitalUsd,null,'Unpriced, unverified or duplicate records cannot inflate known capital');
+for(const badWallets of [[],inventoryTrade.wallets.slice(1),[...inventoryTrade.wallets,inventoryTrade.wallets[0]],inventoryTrade.wallets.map((w,i)=>i? w:{...w,uni:null})])
+ eq(overview({trade:{...inventoryTrade,wallets:badWallets}}).heldUni,null,'Missing/duplicate/unread wallet balances cannot become a smaller complete holding');
+for(const mutate of [v=>{v.uni.complete=false;},v=>{v.position_data=[];},v=>{v.position_data={};},v=>{v.position_metrics=[];},
+ v=>{v.position_metrics[0].complete=false;},v=>{v.position_metrics[0].unclaimedTokens['UNI@base']='unknown';},
+ v=>{v.position_data[0].amounts.UNI=null;},v=>{v.position_data[0].raw.token0.address='0x'+'1'.repeat(40);},
+ v=>{v.position_data[0].raw.token0.decimals=6;},v=>{v.uni.positions=v.uni.positions.filter(p=>p.status!=='open');}]){
+ const broken=structuredClone(inventoryLP);mutate(broken);eq(overview({lpView:broken}).heldUni,null,'Unavailable or mismatched LP identity/inventory cannot disappear from holdings');
+}
+const emptyInventory={uni:emptyLP,position_data:[],position_metrics:[]};
+near(overview({lpView:emptyInventory}).heldUni,2,'Verified no open LPs leaves the actual wallet quantity');
+const oneSided=structuredClone(inventoryLP);oneSided.position_data[0].amounts.UNI=0;
+near(overview({lpView:oneSided}).heldUni,2.2,'A stable-only LP has zero principal UNI, while unclaimed UNI still belongs to the owner');
+const otherNetwork=structuredClone(inventoryTrade);otherNetwork.wallets.find(w=>w.chain==='bnb'&&w.owner===owner).uni=1.5;
+near(overview({trade:otherNetwork}).heldUni,6.7,'BNB wallet UNI is included alongside a Base LP');
+near(overview().heldUni,5.2,'A later verified source recovers the same token total');
+eq(JSON.stringify([inventoryTrade,inventoryLP]),inventoryBefore,'Overview calculations never rewrite trades, LPs or P&L records');
+near(overview().walletValueUsd,14,'Wallet UNI is marked at its own network quote');
+near(overview().lpValueUsd,32.5,'Open LP value includes both UNI and stablecoin principal plus unclaimed fees');
+near(overview().valueNowUsd,46.5,'Value now adds wallet UNI and the complete two-token LP value once');
+near(overview().pnlUsd,-3.5,'Top P&L is exactly current value minus recorded UNI purchase capital');
+near(overview().currentPositions[0].principalUsd,31,'The record identifies the principal value contributing to current holdings');
+near(overview().currentPositions[0].unclaimedFeeUsd,1.5,'The record identifies unclaimed fees contributing to current value');
+near(overview().currentPositions.reduce((s,p)=>s+p.valueUsd,0)+overview().walletValueUsd,overview().valueNowUsd,'Record components reconcile to the displayed Value now');
+near(overview({trade:claimedTrade,lpView:claimedLP}).valueNowUsd,46.5,'Claiming UNI fees transfers their value to wallet UNI without counting it twice');
+near(overview({trade:depositTrade,lpView:depositLP}).valueNowUsd,46.5,'Moving UNI from wallet to LP preserves current value');
+const unrelatedNet=structuredClone(inventoryLP);unrelatedNet.uni.netUsd=999;
+near(overview({lpView:unrelatedNet}).pnlUsd,-3.5,'Historical LP net is not added to the newly requested value-minus-capital result');
+near(overview({trade:otherNetwork}).valueNowUsd,58.5,'BNB wallet UNI uses BNB price rather than the Base price');
+near(overview({trade:otherNetwork}).pnlUsd,8.5,'Both networks still use one consistent value-minus-capital equation');
+const noQuote=overview({trade:{...inventoryTrade,quotes:{}}});
+near(noQuote.heldUni,5.2,'Verified units stay available when a dollar quote fails');
+eq(noQuote.valueNowUsd,null,'A missing nonzero-wallet price cannot become a zero-valued asset');
+eq(noQuote.pnlUsd,null,'Unknown current value cannot show a fabricated P&L');
+for(const mutate of [v=>{delete v.position_data[0].principalUsd;},v=>{v.position_data[0].principalUsd=-1;},v=>{delete v.position_metrics[0].unclaimedUsd;}]){
+ const broken=structuredClone(inventoryLP);mutate(broken);
+ near(overview({lpView:broken}).heldUni,5.2,'Known LP token amounts remain available when dollar valuation is missing');
+ eq(overview({lpView:broken}).valueNowUsd,null,'Missing/invalid principal or fee dollars cannot silently reduce current value');
+ eq(overview({lpView:broken}).pnlUsd,null,'Incomplete LP dollar values leave P&L unavailable');
+}
+eq(overview({trade:{...inventoryTrade,trades:[buy('1',10,null)]}}).pnlUsd,null,'Unknown purchase capital cannot produce a P&L from current value alone');
+near(overview({trade:partialBuys}).pnlUsd,-3.5,'The recorded-capital comparison stays explicit during older history backfill');
 console.log(`UNI combined LP/holding P&L and collected fee accounting: ${n} assertions passed.`);

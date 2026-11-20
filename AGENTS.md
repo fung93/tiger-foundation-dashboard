@@ -2182,3 +2182,21 @@ total. Polling updates its body without closing it. Both themes/languages and
 mobile/keyboard support apply. App/translation and changed UNI assets use
 **184**; shared LP card assets stay **183**. See `docs/UNI-TRADE.md` for progress
 and source/validation/publication evidence.
+
+### 20 November 2026 — UNI five-card overview (push explicitly authorized)
+
+The latest owner instruction supersedes the local-only three-card draft. Show
+exactly **UNI price · UNI held · Capital · Value now · P&L**. Keep the record icon
+but update its contents to reconcile the new formula. UNI held is actual wallet
+UNI plus current tracked LP UNI principal and unclaimed UNI fees. Capital is
+gross USD paid for recorded verified UNI buys (including 1inch); label partial
+older history as recorded spending. Value now is wallet UNI at its own network
+quote plus **both tokens** in each current UNI LP and unclaimed owner fees.
+Top P&L is exactly **Value now minus Capital**, without adding legacy LP net or
+claimed earnings again. Previous sale/distribution cash outside these current
+tracked holdings is outside this defined comparison. Keep LP Book ledgers,
+current LP-card P&L/fees, and private agent accounting unchanged. Missing units,
+prices or costs stay unavailable. `uniTradeOverview` joins canonical owners/token
+addresses/positions and supplies the same calculation to all five cards and the
+record. App/translation/changed UNI assets use **186**; shared LP cards stay
+**183**. See `docs/UNI-TRADE.md` for validation and publication progress.

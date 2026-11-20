@@ -2,6 +2,71 @@
    LP net comes from LP Book; loose UNI never includes inventory still in an LP. */
 const UNI={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},finite=Number.isFinite;
 const sum=xs=>xs.reduce((s,n)=>s+n,0),order=(a,b)=>a.block-b.block||a.index-b.index||a.id.localeCompare(b.id);
+
+/* Actual exposure is independent of the swap-book balance. LP swaps change its
+   UNI units; claimed fees move between these two buckets without creating UNI. */
+export function uniTradeOverview({trade,lpView}={}){
+ const lower=value=>typeof value==='string'?value.toLowerCase():'',
+  owners=new Set((Array.isArray(trade?.book?.wallets)?trade.book.wallets:[]).map(lower)),seenWallets=new Set();
+ let walletReady=owners.size===2&&!owners.has(''),walletUni=0,walletValue=0,walletValueReady=true;
+ for(const wallet of Array.isArray(trade?.wallets)?trade.wallets:[]){
+  if(!wallet){walletReady=false;continue;}
+  const key=wallet.chain+':'+lower(wallet.owner);
+  if(!UNI[wallet.chain]||!owners.has(lower(wallet.owner))||seenWallets.has(key)||!finite(wallet.uni)||wallet.uni<0){walletReady=false;continue;}
+  seenWallets.add(key);walletUni+=wallet.uni;
+  const price=trade?.quotes?.[wallet.chain]?.priceUsd;
+  if(wallet.uni>0){if(!finite(price)||price<=0)walletValueReady=false;else walletValue+=wallet.uni*price;}
+ }
+ for(const chain of Object.keys(UNI))for(const owner of owners)if(!seenWallets.has(chain+':'+owner))walletReady=false;
+ const lp=lpView?.uni,records=Array.isArray(lp?.positions)?lp.positions:[],data=lpView?.position_data,metrics=lpView?.position_metrics;
+ let lpReady=lp?.schemaVersion==='uni-lp-accounting-v1'&&lp.complete===true&&Array.isArray(lp.positions)
+  &&Array.isArray(data)&&Array.isArray(metrics)&&owners.size===2,
+  lpPrincipalUni=0,unclaimedUni=0,lpValue=0,lpValueReady=true;
+ const currentPositions=[];
+ const seenLPs=new Set();
+ for(const record of records.filter(p=>p?.status==='open')){
+  if(!UNI[record.chain]||!owners.has(lower(record.owner))||seenLPs.has(record.key)){lpReady=false;continue;}
+  seenLPs.add(record.key);
+  const position=(Array.isArray(data)?data:[]).find(p=>p?.chain===record.chain&&String(p.id)===String(record.id)&&lower(p.owner)===lower(record.owner)),
+   token=[position?.raw?.token0,position?.raw?.token1].find(t=>lower(t?.address)===UNI[record.chain]),
+   metric=(Array.isArray(metrics)?metrics:[]).find(m=>m?.key===record.key&&lower(m.owner)===lower(record.owner)),
+   principal=token&&position?.amounts?.[token.symbol],fees=metric?.unclaimedTokens;
+  if(position?.status!=='observed'||token?.decimals!==18||!finite(principal)||principal<0
+    ||metric?.complete!==true||!fees||typeof fees!=='object'||Array.isArray(fees)
+    ||typeof position.feesMine!=='boolean'){lpReady=false;continue;}
+  const raw=fees[token.symbol+'@'+record.chain]??0,
+   fee=typeof raw==='number'?raw:typeof raw==='string'&&/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(raw)?Number(raw):NaN;
+  if(!finite(fee)||fee<0){lpReady=false;continue;}
+  lpPrincipalUni+=principal;unclaimedUni+=position.feesMine?fee:0;
+  const principalUsd=finite(position.principalUsd)&&position.principalUsd>=0?position.principalUsd:null,
+   unclaimedFeeUsd=position.feesMine?(finite(metric.unclaimedUsd)&&metric.unclaimedUsd>=0?metric.unclaimedUsd:null):0,
+   valueUsd=principalUsd!==null&&unclaimedFeeUsd!==null?principalUsd+unclaimedFeeUsd:null;
+  if(valueUsd===null||!finite(valueUsd))lpValueReady=false;else lpValue+=valueUsd;
+  currentPositions.push({key:record.key,id:String(record.id),chain:record.chain,owner:record.owner,pair:record.pair,
+   principalUsd,unclaimedFeeUsd,valueUsd:finite(valueUsd)?valueUsd:null});
+ }
+ // A canonical UNI position omitted by the summary cannot disappear from exposure.
+ for(const position of Array.isArray(data)?data:[])if(position&&UNI[position.chain]&&owners.has(lower(position.owner))
+   &&[position.raw?.token0,position.raw?.token1].some(t=>lower(t?.address)===UNI[position.chain])
+   &&!seenLPs.has(position.chain+':'+position.id))lpReady=false;
+ const buys=Array.isArray(trade?.trades)?trade.trades.filter(t=>t?.side==='buy'):[],seenBuys=new Set();
+ const buysReady=Array.isArray(trade?.trades)&&trade.trades.every(t=>t&&['buy','sell'].includes(t.side))&&buys.every(t=>{
+  const key=t.chain+':'+t.id;
+  if(!UNI[t.chain]||!t.id||seenBuys.has(key)||t.verified!==true||!finite(t.usd)||t.usd<0)return false;
+  seenBuys.add(key);return true;
+ });
+ const capital=buysReady&&(buys.length>0||trade?.historyComplete===true)?sum(buys.map(t=>t.usd)):null,
+  lpUni=lpPrincipalUni+unclaimedUni,
+  walletValueUsd=walletReady&&walletValueReady&&finite(walletValue)?walletValue:null,
+  lpValueUsd=lpReady&&lpValueReady&&finite(lpValue)?lpValue:null,
+  value=walletValueUsd!==null&&lpValueUsd!==null?walletValueUsd+lpValueUsd:null,
+  valueNowUsd=finite(value)?value:null,capitalUsd=finite(capital)?capital:null;
+ return {heldUni:walletReady&&lpReady?walletUni+lpUni:null,walletUni:walletReady?walletUni:null,
+  lpUni:lpReady?lpUni:null,lpPrincipalUni:lpReady?lpPrincipalUni:null,unclaimedUni:lpReady?unclaimedUni:null,
+  capitalUsd,capitalComplete:buysReady&&trade?.historyComplete===true,walletValueUsd,lpValueUsd,valueNowUsd,
+  pnlUsd:valueNowUsd!==null&&capitalUsd!==null?valueNowUsd-capitalUsd:null,currentPositions};
+}
+
 export function buildUniLPAccounting(book,view){
  const positions=Object.values(book.positions||{}).filter(p=>UNI[p.chain]&&[p.a0?.toLowerCase(),p.a1?.toLowerCase()].includes(UNI[p.chain])&&book.wallets.some(w=>w.toLowerCase()===p.wallet?.toLowerCase())),rows=[],claims=[],tokens={},earnedTokens={};
  const sourceGap=Object.keys(view.health?.errors||{}).some(key=>key==='base'||key.startsWith('base '))||Number(view.health?.behind?.base||0)>0;

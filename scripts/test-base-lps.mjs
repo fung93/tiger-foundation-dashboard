@@ -5,8 +5,8 @@ import { BASE } from '../base-config.mjs';
 import { CFG, V3, BOOK_VERSION, pad, hx, v3Amounts, v3Candidates, tokenMeta, advanceBook,
   bookLiveRows, bookView, livePrices, feeTokensOf, rpc } from '../api/_core.mjs';
 import { readBasePortfolio } from '../api/_base-portfolio.mjs';
-import { positionIdentity } from '../portfolio-core.mjs';
-import { buildUniLPAccounting, uniPortfolioPerformance } from '../uni-accounting.mjs';
+import { positionIdentity, compactLPPositions } from '../portfolio-core.mjs';
+import { buildUniLPAccounting, uniPortfolioPerformance, uniTradeOverview } from '../uni-accounting.mjs';
 
 let checks = 0;
 const eq = (actual, expected, note) => { assert.deepEqual(actual, expected, note); checks++; };
@@ -162,6 +162,24 @@ try {
   near(earnings.earnedTokens.USDC, 6, 'USDC fee inventory includes unclaimed fees and excludes principal');
   near(earnings.netUsd, view.position_metrics.reduce((sum, metric) => sum + metric.pnlUsd, 0) + earnings.earnedUsd,
     'Actual LP Book net already contains all claimed and unclaimed fees');
+  const canonical = compactLPPositions(result.book, live.rows, { generated: view.generated });
+  const overviewTrade = { book: { wallets: [main, vault] }, quotes: { base: { priceUsd: price } }, trades: [], historyComplete: true,
+    wallets: [mainRead, vaultRead].map(reading => ({ chain: 'base', owner: reading.owner, uni: reading.wallet.balances.tokens.UNI.balance }))
+      .concat([main, vault].map(owner => ({ chain: 'bnb', owner, uni: 0 }))) };
+  const overview = uniTradeOverview({ trade: overviewTrade, lpView: { ...view, uni: earnings, position_data: canonical } });
+  near(overview.walletUni, 2, 'UNI overview uses both actual ABI-read wallet balances');
+  near(overview.lpPrincipalUni, mainRead.lp_positions[0].amounts.UNI + vaultRead.lp_positions[0].amounts.UNI,
+    'Canonical LP joins retain the real UNI units despite USDC-first pool ordering');
+  near(overview.unclaimedUni, 1, 'Only the two still-unclaimed half-UNI fee balances enter held UNI');
+  near(overview.heldUni, overview.walletUni + overview.lpPrincipalUni + 1,
+    'The overview counts actual wallet UNI, principal and unclaimed fees once');
+  near(overview.walletValueUsd, 2 * price, 'Actual UNI wallet quantities use the live Base quote');
+  near(overview.lpValueUsd, mainRead.lp_total_usd + vaultRead.lp_total_usd,
+    'Current UNI LP value includes both legs and owner fees from the real ABI reader');
+  near(overview.valueNowUsd, 2 * price + mainRead.lp_total_usd + vaultRead.lp_total_usd,
+    'Value now reconciles to independent wallet and complete LP readings');
+  near(overview.pnlUsd, overview.valueNowUsd - overview.capitalUsd,
+    'The new top P&L follows the owner-defined value-minus-capital formula');
   const afterClaim = structuredClone(result.book), afterRows = structuredClone(live.rows), claimed = afterClaim.positions['base:7'];
   claimed.fees['USDC@base'] += 2; claimed.fees['UNI@base'] += .5;
   claimed.claims.push({ block: head, ts: now / 1000, tokens: { 'USDC@base': 2, 'UNI@base': .5 }, usd: 2 + .5 * price, prices });
@@ -175,7 +193,8 @@ try {
   const outputIndex = process.argv.indexOf('--output');
   if (outputIndex >= 0) writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ holdings: mainRead, vaultHoldings: vaultRead,
     view: { ...bookView({ ...result.book, positions: Object.fromEntries(Object.entries(result.book.positions).filter(([, p]) => p.chain === 'base')) },
-      { rows: live.rows, prices, merkl: {}, errors: {}, behind: { base: 0 } }), generated: new Date(now).toISOString() } }));
+      { rows: live.rows, prices, merkl: {}, errors: {}, behind: { base: 0 } }), uni: earnings, position_data: canonical,
+      generated: new Date(now).toISOString() }, overviewTrade }));
   near(feeTokensOf(result.book.positions['base:7'], { 'USDC@base': 2, 'UNI@base': .5 })['USDC@base'], 4, 'Earned fees combine claims and outstanding owner fees');
   const second = await advanceBook(result.book, { onlyChains: ['base'], maxWindows: 4 });
   eq(second.book.positions['base:7'], result.book.positions['base:7'], 'A repeat refresh cannot replay deposits or collections twice');

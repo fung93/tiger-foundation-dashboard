@@ -1,5 +1,48 @@
 # UNI Trade
 
+## UNI price, holdings, capital, current value and P&L — 20 November 2026
+
+The owner's latest instruction explicitly authorizes **push** and supersedes
+his earlier local-only layout. Show exactly five cards in this order:
+**UNI price · UNI held · Capital · Value now · P&L**.
+
+- [x] Show separate Base/BNB UNI prices with their own source timestamps.
+- [x] UNI held is actual UNI in both tracked wallets on Base/BNB, plus UNI
+  principal and still-unclaimed owner UNI fees in open tracked LPs. Exclude
+  closed positions and already claimed fees from LP inventory.
+- [x] Capital is gross USD actually paid for verified recorded UNI buys,
+  including 1inch fills. Sales, LP deposits and claims are not new purchases.
+  Mark incomplete older history as recorded capital; never invent missing cost.
+- [x] Value now is wallet UNI at each network's own quote plus the complete
+  two-token principal of open UNI LPs and their unclaimed owner fees. Stablecoin
+  inside an LP remains part of its value when UNI is swapped into that leg.
+- [x] Top P&L is exactly **Value now − Capital**. This is the owner's specified
+  current-holdings comparison, not the old LP lifetime-net-plus-wallet-gain rule.
+  Sale proceeds and prior distributions outside those tracked holdings are not
+  added. LP Book accounting/history and private agent calculations stay intact.
+- [x] Keep the record icon; show wallet value and every current LP's principal,
+  unclaimed fees and total value, followed by Value now, Capital and the same
+  top P&L. Remove the LP fees summary card to retain the requested five cards;
+  individual current LP cards still show fees and their original P&L.
+- [x] Preserve both languages/themes, read-only access, source-failure recovery,
+  all immutable financial histories and the UNI range gradient. Cache/assets
+  use **186**; shared LP card assets stay **183**.
+- [x] **130** deterministic accounting/overview checks and **73** language checks.
+- [x] **396** actual Base ABI reader assertions, including canonical UNI units,
+  both wallets, complete two-token LP values and unclaimed fees.
+- [x] **371** Chromium assertions at 320/375/1366 px, both themes/languages:
+  exact five-card order, source prices, actual held units, full LP valuation,
+  value-minus-capital P&L and matching record components; fee-claim neutrality,
+  missing wallets/costs/LP values, recovery, alignment and no horizontal overflow.
+  Inspect the desktop card screenshot (test data, not production balances).
+- [x] `npm run check` passes all **91** suites; final syntax/diff/copy checks pass.
+  No financial history JSON is changed by this implementation.
+- [ ] Commit/push and verify the deployed five-card view against fresh readings.
+
+Wallets cover Base and BNB Chain; LP units/value cover currently tracked LP Book
+positions. This does not add BNB LP discovery to global LP Book. No new
+credential, database, paid provider or wallet operation is needed.
+
 ## P&L contribution record — 20 November 2026
 
 The owner explicitly requests **push**: a small record icon on the P&L card

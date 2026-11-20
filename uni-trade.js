@@ -1,5 +1,5 @@
 import {replayUniTrades} from './uni-trade-core.mjs?v=180';
-import {uniPortfolioPerformance,uniPnlRecord} from './uni-accounting.mjs?v=184';
+import {uniTradeOverview} from './uni-accounting.mjs?v=186';
 const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trades_v2';
 let trade=null,lastFull=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false;
 const money=n=>{if(!Number.isFinite(n))return '—';const value=Math.abs(n)<.005?0:n;return (value<0?'-$':'$')+Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
@@ -17,10 +17,12 @@ function stamp(){
 }
 function render(){
  const display=trade?.complete?trade:lastFull||trade,ready=!!display?.complete||!!display?.trades?.some(t=>t.verified&&t.route==='1inch_limit'),summary=display?replayUniTrades(display.trades,display.quotes):null;
- $('uniHeld').textContent=ready?num(summary.qty):'—';$('uniWorth').textContent=ready?money(summary.value):'—';$('uniAverage').textContent=ready?unitPrice(summary.avg):'—';
  renderTotals();
  const quotes=trade?.quotes||display?.quotes||{};
- $('tradeQuotes').innerHTML=Object.entries(quotes).map(([key,q])=>'<span>'+chainName(key)+' · UNI '+esc(money(q.priceUsd))+' <small>· '+esc(when(q.ts))+' MYT</small></span>').join('')||'Reading UNI prices…';
+ const primary=quotes.base?'base':quotes.bnb?'bnb':null,quote=quotes[primary];
+ $('uniPrice').textContent=money(quote?.priceUsd);
+ $('uniPriceDetail').textContent=quote?chainName(primary)+' · '+when(quote.ts)+' MYT':'Reading UNI prices…';
+ $('tradeQuotes').innerHTML=Object.entries(quotes).filter(([key])=>key!==primary).map(([key,q])=>'<span>'+chainName(key)+' · '+esc(money(q.priceUsd))+'</span><small>'+esc(when(q.ts))+' MYT</small>').join('');
  const balances=trade?.wallets||display?.wallets||[];
  $('walletUni').textContent=balances.length?'Wallet UNI: '+num(balances.reduce((s,w)=>s+w.uni,0))+' · '+money(balances.reduce((s,w)=>s+w.valueUsd,0)):'Wallet balances are being read.';
  $('tradeHealth').textContent=failed?'Could not refresh UNI trades. Previous figures keep their original reading time.':trade&&!trade.complete?'Trade history is syncing. Complete figures will appear automatically.':trade&&Object.keys(trade.errors||{}).length?'Some live readings could not be refreshed.':summary?.cost===null?'Some trade costs still need verification.':'';
@@ -36,30 +38,34 @@ function render(){
 }
 function renderTotals(){
  const display=trade?.complete?trade:lastFull||trade,view=lp||lastLP,
-  p=uniPortfolioPerformance({lp:view?.uni,trades:display?.trades||[],flows:display?.flows||[],quotes:display?.quotes||{},wallets:display?.wallets||[],historyComplete:!!display?.historyComplete,coverage:display?.inventoryCoverage});
- $('uniPnl').textContent=money(p.pnlUsd);$('uniPnl').className='uni-trade-value '+(p.pnlUsd>.004?'up':p.pnlUsd<-.004?'down':'');
- $('uniPnlDetail').textContent='LP (incl. fees) '+money(p.lpNetUsd)+' · Holding '+money(p.holdingUnrealizedUsd);
- $('uniFees').textContent=money(p.lpFeesUsd);
- $('uniFeesDetail').textContent=Object.entries(p.lpFeeTokens).map(([symbol,amount])=>num(amount)+' '+symbol).join(' + ')||'UNI + USDC';
- renderPnlRecord(uniPnlRecord(view?.uni,p));
+  overview=uniTradeOverview({trade:display,lpView:view});
+ $('uniHeld').textContent=num(overview.heldUni);
+ $('uniHeldDetail').textContent='Wallet '+num(overview.walletUni)+' · LP '+num(overview.lpUni);
+ $('uniCapital').textContent=money(overview.capitalUsd);
+ $('uniCapitalDetail').textContent=overview.capitalComplete?'Total spent on UNI buys':'Recorded UNI buys · history syncing';
+ $('uniWorth').textContent=money(overview.valueNowUsd);
+ $('uniWorthDetail').textContent='Wallet '+money(overview.walletValueUsd)+' · LP '+money(overview.lpValueUsd);
+ $('uniPnl').textContent=money(overview.pnlUsd);$('uniPnl').className='uni-trade-value '+(overview.pnlUsd>.004?'up':overview.pnlUsd<-.004?'down':'');
+ $('uniPnlDetail').textContent=overview.capitalComplete?'Value now − Capital':'Value now − recorded capital';
+ renderPnlRecord(overview,view?.generated);
 }
-function renderPnlRecord(record){
- const value=n=>'<span class="uni-pnl-amount '+(n>.004?'up':n<-.004?'down':'')+'">'+esc(money(n))+'</span>',
-  line=(label,n,extra='')=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n)+'</div>';
- const positions=record.positions.slice().sort((a,b)=>(a.status==='closed')-(b.status==='closed')
-  ||String(b.closedAt||b.openedAt||'').localeCompare(String(a.closedAt||a.openedAt||''))).map(position=>{
-  const status=position.status==='closed'?'Closed':'Open',wallet=typeof position.owner==='string'?position.owner.slice(0,6)+'…'+position.owner.slice(-4):'',
-   date=position.status==='closed'?position.closedAt:position.openedAt,ts=date?Date.parse(date)/1000:NaN;
-  return '<section class="uni-pnl-position" data-position="'+esc(position.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(position.pair||'UNI LP')+'</strong>'+value(position.netUsd)+'</div>'
-   +'<div class="uni-trade-help"><span>'+esc(chainName(position.chain))+'</span> · <span>#'+esc(position.id)+'</span> · <span>'+status+'</span>'+(wallet?' · <span>'+esc(wallet)+'</span>':'')+'</div>'
-   +'<div class="uni-pnl-parts"><div><span>Price P&amp;L</span>'+value(position.pnlUsd)+'</div><div><span>LP fees</span>'+value(position.feesUsd)+'</div></div>'
-   +(Number.isFinite(ts)?'<div class="uni-trade-help"><span>'+(position.status==='closed'?'Closed':'Opened')+'</span> '+esc(when(ts))+' MYT</div>':'')+'</section>';
+function renderPnlRecord(record,observedAt){
+ const value=(n,profit=false)=>'<span class="uni-pnl-amount '+(profit?(n>.004?'up':n<-.004?'down':''):'')+'">'+esc(money(n))+'</span>',
+  line=(label,n,extra='',profit=false)=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n,profit)+'</div>';
+ const positions=record.currentPositions.map(position=>{
+  const wallet=typeof position.owner==='string'?position.owner.slice(0,6)+'…'+position.owner.slice(-4):'';
+  return '<section class="uni-pnl-position" data-position="'+esc(position.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(position.pair||'UNI LP')+'</strong>'+value(position.valueUsd)+'</div>'
+   +'<div class="uni-trade-help"><span>'+esc(chainName(position.chain))+'</span> · <span>#'+esc(position.id)+'</span> · <span>Open</span>'+(wallet?' · <span>'+esc(wallet)+'</span>':'')+'</div>'
+   +'<div class="uni-pnl-parts"><div><span>LP principal</span>'+value(position.principalUsd)+'</div><div><span>Unclaimed fees</span>'+value(position.unclaimedFeeUsd)+'</div></div></section>';
  }).join('');
- const observed=record.asOf?Date.parse(record.asOf)/1000:NaN;
- $('uniPnlRecordBody').innerHTML=(positions||'<p class="uni-trade-help">No UNI LP contributions recorded yet.</p>')
-  +(!record.reconciled?'<p class="uni-pnl-warning">The position breakdown is still being verified.</p>':'')
-  +'<div class="uni-pnl-totals">'+line('LP net · includes fees',record.lpNetUsd)+line('Wallet UNI · unrealised',record.holdingUnrealizedUsd)+line('Total P&amp;L',record.totalUsd,'uni-pnl-grand-total')+'</div>'
-  +'<p class="uni-trade-help">LP net includes claimed and unclaimed fees. Wallet gains exclude UNI inside LPs.</p>'
+ const observed=observedAt?Date.parse(observedAt)/1000:NaN;
+ $('uniPnlRecordBody').innerHTML='<p class="uni-trade-help">Current holdings value minus recorded UNI purchase spending.</p>'
+  +line('Wallet UNI value',record.walletValueUsd)+positions
+  +(!positions?'<p class="uni-trade-help">'+(record.lpValueUsd===0?'No open UNI LPs.':'Reading current LP values…')+'</p>':'')
+  +(record.pnlUsd===null?'<p class="uni-pnl-warning">Some holdings or purchase costs are still being verified.</p>':'')
+  +'<div class="uni-pnl-totals">'+line('Value now',record.valueNowUsd)+line('Capital',record.capitalUsd)+line('P&amp;L',record.pnlUsd,'uni-pnl-grand-total',true)+'</div>'
+  +'<p class="uni-trade-help">Value includes wallet UNI and both tokens in open UNI LPs, with unclaimed fees counted once.</p>'
+  +(!record.capitalComplete?'<p class="uni-trade-help">Capital covers recorded UNI buys; earlier history is syncing.</p>':'')
   +(Number.isFinite(observed)?'<p class="uni-trade-help"><span>LP reading</span> · '+esc(when(observed))+' MYT</p>':'');
 }
 function renderLP(){
