@@ -328,14 +328,15 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
 
 ### Katana Lending (Alex, 25 Oct 2026)
 
-- The Lending page shows only active positions (Alex, 14 Nov 2026). All three markets
+- The Lending page shows only active positions (Alex, 14 Nov 2026). All configured markets
   are hidden while confirmed inactive and return automatically if a position opens. A successful
   `no_position` reading confirms no collateral, lending or borrowing; a failed read must
   never imply inactivity. If every market is confirmed empty, show the empty-state message.
-  Keep all three markets in the reader, API and history. The actual USDC loan token is
+  Keep all configured markets in the reader, API and history. The actual USDC loan token is
   vbUSDC; keep that token identity visible. Portfolio still rolls them into one Morpho card.
 - Personal maximum LTV starts at **70% for avKAT/KAT, 35% for avKAT/USDC and 35% for
-  KAT/USDC on every page opening or reload** (Alex, 25 Oct 2026). Minimum health follows
+  KAT/USDC and vbWBTC/USDC on every page opening or reload** (25 Oct defaults;
+  BTC market added 20 Nov 2026). Minimum health follows
   from each market's LLTV. Edits apply only for the current visit, never from a previous
   browser setting. They must never change the on-chain LLTV.
   Alex chooses Edit, then changes minimum health or maximum LTV; the other field follows.
@@ -343,7 +344,8 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   draft. Live polling must not overwrite unsaved inputs. Personal maximum LTV = market
   LLTV ÷ chosen minimum health. Invalid inputs keep the last saved setting.
   Minimum health must be at least **1**, and max LTV must be positive and no higher than
-  that market's LLTV: **77% for avKAT/KAT, 62.5% for both USDC markets** (Alex, 29 Oct
+  that market's LLTV: **77% for avKAT/KAT, 62.5% for avKAT/USDC and KAT/USDC,
+  86% for vbWBTC/USDC** (Alex, 29 Oct
   2026). Exact boundary values are allowed. Reject values outside these bounds before
   rounding the linked field; keep the 70% / 35% opening defaults.
 - Edit, Save and Cancel sit beside the My max LTV % label, with no extra button row
@@ -374,14 +376,19 @@ These look legacy; ask before deleting: `dashboard.html`, `dashboard.js`, `local
   dilute it. Missing readings or zero total collateral show an unavailable percentage.
   Each market has its own 7D / 14D / All controls at the top right of its chart section,
   controlling both its charts independently from other markets (Alex, 26 Oct 2026).
+  The chart sections start **collapsed**; expand each market's **Market history**
+  independently. Refreshes preserve open/closed state and the 7D default remains
+  (20 Nov 2026). Draw charts at their measured size when opened.
   Mobile health charts have the same
   height as the value charts, with the SVG drawn at its measured size to avoid distortion.
-  Each USDC market shows an estimated KAT
+  Each KAT-backed USDC market shows an estimated KAT
   dollar price at the liquidation boundary, using Morpho's own KAT/USD feed at the pinned
   block and assuming current debt/collateral and the oracle's other inputs stay unchanged.
   A pool-price fallback must be explicitly labelled. The oracle remains the actual trigger.
   avKAT/KAT has no single KAT dollar liquidation price: collateral and debt both move
   with KAT. Show its avKAT-to-KAT oracle boundary and current ratio instead.
+  vbWBTC/USDC uses its own eight-decimal collateral, six-decimal loan, oracle
+  boundary and 86% LLTV. Never scale its liquidation price from KAT's USD feed.
 - Show collateral at the market's oracle value and label the chart's value basis so its
   debt-limit lines and health agree. Beneath the collateral and personal debt-limit
   values, show the token amounts only: omit the secondary "Market value" and
@@ -2119,3 +2126,31 @@ UNI stylesheet are **181**; unchanged translation/JS assets remain **180**.
 Browser verification covers 320/375/1366 px, both themes/languages, all range
 states, marker positions and styling scope. See `docs/UNI-TRADE.md` for checks
 and publication evidence.
+
+### 20 November 2026 — missing BTC lending market and collapsed charts
+
+The owner explicitly requests **push**: include his BTC/USDC market in Lending
+and **Oracle collateral / Borrowed / Average LTV**, and collapse every market's
+charts. Portfolio already discovers the market; Lending's separate registry
+was limited to three KAT markets.
+
+- Add canonical `btc-usdc` (`vbWBTC / USDC`), market
+  `0xcd2dc555dced7422a3144a4126286675449019366f83e9717be7c2deb3daae3e`.
+  Collateral vbWBTC has **8** decimals; vbUSDC debt has **6**; actual LLTV **86%**.
+  Read accrued debt, its own Morpho oracle and pool price at the same block.
+  Top totals include all four configured markets; Average LTV is still total
+  debt / total oracle collateral, never an arithmetic mean of percentages.
+- BTC uses a collateral-token USD oracle liquidation boundary, preserving
+  conservative raw rounding. KAT ratio and KAT/USD calculations stay separate.
+  Agent helpers recognize the extra market without changing persistent policy.
+- Native per-market **Market history** details start collapsed. Redraw after
+  opening, preserve state through polling, keep independent 7D/14D/All controls
+  and reset visit-only targets/charts on reload or a restored page visit.
+- History version stays **1**. The validator accepts original three-market and
+  current four-market observations, with explicit `market_ids` coverage for new
+  reads. Old samples are immutable; unrecorded BTC readings remain gaps. New
+  registry entries, receipt-verified first Borrow and pinned samples are additive.
+- App, Lending assets and translation assets use cache **182**; the new browser
+  import also versions `morpho-core.mjs`. Unrelated UNI assets keep their versions.
+  No wallet operations, secret, new public function or database change is needed.
+- Source/validation/release evidence and remaining checks: `docs/LENDING-BTC.md`.

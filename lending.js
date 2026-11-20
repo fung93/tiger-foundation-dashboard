@@ -1,4 +1,4 @@
-import { MARKETS, readMorpho, targetMetrics, liquidationMetrics } from './morpho-core.mjs';
+import { MARKETS, readMorpho, targetMetrics, liquidationMetrics } from './morpho-core.mjs?v=182';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -18,7 +18,7 @@ const ltvInputValue = (lltv, health) => {
 const date = (ts, full=false) => new Date(ts*1000).toLocaleString('en-GB', { timeZone:'Asia/Kuala_Lumpur', day:'numeric', month:'short', ...(full ? { year:'numeric' } : {}), hour:'2-digit', minute:'2-digit', hour12:false });
 const time = ts => new Date(ts*1000).toLocaleTimeString('en-GB', { timeZone:'Asia/Kuala_Lumpur', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
 const CACHE = 'tf_morpho_full_v1';
-const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
+const DEFAULT_MAX_LTV = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35, 'btc-usdc': .35 };
 // Fixed restart requested by Alex; the chart grows forward rather than resetting each day.
 const CHART_STARTS = { 'kat-usdc': Date.parse('2026-10-30T00:00:00+08:00')/1000 };
 const HOLD = 5*60, POLL = 15000;
@@ -35,7 +35,7 @@ resetTargets();
 function tokenAmount(value, token, direction='normal') {
   if (!Number.isFinite(value)) return '—';
   // Room rounds down; a repayment rounds up. Never round a small positive repayment to zero.
-  const dp = token === 'KAT' ? 2 : 6, scale = 10 ** dp;
+  const dp = token === 'vbWBTC' ? 8 : token === 'KAT' ? 2 : 6, scale = 10 ** dp;
   const n = direction === 'borrow' ? Math.floor(value * scale + 1e-9) / scale : direction === 'repay' ? Math.ceil(value * scale - 1e-9) / scale : value;
   return number(n, dp) + ' ' + token;
 }
@@ -47,10 +47,11 @@ function shell(m) {
     <div class="target-box"><div class="target-fields"><div class="target-field"><label for="${m.key}-target">My minimum health</label><input type="number" id="${m.key}-target" data-target="${m.id}" min="1" step="any" inputmode="decimal" value="${targets[m.id]}" aria-describedby="${m.key}-help" readonly></div><div class="target-field"><div class="target-label-row"><label for="${m.key}-ltv">My max LTV %</label><div class="target-actions"><button type="button" class="target-edit" data-edit="${m.id}" aria-label="Edit ${esc(m.label)} limit">Edit</button><button type="button" class="target-save" data-save="${m.id}" aria-label="Save ${esc(m.label)} limit" hidden>Save</button><button type="button" class="target-cancel" data-cancel="${m.id}" aria-label="Cancel ${esc(m.label)} edit" title="Cancel" hidden>&times;</button></div></div><input type="number" id="${m.key}-ltv" data-ltv="${m.id}" min="0" max="${m.lltv*100}" step="any" inputmode="decimal" value="${ltvInputValue(m.lltv,targets[m.id])}" aria-describedby="${m.key}-help" readonly></div></div><span class="target-help" id="${m.key}-help" role="status">Saved target · choose Edit to change</span></div></div>
     <div class="market-figures"><div><div class="metric-label">Collateral · oracle</div><div class="metric-value col-value">—</div><div class="metric-sub col-sub">Reading collateral…</div></div><div><div class="metric-label">My debt limit</div><div class="metric-value limit-value">—</div><div class="metric-sub limit-sub">At my chosen health</div></div><div><div class="metric-label debt-label"><span>Borrowed</span><span class="current-ltv">LTV —</span></div><div class="metric-value debt-value">—</div><div class="metric-sub debt-sub">Reading debt…</div></div><div><div class="metric-label action-label">Borrow or repay</div><div class="metric-value room-value">—</div><div class="metric-sub action-sub">Waiting for a complete reading</div></div></div>
     <div class="liquidation-box"><div><div class="metric-label liquidation-label">KAT liquidation price</div><div class="liquidation-value">—</div><div class="liquidation-current"></div></div><div class="liquidation-explanation">Reading Morpho’s liquidation boundary…</div></div>
-    <div class="market-chart-bar"><div class="metric-label">Market history</div><div class="ranges" role="group" aria-label="${esc(m.label)} chart period"><button type="button" data-days="7" class="on" aria-pressed="true">7D</button><button type="button" data-days="14" aria-pressed="false">14D</button><button type="button" data-days="0" aria-pressed="false">All</button></div></div>
+    <details class="market-history"><summary class="metric-label">Market history</summary>
+    <div class="market-chart-bar"><div class="ranges" role="group" aria-label="${esc(m.label)} chart period"><button type="button" data-days="7" class="on" aria-pressed="true">7D</button><button type="button" data-days="14" aria-pressed="false">14D</button><button type="button" data-days="0" aria-pressed="false">All</button></div></div>
     <div class="market-graphs"><section class="plot-block"><div class="plot-heading"><span>Collateral &amp; borrowing</span><span>USD · oracle value</span></div><div class="plot value-plot" tabindex="0" role="img" aria-label="${esc(m.label)} collateral, debt and borrowing limits over time"></div><div class="plot-legend"><span><i style="border-color:var(--text)"></i>Collateral · oracle</span><span><i style="border-color:var(--chart-debt)"></i>Borrowed</span><span><i style="border-color:var(--gold)"></i>My saved limit</span><span><i class="dash" style="border-color:var(--chart-boundary)"></i>Liquidation boundary · 1</span></div></section>
     <section class="plot-block"><div class="plot-heading"><span>Health</span><span class="health-now">—</span></div><div class="plot health-plot" tabindex="0" role="img" aria-label="${esc(m.label)} health over time, saved target and liquidation boundary"></div><div class="plot-legend"><span><i style="border-color:var(--text)"></i>Actual health</span><span><i class="dash" style="border-color:var(--gold)"></i>My saved target</span><span><i class="dash" style="border-color:var(--chart-boundary)"></i>Liquidation boundary · 1</span></div></section></div>
-    <div class="market-foot"><span class="liquidation-note">Health 1 is the liquidation boundary</span><a href="https://app.morpho.org/katana/market/${m.id}" target="_blank" rel="noopener noreferrer">Market on Morpho ↗</a></div>`;
+    </details><div class="market-foot"><span class="liquidation-note">Health 1 is the liquidation boundary</span><a href="https://app.morpho.org/katana/market/${m.id}" target="_blank" rel="noopener noreferrer">Market on Morpho ↗</a></div>`;
   $('markets').append(article);
 }
 MARKETS.forEach(shell);
@@ -59,8 +60,8 @@ function targetMessage(m,text,error=false){$(m.key).querySelector('.target-box')
 
 function renderLiquidation(el,row,expired,stale) {
   const metric=liquidationMetrics(row),label=el.querySelector('.liquidation-label'),value=el.querySelector('.liquidation-value'),current=el.querySelector('.liquidation-current'),explain=el.querySelector('.liquidation-explanation');
-  label.textContent=metric.kind==='kat-ratio'?'avKAT / KAT liquidation boundary':'Est. KAT liquidation price';
-  el.dataset.liquidationPrice=String(metric.estimated_kat_liquidation_usd);
+  label.textContent=metric.kind==='collateral-usd'?'vbWBTC liquidation price':metric.kind==='kat-ratio'?'avKAT / KAT liquidation boundary':'Est. KAT liquidation price';
+  el.dataset.liquidationPrice=String(metric.estimated_collateral_liquidation_usd??metric.estimated_kat_liquidation_usd);
   el.dataset.liquidationRatio=String(metric.oracle_liquidation_price);
   value.classList.remove('ratio-message');
   if(expired){value.textContent='—';current.textContent='Reading over 5 minutes old';explain.textContent='Waiting for a fresh market reading before showing the liquidation estimate.';return;}
@@ -71,6 +72,10 @@ function renderLiquidation(el,row,expired,stale) {
     value.textContent='No single KAT dollar price';value.classList.add('ratio-message');
     current.textContent=`Boundary: 1 avKAT = ${number(metric.oracle_liquidation_price,6)} KAT · now ${number(metric.oracle_current_price,6)} KAT`;
     explain.textContent='Both collateral and debt are in KAT, so KAT’s dollar price cancels out. Liquidation becomes possible below this avKAT-to-KAT oracle ratio. Interest can still reduce health.';
+  } else if(metric.kind==='collateral-usd'&&Number.isFinite(metric.estimated_collateral_liquidation_usd)) {
+    value.textContent=money(metric.estimated_collateral_liquidation_usd);
+    current.textContent='Morpho vbWBTC price at reading '+money(metric.collateral_price_usd)+' · '+(metric.liquidatable?'already below the liquidation boundary':`${number(metric.collateral_drop_pct,2)}% below that price`);
+    explain.textContent='Based on this market’s vbWBTC/USDC oracle. Assumes current debt, collateral and the loan token’s dollar value stay unchanged. Interest can move the boundary.';
   } else if(Number.isFinite(metric.estimated_kat_liquidation_usd)) {
     value.textContent=price(metric.estimated_kat_liquidation_usd);
     current.textContent=`${metric.kat_price_basis==='oracle'?'Morpho KAT price':'KAT market price'} at reading ${price(metric.kat_price_usd)} · `+(metric.liquidatable?'already below the liquidation boundary':`${number(metric.kat_drop_pct,2)}% below that price`);
@@ -137,6 +142,9 @@ $('markets').addEventListener('click',e=>{
   card.querySelectorAll('[data-days]').forEach(b=>{b.classList.toggle('on',b===button);b.setAttribute('aria-pressed',String(b===button));});
   render();
 });
+$('markets').addEventListener('toggle',e=>{
+  if(e.target.matches('details.market-history')&&e.target.open)requestAnimationFrame(render);
+},true);
 
 function adopt(sample, isLive) {
   if (!sample || !Array.isArray(sample.markets) || !Number.isFinite(sample.ts) || !Number.isFinite(sample.block)) throw new Error('Incomplete market reading');
@@ -154,7 +162,7 @@ function adopt(sample, isLive) {
   } else if(isLive) errors.push('avKAT price could not be read.'+(avkatQuote?' Keeping its previous price and reading time.':''));
   for (const m of MARKETS) {
     const row = sample.markets.find(r => r.id === m.id), prev = records.get(m.id);
-    if (!row || row.error) { errors.push(m.label+' could not be read.'); if (prev) prev.stale = true; continue; }
+    if (!row || row.error) { errors.push(m.label+' could not be read.'); if (prev) { prev.stale = true; prev.unread = true; } continue; }
     if (!prev || sample.ts >= prev.ts) records.set(m.id, { ...m, ...row, ts:sample.ts, block:sample.block, stale:!isLive });
     if (row.valuation_error) errors.push(m.label+': market USD price is unavailable.');
   }
@@ -181,7 +189,7 @@ function seriesFor(id) {
 }
 
 function marketIsInactive(row) {
-  return !!row && !row.error && row.no_position===true;
+  return !!row && !row.error && !row.unread && row.no_position===true;
 }
 function marketIsHidden(m,row) {
   return marketIsInactive(row);
@@ -190,7 +198,7 @@ function lendingOverview(rows) {
   let collateral=0,debt=0;
   const unknown={oracle_collateral_usd:null,debt_usd:null,average_ltv:null};
   for(const row of rows){
-    if(!row || row.error)return unknown;
+    if(!row || row.error || row.unread)return unknown;
     if(marketIsInactive(row))continue;
     if(!Number.isFinite(row.oracle_collateral_usd)||row.oracle_collateral_usd<0||!Number.isFinite(row.debt_usd)||row.debt_usd<0)return unknown;
     collateral+=row.oracle_collateral_usd;debt+=row.debt_usd;
@@ -211,7 +219,7 @@ function render() {
     const find=s=>el.querySelector(s), inactive=marketIsInactive(row);
     el.hidden=marketIsHidden(m,row);el.classList.toggle('inactive',inactive);el.dataset.inactive=String(inactive);
     const points=seriesFor(m.id);
-    if(!el.hidden){draw(find('.value-plot'),points,target,false);draw(find('.health-plot'),points,target,true);}
+    if(!el.hidden&&find('.market-history').open){draw(find('.value-plot'),points,target,false);draw(find('.health-plot'),points,target,true);}
     if(!row)continue;
     const metric=targetMetrics(row,target), expired=Date.now()/1000-row.ts>HOLD, stale=row.stale || expired;
     el.dataset.health=String(row.health); el.dataset.target=String(target); el.dataset.debt=String(row.debt_amount);
@@ -324,6 +332,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh()
 window.addEventListener('pageshow',e=>{
   if(!e.persisted)return;
   resetTargets();
+  document.querySelectorAll('.market-history').forEach(details=>{details.open=false;});
   for(const m of MARKETS)finishEditing(m,'Opening defaults restored · choose Edit to change');
   render();
 });

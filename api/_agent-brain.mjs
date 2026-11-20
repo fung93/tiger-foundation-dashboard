@@ -50,7 +50,7 @@ function modelContext(context) {
       ...fields(row, ['id', 'key', 'label', 'status', 'ts', 'error', 'health', 'ltv', 'lltv', 'no_position', 'loan_token',
         'debt_amount', 'debt_usd', 'collateral_amount', 'oracle_collateral_usd', 'kat_price_usd', 'collateral_price_usd']),
       target_metrics: fields(row.target_metrics, ['status', 'target_health', 'target_ltv', 'borrow_amount', 'borrow_usd', 'repay_amount', 'repay_usd']),
-      liquidation_metrics: fields(row.liquidation_metrics, ['status', 'kind', 'estimated_kat_liquidation_usd', 'oracle_liquidation_price', 'oracle_current_price', 'kat_price_basis']),
+      liquidation_metrics: fields(row.liquidation_metrics, ['status', 'kind', 'estimated_kat_liquidation_usd', 'estimated_collateral_liquidation_usd', 'collateral_token', 'oracle_liquidation_price', 'oracle_current_price', 'kat_price_basis']),
     })) } : null,
     lp: context?.lp ? { ...fields(context.lp, ['status', 'ts', 'cards', 'comparison', 'closed_cards']),
       positions: (context.lp.positions || []).slice(0, 8).map(row => ({ ...fields(row, ['id', 'chain', 'pair', 'in_range', 'value_now', 'cost', 'pnl', 'net', 'yield_label', 'yield_value', 'apr']),

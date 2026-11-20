@@ -55,6 +55,16 @@ try {
   await dispatchPortfolioReview({ env, store, now: () => now });
   check(queries <= 50, true, 'A risk-delivery resume plus dispatch stays bounded (' + queries + ')');
   check((await store.get('alerts')).map(item => item.id), ids, 'A resume never invents duplicate dashboard alerts');
+  // Four lending alarms plus the daily brief need more than two bounded ticks.
+  // Keep the production delivery budget; prove the remainder resumes safely.
+  for(let retry=0;await store.get('monitor:pending')&&retry<3;retry++){
+    now+=300000;queries=0;res=response();
+    await handler({method:'POST',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);
+    await dispatchPortfolioReview({env,store,now:()=>now});
+    check(res.code,200,'Additional markets resume through bounded later risk ticks');
+    check(queries<=50,true,'Additional risk-delivery resumes retain the Free D1 ceiling');
+    check((await store.get('alerts')).map(item=>item.id),ids,'Resuming more notices never duplicates existing alerts');
+  }
   check(await store.get('monitor:pending'), null, 'All acknowledged risk notices eventually clear the outbox');
   check(sent.length, ids.length, 'Every generated risk/daily notice is delivered once in this fixture');
   check((await store.get('monitor:lastSuccess')).ts, new Date(now).toISOString(), 'Monitor success belongs to real risk work, not AI completion');

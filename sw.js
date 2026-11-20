@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v181';  /* Current UNI LP range lines: UNI pink to USDC blue */
+var CACHE_VERSION = 'tiger-v182';  /* BTC lending market, complete lending totals and collapsed charts */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -41,9 +41,9 @@ var SHELL_ASSETS = [
   '/index.html',
   '/manifest.webmanifest',
   '/theme.js',
-  '/i18n-zh.js?v=180',
-  '/i18n.js?v=180',
-  '/i18n.css?v=180',
+  '/i18n-zh.js?v=182',
+  '/i18n.js?v=182',
+  '/i18n.css?v=182',
   '/rpc-reader.js',
   '/theme.css',
   '/icons/cute-tiger.svg',
@@ -61,8 +61,8 @@ var SHELL_ASSETS = [
   '/lpbook.js',
   /* Katana Morpho positions, personal limits and historical charts */
   '/lending.html',
-  '/lending.css',
-  '/lending.js',
+  '/lending.css?v=182',
+  '/lending.js?v=182',
   /* the Strategy page: KAT emissions and the per-pool estimate */
   '/strategy.html',
   '/strategy.css',
@@ -91,6 +91,7 @@ var SHELL_ASSETS = [
   '/vkat.js',
   '/vkat-core.mjs',
   '/morpho-core.mjs',
+  '/morpho-core.mjs?v=182',
   '/icons/lp-192.png',
   '/icons/lp-512.png',
   '/icons/lp-maskable-512.png',

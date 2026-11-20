@@ -16,11 +16,16 @@ export function validateMorphoHistory(history) {
   const positiveInteger = n => Number.isSafeInteger(n) && n > 0;
   const finiteAmount = n => Number.isFinite(n) && n >= 0;
   const marketDefs = new Map(MARKETS.map(m => [m.id, m]));
+  // The original three-market samples remain immutable when BTC is added.
+  // Accept exactly that legacy registry or the complete current registry;
+  // arbitrary missing markets and duplicate IDs still fail validation.
+  const registries = [MARKETS, MARKETS.filter(m => m.key !== 'btc-usdc')];
+  const marketSet = rows => Array.isArray(rows) && new Set(rows.map(m => m?.id)).size === rows.length
+    && registries.some(definitions => rows.length === definitions.length && definitions.every(m => rows.some(row => row?.id === m.id)));
   if (!history || typeof history !== 'object' || Array.isArray(history)) fail('expected an object');
   if (history.version !== 1) fail('unsupported version');
   if (history.chain !== 747474 || history.wallet !== WALLET) fail('chain or wallet mismatch');
-  if (!Array.isArray(history.markets) || history.markets.length !== MARKETS.length
-    || new Set(history.markets.map(m => m?.id)).size !== MARKETS.length
+  if (!marketSet(history.markets)
     || history.markets.some(m => !m || marketDefs.get(m.id)?.key !== m.key)) fail('market definitions do not match');
   if (history.interval_seconds !== 21600) fail('unsupported observation interval');
   if (!Array.isArray(history.samples)) fail('samples must be an array');
@@ -32,12 +37,15 @@ export function validateMorphoHistory(history) {
     if(sample.interval_seconds!==undefined&&![21600,86400].includes(sample.interval_seconds))fail('unsupported sample interval');
     if (!positiveInteger(sample.block) || !positiveInteger(sample.ts) || sample.ts < previousTs || blocks.has(sample.block)) fail('invalid, unordered or duplicate sample block/time');
     blocks.add(sample.block); previousTs = sample.ts;
-    if (!Array.isArray(sample.markets) || sample.markets.length !== MARKETS.length
-      || new Set(sample.markets.map(m => m?.id)).size !== MARKETS.length) fail('sample markets must contain each tracked market once');
+    if (!marketSet(sample.markets)) fail('sample markets must contain each tracked market once');
+    if (sample.market_ids !== undefined && (!Array.isArray(sample.market_ids)
+      || !marketSet(sample.market_ids.map(id => ({ id }))) || sample.market_ids.length !== sample.markets.length
+      || sample.market_ids.some(id => !sample.markets.some(m => m.id === id)))) fail('sample market coverage does not match its readings');
     for (const market of sample.markets) {
       const definition = marketDefs.get(market?.id);
       if (!definition || market.key !== definition.key || market.collateral_token !== definition.collateral_token
-        || market.loan_token !== definition.loan_token || market.ts !== sample.ts || market.block !== sample.block) fail('sample market identity or timestamp mismatch');
+        || market.loan_token !== definition.loan_token || market.collateral_decimals !== definition.collateral_decimals
+        || market.loan_decimals !== definition.loan_decimals || market.ts !== sample.ts || market.block !== sample.block) fail('sample market identity or timestamp mismatch');
       if (market.error) { if (typeof market.error !== 'string') fail('market error must be text'); continue; }
       for (const field of ['collateral_amount', 'debt_amount', 'liquidity_amount', 'liquidation_debt_amount']) if (!finiteAmount(market[field])) fail('invalid ' + field);
       if (!finiteAmount(market.lltv) || market.lltv >= 1) fail('invalid LLTV');
@@ -51,8 +59,7 @@ export function validateMorphoHistory(history) {
     }
   }
   if(history.borrow_starts!==undefined){
-    if(!Array.isArray(history.borrow_starts)||history.borrow_starts.length!==MARKETS.length
-      ||new Set(history.borrow_starts.map(s=>s?.id)).size!==MARKETS.length)fail('borrow starts must identify each market once');
+    if(!marketSet(history.borrow_starts))fail('borrow starts must identify each market once');
     for(const start of history.borrow_starts){
       if(!start||marketDefs.get(start.id)?.key!==start.key||!positiveInteger(start.block)||!positiveInteger(start.ts)
         ||typeof start.tx_hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(start.tx_hash))fail('invalid borrow start');
@@ -124,7 +131,7 @@ export async function updateMorphoHistory(root, options = {}) {
     writeFileSync(path, JSON.stringify(history, null, 2) + '\n');
     added++;
     if (!sample.full) partial++;
-    console.log('Morpho ' + sample.generated_at + ' #' + block + ': ' + (sample.full ? '3 markets read' : 'partial ' + JSON.stringify(sample.errors)));
+    console.log('Morpho ' + sample.generated_at + ' #' + block + ': ' + (sample.full ? MARKETS.length + ' markets read' : 'partial ' + JSON.stringify(sample.errors)));
   }
   if (history?.bootstrap && !history.bootstrap.complete) {
     history.bootstrap.complete = history.bootstrap.blocks.every(b => history.samples.some(s => s.block === b));

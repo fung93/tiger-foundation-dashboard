@@ -16,11 +16,14 @@ const KAT_USD_FEED = '0xc62782910529ee50efda9a0273b20d8bd1c1e4b2';
 const AVKAT = '0x7231dbacdfc968e07656d12389ab20de82fbfceb';
 const KAT = '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d';
 const USDC = '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36';
+const WBTC = '0x0913da6da4b42f538b445599b46bb4622342cf52';
+const BTC_POOL = '0x744676b3ced942d78f9b8e9cd22246db5c32395c';
 const WAD = 10n ** 18n, ORACLE_SCALE = 10n ** 36n, VIRTUAL_SHARES = 1000000n;
 export const MARKETS = [
   { key: 'avkat-kat', id: '0x80e60fe453223b0f84a567724f88190bef708420d24397157067d424429783e9', label: 'avKAT / KAT', collateral_token: 'avKAT', loan_token: 'KAT', collateral_decimals: 18, loan_decimals: 18, lltv: .77 },
   { key: 'avkat-usdc', id: '0xbd48214a2f12e951da20ad0b8fd83b611c693b5bbaa280b68ba4075678f2a138', label: 'avKAT / USDC', collateral_token: 'avKAT', loan_token: 'vbUSDC', collateral_decimals: 18, loan_decimals: 6, lltv: .625 },
   { key: 'kat-usdc', id: '0x913c787d438ca1dab5f5485c2d2d6e2aa2dfee47a5f02edd11331ad25b219dcf', label: 'KAT / USDC', collateral_token: 'KAT', loan_token: 'vbUSDC', collateral_decimals: 18, loan_decimals: 6, lltv: .625 },
+  { key: 'btc-usdc', id: '0xcd2dc555dced7422a3144a4126286675449019366f83e9717be7c2deb3daae3e', label: 'vbWBTC / USDC', collateral_token: 'vbWBTC', loan_token: 'vbUSDC', collateral_decimals: 8, loan_decimals: 6, lltv: .86 },
 ];
 const pad = value => String(value).replace(/^0x/, '').padStart(64, '0');
 const word = (hex, i) => hex.slice(2 + i * 64, 66 + i * 64);
@@ -83,6 +86,7 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
     ]),
     { to: KAT_USD_FEED, data: '0x313ce567' },
     { to: KAT_USD_FEED, data: '0xfeaf968c' }, // latestRoundData()
+    { to: BTC_POOL, data: '0x3850c7bd' },
   ];
   const first = await callMany(calls, pinned, rpcOptions);
   const positive = n => Number.isFinite(n) && n > 0 ? n : null;
@@ -90,6 +94,9 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
   const avkatRate = first[1]?.ok ? positive(units(big(first[1].data, 0), 18)) : null;
   let katOracleUsd = null, katOracleUpdatedAt = null;
   const feedAt = 2 + MARKETS.length * 2;
+  const btcQuote = first[feedAt + 2];
+  const btcSqrt = btcQuote?.ok && btcQuote.data.length >= 66 ? Number(big(btcQuote.data, 0)) / 2 ** 96 : null;
+  const btcUsd = btcSqrt > 0 ? positive(btcSqrt * btcSqrt * 100) : null;
   try {
     if (first[feedAt]?.ok && first[feedAt + 1]?.ok) {
       const decimals = Number(big(first[feedAt].data, 0));
@@ -111,7 +118,8 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
     const lltvRaw = big(params.data, 4);
     if (!lltvRaw) return { m, collateral, shares, supplyShares, created: false };
     const loan = address(params.data, 0), col = address(params.data, 1);
-    if (loan !== (m.loan_token === 'KAT' ? KAT : USDC) || col !== (m.collateral_token === 'avKAT' ? AVKAT : KAT)) {
+    const expectedCollateral = { avKAT: AVKAT, KAT, vbWBTC: WBTC }[m.collateral_token];
+    if (loan !== (m.loan_token === 'KAT' ? KAT : USDC) || col !== expectedCollateral) {
       return { m, error: 'Market token addresses do not match this lending page' };
     }
     return { m, collateral, shares, supplyShares, params: params.data.slice(2, 322), oracle: address(params.data, 2), lltvRaw, created: true };
@@ -125,7 +133,7 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
   ]), pinned, rpcOptions);
   active.forEach((p, i) => { p.accrue = second[i * 3]; p.market = second[i * 3 + 1]; p.price = second[i * 3 + 2]; });
   const markets = plans.map(p => {
-    const common = { ...p.m, ts, block: blockNumber, kat_price_usd: katUsd,
+    const common = { ...p.m, ts, block: blockNumber, kat_price_usd: katUsd, btc_price_usd: btcUsd,
       kat_oracle_price_usd: katOracleUsd, kat_oracle_updated_at: katOracleUpdatedAt,
       ...(katOracleUsd === null ? { liquidation_price_warning: 'KAT/USD oracle feed unavailable; the conditional price estimate uses the market pool quote' } : {}) };
     if (p.error) return { ...common, error: p.error };
@@ -140,7 +148,7 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
     const liqRaw = oracleColRaw * p.lltvRaw / WAD;
     const liquidityRaw = max(0n, tSA - tBA);
     const loanUsd = p.m.loan_token === 'KAT' ? katUsd : 1;
-    const colUsd = p.m.collateral_token === 'KAT' ? katUsd : katUsd && avkatRate ? katUsd * avkatRate : null;
+    const colUsd = p.m.collateral_token === 'vbWBTC' ? btcUsd : p.m.collateral_token === 'KAT' ? katUsd : katUsd && avkatRate ? katUsd * avkatRate : null;
     const collateralAmount = units(p.collateral, p.m.collateral_decimals), debtAmount = units(debtRaw, p.m.loan_decimals);
     return { ...common, active: p.collateral > 0n || p.shares > 0n || p.supplyShares > 0n,
       no_position: p.collateral === 0n && p.shares === 0n && p.supplyShares === 0n,
@@ -162,7 +170,7 @@ export async function readMorpho({ block = 'latest', wallet = WALLET, ...rpcOpti
   });
   const errors = Object.fromEntries(markets.filter(m => m.error || m.valuation_error).map(m => [m.key, m.error || m.valuation_error]));
   return { version: 1, chain: 747474, wallet, ts, block: blockNumber, generated_at: new Date(ts * 1000).toISOString(),
-    full: Object.keys(errors).length === 0, errors, markets };
+    full: Object.keys(errors).length === 0, errors, market_ids: MARKETS.map(m => m.id), markets };
 }
 
 function targetWad(target) {
@@ -225,16 +233,17 @@ export function targetMetrics(row, target = 2) {
    balances, avKAT conversion, loan value and other oracle inputs stay fixed. */
 export function liquidationMetrics(row) {
   const positive = value => Number.isFinite(value) && value > 0 ? value : null;
-  const kind = row?.loan_token === 'KAT' && row?.collateral_token === 'avKAT' ? 'kat-ratio' : 'kat-usd';
+  const kind = row?.collateral_token === 'vbWBTC' && row?.loan_token === 'vbUSDC' ? 'collateral-usd'
+    : row?.loan_token === 'KAT' && row?.collateral_token === 'avKAT' ? 'kat-ratio' : 'kat-usd';
   const katOracleUsd = positive(row?.kat_oracle_price_usd);
   const katPoolUsd = positive(row?.kat_price_usd)
     ?? (row?.loan_token === 'KAT' ? positive(row.loan_usd)
       : row?.collateral_token === 'KAT' ? positive(row.collateral_price_usd)
         : row?.collateral_token === 'avKAT' && positive(row.avkat_rate)
           ? positive(row.collateral_price_usd / row.avkat_rate) : null);
-  const katUsd = katOracleUsd ?? katPoolUsd;
+  const katUsd = kind === 'collateral-usd' ? null : katOracleUsd ?? katPoolUsd;
   const base = { status: 'unavailable', kind, kat_price_usd: katUsd,
-    kat_price_basis: katOracleUsd !== null ? 'oracle' : katPoolUsd !== null ? 'pool' : null,
+    kat_price_basis: kind === 'collateral-usd' ? null : katOracleUsd !== null ? 'oracle' : katPoolUsd !== null ? 'pool' : null,
     estimated_kat_liquidation_usd: null, kat_drop_pct: null,
     oracle_liquidation_price: null, oracle_current_price: null,
     ratio_headroom_pct: null, oracle_liquidation_raw: null, liquidatable: null };
@@ -263,7 +272,11 @@ export function liquidationMetrics(row) {
     oracle_current_price: currentPrice, oracle_liquidation_raw: String(critical),
     liquidatable: price < critical, ratio_headroom_pct: headroomPct,
     estimated_kat_liquidation_usd: kind === 'kat-usd' && katUsd !== null ? katUsd * factor : null,
-    kat_drop_pct: kind === 'kat-usd' && katUsd !== null ? headroomPct : null };
+    kat_drop_pct: kind === 'kat-usd' && katUsd !== null ? headroomPct : null,
+    ...(kind === 'collateral-usd' ? { collateral_token: row.collateral_token,
+      collateral_price_usd: positive(row.loan_usd) !== null ? currentPrice * row.loan_usd : null,
+      estimated_collateral_liquidation_usd: positive(row.loan_usd) !== null ? criticalPrice * row.loan_usd : null,
+      collateral_price_basis: 'oracle', collateral_drop_pct: headroomPct } : {}) };
 }
 
 export function mergeHistory(history, sample) {
@@ -272,5 +285,5 @@ export function mergeHistory(history, sample) {
   // Existing pinned samples are immutable, including a recorded gap. A live read
   // never revalues an earlier point or overwrites a partial historical answer.
   if (base.samples.some(s => s.block === sample.block)) return base;
-  return { ...base, generated_at: new Date().toISOString(), samples: [...base.samples, sample].sort((a, b) => a.ts - b.ts) };
+  return { ...base, markets: MARKETS, generated_at: new Date().toISOString(), samples: [...base.samples, sample].sort((a, b) => a.ts - b.ts) };
 }

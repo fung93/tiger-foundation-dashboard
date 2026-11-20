@@ -13,7 +13,7 @@ const iso = value => {
 };
 const clockValue = now => typeof now === 'function' ? now() : now;
 const freshAt = (ts, now) => ts && now - Date.parse(ts) >= -30000 && now - Date.parse(ts) <= 90000;
-const defaults = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35 };
+const defaults = { 'avkat-kat': .70, 'avkat-usdc': .35, 'kat-usdc': .35, 'btc-usdc': .35 };
 export const AGENT_OPTIONAL_CONTEXT_SCHEMA = 'agent-optional-context-v1';
 const optionalPaths = Object.freeze({ strategy: '/api/strategy', kat: '/api/kat-trades', vkat: '/api/vkat' });
 const record = value => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -279,7 +279,7 @@ function lendingView(sample, now) {
     if (!source || source.error) return { ...m, status: 'unavailable', ts, error: 'This market could not be read.', health: null, ltv: null, debt_amount: null };
     const fields = ['collateral_amount', 'debt_amount', 'collateral_usd', 'debt_usd', 'oracle_collateral_usd',
       'liquidation_debt_amount', 'liquidation_usd', 'health', 'ltv', 'oracle_price', 'loan_usd', 'collateral_price_usd',
-      'avkat_rate', 'kat_price_usd', 'kat_oracle_price_usd', 'kat_oracle_updated_at', 'liquidity_amount', 'lltv'];
+      'avkat_rate', 'kat_price_usd', 'btc_price_usd', 'kat_oracle_price_usd', 'kat_oracle_updated_at', 'liquidity_amount', 'lltv'];
     const row = { ...m, ...Object.fromEntries(fields.map(key => [key, numeric(source[key])])), ts,
       block: Number.isSafeInteger(source.block ?? sample.block) ? (source.block ?? sample.block) : null,
       interest_accrued: source.interest_accrued === true,

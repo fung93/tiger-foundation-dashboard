@@ -22,6 +22,8 @@ const unknown={oracle_collateral_usd:null,debt_usd:null,average_ltv:null};
 const avkatUsdc=MARKETS.find(m=>m.key==='avkat-usdc');
 const katUsdc=MARKETS.find(m=>m.key==='kat-usdc');
 const avkatKat=MARKETS.find(m=>m.key==='avkat-kat');
+const btcUsdc=MARKETS.find(m=>m.key==='btc-usdc');
+check(!!btcUsdc,true,'The configured market list includes the owner’s BTC/USDC market');
 
 for(const row of [undefined,null,{},
   {collateral_amount:0,debt_amount:0},
@@ -39,6 +41,9 @@ check(view.marketIsHidden(avkatKat,closed),true,'Every confirmed inactive lendin
 check(view.marketIsHidden(avkatUsdc,active(100,50)),false,'A new avKAT/USDC position restores its visibility');
 check(view.marketIsHidden(avkatUsdc,{...closed,error:'Unreadable'}),false,'An unreadable market cannot be mistaken for a closed market');
 check(view.marketIsHidden(avkatUsdc,undefined),false,'A market without any reading is not silently removed');
+check(view.marketIsHidden(btcUsdc,{...closed,unread:true}),false,'A failed BTC refresh cannot hide a potentially reopened market');
+check(overview([active(1000,500),active(200,150)]),{oracle_collateral_usd:1200,debt_usd:650,average_ltv:650/1200},'The BTC loan contributes to collateral, debt and weighted average LTV');
+check(overview([active(1000,500),active(200,150,{unread:true})]),unknown,'An expired unread BTC loan cannot be silently omitted or reused as current in the overview');
 for(const market of MARKETS){
   check(view.marketIsHidden(market,active(100,50)),false,'A verified reopened position restores '+market.label);
   check(view.marketIsHidden(market,{...closed,error:'Unreadable'}),false,'A failed reading cannot hide '+market.label);

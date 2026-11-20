@@ -147,6 +147,7 @@ function riskRow(row, context, now) {
       kind: liquidation.kind, oracleCurrentPrice: liquidation.oracle_current_price,
       oracleLiquidationPrice: liquidation.oracle_liquidation_price, oracleMoveToBoundaryPct: liquidation.ratio_headroom_pct,
       conditionalKatUsdBoundary: liquidation.kind === 'kat-ratio' ? null : liquidation.estimated_kat_liquidation_usd,
+      collateralUsdBoundary: liquidation.estimated_collateral_liquidation_usd ?? null,
       katPriceBasis: liquidation.kat_price_basis, katQuoteObservedAt: liquidation.kat_price_basis === 'oracle' ? row.kat_oracle_updated_at ?? null : row.ts,
       isForecast: false, assumptions: 'Debt, collateral amounts and all other oracle inputs remain fixed. Exactly health 1 is the boundary; liquidation is permitted below it.' } };
 }
@@ -390,7 +391,9 @@ export function renderAgentToolResult(output) {
         lines.push(row.market + ': health ' + agentNumber(row.health) + ', LTV ' + agentNumber(row.ltv * 100, 2) + '%, with ' + (debt >= 0.000001 ? agentNumber(debt) : exactDebt) + ' ' + row.loanToken + ' borrowed.');
         if (row.liquidatable) lines.push('This loan is below its liquidation boundary at this reading. The exact on-chain calculation takes priority over the rounded health number.');
         if (row.sensitivity?.kind === 'kat-ratio' && Number.isFinite(row.sensitivity.oracleLiquidationPrice)) lines.push('With your balances unchanged, the liquidation boundary is an avKAT/KAT oracle ratio of ' + agentNumber(row.sensitivity.oracleLiquidationPrice, 6) + '. This is not a KAT dollar-price forecast.');
-        else if (Number.isFinite(row.sensitivity?.conditionalKatUsdBoundary)) {
+        else if (row.sensitivity?.kind === 'collateral-usd' && Number.isFinite(row.sensitivity.collateralUsdBoundary)) {
+          lines.push('With your balances and loan token value unchanged, the ' + row.collateralToken + ' oracle liquidation price is ' + agentPrice(row.sensitivity.collateralUsdBoundary) + '.');
+        } else if (Number.isFinite(row.sensitivity?.conditionalKatUsdBoundary)) {
           lines.push('With your balances and other oracle inputs unchanged, the estimated KAT price at liquidation is ' + agentPrice(row.sensitivity.conditionalKatUsdBoundary) + '.');
           if (row.sensitivity.katPriceBasis === 'pool') lines.push('That estimate uses the pool price as a proxy. Morpho’s oracle controls actual liquidation.');
         }
