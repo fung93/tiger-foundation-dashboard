@@ -37,7 +37,33 @@ his earlier local-only layout. Show exactly five cards in this order:
   Inspect the desktop card screenshot (test data, not production balances).
 - [x] `npm run check` passes all **91** suites; final syntax/diff/copy checks pass.
   No financial history JSON is changed by this implementation.
-- [ ] Commit/push and verify the deployed five-card view against fresh readings.
+- [x] Publish [`876a004`](https://github.com/fung93/tiger-foundation-dashboard/commit/876a004)
+  to main as requested, preserving newer automated UNI pool readings.
+- [x] [Production verification run 44739995494](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44739995494)
+  succeeds: exact five-card order, changed page/JS/CSS/translation assets,
+  service-worker cache **186** and fresh API inputs. Independently reconcile
+  network-priced wallet UNI, whole LP principal, unclaimed owner fees,
+  verified recorded buy spending and value-minus-capital P&L.
+- [x] **162** further Chromium assertions using the actual production inputs:
+  all five displayed values, current LP contribution/record totals, the exact
+  formula, both themes/languages and 320/375/1366 px layout with no overflow.
+
+Verified **20 November 2026, 20:58 MYT**:
+
+| Reading | Value |
+|---|---:|
+| UNI held (wallet + current LP) | 49.84 UNI |
+| Recorded UNI purchase capital | $249.78 |
+| Wallet UNI value | $0.00 (dust) |
+| Open LP principal | $236.19 |
+| Unclaimed LP fees | $1.64 |
+| Value now | $237.83 |
+| P&L: Value now − Capital | -$11.95 |
+
+Base/BNB quotes were approximately **4.3 / 1.3 seconds** old relative to the LP
+reading. Capital is **recorded** buy spending: the existing older-history
+backfill is still incomplete and is labelled as syncing in the page/record.
+These dated live values change with prices, fees and subsequent confirmed buys.
 
 Wallets cover Base and BNB Chain; LP units/value cover currently tracked LP Book
 positions. This does not add BNB LP discovery to global LP Book. No new
