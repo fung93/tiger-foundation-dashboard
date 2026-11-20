@@ -24,7 +24,20 @@ as a smaller remark, then explicitly requests **change and push**.
   Capital/holdings/Value now/P&L and record. Inspect the desktop card screenshot.
 - [x] `npm run check` passes all **91** suites. Final syntax/diff checks and
   identical Portfolio copies pass; no financial history JSON is edited.
-- [ ] Publish and verify the real deployed average and market-price remark.
+- [x] Publish [`370b283`](https://github.com/fung93/tiger-foundation-dashboard/commit/370b283)
+  to main as explicitly requested.
+- [x] [Production verification run 44755514219](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44755514219)
+  succeeds on its first attempt: HTML/JS/CSS/accounting/service-worker files
+  match the tested release exactly; primary average, independent current-price
+  remark, hidden network/date metadata and cache **188** are confirmed.
+
+At **20 November 2026, 22:39 MYT**, the real reading contains **7** verified
+recorded buys: **49.19232172609907 UNI** for **$249.882534**. Their weighted
+average is **$5.0797060441939745**, displayed as **$5.08**. The independent current
+quote is **$4.73474641374973**, displayed below as **$4.73**. The existing older
+history backfill is still incomplete; the average uses the same recorded-buy
+scope as Capital. No new credential, provider, migration or wallet permission
+is required, and there is no remaining deployment blocker.
 
 ## UNI price card cleanup — 20 November 2026
 
