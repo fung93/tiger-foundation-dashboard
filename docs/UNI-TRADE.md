@@ -15,7 +15,13 @@ price beneath UNI price, then explicitly requests **push** after local validatio
 - [x] **192** Chromium assertions using recorded verified inputs: price-only
   rendering persists through refreshes at 320/375/1366 px, both languages/themes;
   the five financial values, formula, LP contributions and record remain intact.
-- [ ] Publish the validated cleanup and verify the live page/assets.
+- [x] Publish [`ea907d2`](https://github.com/fung93/tiger-foundation-dashboard/commit/ea907d2)
+  to main as explicitly requested.
+- [x] [Production verification run 44745781623](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44745781623)
+  succeeds: deployed HTML/JS/CSS/service worker match the approved local files
+  exactly; price card has no network/date or secondary quote; live price
+  selection and all five cards remain; app cache **187** and unchanged
+  accounting module **186** are confirmed. No remaining release blocker.
 
 ## UNI price, holdings, capital, current value and P&L — 20 November 2026
 
