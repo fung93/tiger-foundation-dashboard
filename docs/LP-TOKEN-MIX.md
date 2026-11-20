@@ -27,10 +27,26 @@ on all LP cards, and explicitly requests **push**.
 - [x] `npm run check` passes all **91** suites, including syntax, inline scripts
   and identical Portfolio copies. Final diff checks pass; no financial JSON
   history is edited.
-- [ ] Publish and verify fresh production API/card assets.
+- [x] Publish [`5274e99`](https://github.com/fung93/tiger-foundation-dashboard/commit/5274e99)
+  to main as requested.
+- [x] [Production verification run 44702923445](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44702923445)
+  succeeds on the first attempt: all shared page URLs, renderer, styles,
+  translations and service-worker cache **183** are deployed. Fresh API health
+  has no errors, unread/unpriced positions or ledger backlog. Each of the four
+  open LPs has a valid labelled composition independently checked against its
+  actual principal amounts and decimal-adjusted sqrt price.
+
+Verified live at **20 November 2026, 16:29 MYT** (shares move with pool price):
+
+| Position | First token | Second token |
+|---|---:|---:|
+| Base UNI/USDC #6617359 | UNI 39.16% | USDC 60.84% |
+| Katana avKAT/KAT #495384 | avKAT 31.15% | KAT 68.85% |
+| Katana vbWBTC/vbUSDC #495640 | vbWBTC 100.00% | vbUSDC 0.00% |
+| Robinhood WETH/USDG #1458357 | WETH 100.00% | USDG 0.00% |
 
 No accounting histories, LP Book version, P&L, APR, fees, wallet permissions,
 Lending per-visit settings or persistent agent policy change. The legacy API
 also uses the normalized composition, so stripping its internal raw fields does
 not remove the new reading. No new credential, paid provider or migration is
-required. Production verification remains pending until publication.
+required. No remaining verification blocker for this change.
