@@ -2,6 +2,9 @@
 (function () {
   'use strict';
   window.TF_ZH = Object.freeze({
+    "Token mix unavailable":"代币占比暂不可用",
+    "LP token mix by value":"LP 代币价值占比",
+    "Share of LP principal value at the current pool price. Excludes fees and rewards.":"按当前池价计算的 LP 本金价值占比，不含手续费和奖励。",
     "Market history":"市场历史",
     "vbWBTC liquidation price":"vbWBTC 清算价格",
     "Morpho vbWBTC price at reading":"读取时的 Morpho vbWBTC 价格",

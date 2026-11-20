@@ -214,6 +214,21 @@ export const poolPrice = (sqrtPX96, d0, d1) => {
   const sp = Number(sqrtPX96) / 2 ** 96;
   return sp * sp * Math.pow(10, d0 - d1);
 };
+
+/* Compare the principal legs in the same token1 units, at the observed pool price.
+   Token quantities alone cannot be compared across different assets/decimals. Fees
+   and rewards are separate balances and never enter this composition. */
+export function lpTokenMix(T0, T1, a0, a1, token1PerToken0) {
+  if (!T0?.s || !T1?.s || ![a0, a1, token1PerToken0].every(Number.isFinite)
+    || a0 < 0 || a1 < 0 || token1PerToken0 <= 0) return null;
+  const value0 = a0 * token1PerToken0, total = value0 + a1;
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const pct0 = value0 / total * 100;
+  const tokens = [{ symbol: T0.s, value_pct: pct0 }, { symbol: T1.s, value_pct: 100 - pct0 }];
+  /* Match the human-readable pair, which puts a stable token second. */
+  if (T0.stable && !T1.stable) tokens.reverse();
+  return { basis: 'principal_value_at_pool_price', tokens };
+}
 const tickPrice = (t, d0, d1) => Math.pow(1.0001, t) * Math.pow(10, d0 - d1);
 const accrued = (liq, now, last) => (((now - last) % MOD256 + MOD256) % MOD256) * liq / (1n << 128n);
 function v3Inside(tick, lo, hi, global, outLo, outHi) {
@@ -664,6 +679,7 @@ function shape(p) {
       to_upper_pct: r2((upper / now - 1) * 100),
     },
     amounts: amounts,
+    token_mix: lpTokenMix(T0, T1, p.a0, p.a1, px),
     value_usd: value === null ? null : r2(value),
     liquidity_usd: liq === null ? null : r2(liq),
     open_value_usd: p.inUsd === undefined || p.inUsd === null ? null : r2(p.inUsd),
@@ -757,6 +773,7 @@ export function widgetView(pos, merkl) {
     price: price(R.now),
     lower: price(R.lower),
     upper: price(R.upper),
+    token_mix: pos.token_mix || null,
     position_pct: R.position_pct === null ? 50 : Math.max(0, Math.min(100, R.position_pct)),
     edges: pct(R.to_lower_pct) + ' · ' + pct(R.to_upper_pct) + ' to the edges',
     nearest_edge: pct(edge),

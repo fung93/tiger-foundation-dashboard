@@ -2154,3 +2154,17 @@ was limited to three KAT markets.
   import also versions `morpho-core.mjs`. Unrelated UNI assets keep their versions.
   No wallet operations, secret, new public function or database change is needed.
 - Source/validation/release evidence and remaining checks: `docs/LENDING-BTC.md`.
+
+### 20 November 2026 — LP cards show principal token composition
+
+Owner explicitly requests **push**: replace the percentages "to the edges" on
+all shared LP cards with each token's share of LP principal value. `shape()`
+uses normalized amounts and the decimal-adjusted current pool price through
+`lpTokenMix`; `widgetView.token_mix` carries both labelled percentages in the
+same order as the human-readable pair. Fees/rewards stay separate. Single-sided
+inventory is 100/0; missing state is unavailable, never inferred from marker
+position. Existing range/risk metadata remains intact. The shared renderer serves
+LP Book Live, the widget and Current UNI LPs. Keep both endpoint prices and the
+price marker; keep UNI's scoped pink-to-blue gradient. App/shared card/translation
+assets use **183**, without changing unrelated asset versions or financial
+ledgers. See `docs/LP-TOKEN-MIX.md` for validation and publication progress.

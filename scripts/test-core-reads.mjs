@@ -164,6 +164,8 @@ try {
   mode = 'complete';
   live = await bookLiveRows(book);
   check(Object.keys(live.rows), [P.key], 'A full chain recovery restores its live row');
+  check(live.rows[P.key].token_mix.tokens, [{ symbol: 'COIN', value_pct: 100 }, { symbol: 'USDG', value_pct: 0 }],
+    'The actual below-range V3 reader shows principal inventory, excluding positive owner fees');
   check(live.errors, {}, 'A full chain recovery clears the failure');
 
   const NOW = 1900000000, unknown = 'UNKNOWN@robinhood', token = 'COIN@robinhood', stable = 'USDG@robinhood';
@@ -247,6 +249,8 @@ try {
   check(fab.rows[0].staked, true, 'The Fables row identifies its staked shares');
   check([fab.rows[0].raw.fee0, fab.rows[0].raw.fee1], [5.95, 8.9], 'Fables fees include owed tokens and hook growth with the unstaked claim cut');
   check(fab.rows[0].fees_usd, 14.85, 'Fables owned fees are priced from its verified pool');
+  assert.ok(fab.rows[0].token_mix.tokens.every(token => Math.abs(token.value_pct - 50) < 1e-10),
+    'The actual symmetric Fables V4 position has equal principal value despite unequal fees'); checks++;
   check(fab.fables_usd, 1, 'The verified seed pool prices FABLES');
   check(fab.locks, [{ id: '559', wallet: WALLET, amount: 25, unlock: 2000000000, value_usd: 25 }], 'Positive owned locks retain their amount, unlock time and value');
   for (const reading of ['range-key', 'pool-price', 'range-state', 'fee-growth', 'claim-fee',

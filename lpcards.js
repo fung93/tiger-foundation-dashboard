@@ -157,6 +157,23 @@
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeEdges(); });
   }
 
+  function tokenMix(mix) {
+    var tokens = mix && mix.tokens;
+    if (!mix || mix.basis !== 'principal_value_at_pool_price' || !Array.isArray(tokens) || tokens.length !== 2
+      || !tokens.every(function (t) { return t && typeof t.symbol === 'string' && t.symbol.trim()
+        && finite(t.value_pct) && t.value_pct >= 0 && t.value_pct <= 100; })
+      || Math.abs(tokens[0].value_pct + tokens[1].value_pct - 100) > 0.000001)
+      return '<div class="token-mix unavailable">Token mix unavailable</div>';
+    /* Round once, then complement: the displayed shares always total 100.00%. */
+    var first = Math.round(tokens[0].value_pct * 100);
+    return '<div class="token-mix" aria-label="LP token mix by value"'
+      + ' title="Share of LP principal value at the current pool price. Excludes fees and rewards.">'
+      + tokens.map(function (t, i) {
+        return '<span class="token-share"><span class="token-symbol">' + esc(t.symbol) + '</span> '
+          + '<span class="token-percent">' + ((i ? 10000 - first : first) / 100).toFixed(2) + '%</span></span>';
+      }).join('') + '</div>';
+  }
+
   function card(W) {
     var oor = !W.in_range, p = Math.max(3, Math.min(97, W.position_pct));
     var identity = [W.chain && W.chain.charAt(0).toUpperCase() + W.chain.slice(1), W.id].filter(Boolean).join(' · ');
@@ -165,8 +182,8 @@
       + '<div class="badge ' + (oor ? 'out' : 'in') + '">' + esc(W.status) + '</div></div>'
       + '<div class="band"><div class="price" style="left:' + p + '%">' + esc(W.price) + '</div>'
       + '<div class="track"><div class="fill' + (oor ? ' oor' : '') + '"></div><div class="mark' + (oor ? ' oor' : '') + '" style="left:' + p + '%"></div></div>'
-      + '<div class="ends"><span>' + esc(W.lower) + '</span><span class="mid' + (parseFloat(W.nearest_edge) < 0.25 ? ' near' : '') + '">'
-      + esc(W.edges) + '</span><span>' + esc(W.upper) + '</span></div></div>'
+      + '<div class="ends"><span>' + esc(W.lower) + '</span><span>' + esc(W.upper) + '</span></div>'
+      + tokenMix(W.token_mix) + '</div>'
       + '<div class="figs"><div><div class="k">' + esc(W.yield_label) + '</div><div class="v up">' + esc(W.yield_value) + '</div></div>'
       + '<div><div class="k">P&amp;L' + edgeInfo(W) + '</div><div class="v ' + (W.pnl_up ? 'up' : 'down') + '">' + esc(W.pnl) + '</div></div>'
       + '<div><div class="k">Net</div><div class="v ' + (W.net_up ? 'up' : 'down') + '">' + esc(W.net) + '</div></div></div>'
