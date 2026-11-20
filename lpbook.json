@@ -42,9 +42,9 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 48436779,
-  "robinhood": 119067425,
-  "base": 59679841
+  "katana": 48466296,
+  "robinhood": 119360181,
+  "base": 60093689
  },
  "tokens": {
   "vbUSDC@katana": {
@@ -368,11 +368,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1795179590,
-    "block": 119067425,
+    "ts": 1795209107,
+    "block": 119360181,
     "in": false,
     "in_s": 2521500.0276606083,
-    "all_s": 3032251
+    "all_s": 3061768
    },
    "claims": [
     {
@@ -2088,11 +2088,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795179590,
-    "block": 48436779,
+    "ts": 1795209107,
+    "block": 48466296,
     "in": true,
-    "in_s": 635201,
-    "all_s": 644484
+    "in_s": 664718,
+    "all_s": 674001
    },
    "claimed_seen": {},
    "a0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
@@ -2177,11 +2177,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795179590,
-    "block": 48436779,
+    "ts": 1795209107,
+    "block": 48466296,
     "in": false,
     "in_s": 596979,
-    "all_s": 617942
+    "all_s": 647459
    },
    "claimed_seen": {},
    "a0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
@@ -3318,8 +3318,8 @@
    "stable0": true,
    "stable1": false,
    "pair": "UNI / USDC",
-   "liq": "3670743518764375",
-   "status": "open",
+   "liq": "0",
+   "status": "closed",
    "at_start": false,
    "opened_ts": 1795105197,
    "opened_block": 59574110,
@@ -3333,23 +3333,887 @@
      "usd": 193.41
     }
    ],
-   "out_usd": 0,
-   "withdrawals": [],
+   "out_usd": 193.01,
+   "withdrawals": [
+    {
+     "block": 59743858,
+     "ts": 1795139147,
+     "a0": 0,
+     "a1": 39.144553755599894,
+     "usd": 193.01
+    }
+   ],
    "owed": {
     "r0": "0",
     "r1": "0"
    },
-   "fees": {},
+   "fees": {
+    "USDC@base": 0.62367,
+    "UNI@base": 0.1252436931353731
+   },
    "start_uncollected": {},
    "start_merkl": {},
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1795126343,
-    "block": 59679841,
+    "ts": 1795139147,
+    "block": 59743858,
     "in": false,
-    "in_s": 15250,
-    "all_s": 21146
+    "in_s": 18843,
+    "all_s": 33950
+   },
+   "claims": [
+    {
+     "ts": 1795139131,
+     "block": 59743777,
+     "tokens": {
+      "USDC@base": 0.62367,
+      "UNI@base": 0.1252436931353731
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 4.9305751686890735
+     },
+     "usd": 1.24
+    }
+   ],
+   "close_sp": 450351.07930522936,
+   "closed_ts": 1795139147,
+   "closed_block": 59743858,
+   "frozen": {
+    "at_ts": 1795139147,
+    "at_block": 59743858,
+    "cost_usd": 193.41,
+    "principal_usd": 193.01,
+    "pnl_usd": -0.4,
+    "fee_tokens": {
+     "USDC@base": 0.62367,
+     "UNI@base": 0.1252436931353731
+    },
+    "fee_usd": 1.24,
+    "net_usd": 0.84,
+    "net_pct": 0.43,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.9305751686890735
+    }
+   }
+  },
+  "base:6616041": {
+   "key": "base:6616041",
+   "chain": "base",
+   "id": "6616041",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 259920,
+   "hi": 260400,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795139499,
+   "opened_block": 59745621,
+   "cost_usd": 193.32,
+   "deposits": [
+    {
+     "block": 59745621,
+     "ts": 1795139499,
+     "a0": 0.286708,
+     "a1": 39.26972381036188,
+     "usd": 193.32
+    }
+   ],
+   "out_usd": 190.26,
+   "withdrawals": [
+    {
+     "block": 59747222,
+     "ts": 1795139820,
+     "a0": 0,
+     "a1": 39.32805319997712,
+     "usd": 190.26
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0.000146262260820551
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 454647.9344247447,
+   "closed_ts": 1795139820,
+   "closed_block": 59747222,
+   "claims": [
+    {
+     "ts": 1795139820,
+     "block": 59747222,
+     "tokens": {
+      "UNI@base": 0.000146262260820551
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 4.837818326324619
+     },
+     "usd": 0
+    }
+   ],
+   "frozen": {
+    "at_ts": 1795139820,
+    "at_block": 59747222,
+    "cost_usd": 193.32,
+    "principal_usd": 190.26,
+    "pnl_usd": -3.06,
+    "fee_tokens": {
+     "UNI@base": 0.000146262260820551
+    },
+    "fee_usd": 0,
+    "net_usd": -3.06,
+    "net_pct": -1.58,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.837818326324619
+    }
+   },
+   "range": {
+    "ts": 1795139820,
+    "block": 59747222,
+    "in": false,
+    "in_s": 13,
+    "all_s": 321
+   }
+  },
+  "base:6616136": {
+   "key": "base:6616136",
+   "chain": "base",
+   "id": "6616136",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260040,
+   "hi": 260520,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795139969,
+   "opened_block": 59747968,
+   "cost_usd": 240.21,
+   "deposits": [
+    {
+     "block": 59747968,
+     "ts": 1795139969,
+     "a0": 0,
+     "a1": 49.616974049229555,
+     "usd": 240.21
+    }
+   ],
+   "out_usd": 239.46,
+   "withdrawals": [
+    {
+     "block": 59755912,
+     "ts": 1795141558,
+     "a0": 0,
+     "a1": 49.616974049229555,
+     "usd": 239.46
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 455191.59516303753,
+   "closed_ts": 1795141558,
+   "closed_block": 59755912,
+   "frozen": {
+    "at_ts": 1795141558,
+    "at_block": 59755912,
+    "cost_usd": 240.21,
+    "principal_usd": 239.46,
+    "pnl_usd": -0.75,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": -0.75,
+    "net_pct": -0.31,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.82626907429859
+    }
+   },
+   "range": {
+    "ts": 1795141558,
+    "block": 59755912,
+    "in": false,
+    "in_s": 0,
+    "all_s": 1589
+   }
+  },
+  "base:6616840": {
+   "key": "base:6616840",
+   "chain": "base",
+   "id": "6616840",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 259920,
+   "hi": 260580,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795141769,
+   "opened_block": 59756971,
+   "cost_usd": 239.46,
+   "deposits": [
+    {
+     "block": 59756971,
+     "ts": 1795141769,
+     "a0": 0,
+     "a1": 49.616974049229555,
+     "usd": 239.46
+    }
+   ],
+   "out_usd": 237.45,
+   "withdrawals": [
+    {
+     "block": 59787597,
+     "ts": 1795147895,
+     "a0": 0,
+     "a1": 49.616974049229555,
+     "usd": 237.45
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0.237811,
+    "UNI@base": 0.04906614708248996
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1795147895,
+    "block": 59787597,
+    "in": false,
+    "in_s": 5040,
+    "all_s": 6126
+   },
+   "close_sp": 457115.1421187164,
+   "closed_ts": 1795147895,
+   "closed_block": 59787597,
+   "claims": [
+    {
+     "ts": 1795147895,
+     "block": 59787597,
+     "tokens": {
+      "USDC@base": 0.237811,
+      "UNI@base": 0.04906614708248996
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 4.785736518423347
+     },
+     "usd": 0.47
+    }
+   ],
+   "frozen": {
+    "at_ts": 1795147895,
+    "at_block": 59787597,
+    "cost_usd": 239.46,
+    "principal_usd": 237.45,
+    "pnl_usd": -2.01,
+    "fee_tokens": {
+     "USDC@base": 0.237811,
+     "UNI@base": 0.04906614708248996
+    },
+    "fee_usd": 0.47,
+    "net_usd": -1.54,
+    "net_pct": -0.64,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.785736518423347
+    }
+   }
+  },
+  "base:6617298": {
+   "key": "base:6617298",
+   "chain": "base",
+   "id": "6617298",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260220,
+   "hi": 260640,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795148022,
+   "opened_block": 59788232,
+   "cost_usd": 237.69,
+   "deposits": [
+    {
+     "block": 59788232,
+     "ts": 1795148022,
+     "a0": 0,
+     "a1": 49.666040196312046,
+     "usd": 237.69
+    }
+   ],
+   "out_usd": 237.69,
+   "withdrawals": [
+    {
+     "block": 59789989,
+     "ts": 1795148373,
+     "a0": 0,
+     "a1": 49.666040196312046,
+     "usd": 237.69
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 457111.186035005,
+   "closed_ts": 1795148373,
+   "closed_block": 59789989,
+   "frozen": {
+    "at_ts": 1795148373,
+    "at_block": 59789989,
+    "cost_usd": 237.69,
+    "principal_usd": 237.69,
+    "pnl_usd": 0,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": 0,
+    "net_pct": 0,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.785819355408277
+    }
+   },
+   "range": {
+    "ts": 1795148373,
+    "block": 59789989,
+    "in": false,
+    "in_s": 0,
+    "all_s": 351
+   }
+  },
+  "base:6617330": {
+   "key": "base:6617330",
+   "chain": "base",
+   "id": "6617330",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260340,
+   "hi": 260640,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795148498,
+   "opened_block": 59790616,
+   "cost_usd": 237.34,
+   "deposits": [
+    {
+     "block": 59790616,
+     "ts": 1795148498,
+     "a0": 0,
+     "a1": 49.66604019631204,
+     "usd": 237.34
+    }
+   ],
+   "out_usd": 236.66,
+   "withdrawals": [
+    {
+     "block": 59792799,
+     "ts": 1795148935,
+     "a0": 0,
+     "a1": 49.66604019631204,
+     "usd": 236.66
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 458106.9055652419,
+   "closed_ts": 1795148935,
+   "closed_block": 59792799,
+   "frozen": {
+    "at_ts": 1795148935,
+    "at_block": 59792799,
+    "cost_usd": 237.34,
+    "principal_usd": 236.66,
+    "pnl_usd": -0.68,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": -0.68,
+    "net_pct": -0.29,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.7650375034417864
+    }
+   },
+   "range": {
+    "ts": 1795148935,
+    "block": 59792799,
+    "in": false,
+    "in_s": 0,
+    "all_s": 437
+   }
+  },
+  "base:6617359": {
+   "key": "base:6617359",
+   "chain": "base",
+   "id": "6617359",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260340,
+   "hi": 260700,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795149307,
+   "opened_block": 59794661,
+   "cost_usd": 235.73,
+   "deposits": [
+    {
+     "block": 59794661,
+     "ts": 1795149307,
+     "a0": 0,
+     "a1": 49.66604019631204,
+     "usd": 235.73
+    }
+   ],
+   "out_usd": 235.11,
+   "withdrawals": [
+    {
+     "block": 59965507,
+     "ts": 1795183477,
+     "a0": 0,
+     "a1": 49.66604019631204,
+     "usd": 235.11
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0.827281,
+    "UNI@base": 0.17149638994626715
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1795183477,
+    "block": 59965507,
+    "in": false,
+    "in_s": 22941,
+    "all_s": 34170
+   },
+   "close_sp": 459616.48537134577,
+   "closed_ts": 1795183477,
+   "closed_block": 59965507,
+   "claims": [
+    {
+     "ts": 1795183477,
+     "block": 59965507,
+     "tokens": {
+      "USDC@base": 0.827281,
+      "UNI@base": 0.17149638994626715
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 4.733788008185784
+     },
+     "usd": 1.64
+    }
+   ],
+   "frozen": {
+    "at_ts": 1795183477,
+    "at_block": 59965507,
+    "cost_usd": 235.73,
+    "principal_usd": 235.11,
+    "pnl_usd": -0.62,
+    "fee_tokens": {
+     "USDC@base": 0.827281,
+     "UNI@base": 0.17149638994626715
+    },
+    "fee_usd": 1.64,
+    "net_usd": 1.02,
+    "net_pct": 0.43,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.733788008185784
+    }
+   }
+  },
+  "base:6620433": {
+   "key": "base:6620433",
+   "chain": "base",
+   "id": "6620433",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260340,
+   "hi": 260760,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795183604,
+   "opened_block": 59966146,
+   "cost_usd": 235.92,
+   "deposits": [
+    {
+     "block": 59966146,
+     "ts": 1795183604,
+     "a0": 0,
+     "a1": 49.83753658625831,
+     "usd": 235.92
+    }
+   ],
+   "out_usd": 236.13,
+   "withdrawals": [
+    {
+     "block": 59974337,
+     "ts": 1795185243,
+     "a0": 0,
+     "a1": 49.83753658625831,
+     "usd": 236.13
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 459408.7013981957,
+   "closed_ts": 1795185243,
+   "closed_block": 59974337,
+   "frozen": {
+    "at_ts": 1795185243,
+    "at_block": 59974337,
+    "cost_usd": 235.92,
+    "principal_usd": 236.13,
+    "pnl_usd": 0.21,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": 0.21,
+    "net_pct": 0.09,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.738071025519519
+    }
+   },
+   "range": {
+    "ts": 1795185243,
+    "block": 59974337,
+    "in": false,
+    "in_s": 0,
+    "all_s": 1639
+   }
+  },
+  "base:6620528": {
+   "key": "base:6620528",
+   "chain": "base",
+   "id": "6620528",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260340,
+   "hi": 260760,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795185476,
+   "opened_block": 59975506,
+   "cost_usd": 236.06,
+   "deposits": [
+    {
+     "block": 59975506,
+     "ts": 1795185476,
+     "a0": 0,
+     "a1": 49.85749678625832,
+     "usd": 236.06
+    }
+   ],
+   "out_usd": 234.49,
+   "withdrawals": [
+    {
+     "block": 59978694,
+     "ts": 1795186114,
+     "a0": 0,
+     "a1": 49.85749678625832,
+     "usd": 234.49
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0,
+    "UNI@base": 0
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "close_sp": 461110.81467757205,
+   "closed_ts": 1795186114,
+   "closed_block": 59978694,
+   "frozen": {
+    "at_ts": 1795186114,
+    "at_block": 59978694,
+    "cost_usd": 236.06,
+    "principal_usd": 234.49,
+    "pnl_usd": -1.57,
+    "fee_tokens": {},
+    "fee_usd": 0,
+    "net_usd": -1.57,
+    "net_pct": -0.67,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.703155996208612
+    }
+   },
+   "range": {
+    "ts": 1795186114,
+    "block": 59978694,
+    "in": false,
+    "in_s": 0,
+    "all_s": 638
+   }
+  },
+  "base:6620573": {
+   "key": "base:6620573",
+   "chain": "base",
+   "id": "6620573",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
+   "lo": 260340,
+   "hi": 260820,
+   "fee": 3000,
+   "t0": "USDC@base",
+   "t1": "UNI@base",
+   "a0": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "a1": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
+   "s0": "USDC",
+   "s1": "UNI",
+   "d0": 6,
+   "d1": 18,
+   "stable0": true,
+   "stable1": false,
+   "pair": "UNI / USDC",
+   "liq": "0",
+   "status": "closed",
+   "at_start": false,
+   "opened_ts": 1795186213,
+   "opened_block": 59979190,
+   "cost_usd": 234.49,
+   "deposits": [
+    {
+     "block": 59979190,
+     "ts": 1795186213,
+     "a0": 0,
+     "a1": 49.85749678625832,
+     "usd": 234.49
+    }
+   ],
+   "out_usd": 224.06,
+   "withdrawals": [
+    {
+     "block": 59993202,
+     "ts": 1795189016,
+     "a0": 0,
+     "a1": 49.85749678625832,
+     "usd": 224.06
+    }
+   ],
+   "owed": {
+    "r0": "0",
+    "r1": "0"
+   },
+   "fees": {
+    "USDC@base": 0.03842,
+    "UNI@base": 0.008139479946389262
+   },
+   "start_uncollected": {},
+   "start_merkl": {},
+   "merkl": {},
+   "unpriced": false,
+   "range": {
+    "ts": 1795189016,
+    "block": 59993202,
+    "in": false,
+    "in_s": 495,
+    "all_s": 2803
+   },
+   "close_sp": 471715.72982334724,
+   "closed_ts": 1795189016,
+   "closed_block": 59993202,
+   "claims": [
+    {
+     "ts": 1795189016,
+     "block": 59993202,
+     "tokens": {
+      "USDC@base": 0.03842,
+      "UNI@base": 0.008139479946389262
+     },
+     "prices": {
+      "USDC@base": 1,
+      "UNI@base": 4.494064312065097
+     },
+     "usd": 0.07
+    }
+   ],
+   "frozen": {
+    "at_ts": 1795189016,
+    "at_block": 59993202,
+    "cost_usd": 234.49,
+    "principal_usd": 224.06,
+    "pnl_usd": -10.43,
+    "fee_tokens": {
+     "USDC@base": 0.03842,
+     "UNI@base": 0.008139479946389262
+    },
+    "fee_usd": 0.07,
+    "net_usd": -10.36,
+    "net_pct": -4.42,
+    "prices": {
+     "USDC@base": 1,
+     "UNI@base": 4.494064312065097
+    }
    }
   }
  },
@@ -3753,6 +4617,158 @@
    "id": "6614022",
    "block": 59574110,
    "ts": 1795105197
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616041",
+   "block": 59745621,
+   "ts": 1795139499
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616136",
+   "block": 59747968,
+   "ts": 1795139969
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616840",
+   "block": 59756971,
+   "ts": 1795141769
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6614022",
+   "block": 59743858,
+   "ts": 1795139147
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616041",
+   "block": 59747222,
+   "ts": 1795139820
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616136",
+   "block": 59755912,
+   "ts": 1795141558
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617298",
+   "block": 59788232,
+   "ts": 1795148022
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617330",
+   "block": 59790616,
+   "ts": 1795148498
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617359",
+   "block": 59794661,
+   "ts": 1795149307
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6616840",
+   "block": 59787597,
+   "ts": 1795147895
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617298",
+   "block": 59789989,
+   "ts": 1795148373
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617330",
+   "block": 59792799,
+   "ts": 1795148935
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620433",
+   "block": 59966146,
+   "ts": 1795183604
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620528",
+   "block": 59975506,
+   "ts": 1795185476
+  },
+  {
+   "t": "open",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620573",
+   "block": 59979190,
+   "ts": 1795186213
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6617359",
+   "block": 59965507,
+   "ts": 1795183477
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620433",
+   "block": 59974337,
+   "ts": 1795185243
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620528",
+   "block": 59978694,
+   "ts": 1795186114
+  },
+  {
+   "t": "close",
+   "chain": "base",
+   "wallet": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
+   "id": "6620573",
+   "block": 59993202,
+   "ts": 1795189016
   }
  ],
  "fee_series": [
@@ -6807,16 +7823,52 @@
     "katana:494956": 0,
     "katana:495384": 0
    }
+  },
+  {
+   "ts": 1795209133,
+   "tokens": {
+    "WETH@robinhood": 0.01552805,
+    "USDG@robinhood": 33.814861,
+    "FABLES@robinhood": 25.22319939,
+    "avKAT@katana": 41.04061589,
+    "KAT@katana": 51028.4840866,
+    "vbWBTC@katana": 0.00005438,
+    "vbUSDC@katana": 8.031872,
+    "USDC@base": 1.816516,
+    "UNI@base": 0.37186613
+   },
+   "pnl_usd": -1091.54,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.01539253,
+     "USDG@robinhood": 33.184509
+    },
+    "katana:495384": {
+     "KAT@katana": 55.51723765,
+     "avKAT@katana": 61.81276232
+    },
+    "katana:495640": {
+     "vbWBTC@katana": 0.00007102,
+     "vbUSDC@katana": 3.654655
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -866.83,
+    "katana:495384": -6.7,
+    "katana:495640": -77.08
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0,
+    "katana:494956": 0,
+    "katana:495384": 0
+   }
   }
  ],
  "runs": [
-  {
-   "ts": 1794276679,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
   {
    "ts": 1794304578,
    "behind": {
@@ -7026,6 +8078,14 @@
    "behind": {
     "katana": 0,
     "robinhood": 0
+   }
+  },
+  {
+   "ts": 1795209107,
+   "behind": {
+    "katana": 0,
+    "robinhood": 0,
+    "base": 0
    }
   }
  ],
