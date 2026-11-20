@@ -27,7 +27,36 @@ that identifies which LPs contribute to the total.
   claim about the owner's current live reading.
 - [x] `npm run check` passes all **91** suites. Final changed-JS syntax, diff
   and byte-identical Portfolio checks pass. No financial history JSON is edited.
-- [ ] Publish and verify the live page and per-position contributions.
+- [x] Publish [`a8cb991`](https://github.com/fung93/tiger-foundation-dashboard/commit/a8cb991)
+  to main as requested, preserving the newer automated UNI trade history.
+- [x] [Production verification run 44715312537](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44715312537)
+  succeeds: live icon/dialog, changed assets/translations and cache **184**;
+  all **nine** UNI LP records have original price P&L, fees and net, and reconcile
+  to the same combined P&L. Price P&L + fees agrees with each net after the
+  existing cent rounding. The first attempt waited for the new deployment;
+  the second reads the new assets and fresh API observations successfully.
+- [x] **24** additional mobile browser checks using those actual production
+  records: both themes/languages, all nine entries, current position first,
+  identical real top total and a vertically scrollable record with reachable
+  total and no horizontal overflow.
+
+Production reading at **20 November 2026, 18:00 MYT**:
+
+| UNI/USDC LP | State | Price P&L | Fees | Net contribution |
+|---|---|---:|---:|---:|
+| #6617359 | Open | $3.18 | $0.97 | $4.15 |
+| #6617330 | Closed | -$0.68 | $0.00 | -$0.68 |
+| #6617298 | Closed | $0.00 | $0.00 | $0.00 |
+| #6616840 | Closed | -$2.01 | $0.47 | -$1.54 |
+| #6616136 | Closed | -$0.75 | $0.00 | -$0.75 |
+| #6616041 | Closed | -$3.06 | $0.00 | -$3.06 |
+| #6614022 | Closed | -$0.40 | $1.24 | $0.84 |
+| #6611265 | Closed | -$0.70 | $0.15 | -$0.55 |
+| #6607586 | Closed | -$0.47 | $0.03 | -$0.44 |
+
+Closed net **-$6.18** + current net **$4.15** + wallet unrealised **$0.00** =
+top P&L **-$2.03**. These dated verification readings move with subsequent live
+prices/fees for the current LP; closed results keep their recorded values.
 
 No new credential, database migration, wallet permission or paid provider is
 required. The historical -$2.03 shown by the owner is a moving live total; the
