@@ -42,8 +42,8 @@
   "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770"
  ],
  "last_block": {
-  "katana": 48383526,
-  "robinhood": 118561317,
+  "katana": 48436779,
+  "robinhood": 119067425,
   "base": 59679841
  },
  "tokens": {
@@ -368,11 +368,11 @@
    "merkl": {},
    "unpriced": false,
    "range": {
-    "ts": 1795126337,
-    "block": 118561317,
+    "ts": 1795179590,
+    "block": 119067425,
     "in": false,
     "in_s": 2521500.0276606083,
-    "all_s": 2978998
+    "all_s": 3032251
    },
    "claims": [
     {
@@ -2088,11 +2088,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795126337,
-    "block": 48383526,
+    "ts": 1795179590,
+    "block": 48436779,
     "in": true,
-    "in_s": 581948,
-    "all_s": 591231
+    "in_s": 635201,
+    "all_s": 644484
    },
    "claimed_seen": {},
    "a0": "0x7231dbacdfc968e07656d12389ab20de82fbfceb",
@@ -2177,11 +2177,11 @@
    },
    "unpriced": false,
    "range": {
-    "ts": 1795126337,
-    "block": 48383526,
-    "in": true,
-    "in_s": 563047,
-    "all_s": 564689
+    "ts": 1795179590,
+    "block": 48436779,
+    "in": false,
+    "in_s": 596979,
+    "all_s": 617942
    },
    "claimed_seen": {},
    "a0": "0x0913da6da4b42f538b445599b46bb4622342cf52",
@@ -6811,13 +6811,6 @@
  ],
  "runs": [
   {
-   "ts": 1794250299,
-   "behind": {
-    "katana": 0,
-    "robinhood": 0
-   }
-  },
-  {
    "ts": 1794276679,
    "behind": {
     "katana": 0,
@@ -7023,6 +7016,16 @@
     "katana": 0,
     "robinhood": 0,
     "base": 0
+   }
+  },
+  {
+   "ts": 1795179590,
+   "errors": {
+    "base": "invalid params"
+   },
+   "behind": {
+    "katana": 0,
+    "robinhood": 0
    }
   }
  ],
@@ -7374,5 +7377,38 @@
   "katana:493879": 0,
   "katana:494956": 0,
   "katana:495384": 0
- }
+ },
+ "apr_series": [
+  {
+   "ts": 1795179617,
+   "pos": {
+    "robinhood:1458357": {
+     "WETH@robinhood": 0.01539253,
+     "USDG@robinhood": 33.184509
+    },
+    "katana:495384": {
+     "KAT@katana": 55.50578659,
+     "avKAT@katana": 61.81276232
+    },
+    "katana:495640": {
+     "vbWBTC@katana": 0.00007102,
+     "vbUSDC@katana": 3.654655
+    }
+   },
+   "pp": {
+    "robinhood:1458357": -670.52,
+    "katana:495384": -4.82,
+    "katana:495640": -41.42
+   },
+   "reward_attribution_version": 2,
+   "reward_rollover_basis": {
+    "katana:492626": 2631.7497890775458,
+    "katana:492808": 0,
+    "katana:493582": 979.2226264163946,
+    "katana:493879": 0,
+    "katana:494956": 0,
+    "katana:495384": 0
+   }
+  }
+ ]
 }
