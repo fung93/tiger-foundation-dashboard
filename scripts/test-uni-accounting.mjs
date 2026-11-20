@@ -140,4 +140,15 @@ for(const mutate of [v=>{delete v.position_data[0].principalUsd;},v=>{v.position
 }
 eq(overview({trade:{...inventoryTrade,trades:[buy('1',10,null)]}}).pnlUsd,null,'Unknown purchase capital cannot produce a P&L from current value alone');
 near(overview({trade:partialBuys}).pnlUsd,-3.5,'The recorded-capital comparison stays explicit during older history backfill');
+near(overview().averageBuyPriceUsd,5,'Average buy price is recorded purchase USD divided by bought UNI units');
+near(overview().boughtUni,10,'Bought UNI excludes current LP token conversions and fee inventory');
+const weightedBuys={...inventoryTrade,trades:[buy('1',10,50),buy('2',2,20)]};
+near(overview({trade:weightedBuys}).averageBuyPriceUsd,70/12,'Unequal fills use unit-weighted purchase prices rather than an arithmetic mean');
+near(overview({trade:withSale}).averageBuyPriceUsd,5,'A sale does not rewrite the historical average price of recorded buys');
+near(overview({trade:claimedTrade,lpView:claimedLP}).averageBuyPriceUsd,5,'Claimed UNI fees do not become zero-cost buys in the average');
+near(overview({trade:depositTrade,lpView:depositLP}).averageBuyPriceUsd,5,'LP deposits do not change the recorded purchase average');
+near(overview({trade:partialBuys}).averageBuyPriceUsd,5,'Verified recorded buys retain their average during older backfill');
+near(overview({trade:{...inventoryTrade,quotes:{base:{priceUsd:999}}}}).averageBuyPriceUsd,5,'Current market prices cannot replace actual execution costs');
+for(const trades of [[],[buy('1',10,null)],[buy('1',0,50)],[buy('1',NaN,50)],[buy('1',10,50),buy('1',10,50)]])
+ eq(overview({trade:{...inventoryTrade,trades}}).averageBuyPriceUsd,null,'Missing buys, quantities or verified cost cannot invent an average');
 console.log(`UNI combined LP/holding P&L and collected fee accounting: ${n} assertions passed.`);

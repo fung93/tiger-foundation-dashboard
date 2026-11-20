@@ -60,10 +60,13 @@ export function uniTradeOverview({trade,lpView}={}){
   walletValueUsd=walletReady&&walletValueReady&&finite(walletValue)?walletValue:null,
   lpValueUsd=lpReady&&lpValueReady&&finite(lpValue)?lpValue:null,
   value=walletValueUsd!==null&&lpValueUsd!==null?walletValueUsd+lpValueUsd:null,
-  valueNowUsd=finite(value)?value:null,capitalUsd=finite(capital)?capital:null;
+  valueNowUsd=finite(value)?value:null,capitalUsd=finite(capital)?capital:null,
+  boughtUni=buysReady&&buys.every(t=>finite(t.uni)&&t.uni>0)?sum(buys.map(t=>t.uni)):null,
+  averageBuyPriceUsd=capitalUsd!==null&&finite(boughtUni)&&boughtUni>0?capitalUsd/boughtUni:null;
  return {heldUni:walletReady&&lpReady?walletUni+lpUni:null,walletUni:walletReady?walletUni:null,
   lpUni:lpReady?lpUni:null,lpPrincipalUni:lpReady?lpPrincipalUni:null,unclaimedUni:lpReady?unclaimedUni:null,
-  capitalUsd,capitalComplete:buysReady&&trade?.historyComplete===true,walletValueUsd,lpValueUsd,valueNowUsd,
+  capitalUsd,capitalComplete:buysReady&&trade?.historyComplete===true,boughtUni,averageBuyPriceUsd,
+  walletValueUsd,lpValueUsd,valueNowUsd,
   pnlUsd:valueNowUsd!==null&&capitalUsd!==null?valueNowUsd-capitalUsd:null,currentPositions};
 }
 

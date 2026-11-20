@@ -2209,3 +2209,16 @@ timestamps, freshness logic and all financial calculations intact. App and
 changed UNI JS/CSS use **187**, with accounting/translations still **186**.
 After local verification the owner explicitly requested **push**. Validation and
 publication evidence are recorded in `docs/UNI-TRADE.md`.
+
+### 20 November 2026 — average UNI buy price and current-price remark
+
+The owner's latest **change and push** request replaces the first UNI Trade
+card with **Average buy price** and a smaller **Current price: $…** remark.
+Use recorded verified purchase USD / UNI bought, including actual partial
+1inch fills. Do not divide by current LP/wallet inventory or substitute a market
+quote for an unknown buy cost. LP changes, fee claims and sales do not rewrite
+historical buy prices. Missing inputs remain unavailable. Keep all other card
+calculations and the value-minus-capital P&L unchanged. Network/date/secondary
+BNB metadata remains hidden on this card. App/changed UNI assets/accounting use
+**188**; existing translation assets stay **186**. Validation/publication details
+are maintained in `docs/UNI-TRADE.md`.

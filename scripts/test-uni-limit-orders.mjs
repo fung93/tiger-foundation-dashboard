@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {CFG,keccakHex,pad} from '../api/_core.mjs';
+import {uniTradeOverview} from '../uni-accounting.mjs';
 import {UNI_CHAINS} from '../api/_uni-config.mjs';
 import {uniOrderCandidates,verifyUniOrders} from '../api/_uni-orders.mjs';
 import {receiptUniTrade,replayUniTrades,ONEINCH_PROTOCOL,ONEINCH_FILLED} from '../uni-trade-core.mjs';
@@ -19,6 +20,7 @@ for(const e of fixture.entries){
 }
 eq(trades.length,3,'All three actual fill transactions are recorded');eq(new Set(trades.flatMap(t=>t.orderHashes)).size,2,'Two fills of the same partial order remain separate transactions');eq(new Set(trades.map(t=>t.id)).size,3,'Partial fills are deduplicated by transaction, not discarded by shared order hash');
 const summary=replayUniTrades(trades);near(summary.qty,19.09969908869371,'Buy quantity is UNI actually received after 1inch fees');near(summary.cost,99.982335,'Buy cost is USDC actually paid');near(summary.avg,5.2347596962501735,'Average cost includes all three executions');
+near(uniTradeOverview({trade:{trades,historyComplete:true}}).averageBuyPriceUsd,5.2347596962501735,'Dashboard average uses the actual partial-fill consideration and received UNI');
 const second=trades[1],third=trades[2];near(second.usd+third.usd,49.999999,'The last unfilled USDC micro-unit is not booked as a purchase');
 const malicious={...fixture.entries.find(e=>uniOrderCandidates(chain,wallets,e.transaction).length).transaction,input:'0x'+('ff'.repeat(500001))};assert.throws(()=>uniOrderCandidates(chain,wallets,malicious));n++;
 console.log(`Recorded 1inch resolver fills, partial orders and actual cost: ${n} assertions passed.`);

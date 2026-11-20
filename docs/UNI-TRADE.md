@@ -1,5 +1,31 @@
 # UNI Trade
 
+## Average buy price with current-price remark — 20 November 2026
+
+The owner asks for average buy price as the primary value and current price
+as a smaller remark, then explicitly requests **change and push**.
+
+- [x] Replace the first card label/value with **Average buy price**; show
+  **Current price: $…** below it in the existing smaller help-text style.
+  Keep network names, timestamps and the secondary BNB quote out of this card.
+- [x] Use the weighted average of recorded verified buys: actual USD spent /
+  actual UNI bought, including partial 1inch fills. LP inventory changes, fees,
+  transfers, sales and today's market price do not rewrite buy execution prices.
+  Missing buys, quantities or costs keep the average unavailable.
+- [x] Preserve Capital, actual holdings, Value now, value-minus-capital P&L,
+  the record icon, both networks/themes/languages and immutable financial data.
+- [x] Bump app/changed UNI assets and accounting module to **188**. Existing
+  translations already cover both labels and stay **186**; LP cards stay **183**.
+- [x] **143** UNI accounting/overview checks; **51** real-receipt 1inch checks,
+  including the new dashboard average against the three recorded partial fills.
+- [x] **276** Chromium assertions at 320/375/1366 px, both themes/languages:
+  weighted average primary value; smaller, independently refreshing market
+  quote; aligned wrapped headings; missing cost/price/buys and recovery; unchanged
+  Capital/holdings/Value now/P&L and record. Inspect the desktop card screenshot.
+- [x] `npm run check` passes all **91** suites. Final syntax/diff checks and
+  identical Portfolio copies pass; no financial history JSON is edited.
+- [ ] Publish and verify the real deployed average and market-price remark.
+
 ## UNI price card cleanup — 20 November 2026
 
 The owner asks to remove the network/reading time and the secondary BNB Chain

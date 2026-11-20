@@ -1,5 +1,5 @@
 import {replayUniTrades} from './uni-trade-core.mjs?v=180';
-import {uniTradeOverview} from './uni-accounting.mjs?v=186';
+import {uniTradeOverview} from './uni-accounting.mjs?v=188';
 const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trades_v2';
 let trade=null,lastFull=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false;
 const money=n=>{if(!Number.isFinite(n))return '—';const value=Math.abs(n)<.005?0:n;return (value<0?'-$':'$')+Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
@@ -20,7 +20,7 @@ function render(){
  renderTotals();
  const quotes=trade?.quotes||display?.quotes||{};
  const quote=quotes.base||quotes.bnb;
- $('uniPrice').textContent=money(quote?.priceUsd);
+ $('uniCurrentPrice').textContent=money(quote?.priceUsd);
  const balances=trade?.wallets||display?.wallets||[];
  $('walletUni').textContent=balances.length?'Wallet UNI: '+num(balances.reduce((s,w)=>s+w.uni,0))+' · '+money(balances.reduce((s,w)=>s+w.valueUsd,0)):'Wallet balances are being read.';
  $('tradeHealth').textContent=failed?'Could not refresh UNI trades. Previous figures keep their original reading time.':trade&&!trade.complete?'Trade history is syncing. Complete figures will appear automatically.':trade&&Object.keys(trade.errors||{}).length?'Some live readings could not be refreshed.':summary?.cost===null?'Some trade costs still need verification.':'';
@@ -37,6 +37,7 @@ function render(){
 function renderTotals(){
  const display=trade?.complete?trade:lastFull||trade,view=lp||lastLP,
   overview=uniTradeOverview({trade:display,lpView:view});
+ $('uniPrice').textContent=money(overview.averageBuyPriceUsd);
  $('uniHeld').textContent=num(overview.heldUni);
  $('uniHeldDetail').textContent='Wallet '+num(overview.walletUni)+' · LP '+num(overview.lpUni);
  $('uniCapital').textContent=money(overview.capitalUsd);
