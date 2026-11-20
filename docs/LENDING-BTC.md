@@ -30,8 +30,14 @@ charts.
   refresh/failure/recovery, inactive/reopened positions and per-visit settings.
 - [x] `npm run check` passes all **90** suites. Syntax, final diff checks and
   identical Portfolio copies pass. Existing samples remain unchanged.
-- [ ] Publish the authorized release.
-- [ ] Verify the deployed BTC reader, combined totals and collapsed-chart shell.
+- [x] Published [`bd07220`](https://github.com/fung93/tiger-foundation-dashboard/commit/bd07220)
+  to main as requested.
+- [x] [Production verification run 44663941032](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44663941032)
+  succeeds: fresh complete **four-market** API, BTC **8/6** units and **86%** LLTV,
+  BTC Borrow-opening provenance, collapsed-chart JS and app cache **182**.
+  At **20 November, 10:53 MYT**, the API reports Oracle collateral **$1,517.01**,
+  Borrowed **$871.64**, Average LTV **57.46%**, including BTC oracle collateral
+  **$193.2842** and BTC borrowed **$150.020884**. Values move with new readings.
 
 Actual source evidence, **20 November at 10:38 MYT**:
 
