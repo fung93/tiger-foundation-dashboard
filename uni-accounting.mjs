@@ -27,7 +27,11 @@ export function buildUniLPAccounting(book,view){
    }
   }
   const uniKey=p.a0?.toLowerCase()===UNI[p.chain]?p.t0:p.t1;
-  rows.push({key:p.key,id:String(p.id),chain:p.chain,owner:p.wallet,status:p.status,netUsd:ready?net:null});
+  const pricePnl=p.status==='open'?metric?.pnlUsd:closed?.pnl_usd;
+  rows.push({key:p.key,id:String(p.id),chain:p.chain,owner:p.wallet,pair:p.pair,status:p.status,
+   openedAt:p.opened_ts?new Date(p.opened_ts*1000).toISOString():null,
+   closedAt:p.closed_ts?new Date(p.closed_ts*1000).toISOString():null,
+   pnlUsd:ready&&finite(pricePnl)?pricePnl:null,feesUsd:ready&&finite(fees)?fees:null,netUsd:ready?net:null});
   for(const c of [...(p.claims||[]),...(p.trading_claims||[])]){
    if(!finite(c.usd)){feeComplete=false;}else claimedUsd+=c.usd;
    for(const [key,amount]of Object.entries(c.tokens||{})){if(!finite(amount)||amount<0)feeComplete=false;else{const symbol=book.tokens?.[key]?.s||key.split('@')[0];tokens[symbol]=(tokens[symbol]||0)+amount;}}
@@ -75,4 +79,18 @@ export function uniPortfolioPerformance({lp,trades=[],flows=[],quotes={},wallets
   lpFeesUsd:lp?.schemaVersion==='uni-lp-accounting-v1'&&finite(lp.earnedUsd)?lp.earnedUsd:null,lpFeeTokens:lp?.earnedTokens||{},
   collectedFeesUsd:lp?.schemaVersion==='uni-lp-accounting-v1'&&finite(lp.claimedUsd)?lp.claimedUsd:null,collectedTokens:lp?.tokens||{},
   basis:'LP Book net plus unrealised gain on actual wallet UNI. Open-LP claimed fee appreciation is already included in LP net and is not counted twice.'};
+}
+
+/* Attribution explains the existing total; it never substitutes a new P&L rule.
+   Missing/old rows may show verified entries, but cannot claim reconciliation. */
+export function uniPnlRecord(lp,performance){
+ const source=lp?.schemaVersion==='uni-lp-accounting-v1'&&Array.isArray(lp.positions)?lp.positions:[],keys=new Set(),
+  positions=source.filter(p=>{
+   if(!p||typeof p.key!=='string'||!p.key||keys.has(p.key)||!UNI[p.chain]||!['open','closed'].includes(p.status))return false;
+   keys.add(p.key);return true;
+  }),valid=positions.length===source.length&&positions.every(p=>finite(p.netUsd));
+ const reconciled=lp?.schemaVersion==='uni-lp-accounting-v1'&&lp.complete===true&&Array.isArray(lp.positions)&&valid&&finite(performance?.lpNetUsd)
+  &&Math.abs(sum(positions.map(p=>p.netUsd))-performance.lpNetUsd)<1e-7;
+ return {positions,reconciled,asOf:lp?.asOf||null,lpNetUsd:performance?.lpNetUsd??null,
+  holdingUnrealizedUsd:performance?.holdingUnrealizedUsd??null,totalUsd:performance?.pnlUsd??null};
 }

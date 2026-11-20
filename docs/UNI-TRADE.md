@@ -1,5 +1,38 @@
 # UNI Trade
 
+## P&L contribution record — 20 November 2026
+
+The owner explicitly requests **push**: a small record icon on the P&L card
+that identifies which LPs contribute to the total.
+
+- [x] Inspect the current calculation: all open and closed UNI LP net, plus
+  unrealised gain/loss on actual loose wallet UNI. Preserve that calculation.
+- [x] Add pair, original open/close dates, price P&L and fees to the existing
+  additive per-position API record. Reuse numeric LP Book metrics and fixed
+  closed figures; do not parse display strings or reprice historical earnings.
+- [x] Add a native modal from the small record icon. List every position's ID,
+  network, wallet, open/closed status, price P&L, fees and net contribution.
+  Show LP subtotal, wallet unrealised contribution and the identical top total.
+- [x] Check position net against the LP subtotal; incomplete, duplicate or
+  mismatched rows cannot claim a reconciled record. Fees remain included once.
+- [x] Add both languages/themes, keyboard/close behavior and app cache **184**.
+- [x] Pass **66** deterministic UNI accounting/attribution assertions and
+  **73** shared language assertions.
+- [x] **317** Chromium assertions at 320/375/1366 px in both themes/languages:
+  the controlled -$2.03 total reconciles across the original closed positions
+  and a test current position; wallet gain is counted once; current LP first;
+  source failure/expiry/recovery; dialog remains open across polling; icon,
+  keyboard/focus, close/backdrop behavior and no horizontal overflow. Inspect
+  both 375 px theme screenshots. Test current amounts are synthetic, not a
+  claim about the owner's current live reading.
+- [x] `npm run check` passes all **91** suites. Final changed-JS syntax, diff
+  and byte-identical Portfolio checks pass. No financial history JSON is edited.
+- [ ] Publish and verify the live page and per-position contributions.
+
+No new credential, database migration, wallet permission or paid provider is
+required. The historical -$2.03 shown by the owner is a moving live total; the
+record explains the same current reading rather than freezing that value.
+
 Current follow-up: 1inch resolver fills are now included. Two actual orders
 filled in three transactions: **19.09969908869371 UNI** for **99.982335 USDC**,
 with weighted average **$5.2347596962501735**. Earlier nonce-only observations

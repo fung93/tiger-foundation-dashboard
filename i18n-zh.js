@@ -2,6 +2,17 @@
 (function () {
   'use strict';
   window.TF_ZH = Object.freeze({
+    "P&L record":"盈亏记录",
+    "Open P&L record":"打开盈亏记录",
+    "Close P&L record":"关闭盈亏记录",
+    "Price P&L":"价格盈亏",
+    "LP net · includes fees":"LP 净收益 · 含手续费",
+    "Wallet UNI · unrealised":"钱包 UNI · 未实现盈亏",
+    "Total P&L":"总盈亏",
+    "LP reading":"LP 读取时间",
+    "No UNI LP contributions recorded yet.":"暂时没有 UNI LP 盈亏记录。",
+    "The position breakdown is still being verified.":"各仓位的盈亏明细仍在核实中。",
+    "LP net includes claimed and unclaimed fees. Wallet gains exclude UNI inside LPs.":"LP 净收益包含已领取和待领取手续费。钱包盈亏不重复计算 LP 内的 UNI。",
     "Token mix unavailable":"代币占比暂不可用",
     "LP token mix by value":"LP 代币价值占比",
     "Share of LP principal value at the current pool price. Excludes fees and rewards.":"按当前池价计算的 LP 本金价值占比，不含手续费和奖励。",

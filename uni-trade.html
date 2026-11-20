@@ -16,10 +16,10 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/uni.css">
 <link rel="stylesheet" href="/theme.css">
-<script src="/i18n-zh.js?v=183"></script>
-<script src="/i18n.js?v=183"></script>
-<link rel="stylesheet" href="/i18n.css?v=183">
-<link rel="stylesheet" href="/uni-trade.css?v=181">
+<script src="/i18n-zh.js?v=184"></script>
+<script src="/i18n.js?v=184"></script>
+<link rel="stylesheet" href="/i18n.css?v=184">
+<link rel="stylesheet" href="/uni-trade.css?v=184">
 </head>
 <body class="themed-page">
 <header><div class="hdr-inner">
@@ -43,7 +43,7 @@
     <div class="card"><div class="label">Value now</div><div id="uniWorth" class="uni-trade-value">—</div><div class="uni-trade-help">Trade balance at current prices</div></div>
     <div class="card"><div class="label">Average buy cost</div><div id="uniAverage" class="uni-trade-value">—</div><div class="uni-trade-help">Verified buy / sell fills</div></div>
     <div class="card uni-fees-card"><div class="label">LP fees</div><div id="uniFees" class="uni-trade-value">—</div><div id="uniFeesDetail" class="uni-trade-help">UNI + USDC</div><div class="uni-trade-help">Claimed + still to claim</div></div>
-    <div class="card uni-pnl-card"><div class="label">P&amp;L</div><div id="uniPnl" class="uni-trade-value">—</div><div id="uniPnlDetail" class="uni-trade-help">LP net + wallet unrealised</div></div>
+    <div class="card uni-pnl-card"><div class="label">P&amp;L</div><button type="button" id="uniPnlRecordBtn" class="uni-record-button" title="P&amp;L record" aria-label="Open P&amp;L record" aria-haspopup="dialog" aria-controls="uniPnlRecord"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M3 7h4M3 12h4M3 17h4M10 8h6M10 12h6M10 16h4"/></svg></button><div id="uniPnl" class="uni-trade-value">—</div><div id="uniPnlDetail" class="uni-trade-help">LP net + wallet unrealised</div></div>
   </div>
   <div id="walletUni" class="uni-trade-help"></div>
   <div class="uni-trade-section"><div class="label">Current UNI LPs</div><a class="uni-trade-link" href="/lp.html">LP Book ↗</a></div>
@@ -53,8 +53,12 @@
   <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>The swap book counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Each network keeps its own average cost; a sale removes the sold UNI at that cost. LP operations and claims are not buys or sells. Wallet balances and LP inventory are shown separately and are not added to the trade-book value.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. P&amp;L combines open and closed UNI LP net with unrealised gains on UNI actually held in the wallets. UNI inside an LP is excluded from holding gains. LP fees include claimed and unclaimed earnings and are already included once in P&L. Open LP fees use live prices; closed LP fees retain their recorded prices. Owner-paid network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
   <noscript><div class="card uni-trade-empty">Turn on JavaScript to read your UNI trades.</div></noscript>
 </main>
+<dialog id="uniPnlRecord" class="uni-pnl-dialog" aria-labelledby="uniPnlRecordTitle">
+  <div class="uni-pnl-dialog-head"><h2 id="uniPnlRecordTitle">P&amp;L record</h2><button type="button" id="uniPnlRecordClose" class="uni-record-close" aria-label="Close P&amp;L record">&times;</button></div>
+  <div id="uniPnlRecordBody"></div>
+</dialog>
 <script src="/lpcards.js?v=183"></script>
-<script type="module" src="/uni-trade.js?v=180"></script>
+<script type="module" src="/uni-trade.js?v=184"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

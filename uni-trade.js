@@ -1,5 +1,5 @@
 import {replayUniTrades} from './uni-trade-core.mjs?v=180';
-import {uniPortfolioPerformance} from './uni-accounting.mjs?v=180';
+import {uniPortfolioPerformance,uniPnlRecord} from './uni-accounting.mjs?v=184';
 const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trades_v2';
 let trade=null,lastFull=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false;
 const money=n=>{if(!Number.isFinite(n))return '—';const value=Math.abs(n)<.005?0:n;return (value<0?'-$':'$')+Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
@@ -41,6 +41,26 @@ function renderTotals(){
  $('uniPnlDetail').textContent='LP (incl. fees) '+money(p.lpNetUsd)+' · Holding '+money(p.holdingUnrealizedUsd);
  $('uniFees').textContent=money(p.lpFeesUsd);
  $('uniFeesDetail').textContent=Object.entries(p.lpFeeTokens).map(([symbol,amount])=>num(amount)+' '+symbol).join(' + ')||'UNI + USDC';
+ renderPnlRecord(uniPnlRecord(view?.uni,p));
+}
+function renderPnlRecord(record){
+ const value=n=>'<span class="uni-pnl-amount '+(n>.004?'up':n<-.004?'down':'')+'">'+esc(money(n))+'</span>',
+  line=(label,n,extra='')=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n)+'</div>';
+ const positions=record.positions.slice().sort((a,b)=>(a.status==='closed')-(b.status==='closed')
+  ||String(b.closedAt||b.openedAt||'').localeCompare(String(a.closedAt||a.openedAt||''))).map(position=>{
+  const status=position.status==='closed'?'Closed':'Open',wallet=typeof position.owner==='string'?position.owner.slice(0,6)+'…'+position.owner.slice(-4):'',
+   date=position.status==='closed'?position.closedAt:position.openedAt,ts=date?Date.parse(date)/1000:NaN;
+  return '<section class="uni-pnl-position" data-position="'+esc(position.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(position.pair||'UNI LP')+'</strong>'+value(position.netUsd)+'</div>'
+   +'<div class="uni-trade-help"><span>'+esc(chainName(position.chain))+'</span> · <span>#'+esc(position.id)+'</span> · <span>'+status+'</span>'+(wallet?' · <span>'+esc(wallet)+'</span>':'')+'</div>'
+   +'<div class="uni-pnl-parts"><div><span>Price P&amp;L</span>'+value(position.pnlUsd)+'</div><div><span>LP fees</span>'+value(position.feesUsd)+'</div></div>'
+   +(Number.isFinite(ts)?'<div class="uni-trade-help"><span>'+(position.status==='closed'?'Closed':'Opened')+'</span> '+esc(when(ts))+' MYT</div>':'')+'</section>';
+ }).join('');
+ const observed=record.asOf?Date.parse(record.asOf)/1000:NaN;
+ $('uniPnlRecordBody').innerHTML=(positions||'<p class="uni-trade-help">No UNI LP contributions recorded yet.</p>')
+  +(!record.reconciled?'<p class="uni-pnl-warning">The position breakdown is still being verified.</p>':'')
+  +'<div class="uni-pnl-totals">'+line('LP net · includes fees',record.lpNetUsd)+line('Wallet UNI · unrealised',record.holdingUnrealizedUsd)+line('Total P&amp;L',record.totalUsd,'uni-pnl-grand-total')+'</div>'
+  +'<p class="uni-trade-help">LP net includes claimed and unclaimed fees. Wallet gains exclude UNI inside LPs.</p>'
+  +(Number.isFinite(observed)?'<p class="uni-trade-help"><span>LP reading</span> · '+esc(when(observed))+' MYT</p>':'');
 }
 function renderLP(){
  renderTotals();
@@ -59,5 +79,8 @@ async function loadLP(){if(lpBusy||document.hidden)return;lpBusy=true;try{const 
  if(state.partial&&lastLP&&Date.now()-Date.parse(lastLP.generated)<300000){lp=lastLP;lpFailed=true;}else{lp=next;lpFailed=state.partial;if(state.fresh&&!state.partial)lastLP=next;}renderLP();}catch{lpFailed=true;renderLP();}finally{lpBusy=false;}}
 try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(valid(saved)){trade=saved;lastFull=saved.complete?saved:null;failed=true;}}catch{}
 $('tradeNetwork').addEventListener('change',render);window.addEventListener('tf-language-change',render);
+$('uniPnlRecordBtn').addEventListener('click',()=>$('uniPnlRecord').showModal());
+$('uniPnlRecordClose').addEventListener('click',()=>$('uniPnlRecord').close());
+$('uniPnlRecord').addEventListener('click',event=>{if(event.target!==$('uniPnlRecord'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
 render();loadTrades();loadLP();setInterval(loadTrades,30000);setInterval(loadLP,15000);setInterval(stamp,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadTrades();loadLP();}});

@@ -2168,3 +2168,17 @@ LP Book Live, the widget and Current UNI LPs. Keep both endpoint prices and the
 price marker; keep UNI's scoped pink-to-blue gradient. App/shared card/translation
 assets use **183**, without changing unrelated asset versions or financial
 ledgers. See `docs/LP-TOKEN-MIX.md` for validation and publication progress.
+
+### 20 November 2026 — UNI P&L record icon
+
+Owner explicitly requests **push**: show which UNI LPs contribute to the top
+P&L figure. Keep total = open + closed UNI LP net + actual loose UNI unrealised
+gain/loss. `buildUniLPAccounting.positions` adds pair/dates, price P&L and fees
+from the original LP Book metrics or fixed closed observations. `uniPnlRecord`
+checks attribution against the existing subtotal; never invent missing rows or
+count fees again. The small record icon opens a native dialog with LP IDs,
+networks, wallets, status and components, then wallet gain and the identical
+total. Polling updates its body without closing it. Both themes/languages and
+mobile/keyboard support apply. App/translation and changed UNI assets use
+**184**; shared LP card assets stay **183**. See `docs/UNI-TRADE.md` for progress
+and source/validation/publication evidence.
