@@ -5,4 +5,8 @@
 
 .uni-guide-heading{display:flow-root}.uni-guide-heading .uni-trade-link{float:right;margin:0 0 12px 12px}
 
+/* Current UNI LPs: UNI pink at the lower edge, USDC blue at the upper edge.
+   Range status remains visible in the badge and price marker. */
+#uniLps .lpw .fill{background:linear-gradient(90deg,#ff007a 0%,#2775ca 100%)}
+
 @media(max-width:900px){.uni-pnl-card{grid-column:1/-1}}

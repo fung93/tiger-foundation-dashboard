@@ -2107,3 +2107,15 @@ to two decimals. P&L includes all LP earnings exactly once.
 - Validation/progress and publication evidence: `docs/UNI-TRADE.md`. Fee claims
   must be neutral for total earnings/P&L; failed/unpriced readings remain
   unavailable and must recover without erasing the last successful reading.
+
+### 20 November 2026 — Current UNI LP range gradient (push requested)
+
+The owner explicitly requests **push** for a left-to-right **UNI pink → USDC
+blue** range line in **Current UNI LPs**. `uni-trade.css` scopes the line to
+`#uniLps .lpw .fill`, using `#ff007a` to `#2775ca`. In/out-of-range markers and
+badges retain their data-driven state. The shared LP Book/widget styling and
+all financial calculations/readers remain unchanged. App cache and the changed
+UNI stylesheet are **181**; unchanged translation/JS assets remain **180**.
+Browser verification covers 320/375/1366 px, both themes/languages, all range
+states, marker positions and styling scope. See `docs/UNI-TRADE.md` for checks
+and publication evidence.

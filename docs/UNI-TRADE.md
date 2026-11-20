@@ -209,3 +209,24 @@ provider, wallet connection or new public function is required.
 
 The known older BNB archive backfill remains independent of verified live
 fills and inventory; the new fee/UI work does not claim that backfill is complete.
+
+## Current UNI LP range colours — 20 November 2026
+
+The owner explicitly requests **push** for UNI pink on the left edge and USDC
+blue on the right edge of each **Current UNI LPs** range line.
+
+- [x] Add a scoped `#uniLps .lpw .fill` gradient, `#ff007a` → `#2775ca`.
+  Keep the live price marker and in/out-of-range badge behavior.
+- [x] Bump the app cache and changed stylesheet to **181**. Unchanged JS and
+  translation assets stay at **180**; shared LP styles and accounting stay intact.
+- [x] **192** browser assertions pass at 320/375/1366 px, both themes/languages:
+  exact gradient direction/colours, both current cards, in/below/above range,
+  marker placement, warnings, styling scope, unchanged figures and no overflow.
+- [x] `npm run check` passes all **89** suites; final diff checks pass and
+  the Portfolio copies remain identical.
+- [ ] Publish and verify the deployed stylesheet/cache.
+
+Changed production files are `uni-trade.css`, its two page references
+(`uni-trade.html`, `uni.html`) and `sw.js`. The existing offline-asset assertion
+tracks the new CSS URL. No financial reader, ledger, secret or configuration
+changes are required.

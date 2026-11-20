@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v180';  /* UNI fees include unclaimed earnings; P&L and amounts at two decimals */
+var CACHE_VERSION = 'tiger-v181';  /* Current UNI LP range lines: UNI pink to USDC blue */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -73,7 +73,7 @@ var SHELL_ASSETS = [
   '/uni.js',
   '/uni-core.mjs',
   '/uni-trade.html',
-  '/uni-trade.css?v=180',
+  '/uni-trade.css?v=181',
   '/uni-trade.js?v=180',
   '/uni-trade-core.mjs?v=180',
   '/uni-accounting.mjs?v=180',
