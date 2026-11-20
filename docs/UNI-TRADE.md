@@ -224,7 +224,12 @@ blue on the right edge of each **Current UNI LPs** range line.
   marker placement, warnings, styling scope, unchanged figures and no overflow.
 - [x] `npm run check` passes all **89** suites; final diff checks pass and
   the Portfolio copies remain identical.
-- [ ] Publish and verify the deployed stylesheet/cache.
+- [x] Published [`127f968`](https://github.com/fung93/tiger-foundation-dashboard/commit/127f968)
+  to main. [Read-only production check 44657159821](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44657159821)
+  succeeds: the live page references CSS **181**, the scoped gradient has UNI
+  pink at the left and USDC blue at the right, and app cache **tiger-v181**
+  includes the changed stylesheet. Direct workspace requests remain blocked
+  by the proxy, so the production fetches ran through this read-only runner.
 
 Changed production files are `uni-trade.css`, its two page references
 (`uni-trade.html`, `uni.html`) and `sw.js`. The existing offline-asset assertion
