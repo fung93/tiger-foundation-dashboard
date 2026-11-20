@@ -19,10 +19,8 @@ function render(){
  const display=trade?.complete?trade:lastFull||trade,ready=!!display?.complete||!!display?.trades?.some(t=>t.verified&&t.route==='1inch_limit'),summary=display?replayUniTrades(display.trades,display.quotes):null;
  renderTotals();
  const quotes=trade?.quotes||display?.quotes||{};
- const primary=quotes.base?'base':quotes.bnb?'bnb':null,quote=quotes[primary];
+ const quote=quotes.base||quotes.bnb;
  $('uniPrice').textContent=money(quote?.priceUsd);
- $('uniPriceDetail').textContent=quote?chainName(primary)+' · '+when(quote.ts)+' MYT':'Reading UNI prices…';
- $('tradeQuotes').innerHTML=Object.entries(quotes).filter(([key])=>key!==primary).map(([key,q])=>'<span>'+chainName(key)+' · '+esc(money(q.priceUsd))+'</span><small>'+esc(when(q.ts))+' MYT</small>').join('');
  const balances=trade?.wallets||display?.wallets||[];
  $('walletUni').textContent=balances.length?'Wallet UNI: '+num(balances.reduce((s,w)=>s+w.uni,0))+' · '+money(balances.reduce((s,w)=>s+w.valueUsd,0)):'Wallet balances are being read.';
  $('tradeHealth').textContent=failed?'Could not refresh UNI trades. Previous figures keep their original reading time.':trade&&!trade.complete?'Trade history is syncing. Complete figures will appear automatically.':trade&&Object.keys(trade.errors||{}).length?'Some live readings could not be refreshed.':summary?.cost===null?'Some trade costs still need verification.':'';

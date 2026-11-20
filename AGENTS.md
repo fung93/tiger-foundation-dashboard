@@ -2200,3 +2200,12 @@ prices or costs stay unavailable. `uniTradeOverview` joins canonical owners/toke
 addresses/positions and supplies the same calculation to all five cards and the
 record. App/translation/changed UNI assets use **186**; shared LP cards stay
 **183**. See `docs/UNI-TRADE.md` for validation and publication progress.
+
+### 20 November 2026 — price-only UNI card (push authorized)
+
+Remove the network/date caption and secondary BNB quote from the UNI price
+card; retain just its label and primary live price. Keep both underlying quotes,
+timestamps, freshness logic and all financial calculations intact. App and
+changed UNI JS/CSS use **187**, with accounting/translations still **186**.
+After local verification the owner explicitly requested **push**. Validation and
+publication evidence are recorded in `docs/UNI-TRADE.md`.

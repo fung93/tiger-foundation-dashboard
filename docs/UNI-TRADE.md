@@ -1,5 +1,22 @@
 # UNI Trade
 
+## UNI price card cleanup — 20 November 2026
+
+The owner asks to remove the network/reading time and the secondary BNB Chain
+price beneath UNI price, then explicitly requests **push** after local validation.
+
+- [x] Leave only the **UNI price** label and live primary price in that card.
+  Remove the two metadata elements, their render calls and unused CSS.
+- [x] Keep both network quotes and their source timestamps in the data; preserve
+  freshness status, all five financial values, P&L and the record icon.
+- [x] Bump the app and changed UNI JS/CSS to **187**. Accounting/translations
+  stay **186**, shared LP cards stay **183** and Portfolio copies stay identical.
+- [x] JS syntax/diff checks and **51** UNI API/read-only/recovery assertions pass.
+- [x] **192** Chromium assertions using recorded verified inputs: price-only
+  rendering persists through refreshes at 320/375/1366 px, both languages/themes;
+  the five financial values, formula, LP contributions and record remain intact.
+- [ ] Publish the validated cleanup and verify the live page/assets.
+
 ## UNI price, holdings, capital, current value and P&L — 20 November 2026
 
 The owner's latest instruction explicitly authorizes **push** and supersedes

@@ -4,7 +4,6 @@
 @media(max-width:600px){.uni-trade-heading{align-items:flex-start;margin-top:22px}.uni-trade-heading h2{font-size:34px}.uni-trade-heading p{font-size:11px}.uni-trade-heading .uni-trade-link{font-size:10px;padding:8px 11px}.uni-trade-cards{gap:10px}.uni-trade-cards .card{padding:16px}.uni-trade-table thead{display:none}.uni-trade-table,.uni-trade-table tbody,.uni-trade-table tr{display:block}.uni-trade-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 16px;gap:9px 15px;border-bottom:1px solid var(--line)}.uni-trade-table td{display:block;border:0;padding:0;min-width:0;overflow-wrap:anywhere}.uni-trade-table td:first-child{grid-column:1 / -1}.uni-trade-table .num{text-align:left}.uni-trade-table td[data-label]::before{content:attr(data-label);display:block;color:var(--dim);font-size:9px;letter-spacing:.04em}.uni-trade-section{margin-top:25px}}
 
 .uni-guide-heading{display:flow-root}.uni-guide-heading .uni-trade-link{float:right;margin:0 0 12px 12px}
-.uni-price-other{margin-top:8px}.uni-price-other span,.uni-price-other small{display:block}.uni-price-other small{font-size:10px;color:var(--faint)}
 
 /* Current UNI LPs: UNI pink at the lower edge, USDC blue at the upper edge.
    Range status remains visible in the badge and price marker. */
