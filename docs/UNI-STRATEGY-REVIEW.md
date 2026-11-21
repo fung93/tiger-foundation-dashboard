@@ -25,7 +25,8 @@ Reusing proceeds is an internal movement; adding fresh funds increases capital.
   unrelated cash, claims, partial/pending/full exits, source failures/recovery,
   reorg/coverage limits, local browser presentation and `npm run check`.
 - [x] Receive the owner's explicit authorization to commit and push.
-- [ ] Publish the reviewed change to main and verify available release evidence.
+- [x] Publish the reviewed change to main and verify the remote source commit.
+- [ ] Verify the deployed page/API and fully completed owner history.
 
 Accounting policy: strategy operations consume previously returned cash first;
 unrelated wallet spending consumes unrelated cash first. Internal transfers
@@ -134,3 +135,23 @@ JSON histories remain unchanged. Targeted accounting/reader/API checks passed
 again. Event topics independently match the Keccak hashes of Uniswap's actual
 IncreaseLiquidity, DecreaseLiquidity and Collect ABI signatures. Direct Vercel
 and GitHub REST API requests still return HTTP 403 from this workspace.
+
+## Publication evidence — 21 November 2026
+
+- Source commit [`2fa1758`](https://github.com/fung93/tiger-foundation-dashboard/commit/2fa17584e815908727a23d5f084ede56420163a1)
+  was pushed to main after `git pull --rebase origin main`; `git ls-remote`
+  confirmed the exact remote commit. No existing ledger was reset or rewritten
+  by that implementation commit.
+- The automatic [first strategy run](https://github.com/fung93/tiger-foundation-dashboard/actions/runs/44908797287)
+  saved checkpoint `69699b9`: **52 receipts**, **18 UNI LP identities**, Base
+  cursor **60,238,015** toward observed head **60,385,866**. It explicitly reports
+  **incomplete**, awaiting trade verification. Opening/current balance proofs
+  are not complete; do not treat its cash or capital as verified totals.
+- The independent trade run subsequently saved **9 verified trades**, including
+  the newer 1inch fill at Base block **60,283,875**. A fresh strategy read can
+  use that saved fill and resume from its existing checkpoint. No reader reset
+  or guessed trade cost is needed.
+- Production Vercel requests still return HTTP 403 in this workspace. App cache
+  **189**, the deployed UI/API, complete current totals and hourly persistence
+  remain unverified against the actual deployment. The development examples and
+  passing tests are not evidence of those live results.
