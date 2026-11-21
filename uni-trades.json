@@ -9,11 +9,11 @@
       "chainId": 8453,
       "uni": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
       "startBlock": 58688016,
-      "cursor": 60425625,
-      "cursorHash": "0xd8a4242c72f615eec691fd604a016a4a443bd9c03cef47b6ab4b37e0f336d3a5",
-      "head": 60425625,
-      "ts": 1795275500,
-      "readAt": 1795275500,
+      "cursor": 60525704,
+      "cursorHash": "0xa711951f0cf3927543630774ddc52e72afff3e82328bcd22554555baec2f1b92",
+      "head": 60525704,
+      "ts": 1795295516,
+      "readAt": 1795295516,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 4,
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 45
@@ -26,8 +26,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 59427834,
-      "recentCursor": 60425625,
-      "recentHash": "0xd8a4242c72f615eec691fd604a016a4a443bd9c03cef47b6ab4b37e0f336d3a5",
+      "recentCursor": 60525704,
+      "recentHash": "0xa711951f0cf3927543630774ddc52e72afff3e82328bcd22554555baec2f1b92",
       "recentOpeningUni": {
         "combined": "13614"
       }
@@ -36,11 +36,11 @@
       "chainId": 56,
       "uni": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
       "startBlock": 94965697,
-      "cursor": 134912525,
-      "cursorHash": "0x13db234c41504cadf9aa7e2a11fc31410fea1c933cd14d9c2aac952ec2ed05ca",
-      "head": 134912525,
-      "ts": 1795275517,
-      "readAt": 1795275517,
+      "cursor": 134956956,
+      "cursorHash": "0x07a2e009919780786962571947c80fba8ed84ad7f04ab35c3777ddebc479427e",
+      "head": 134956956,
+      "ts": 1795295519,
+      "readAt": 1795295519,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 7,
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 7
@@ -53,8 +53,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 134441406,
-      "recentCursor": 134912525,
-      "recentHash": "0x13db234c41504cadf9aa7e2a11fc31410fea1c933cd14d9c2aac952ec2ed05ca",
+      "recentCursor": 134956956,
+      "recentHash": "0x07a2e009919780786962571947c80fba8ed84ad7f04ab35c3777ddebc479427e",
       "recentOpeningUni": {
         "combined": "0"
       }
@@ -402,13 +402,6 @@
   ],
   "runs": [
     {
-      "at": 1795080655,
-      "complete": false,
-      "errors": {
-        "bnb": "missing trie node"
-      }
-    },
-    {
       "at": 1795080757,
       "complete": false,
       "errors": {
@@ -527,22 +520,28 @@
       "complete": true,
       "historyComplete": false,
       "errors": {}
+    },
+    {
+      "at": 1795295516,
+      "complete": true,
+      "historyComplete": false,
+      "errors": {}
     }
   ],
   "quotes": {
     "base": {
-      "priceUsd": 4.686826765248425,
+      "priceUsd": 4.710353046376478,
       "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
-      "block": 60425625,
-      "ts": 1795275500,
-      "tvl": 60006.192241202356
+      "block": 60525704,
+      "ts": 1795295516,
+      "tvl": 62040.16273320967
     },
     "bnb": {
-      "priceUsd": 4.696871271131249,
+      "priceUsd": 4.7156937052640995,
       "pool": "0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
-      "block": 134912525,
-      "ts": 1795275517,
-      "tvl": 94611.92576389416
+      "block": 134956956,
+      "ts": 1795295519,
+      "tvl": 94946.51866279599
     }
   },
   "walletReadings": [
@@ -552,17 +551,17 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795275500,
-      "block": 60425625
+      "ts": 1795295516,
+      "block": 60525704
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
       "chain": "base",
       "raw": "1051556127843",
       "uni": 0.000001051556127843,
-      "valueUsd": 0.000004928461405135567,
-      "ts": 1795275500,
-      "block": 60425625
+      "valueUsd": 0.000004953200610221129,
+      "ts": 1795295516,
+      "block": 60525704
     },
     {
       "owner": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
@@ -570,8 +569,8 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795275517,
-      "block": 134912525
+      "ts": 1795295519,
+      "block": 134956956
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
@@ -579,11 +578,11 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795275517,
-      "block": 134912525
+      "ts": 1795295519,
+      "block": 134956956
     }
   ],
-  "lastAttempt": 1795275500,
+  "lastAttempt": 1795295516,
   "errors": {},
   "flows": [
     {
