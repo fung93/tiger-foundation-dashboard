@@ -46,9 +46,9 @@ blocked=true;ui.setLanguage('zh-CN');eq(root.lang,'zh-CN','The control works for
 ok(events.some(event=>event.type==='tf-language-change'&&event.detail.locale==='zh-CN'),'Canvas/UI listeners receive a locale change without a page reload');
 for(const file of ['index.html','vercel/index.html','lp.html','lp-all.html','lending.html','strategy.html','uni.html','uni-trade.html','vkat.html','kat.html','widget.html','agent.html','dashboard.html','local.html']){
  const html=readFileSync(new URL('../'+file,import.meta.url),'utf8');
- ok(html.includes('/i18n-zh.js?v=186')&&html.includes('/i18n.js?v=186')&&html.includes('/i18n.css?v=186'),'Every page includes the same local translation assets: '+file);
- ok(html.indexOf('/i18n-zh.js?v=186')<html.indexOf('/i18n.js?v=186'),'Copy is available before the translator: '+file);
+ ok(html.includes('/i18n-zh.js?v=189')&&html.includes('/i18n.js?v=189')&&html.includes('/i18n.css?v=189'),'Every page includes the same local translation assets: '+file);
+ ok(html.indexOf('/i18n-zh.js?v=189')<html.indexOf('/i18n.js?v=189'),'Copy is available before the translator: '+file);
 }
 const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
-for(const asset of ['i18n.js','i18n-zh.js','i18n.css'])ok(worker.includes("'/"+asset+"?v=186'"),'The bilingual interface remains available in the offline shell');
+for(const asset of ['i18n.js','i18n-zh.js','i18n.css'])ok(worker.includes("'/"+asset+"?v=189'"),'The bilingual interface remains available in the offline shell');
 console.log(`Shared English/Chinese language preference and financial copy: ${checks} assertions passed.`);

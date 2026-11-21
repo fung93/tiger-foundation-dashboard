@@ -4,7 +4,9 @@
 import {TRANSFER} from '../uni-trade-core.mjs';
 import {CFG,pad} from './_core.mjs';
 const extra={base:['https://base.drpc.org','https://base.llamarpc.com'],bnb:['https://56.rpc.thirdweb.com']};
-export function createUniTransferBatch(chain,{fetcher=fetch,timeoutMs=jobTimeout(),maxRequests=8000}={}){
+export function createUniTransferBatch(chain,{fetcher=fetch,timeoutMs=jobTimeout(),maxRequests=8000,tokenAddresses=[chain.uni.address]}={}){
+ const allowed=new Set([chain.uni.address,...chain.stables.map(t=>t.address)]);
+ if(!Array.isArray(tokenAddresses)||!tokenAddresses.length||tokenAddresses.some(a=>!allowed.has(a)))throw Error('Invalid fixed strategy token set');
  const until=Date.now()+timeoutMs,verified=new Set(),owners=CFG.wallets.map(w=>'0x'+pad(w.address)),sources=[...chain.rpcs.filter(u=>u.includes('publicnode')),...(extra[chain.key]||[]),...chain.rpcs.filter(u=>!u.includes('publicnode'))];let used=0,preferred=0,nextArchiveSend=0;
  async function send(url,payload){if(url.includes('rpc.thirdweb.com')){const slot=Math.max(Date.now(),nextArchiveSend);nextArchiveSend=slot+1100;if(slot>Date.now())await new Promise(resolve=>setTimeout(resolve,slot-Date.now()));}
   if(Date.now()>=until||used+(Array.isArray(payload)?payload.length:1)>maxRequests)throw Error('UNI transfer reading limit reached');used+=Array.isArray(payload)?payload.length:1;
@@ -13,7 +15,7 @@ export function createUniTransferBatch(chain,{fetcher=fetch,timeoutMs=jobTimeout
  }
  return async filters=>{
   if(!Array.isArray(filters)||!filters.length||filters.length>40)throw Error('Invalid UNI transfer batch');
-  for(const f of filters){const sides=f.topics?.slice(1).filter(Array.isArray);if(f.address!==chain.uni.address||f.topics?.[0]!==TRANSFER||sides.length!==1||JSON.stringify(sides[0])!==JSON.stringify(owners)
+  for(const f of filters){const sides=f.topics?.slice(1).filter(Array.isArray);if(!tokenAddresses.includes(f.address)||f.topics?.[0]!==TRANSFER||sides.length!==1||JSON.stringify(sides[0])!==JSON.stringify(owners)
    ||Number(BigInt(f.toBlock))-Number(BigInt(f.fromBlock))<0||Number(BigInt(f.toBlock))-Number(BigInt(f.fromBlock))>=50000)throw Error('Invalid fixed UNI transfer query');}
   let last;
   for(let n=0;n<sources.length;n++){

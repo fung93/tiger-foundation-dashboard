@@ -16,10 +16,10 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/uni.css">
 <link rel="stylesheet" href="/theme.css">
-<script src="/i18n-zh.js?v=186"></script>
-<script src="/i18n.js?v=186"></script>
-<link rel="stylesheet" href="/i18n.css?v=186">
-<link rel="stylesheet" href="/uni-trade.css?v=188">
+<script src="/i18n-zh.js?v=189"></script>
+<script src="/i18n.js?v=189"></script>
+<link rel="stylesheet" href="/i18n.css?v=189">
+<link rel="stylesheet" href="/uni-trade.css?v=189">
 </head>
 <body class="themed-page">
 <header><div class="hdr-inner">
@@ -37,19 +37,20 @@
 <main class="book-content">
   <div class="uni-trade-heading"><div><div class="label">UNI · Base &amp; BNB Chain</div><h2>UNI Trade</h2><p>Confirmed buys and sells. LP deposits, withdrawals and claims stay out of this trade book.</p></div><a class="uni-trade-link" href="/uni.html">LP guide ↗</a></div>
   <div class="health" id="tradeHealth" role="status"></div>
+  <div class="health" id="strategyHealth" role="status"></div>
   <div class="uni-trade-cards">
     <div class="card uni-average-card"><div class="label">Average buy price</div><div id="uniPrice" class="uni-trade-value">—</div><div class="uni-trade-help"><span>Current price</span>: <span id="uniCurrentPrice">—</span></div></div>
     <div class="card"><div class="label">UNI held</div><div id="uniHeld" class="uni-trade-value">—</div><div id="uniHeldDetail" class="uni-trade-help">Wallet + open LPs</div><div class="uni-trade-help" title="UNI in tracked wallets and open LPs, including unclaimed owner UNI fees. Closed LPs and fees already claimed are not added again.">Includes unclaimed UNI fees</div></div>
-    <div class="card"><div class="label">Capital</div><div id="uniCapital" class="uni-trade-value">—</div><div id="uniCapitalDetail" class="uni-trade-help" title="Actual dollars paid for recorded UNI buys. Sales, LP deposits and fee claims do not change this total. Network fees are excluded.">Total spent on UNI buys</div></div>
-    <div class="card"><div class="label">Value now</div><div id="uniWorth" class="uni-trade-value">—</div><div id="uniWorthDetail" class="uni-trade-help" title="Current wallet UNI plus both tokens in open UNI LPs, including unclaimed owner fees.">Wallet UNI + open LP value</div></div>
-    <div class="card uni-pnl-card"><div class="label">P&amp;L</div><button type="button" id="uniPnlRecordBtn" class="uni-record-button" title="P&amp;L record" aria-label="Open P&amp;L record" aria-haspopup="dialog" aria-controls="uniPnlRecord"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M3 7h4M3 12h4M3 17h4M10 8h6M10 12h6M10 16h4"/></svg></button><div id="uniPnl" class="uni-trade-value">—</div><div id="uniPnlDetail" class="uni-trade-help">Value now − Capital</div></div>
+    <div class="card"><div class="label">Capital</div><div id="uniCapital" class="uni-trade-value">—</div><div id="uniCapitalDetail" class="uni-trade-help" title="Fresh money invested minus withdrawals. Reinvested UNI or returned LP cash is not new capital. Native network fees are excluded.">Net strategy funding</div></div>
+    <div class="card"><div class="label">Value now</div><div id="uniWorth" class="uni-trade-value">—</div><div id="uniWorthDetail" class="uni-trade-help" title="Wallet UNI, both tokens in open UNI LPs, returned strategy cash and pending principal or fees. Each amount is counted once.">Includes returned LP cash</div></div>
+    <div class="card uni-pnl-card"><div class="label">P&amp;L</div><button type="button" id="uniPnlRecordBtn" class="uni-record-button" title="P&amp;L record" aria-label="Open P&amp;L record" aria-haspopup="dialog" aria-controls="uniPnlRecord"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M3 7h4M3 12h4M3 17h4M10 8h6M10 12h6M10 16h4"/></svg></button><div id="uniPnl" class="uni-trade-value">—</div><div id="uniPnlDetail" class="uni-trade-help">Realized + current</div></div>
   </div>
   <div id="walletUni" class="uni-trade-help"></div>
   <div class="uni-trade-section"><div class="label">Current UNI LPs</div><a class="uni-trade-link" href="/lp.html">LP Book ↗</a></div>
   <p class="uni-trade-help" id="lpHealth" role="status"></p><div class="lpw-grid" id="uniLps"></div>
   <div class="uni-trade-section"><div class="label" id="tradeCount">Buy / sell history</div><label class="uni-trade-help" for="tradeNetwork">Network <select id="tradeNetwork"><option value="all">Both networks</option><option value="base">Base</option><option value="bnb">BNB Chain</option></select></label></div>
   <div class="card uni-trade-history" id="tradeHistory"></div>
-  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>The swap book counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Each network keeps its own average cost; a sale removes the sold UNI at that cost. LP operations and claims are not buys or sells. Wallet balances and LP inventory are shown separately and are not added to the trade-book value.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. UNI held counts actual wallet UNI plus UNI principal and unclaimed owner UNI fees in open tracked LPs. Value now includes wallet UNI and both tokens in open UNI LPs, including unclaimed owner fees. Capital is the actual dollars paid for recorded UNI buys. P&amp;L equals Value now minus Capital. This compares current tracked holdings with gross purchase spending; sale proceeds and earlier distributions outside those holdings are not added. Historical LP results keep their recorded prices in LP Book. Owner-paid network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
+  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>History counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Average buy price is weighted across recorded purchases. Sale results use the carried strategy cost, including tokens returned from LPs. LP deposits, withdrawals and claims are not buys or sells.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. UNI held counts actual wallet UNI and UNI inside open tracked LPs. Capital is fresh funding minus withdrawals, including funds used to buy UNI or to fund the stablecoin side of a UNI LP. Reinvesting returned funds does not add capital. Value now includes wallet UNI, open LPs, returned strategy cash and pending principal or fees, counted once. P&amp;L equals Value now minus net Capital, split between settled results and current gains or losses. An LP reaching its upper edge is still open; settled LP results require confirmed withdrawal and collection. Settled values keep their original transaction prices, and the existing LP Book history stays unchanged. Owner-paid network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
   <noscript><div class="card uni-trade-empty">Turn on JavaScript to read your UNI trades.</div></noscript>
 </main>
 <dialog id="uniPnlRecord" class="uni-pnl-dialog" aria-labelledby="uniPnlRecordTitle">
@@ -57,7 +58,7 @@
   <div id="uniPnlRecordBody"></div>
 </dialog>
 <script src="/lpcards.js?v=183"></script>
-<script type="module" src="/uni-trade.js?v=188"></script>
+<script type="module" src="/uni-trade.js?v=189"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>

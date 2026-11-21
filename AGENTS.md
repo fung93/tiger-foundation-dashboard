@@ -2222,3 +2222,39 @@ calculations and the value-minus-capital P&L unchanged. Network/date/secondary
 BNB metadata remains hidden on this card. App/changed UNI assets/accounting use
 **188**; existing translation assets stay **186**. Validation/publication details
 are maintained in `docs/UNI-TRADE.md`.
+
+### 21 November 2026 — UNI capital and settled results (push authorized)
+
+The owner first requested **"do it in local for review"**, then explicitly said
+**"push"** after the local review. Publication of this reviewed change is now
+authorized. The implementation replaces
+cumulative UNI buy spending in Capital with net strategy funding. Reusing
+returned LP USDC is not fresh capital; a real top-up is. Value retains related
+wallet cash, wallet UNI, current LP value and pending principal/fees. Total P&L
+equals Value minus net Capital and is split into **Realized / Current**. Reaching
+an edge alone does not settle the LP: require confirmed withdrawal/collection.
+
+- `uni-strategy-core.mjs` replays actual receipt amounts and carried costs.
+  Settled values keep historical prices, including fees. Sales use carried
+  strategy cost; the first card still shows weighted recorded buy price.
+- `api/_uni-strategy-reader.mjs`, `api/_uni-strategy.mjs` add a separate bounded
+  receipt/balance/liquidity proof and `/api/uni?view=strategy`. Quote and trade
+  reads stay independent. Saved/warm verified fills are reused without a new
+  backfill pass; unknown fills/costs remain pending. Reorgs, false empty logs,
+  missing receipts and failed final proofs cannot erase prior evidence.
+- `uni-strategy.json` is a new, initially empty checkpoint, not a reset of any
+  existing history. Its writer/workflow touches only that file. Hourly `:53`
+  collection starts with publication. A push changing the reader also triggers
+  its first resumable backfill; do not invent a completed initialization.
+- Ordinary UNI Trade uses real readers. Development-only
+  `/__review/uni-strategy?scenario=reuse` has a prominent example banner and
+  supports upper-edge, collected, reused, top-up, pending and partial scenarios.
+  Only the local server serves these fixtures; never add fallback example
+  balances to a production API. Use `npm run dev` (port 4200) to review.
+- App/translation references are **189**; unchanged accounting/card assets
+  retain their versions. Both themes/languages and Portfolio copies remain.
+  Existing LP Book v9, financial histories, private agent state/auth and Lending
+  visit-only settings are untouched. Source warnings keep original times.
+- `docs/UNI-STRATEGY-REVIEW.md` holds the checklist, changed components, accounting
+  policy, checks and live-verification blockers. Direct Base RPC POST is proxy
+  blocked here (403); do not claim real-owner strategy totals are verified.

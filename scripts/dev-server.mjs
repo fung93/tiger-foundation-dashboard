@@ -4,6 +4,7 @@ import {createServer} from 'node:http';
 import {readFile, realpath, stat} from 'node:fs/promises';
 import {dirname, extname, isAbsolute, relative, resolve, sep} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {uniStrategyReview,reviewBanner,REVIEW_SCENARIOS} from './fixtures/uni-strategy-review.mjs';
 
 const DEFAULT_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const API_NAMES=new Set(['lpbook','vault','fables','morpho','lp','strategy','uni','kat-trades','vkat','agent','agent-telegram','agent-monitor']);
@@ -57,9 +58,27 @@ export async function createPreviewServer({root=DEFAULT_ROOT,host='127.0.0.1',po
     }
     if(hidden(pathname)){send(response,403,'This path is not available in preview.');return;}
     try{
+      // Explicit examples live only in this development server. Ordinary page/API
+      // requests never fall back to fixture balances when a real source fails.
+      if(pathname==='/__review/uni-strategy'){
+        const scenario=new URL(request.url,'http://local.invalid').searchParams.get('scenario')||'reuse';
+        if(!Object.hasOwn(REVIEW_SCENARIOS,scenario)){send(response,400,'Unknown review scenario.');return;}
+        const target=await realpath(resolve(base,'uni-trade.html'));
+        if(!inside(base,target)||hidden(relative(base,target))){send(response,403,'Review page is outside the preview files.');return;}
+        const html=(await readFile(target,'utf8')).replace('<main class="book-content">','<main class="book-content">'+reviewBanner(scenario));
+        send(response,200,request.method==='HEAD'?undefined:html,MIME['.html']);return;
+      }
       if(pathname.startsWith('/api/')){
         const name=pathname.slice('/api/'.length);
         if(!API_NAMES.has(name)){send(response,404,'API not found.');return;}
+        let review=null;
+        try{const ref=new URL(request.headers.referer),expected=new URL('http://'+request.headers.host);
+          if(['http:','https:'].includes(ref.protocol)&&ref.host===expected.host&&ref.pathname==='/__review/uni-strategy')review=ref.searchParams.get('scenario')||'reuse';
+        }catch{/* Ordinary requests use real readers. */}
+        if(review&&Object.hasOwn(REVIEW_SCENARIOS,review)){
+          const fixture=uniStrategyReview(review),view=new URL(request.url,'http://local.invalid').searchParams.get('view'),value=name==='lpbook'?fixture.lp:name==='uni'&&view==='trades'?fixture.trade:name==='uni'&&view==='strategy'?fixture.strategy:null;
+          if(value){send(response,200,request.method==='HEAD'?undefined:JSON.stringify(value),MIME['.json']);return;}
+        }
         const target=await realpath(resolve(base,'api',name+'.mjs'));
         if(!inside(base,target)||hidden(relative(base,target))){send(response,403,'API is outside the workspace.');return;}
         const handler=(await import(pathToFileURL(target).href)).default;

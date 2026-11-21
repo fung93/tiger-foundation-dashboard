@@ -179,15 +179,23 @@ export async function readUniTradeView(origin) {
     if (!balances.has(key) || row.ts >= balances.get(key).ts) balances.set(key, row);
   }
   const walletReadings = [...balances.values()];
-  checkpoints.set(origin, { identity, book: next.book, quotes, wallets: walletReadings });
+  checkpoints.set(origin, { identity, book: next.book, quotes, wallets: walletReadings, historyComplete:next.historyComplete===true });
   if (checkpoints.size > 8) checkpoints.delete(checkpoints.keys().next().value);
   return { schemaVersion: 'uni-trade-view-v1', accountingVersion:2, ...next, quotes, wallets: walletReadings, trades: next.book.trades, flows:next.book.flows||[], summary: replayUniTrades(next.book.trades, quotes) };
+}
+export const readCachedUniTradeView = origin => cache(origin, () => readUniTradeView(origin));
+/* Other readers can use the latest verified fills without starting or awaiting
+   a second trade backfill. An unseen fill remains pending until this reader
+   verifies it; it is never priced from the strategy's current market quote. */
+export async function readAvailableUniTradeView(origin){
+ const saved=validUniTradeBook(await fetchJSON(origin+'/uni-trades.json')),prior=checkpoints.get(origin),warm=prior?.identity===JSON.stringify(saved)?prior:null,book=warm?.book||saved;
+ return {book,trades:book.trades,flows:book.flows||[],quotes:warm?.quotes||saved.quotes||{},wallets:warm?.wallets||saved.walletReadings||[],historyComplete:warm?.historyComplete??saved.historyComplete===true};
 }
 export async function handleUniTrades(req, res) {
   const query = req.query || Object.fromEntries(new URL(req.url || '/', 'https://local.invalid').searchParams);
   if (query.view !== 'trades') return false;
   responseHeaders(res);
-  try { const origin = requestOrigin(req), view = await cache(origin, () => readUniTradeView(origin)); responseHeaders(res, view.complete && !Object.keys(view.errors).length); res.status(200).end(JSON.stringify(view)); }
+  try { const origin = requestOrigin(req), view = await readCachedUniTradeView(origin); responseHeaders(res, view.complete && !Object.keys(view.errors).length); res.status(200).end(JSON.stringify(view)); }
   catch { res.status(502).end(JSON.stringify({ error: 'UNI trades could not be refreshed.' })); }
   return true;
 }

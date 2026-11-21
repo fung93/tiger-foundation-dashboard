@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import handler from '../api/uni.mjs';
 import {createUniRpc} from '../api/_uni-reader.mjs';
-import {emptyUniTradeBook,readUniTradeView} from '../api/_uni-trades.mjs';
+import {emptyUniTradeBook,readUniTradeView,readAvailableUniTradeView} from '../api/_uni-trades.mjs';
 import {UNI_CHAINS} from '../api/_uni-config.mjs';
 import {uniTradeFixture} from './fixtures/uni-trades.mjs';
 import {receiptUniTrade} from '../uni-trade-core.mjs';
@@ -21,6 +21,7 @@ try{
  const a=response(),b=response();await Promise.all([handler({method:'GET',query:{view:'trades'},headers:{host:'uni-test.invalid'}},a),handler({method:'GET',query:{view:'trades'},headers:{host:'uni-test.invalid'}},b)]);
  eq(a.statusCode,200,'The existing UNI endpoint serves the independent trade view');eq(a.body.schemaVersion,'uni-trade-view-v1','Trade responses cannot be confused with pool-guide responses');eq(a.body,b.body,'Concurrent visitors share the same trade reading');eq(a.body.complete,true,'Both real-head-shaped fixtures are completely covered');eq(a.body.trades.length,2,'Buy and sell receipts reach the public API');eq(a.body.summary.qty,6,'API totals use the shared deterministic cost basis');ok(a.headers['cache-control'].includes('s-maxage=10'),'Only complete current readings receive a short cache');
  const before=reads,head=response();await handler({method:'HEAD',query:{view:'trades'},headers:{host:'uni-test.invalid'}},head);eq(reads,before,'HEAD shares the short complete cache');
+ const available=await readAvailableUniTradeView('https://uni-test.invalid');eq(available.trades.length,2,'Strategy cash reads can use the latest verified warm trades');eq(reads,before,'Independent cash reads do not start or wait for trade RPC/backfill');
  const post=response();await handler({method:'POST',query:{view:'trades'},headers:{host:'uni-test.invalid'}},post);eq(post.statusCode,405,'No transaction or mutation API is added');eq(reads,before,'Rejected mutation does not touch RPC');
  badLedger=true;const bad=response();await handler({method:'GET',query:{view:'trades'},headers:{host:'invalid-saved.invalid'}},bad);eq(bad.statusCode,502,'Invalid saved history cannot silently restart the book');eq(reads,before,'Invalid saved data fails before an external chain reading');eq(bad.headers['cache-control'],'no-store','Invalid history cannot enter the CDN');
  badLedger=false;broken=true;const fail=response();await handler({method:'GET',query:{view:'trades'},headers:{host:'failed-sources.invalid'}},fail);eq(fail.body.complete,false,'An outage cannot return a complete empty history');ok(fail.body.errors.base&&fail.body.errors.bnb,'Both source failures remain explicit');eq(fail.headers['cache-control'],'no-store','Unavailable sources are never cached as healthy');
@@ -45,6 +46,6 @@ for(const key of ['base','bnb']){
 }
 const recorded=JSON.parse(readFileSync(new URL('./fixtures/uni-trades-recorded.json',import.meta.url),'utf8'));
 for(const entry of recorded.entries){const found=receiptUniTrade({chain:UNI_CHAINS.base,wallets:CFG.wallets.map(w=>w.address),...entry});eq(found.trade,null,'Recorded Base approvals, transfers and LP operations remain outside UNI buy/sell history');}
-const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=188','/uni-trade.css?v=188','/uni-trade-core.mjs?v=180'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
+const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=189','/uni-trade.css?v=189','/uni-trade-core.mjs?v=180','/uni-strategy-core.mjs?v=189'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
 const apis=(await import('node:fs/promises')).readdir;eq((await apis(new URL('../api/',import.meta.url))).filter(p=>p.endsWith('.mjs')&&!p.startsWith('_')).length,12,'UNI Trade does not exceed Vercel Hobby’s function limit');
 console.log(`UNI trade API isolation, source recovery, recorded receipts and read-only access: ${checks} assertions passed.`);
