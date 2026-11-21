@@ -9,14 +9,14 @@
       "chainId": 8453,
       "uni": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
       "startBlock": 58688016,
-      "cursor": 60148964,
-      "cursorHash": "0xb2dc83cbd16df0afb050ed41bebc26bf34cc626376946b5b1ca50009046f9ec6",
-      "head": 60148964,
-      "ts": 1795220168,
-      "readAt": 1795220168,
+      "cursor": 60283102,
+      "cursorHash": "0x2596c1e2a97b968ac5e541f184204d10085420a4f071dac3d20b4b8bd8370fba",
+      "head": 60283102,
+      "ts": 1795246996,
+      "readAt": 1795246996,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 4,
-        "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 31
+        "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 38
       },
       "transferStart": 58688016,
       "transferCursor": 59477833,
@@ -26,8 +26,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 59427834,
-      "recentCursor": 60148964,
-      "recentHash": "0xb2dc83cbd16df0afb050ed41bebc26bf34cc626376946b5b1ca50009046f9ec6",
+      "recentCursor": 60283102,
+      "recentHash": "0x2596c1e2a97b968ac5e541f184204d10085420a4f071dac3d20b4b8bd8370fba",
       "recentOpeningUni": {
         "combined": "13614"
       }
@@ -36,11 +36,11 @@
       "chainId": 56,
       "uni": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
       "startBlock": 94965697,
-      "cursor": 134789586,
-      "cursorHash": "0x92aad08602afada717da3bda979a3fe342723e91e587e7acfd8db393efcf6250",
-      "head": 134789586,
-      "ts": 1795220171,
-      "readAt": 1795220171,
+      "cursor": 134849231,
+      "cursorHash": "0xad6b62ad4a6f2cb740c2975e252732961606f0fb856500cf673df684e772453a",
+      "head": 134849231,
+      "ts": 1795247019,
+      "readAt": 1795247019,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 7,
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 7
@@ -53,8 +53,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 134441406,
-      "recentCursor": 134789586,
-      "recentHash": "0x92aad08602afada717da3bda979a3fe342723e91e587e7acfd8db393efcf6250",
+      "recentCursor": 134849231,
+      "recentHash": "0xad6b62ad4a6f2cb740c2975e252732961606f0fb856500cf673df684e772453a",
       "recentOpeningUni": {
         "combined": "0"
       }
@@ -450,22 +450,28 @@
       "complete": true,
       "historyComplete": false,
       "errors": {}
+    },
+    {
+      "at": 1795246995,
+      "complete": true,
+      "historyComplete": false,
+      "errors": {}
     }
   ],
   "quotes": {
     "base": {
-      "priceUsd": 4.4699819873400655,
+      "priceUsd": 4.425206016653502,
       "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
-      "block": 60148964,
-      "ts": 1795220168,
-      "tvl": 55970.17275832985
+      "block": 60283102,
+      "ts": 1795246996,
+      "tvl": 56316.46753617499
     },
     "bnb": {
-      "priceUsd": 4.483591087182607,
+      "priceUsd": 4.431782079573587,
       "pool": "0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
-      "block": 134789586,
-      "ts": 1795220171,
-      "tvl": 91078.14894111644
+      "block": 134849231,
+      "ts": 1795247019,
+      "tvl": 90974.68216567405
     }
   },
   "walletReadings": [
@@ -475,17 +481,17 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795220168,
-      "block": 60148964
+      "ts": 1795246996,
+      "block": 60283102
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
       "chain": "base",
-      "raw": "60954569510826571321",
-      "uni": 60.95456951082657,
-      "valueUsd": 272.46582775946274,
-      "ts": 1795220168,
-      "block": 60148964
+      "raw": "2486",
+      "uni": 2.486e-15,
+      "valueUsd": 1.1001062157400606e-14,
+      "ts": 1795246996,
+      "block": 60283102
     },
     {
       "owner": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
@@ -493,8 +499,8 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795220171,
-      "block": 134789586
+      "ts": 1795247019,
+      "block": 134849231
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
@@ -502,11 +508,11 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795220171,
-      "block": 134789586
+      "ts": 1795247019,
+      "block": 134849231
     }
   ],
-  "lastAttempt": 1795220168,
+  "lastAttempt": 1795246995,
   "errors": {},
   "flows": [
     {
@@ -1053,6 +1059,116 @@
       "raw": "11088933244621867377",
       "uni": 11.088933244621867,
       "kind": "trade",
+      "collections": []
+    },
+    {
+      "id": "base:0x7e0123bd5dd8b470af3e8e08e24c6b91dee474994b98663e159f6dafdd0fff88",
+      "returnPriceUsd": null,
+      "chain": "base",
+      "hash": "0x7e0123bd5dd8b470af3e8e08e24c6b91dee474994b98663e159f6dafdd0fff88",
+      "block": 60154102,
+      "blockHash": "0x3a6f8595a3c42207972e7a997b6b05b8daefc7a8729fd5ec0d8aaa8c8ee5d19c",
+      "index": 12,
+      "ts": 1795221196,
+      "raw": "-60954569510826563462",
+      "uni": -60.954569510826566,
+      "kind": "transfer",
+      "collections": []
+    },
+    {
+      "id": "base:0x02e02efddd74c57e5673ba76f222d0ae3ecf50afb293173eeeb1f6971fde7544",
+      "returnPriceUsd": null,
+      "chain": "base",
+      "hash": "0x02e02efddd74c57e5673ba76f222d0ae3ecf50afb293173eeeb1f6971fde7544",
+      "block": 60203292,
+      "blockHash": "0xda7546824ebb52018db52a6fc4bb31fd317e062472af271153ecb1a9dbf8409e",
+      "index": 18,
+      "ts": 1795231034,
+      "raw": "-60973109772100118957",
+      "uni": -60.973109772100116,
+      "kind": "transfer",
+      "collections": []
+    },
+    {
+      "id": "base:0x899cf5f749bcf0e3aa8fdbc660ac8877a37ddcdd3179c08f082c167ae888b703",
+      "returnPriceUsd": null,
+      "chain": "base",
+      "hash": "0x899cf5f749bcf0e3aa8fdbc660ac8877a37ddcdd3179c08f082c167ae888b703",
+      "block": 60213683,
+      "blockHash": "0x8e77061001003d65c41fc455051fbf2d6ee1bc1f58002d50d6879faa6daa81be",
+      "index": 93,
+      "ts": 1795233112,
+      "raw": "-60973109772100126170",
+      "uni": -60.97310977210012,
+      "kind": "transfer",
+      "collections": []
+    },
+    {
+      "id": "base:0x8f834e5128764bf0218c02b8de2d2e9e4cf7b2f375dbb69744786cba1e0e39b4",
+      "returnPriceUsd": 4.424138937511177,
+      "chain": "base",
+      "hash": "0x8f834e5128764bf0218c02b8de2d2e9e4cf7b2f375dbb69744786cba1e0e39b4",
+      "block": 60202522,
+      "blockHash": "0xc65b0d70c4b029c791ed411ea351571eac087720fefd0b24d77354af7cf4e1a4",
+      "index": 22,
+      "ts": 1795230880,
+      "raw": "60973109772100119392",
+      "uni": 60.973109772100116,
+      "kind": "lp_return",
+      "collections": [
+        {
+          "id": "6638767"
+        }
+      ]
+    },
+    {
+      "id": "base:0x7130867bda02507c70056e8e4ee1238a59f4220cb62829e1cab6cf0ae7de1e22",
+      "returnPriceUsd": 4.4078685505737605,
+      "chain": "base",
+      "hash": "0x7130867bda02507c70056e8e4ee1238a59f4220cb62829e1cab6cf0ae7de1e22",
+      "block": 60207133,
+      "blockHash": "0xc6e32c460f98f75c06d9f282fea73a88399386c5a7cb86b6853e2924cf71ba4d",
+      "index": 6,
+      "ts": 1795231802,
+      "raw": "60973109772100118956",
+      "uni": 60.973109772100116,
+      "kind": "lp_return",
+      "collections": [
+        {
+          "id": "6639316"
+        }
+      ]
+    },
+    {
+      "id": "base:0x7b155bb59f51b05a4d5ff3534e74f89c3e6281c47d93e303097047f829967795",
+      "returnPriceUsd": 4.245588180452014,
+      "chain": "base",
+      "hash": "0x7b155bb59f51b05a4d5ff3534e74f89c3e6281c47d93e303097047f829967795",
+      "block": 60218705,
+      "blockHash": "0x32c037014bd60556b0b3ff512013de3d54a897a72aa13ba3a9aba01b9741bb49",
+      "index": 30,
+      "ts": 1795234116,
+      "raw": "60973109772100126169",
+      "uni": 60.97310977210012,
+      "kind": "lp_return",
+      "collections": [
+        {
+          "id": "6640090"
+        }
+      ]
+    },
+    {
+      "id": "base:0x9ebe50d24aa7f4e6be3222fe4800a481d40b89cdd216b3ead90a1732d67d00e5",
+      "returnPriceUsd": null,
+      "chain": "base",
+      "hash": "0x9ebe50d24aa7f4e6be3222fe4800a481d40b89cdd216b3ead90a1732d67d00e5",
+      "block": 60266247,
+      "blockHash": "0x757edb189478276360433124409532591406de527ff6b42ee7ee5481ccaa0ff7",
+      "index": 69,
+      "ts": 1795243625,
+      "raw": "-60973109772100124763",
+      "uni": -60.97310977210012,
+      "kind": "transfer",
       "collections": []
     }
   ],
