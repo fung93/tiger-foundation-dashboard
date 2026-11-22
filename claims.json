@@ -1,7 +1,7 @@
 {
   "tz": "UTC+8",
   "start_date": "2026-08-01",
-  "last_block": 48587817,
+  "last_block": 48618251,
   "days": {
     "2026-08-01": {
       "kat": 3393.61,
@@ -488,7 +488,7 @@
     },
     "state": {
       "robinhood": {
-        "last_block": 120454699,
+        "last_block": 120720179,
         "owed": {},
         "meta": {
           "1099863": {
@@ -537,7 +537,7 @@
         "ids": []
       },
       "katana": {
-        "last_block": 48587830,
+        "last_block": 48618259,
         "owed": {},
         "meta": {
           "422530": {
@@ -968,7 +968,7 @@
         ]
       },
       "arc": {
-        "last_block": 32524563,
+        "last_block": 32584653,
         "ids": [],
         "owed": {},
         "meta": {}
