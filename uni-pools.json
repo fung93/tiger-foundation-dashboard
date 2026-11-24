@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "checkedAt": 1795471842,
+  "checkedAt": 1795501013,
   "chains": [
     {
       "key": "base",
       "name": "Base",
-      "status": "partial",
-      "at": 1795471842,
-      "block": 61407334,
+      "status": "fresh",
+      "at": 1795501013,
+      "block": 61553191,
       "pools": [
         {
           "id": "base:0x1261d6c23a2d719e2543d2d51aec87656050b70d",
@@ -29,36 +29,39 @@
             "symbol": "UNI",
             "address": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
             "decimals": 18,
-            "usd": 4.8134668136304235
+            "usd": 4.900124435681402
           },
-          "sqrtPriceX96": "36111921093649946404302514099389474",
-          "sqrtPrice": 455796.52421130316,
-          "tick": 260609,
+          "sqrtPriceX96": "35791181025851338126244336808024690",
+          "sqrtPrice": 451748.215407715,
+          "tick": 260430,
           "tickSpacing": 60,
-          "activeLiquidity": 98539429935700000,
+          "activeLiquidity": 105705559945243020,
           "feeProtocol": 102,
-          "at": 1795471842,
-          "block": 61407334,
-          "blockHash": "0x31315f44fdcbadcaf147193eb0dac5ba6daae8d58323ebf2c55e6d33937183c8",
-          "status": "partial",
+          "at": 1795501013,
+          "block": 61553191,
+          "blockHash": "0xb7a8a9339a1700183964cdd6fda084f3ce11592d65ca70c9451f779681c0dfe9",
+          "status": "fresh",
           "feeWindow": {
             "verified": true,
             "method": "fee_growth",
             "seconds": 86400,
-            "fromTs": 1795385442,
-            "toTs": 1795471842,
-            "fromBlock": 60975336,
-            "toBlock": 61407334,
-            "perL0Day": 1.1368130437840976e-15,
-            "perL1Day": 2.1777300495555248e-16
+            "fromTs": 1795414613,
+            "toTs": 1795501013,
+            "fromBlock": 61121191,
+            "toBlock": 61553191,
+            "perL0Day": 1.2024924579612206e-15,
+            "perL1Day": 2.271355805979426e-16
           },
-          "volume24hUsd": null,
-          "fees24hUsd": null,
-          "apr": null,
+          "volume24hUsd": 78057.13214621227,
+          "fees24hUsd": 195.1428303655298,
+          "apr": 1.05104273062147,
           "link": "https://app.uniswap.org/explore/pools/base/0x1261d6c23a2d719e2543d2d51aec87656050b70d",
-          "price": 4.8134668136304235,
-          "tvlUsd": 64268.4994636866,
-          "note": "Current TVL and price are live. Fee readings keep their own recorded period."
+          "price": 4.900124435681402,
+          "tvlUsd": 67768.06594847247,
+          "tradingWindow": {
+            "fromTs": 1795414613,
+            "toTs": 1795501013
+          }
         },
         {
           "id": "base:0x35d84ae687f0d3bf8548d5470fd04d2abe74f074",
@@ -80,50 +83,51 @@
             "symbol": "UNI",
             "address": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
             "decimals": 18,
-            "usd": 4.847027767891746
+            "usd": 4.8722749286434235
           },
-          "sqrtPriceX96": "35986683960759331412602777410910417",
-          "sqrtPrice": 454215.80936299317,
-          "tick": 260539,
+          "sqrtPriceX96": "35893324938124534850102196247347705",
+          "sqrtPrice": 453037.4528332934,
+          "tick": 260487,
           "tickSpacing": 200,
-          "activeLiquidity": 13499186628221726,
+          "activeLiquidity": 13481317504888712,
           "feeProtocol": 102,
-          "at": 1795471842,
-          "block": 61407334,
-          "blockHash": "0x31315f44fdcbadcaf147193eb0dac5ba6daae8d58323ebf2c55e6d33937183c8",
-          "status": "partial",
+          "at": 1795501013,
+          "block": 61553191,
+          "blockHash": "0xb7a8a9339a1700183964cdd6fda084f3ce11592d65ca70c9451f779681c0dfe9",
+          "status": "fresh",
           "feeWindow": {
             "verified": true,
             "method": "fee_growth",
             "seconds": 86400,
-            "fromTs": 1795385442,
-            "toTs": 1795471842,
-            "fromBlock": 60975336,
-            "toBlock": 61407334,
-            "perL0Day": 1.0943291740958484e-15,
-            "perL1Day": 1.6586561635502738e-16
+            "fromTs": 1795414613,
+            "toTs": 1795501013,
+            "fromBlock": 61121191,
+            "toBlock": 61553191,
+            "perL0Day": 8.522729686456241e-16,
+            "perL1Day": 1.998076504053205e-16
           },
-          "volume24hUsd": null,
-          "fees24hUsd": null,
-          "apr": null,
+          "volume24hUsd": 3638.412002836585,
+          "fees24hUsd": 30.320100023638204,
+          "apr": 0.36187999321406766,
           "link": "https://app.uniswap.org/explore/pools/base/0x35d84ae687f0d3bf8548d5470fd04d2abe74f074",
-          "price": 4.847027767891746,
-          "tvlUsd": 30514.128603687586,
-          "note": "Current TVL and price are live. Fee readings keep their own recorded period."
+          "price": 4.8722749286434235,
+          "tvlUsd": 30581.50966108102,
+          "tradingWindow": {
+            "fromTs": 1795414613,
+            "toTs": 1795501013
+          }
         }
       ],
-      "historyReason": "rate_limited",
-      "poolsWithTrading": 0,
-      "notes": [
-        "Some 24-hour trading data is unavailable. Verified prices and fee growth remain available."
-      ]
+      "historyReason": null,
+      "poolsWithTrading": 2,
+      "notes": []
     },
     {
       "key": "bnb",
       "name": "BNB Chain",
       "status": "fresh",
-      "at": 1795471842,
-      "block": 135348588,
+      "at": 1795501013,
+      "block": 135413394,
       "pools": [
         {
           "id": "bnb:0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
@@ -145,38 +149,38 @@
             "symbol": "UNI",
             "address": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
             "decimals": 18,
-            "usd": 4.819103757757005
+            "usd": 4.904053634138789
           },
-          "sqrtPriceX96": "36090794712762475442385168661",
-          "sqrtPrice": 0.4555298717960882,
-          "tick": -15727,
+          "sqrtPriceX96": "35776839947644871931758543592",
+          "sqrtPrice": 0.45156720555274227,
+          "tick": -15902,
           "tickSpacing": 60,
-          "activeLiquidity": 7.223888543772253e+22,
+          "activeLiquidity": 6.912123081586438e+22,
           "feeProtocol": 102,
-          "at": 1795471842,
-          "block": 135348588,
-          "blockHash": "0x1b101013e1973b1afb0522ccc39ac1b734e310933797a41092cd021398f6b6e5",
+          "at": 1795501013,
+          "block": 135413394,
+          "blockHash": "0x316e8a21331939aed2cbfd859736cb9ce20f6f7587573cd85effba8d04ecb466",
           "status": "fresh",
           "feeWindow": {
             "verified": true,
             "method": "fee_growth",
             "seconds": 86400,
-            "fromTs": 1795385442,
-            "toTs": 1795471842,
-            "fromBlock": 135156726,
-            "toBlock": 135348588,
-            "perL0Day": 9.595505001084216e-22,
-            "perL1Day": 1.8180867522065537e-22
+            "fromTs": 1795414613,
+            "toTs": 1795501013,
+            "fromBlock": 135221537,
+            "toBlock": 135413394,
+            "perL0Day": 1.0710193681629391e-21,
+            "perL1Day": 2.021370812401604e-22
           },
-          "volume24hUsd": 59046.49901327282,
-          "fees24hUsd": 147.61624753318185,
-          "apr": 0.556354178537404,
+          "volume24hUsd": 62926.645308543775,
+          "fees24hUsd": 157.31661327135947,
+          "apr": 0.5846406137708974,
           "link": "https://app.uniswap.org/explore/pools/bnb/0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
-          "price": 4.819103757757005,
-          "tvlUsd": 96844.6583635913,
+          "price": 4.904053634138789,
+          "tvlUsd": 98215.1470348373,
           "tradingWindow": {
-            "fromTs": 1795385442,
-            "toTs": 1795471842
+            "fromTs": 1795414613,
+            "toTs": 1795501013
           }
         }
       ],
@@ -206,36 +210,39 @@
         "symbol": "UNI",
         "address": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
         "decimals": 18,
-        "usd": 4.8134668136304235
+        "usd": 4.900124435681402
       },
-      "sqrtPriceX96": "36111921093649946404302514099389474",
-      "sqrtPrice": 455796.52421130316,
-      "tick": 260609,
+      "sqrtPriceX96": "35791181025851338126244336808024690",
+      "sqrtPrice": 451748.215407715,
+      "tick": 260430,
       "tickSpacing": 60,
-      "activeLiquidity": 98539429935700000,
+      "activeLiquidity": 105705559945243020,
       "feeProtocol": 102,
-      "at": 1795471842,
-      "block": 61407334,
-      "blockHash": "0x31315f44fdcbadcaf147193eb0dac5ba6daae8d58323ebf2c55e6d33937183c8",
-      "status": "partial",
+      "at": 1795501013,
+      "block": 61553191,
+      "blockHash": "0xb7a8a9339a1700183964cdd6fda084f3ce11592d65ca70c9451f779681c0dfe9",
+      "status": "fresh",
       "feeWindow": {
         "verified": true,
         "method": "fee_growth",
         "seconds": 86400,
-        "fromTs": 1795385442,
-        "toTs": 1795471842,
-        "fromBlock": 60975336,
-        "toBlock": 61407334,
-        "perL0Day": 1.1368130437840976e-15,
-        "perL1Day": 2.1777300495555248e-16
+        "fromTs": 1795414613,
+        "toTs": 1795501013,
+        "fromBlock": 61121191,
+        "toBlock": 61553191,
+        "perL0Day": 1.2024924579612206e-15,
+        "perL1Day": 2.271355805979426e-16
       },
-      "volume24hUsd": null,
-      "fees24hUsd": null,
-      "apr": null,
+      "volume24hUsd": 78057.13214621227,
+      "fees24hUsd": 195.1428303655298,
+      "apr": 1.05104273062147,
       "link": "https://app.uniswap.org/explore/pools/base/0x1261d6c23a2d719e2543d2d51aec87656050b70d",
-      "price": 4.8134668136304235,
-      "tvlUsd": 64268.4994636866,
-      "note": "Current TVL and price are live. Fee readings keep their own recorded period."
+      "price": 4.900124435681402,
+      "tvlUsd": 67768.06594847247,
+      "tradingWindow": {
+        "fromTs": 1795414613,
+        "toTs": 1795501013
+      }
     },
     {
       "id": "base:0x35d84ae687f0d3bf8548d5470fd04d2abe74f074",
@@ -257,36 +264,39 @@
         "symbol": "UNI",
         "address": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
         "decimals": 18,
-        "usd": 4.847027767891746
+        "usd": 4.8722749286434235
       },
-      "sqrtPriceX96": "35986683960759331412602777410910417",
-      "sqrtPrice": 454215.80936299317,
-      "tick": 260539,
+      "sqrtPriceX96": "35893324938124534850102196247347705",
+      "sqrtPrice": 453037.4528332934,
+      "tick": 260487,
       "tickSpacing": 200,
-      "activeLiquidity": 13499186628221726,
+      "activeLiquidity": 13481317504888712,
       "feeProtocol": 102,
-      "at": 1795471842,
-      "block": 61407334,
-      "blockHash": "0x31315f44fdcbadcaf147193eb0dac5ba6daae8d58323ebf2c55e6d33937183c8",
-      "status": "partial",
+      "at": 1795501013,
+      "block": 61553191,
+      "blockHash": "0xb7a8a9339a1700183964cdd6fda084f3ce11592d65ca70c9451f779681c0dfe9",
+      "status": "fresh",
       "feeWindow": {
         "verified": true,
         "method": "fee_growth",
         "seconds": 86400,
-        "fromTs": 1795385442,
-        "toTs": 1795471842,
-        "fromBlock": 60975336,
-        "toBlock": 61407334,
-        "perL0Day": 1.0943291740958484e-15,
-        "perL1Day": 1.6586561635502738e-16
+        "fromTs": 1795414613,
+        "toTs": 1795501013,
+        "fromBlock": 61121191,
+        "toBlock": 61553191,
+        "perL0Day": 8.522729686456241e-16,
+        "perL1Day": 1.998076504053205e-16
       },
-      "volume24hUsd": null,
-      "fees24hUsd": null,
-      "apr": null,
+      "volume24hUsd": 3638.412002836585,
+      "fees24hUsd": 30.320100023638204,
+      "apr": 0.36187999321406766,
       "link": "https://app.uniswap.org/explore/pools/base/0x35d84ae687f0d3bf8548d5470fd04d2abe74f074",
-      "price": 4.847027767891746,
-      "tvlUsd": 30514.128603687586,
-      "note": "Current TVL and price are live. Fee readings keep their own recorded period."
+      "price": 4.8722749286434235,
+      "tvlUsd": 30581.50966108102,
+      "tradingWindow": {
+        "fromTs": 1795414613,
+        "toTs": 1795501013
+      }
     },
     {
       "id": "bnb:0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
@@ -308,38 +318,38 @@
         "symbol": "UNI",
         "address": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
         "decimals": 18,
-        "usd": 4.819103757757005
+        "usd": 4.904053634138789
       },
-      "sqrtPriceX96": "36090794712762475442385168661",
-      "sqrtPrice": 0.4555298717960882,
-      "tick": -15727,
+      "sqrtPriceX96": "35776839947644871931758543592",
+      "sqrtPrice": 0.45156720555274227,
+      "tick": -15902,
       "tickSpacing": 60,
-      "activeLiquidity": 7.223888543772253e+22,
+      "activeLiquidity": 6.912123081586438e+22,
       "feeProtocol": 102,
-      "at": 1795471842,
-      "block": 135348588,
-      "blockHash": "0x1b101013e1973b1afb0522ccc39ac1b734e310933797a41092cd021398f6b6e5",
+      "at": 1795501013,
+      "block": 135413394,
+      "blockHash": "0x316e8a21331939aed2cbfd859736cb9ce20f6f7587573cd85effba8d04ecb466",
       "status": "fresh",
       "feeWindow": {
         "verified": true,
         "method": "fee_growth",
         "seconds": 86400,
-        "fromTs": 1795385442,
-        "toTs": 1795471842,
-        "fromBlock": 135156726,
-        "toBlock": 135348588,
-        "perL0Day": 9.595505001084216e-22,
-        "perL1Day": 1.8180867522065537e-22
+        "fromTs": 1795414613,
+        "toTs": 1795501013,
+        "fromBlock": 135221537,
+        "toBlock": 135413394,
+        "perL0Day": 1.0710193681629391e-21,
+        "perL1Day": 2.021370812401604e-22
       },
-      "volume24hUsd": 59046.49901327282,
-      "fees24hUsd": 147.61624753318185,
-      "apr": 0.556354178537404,
+      "volume24hUsd": 62926.645308543775,
+      "fees24hUsd": 157.31661327135947,
+      "apr": 0.5846406137708974,
       "link": "https://app.uniswap.org/explore/pools/bnb/0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
-      "price": 4.819103757757005,
-      "tvlUsd": 96844.6583635913,
+      "price": 4.904053634138789,
+      "tvlUsd": 98215.1470348373,
       "tradingWindow": {
-        "fromTs": 1795385442,
-        "toTs": 1795471842
+        "fromTs": 1795414613,
+        "toTs": 1795501013
       }
     }
   ]
