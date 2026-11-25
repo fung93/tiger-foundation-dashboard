@@ -1740,6 +1740,19 @@
       "base_usd": 0.01,
       "total_usd": 1586.21,
       "vault_usd": 2644.96
+    },
+    {
+      "date": "2026-11-25",
+      "timestamp": "2026-11-25T04:55:25.855Z",
+      "onchain_usd": 5.7,
+      "pending_usd": 0,
+      "lp_usd": 650.94,
+      "solana_usd": 0.41,
+      "robinhood_usd": 3.17,
+      "arc_usd": 0.06,
+      "base_usd": 0.01,
+      "total_usd": 1574.83,
+      "vault_usd": 2611.24
     }
   ]
 }
