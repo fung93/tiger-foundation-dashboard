@@ -1,21 +1,20 @@
-import {replayUniTrades} from './uni-trade-core.mjs?v=180';
+import {validUniTradeFeed,savedUniTradeFeed,mergeUniTradeFeeds} from './uni-history.mjs?v=191';
 import {fetchUniJSON} from './uni-refresh.mjs?v=190';
 import {uniTradeOverview} from './uni-accounting.mjs?v=188';
 import {replayUniStrategy,valueUniStrategy,validateUniStrategy} from './uni-strategy-core.mjs?v=189';
-const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trades_v2';
-let trade=null,lastFull=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false,
+const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trade_feed_v1';
+let trade=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false,
  strategy=null,strategyBusy=false,strategyFailed=false,lastStrategyTotals=null,lastStrategyAt=null,
  market=null,marketBusy=false,marketFailed=false;
 const money=n=>{if(!Number.isFinite(n))return '—';const value=Math.abs(n)<.005?0:n;return (value<0?'-$':'$')+Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
 const unitPrice=money;
 const num=n=>Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
- gasAmount=n=>n.toLocaleString('en-US',{maximumFractionDigits:8}),esc=LPCards.esc,chainName=c=>c==='bnb'?'BNB Chain':'Base';
+ esc=LPCards.esc,chainName=c=>c==='bnb'?'BNB Chain':'Base';
 const when=ts=>new Date(ts*1000).toLocaleString(window.TFI18n?.getLanguage()==='zh-CN'?'zh-CN':'en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-const valid=v=>v?.schemaVersion==='uni-trade-view-v1'&&v.accountingVersion===2&&Array.isArray(v.flows)&&Array.isArray(v.trades)&&v.trades.every(t=>['base','bnb'].includes(t.chain)&&/^0x[0-9a-f]{64}$/i.test(t.hash)&&Number.isFinite(t.uni)&&t.uni>0&&/^0x[0-9a-f]{40}$/i.test(t.owner)&&Number.isSafeInteger(t.ts)&&t.ts>0&&(t.usd===null||Number.isFinite(t.usd)&&t.usd>=0)&&['buy','sell'].includes(t.side))&&v.book&&v.quotes&&Object.entries(v.quotes).every(([c,q])=>TOKENS[c]&&Number.isFinite(q.priceUsd)&&q.priceUsd>0&&Number.isSafeInteger(q.ts)&&q.ts>0)&&Array.isArray(v.wallets)&&v.wallets.every(w=>TOKENS[w.chain]&&Number.isFinite(w.uni)&&w.uni>=0&&Number.isFinite(w.valueUsd)&&w.valueUsd>=0)&&typeof v.complete==='boolean';
 const json=(url,timeoutMs=55000)=>fetchUniJSON(url,{timeoutMs});
 const validMarket=v=>v?.schemaVersion==='uni-market-view-v1'&&v.quotes&&Array.isArray(v.wallets)&&typeof v.complete==='boolean'&&v.errors&&Object.entries(v.quotes).every(([c,q])=>TOKENS[c]&&Number.isFinite(q.priceUsd)&&q.priceUsd>0&&Number.isSafeInteger(q.ts)&&q.ts>0&&Number.isSafeInteger(q.block))&&v.wallets.every(w=>TOKENS[w.chain]&&/^0x[0-9a-f]{40}$/.test(w.owner)&&/^\d+$/.test(w.raw)&&Number.isFinite(w.uni)&&w.uni>=0&&Number.isFinite(w.valueUsd)&&w.valueUsd>=0&&w.ts===v.quotes[w.chain]?.ts&&w.block===v.quotes[w.chain]?.block)&&(!v.complete||Object.keys(v.quotes).length===2&&v.wallets.length===4&&!Object.keys(v.errors).length&&new Set(v.wallets.map(w=>w.chain+':'+w.owner)).size===4);
 function displayTrade(){
- const source=trade?.complete?trade:lastFull||trade;if(!source||!market)return source;
+ const source=trade;if(!source||!market)return source;
  const quotes={},wallets=new Map();
  for(const q of [source.quotes||{},trade?.quotes||{},market.quotes])for(const [chain,row]of Object.entries(q))if(!quotes[chain]||row.ts>=quotes[chain].ts)quotes[chain]=row;
  for(const row of [...(source.wallets||[]),...(trade?.wallets||[]),...market.wallets]){const key=row.chain+':'+row.owner;if(!wallets.has(key)||row.ts>=wallets.get(key).ts)wallets.set(key,row);}
@@ -36,22 +35,23 @@ function stamp(){
  box.title=ts?when(ts)+' MYT':'';
 }
 function render(){
- const display=displayTrade(),ready=!!display?.complete||!!display?.trades?.some(t=>t.verified&&t.route==='1inch_limit'),summary=display?replayUniTrades(display.trades,display.quotes):null;
+ const display=displayTrade();
  renderTotals();
  const quotes=display?.quotes||market?.quotes||{};
  const quote=quotes.base||quotes.bnb;
  $('uniCurrentPrice').textContent=money(quote?.priceUsd);
  const balances=display?.wallets||market?.wallets||[];
  $('walletUni').textContent=balances.length?'Wallet UNI: '+num(balances.reduce((s,w)=>s+w.uni,0))+' · '+money(balances.reduce((s,w)=>s+w.valueUsd,0)):'Wallet balances are being read.';
- $('tradeHealth').textContent=failed?'Could not refresh UNI trades. Previous figures keep their original reading time.':trade&&!trade.complete?'Trade history is syncing. Complete figures will appear automatically.':trade&&Object.keys(trade.errors||{}).length?'Some live readings could not be refreshed.':summary?.cost===null?'Some trade costs still need verification.':'';
+ const selected=$('tradeNetwork').value,networks=selected==='all'?['base','bnb']:[selected],
+  readFailed=failed||networks.some(c=>trade?.errors?.[c]),pending=!!trade&&networks.some(c=>!trade.coverage[c].current),
+  rows=(trade?.trades||[]).filter(t=>selected==='all'||t.chain===selected);
+ $('tradeHealth').textContent=readFailed?'Could not check new UNI trades. Showing your confirmed trades.':pending?'Checking newer trades. Confirmed trades are shown below.':'';
  $('tradeHealth').classList.toggle('on',!!$('tradeHealth').textContent);
- const selected=$('tradeNetwork').value,rows=(summary?.rows||[]).filter(t=>selected==='all'||t.chain===selected);
- $('tradeCount').textContent=display?display.trades.length+' recorded swaps':'Buy / sell history';
- $('tradeHistory').innerHTML=rows.length?'<table class="uni-trade-table"><thead><tr><th>Time · wallet</th><th>Side</th><th class="num">UNI</th><th class="num">Trade price</th><th class="num">Paid / received</th><th class="num">Realised P&L</th><th>Transaction</th></tr></thead><tbody>'+rows.map(t=>{
-  const url=(t.chain==='base'?'https://basescan.org/tx/':'https://bscscan.com/tx/')+t.hash,settled=(lastStrategyTotals?.settlements||[]).filter(s=>s.kind==='sale'&&s.chain===t.chain&&s.hash===t.hash),saleResult=settled.length?settled.reduce((sum,s)=>sum+s.usd,0):null;
-  return '<tr><td>'+esc(when(t.ts))+' MYT<small>'+chainName(t.chain)+(t.route==='1inch_limit'?' · 1inch limit':'')+' · '+esc(t.owner.slice(0,6)+'…'+t.owner.slice(-4))+'</small></td><td data-label="'+esc(window.TFI18n?.translate('Side')||'Side')+'" class="'+(t.side==='buy'?'up':'down')+'">'+(t.side==='buy'?'Buy':'Sell')+'</td><td data-label="UNI" class="num">'+esc(num(t.uni))+'</td><td data-label="'+esc(window.TFI18n?.translate('Trade price')||'Trade price')+'" class="num">'+esc(unitPrice(t.price))+'</td><td data-label="'+esc(window.TFI18n?.translate('Paid / received')||'Paid / received')+'" class="num">'+esc(money(t.usd))+(t.note?'<small>'+esc(t.note)+'</small>':'')+'</td><td data-label="'+esc(window.TFI18n?.translate('Realised P&L')||'Realised P&L')+'" class="num">'+esc(t.side==='sell'?money(saleResult):'—')+'</td><td><a href="'+url+'" target="_blank" rel="noopener noreferrer">View transaction ↗</a><small>Network fee '+esc(t.gasPayer==='resolver'?'Resolver paid':Number.isFinite(t.gas)?gasAmount(t.gas)+' '+t.gasToken:'—')+'</small></td></tr>';
- }).join('')+'</tbody></table>':'<div class="uni-trade-empty">'+(ready?(display?.historyComplete?'No UNI buys or sells on this network.':'Earlier history is syncing. New fills are tracked live.'):'Reading your UNI swap history…')+'</div>';
- $('historyCoverage').textContent=trade&&!trade.historyComplete?'Earlier history is syncing. New fills are tracked live.':'';
+ $('tradeCount').textContent=trade?rows.length+' recorded swaps':'Buy / sell history';
+ $('tradeHistory').innerHTML=rows.length?'<table class="uni-trade-table"><thead><tr><th>Time</th><th>Side</th><th class="num">UNI</th><th class="num">Trade price</th><th class="num">Paid / received</th></tr></thead><tbody>'+rows.map(t=>
+  '<tr><td>'+esc(when(t.ts))+' MYT<small>'+chainName(t.chain)+'</small></td><td data-label="'+esc(window.TFI18n?.translate('Side')||'Side')+'" class="'+(t.side==='buy'?'up':'down')+'">'+(t.side==='buy'?'Buy':'Sell')+'</td><td data-label="UNI" class="num">'+esc(num(t.uni))+'</td><td data-label="'+esc(window.TFI18n?.translate('Trade price')||'Trade price')+'" class="num">'+esc(unitPrice(t.price))+'</td><td data-label="'+esc(window.TFI18n?.translate('Paid / received')||'Paid / received')+'" class="num">'+esc(money(t.usd))+'</td></tr>'
+ ).join('')+'</tbody></table>':'<div class="uni-trade-empty">'+(!trade?'Reading your UNI swap history…':pending?'No UNI trades recorded yet. Checking for new trades.':'No UNI buys or sells on this network.')+'</div>';
+ $('historyCoverage').innerHTML=trade?networks.map(c=>'<span>'+chainName(c)+' · '+(trade.coverage[c].checkedAt?'<span>Last checked</span>: '+esc(when(trade.coverage[c].checkedAt))+' MYT':'<span>New trades have not been checked yet.</span>')+'</span>').join('<br>')+(!trade.historyComplete?'<br><span>Older activity is still being verified separately.</span>':''):'';
  renderLP();stamp();
 }
 function renderTotals(){
@@ -122,7 +122,10 @@ function renderLP(){
  $('lpHealth').textContent=lpFailed||status.partial||!status.fresh?'Could not refresh every LP reading. Previous figures keep their original reading time.':'';
  requestAnimationFrame(()=>LPCards.align($('uniLps')));
 }
-async function loadTrades(){if(tradeBusy||document.hidden)return;tradeBusy=true;try{const next=await json('/api/uni?view=trades');if(!valid(next))throw Error('Invalid trade reading');trade=next;failed=false;if(next.complete){lastFull=next;try{localStorage.setItem(KEY,JSON.stringify(next));}catch{}}render();}catch{failed=true;render();}finally{tradeBusy=false;}}
+async function loadTrades(){if(tradeBusy||document.hidden)return;tradeBusy=true;try{
+ const next=await json('/api/uni?view=history',9000);trade=mergeUniTradeFeeds(trade,next);failed=false;
+ try{localStorage.setItem(KEY,JSON.stringify(trade));}catch{}render();
+ }catch{failed=true;render();}finally{tradeBusy=false;}}
 async function loadLP(){if(lpBusy||document.hidden)return;lpBusy=true;try{const next=await json('/api/lpbook?scope=uni',15000),state=uniLPState(next);if(!next?.cards||!Array.isArray(next.live))throw Error('LP reading unavailable');
  if(state.partial&&lastLP&&Date.now()-Date.parse(lastLP.generated)<300000){lp=lastLP;lpFailed=true;}else{lp=next;lpFailed=state.partial;if(state.fresh&&!state.partial)lastLP=next;}render();}catch{lpFailed=true;render();}finally{lpBusy=false;}}
 async function loadStrategy(){if(strategyBusy||document.hidden)return;strategyBusy=true;
@@ -131,11 +134,13 @@ async function loadStrategy(){if(strategyBusy||document.hidden)return;strategyBu
 async function loadMarket(){if(marketBusy||document.hidden)return;marketBusy=true;
  try{const next=await json('/api/uni?view=market',9000);if(!validMarket(next))throw Error('Invalid current reading');market=next;marketFailed=false;render();}
  catch{marketFailed=true;render();}finally{marketBusy=false;}}
-async function loadSavedTrades(){try{const book=await json('/uni-trades.json',6000),saved={schemaVersion:'uni-trade-view-v1',accountingVersion:2,book,trades:book.trades,flows:book.flows||[],quotes:book.quotes||{},wallets:book.walletReadings||[],complete:false,historyComplete:book.historyComplete===true,errors:book.errors||{}};if(!valid(saved))return;if(!trade){trade=saved;render();}}catch{/* Live history is independent of the initial saved display. */}}
-try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(valid(saved)){trade=saved;lastFull=saved.complete?saved:null;failed=true;}}catch{}
+async function loadSavedTrades(){try{const book=await json('/uni-trades.json',6000),saved=savedUniTradeFeed(book);
+ trade=trade?mergeUniTradeFeeds(saved,trade):saved;render();
+ }catch{/* Live history is independent of the initial saved display. */}}
+try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(validUniTradeFeed(saved)){trade={...saved,complete:false,coverage:Object.fromEntries(Object.entries(saved.coverage).map(([c,s])=>[c,{...s,current:false}]))};failed=true;}}catch{}
 $('tradeNetwork').addEventListener('change',render);window.addEventListener('tf-language-change',render);
 $('uniPnlRecordBtn').addEventListener('click',()=>$('uniPnlRecord').showModal());
 $('uniPnlRecordClose').addEventListener('click',()=>$('uniPnlRecord').close());
 $('uniPnlRecord').addEventListener('click',event=>{if(event.target!==$('uniPnlRecord'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
-render();loadMarket();loadSavedTrades();loadTrades();loadLP();loadStrategy();setInterval(loadMarket,10000);setInterval(loadTrades,30000);setInterval(loadLP,10000);setInterval(loadStrategy,30000);setInterval(stamp,1000);
+render();loadMarket();loadSavedTrades();loadTrades();loadLP();loadStrategy();setInterval(loadMarket,10000);setInterval(loadTrades,10000);setInterval(loadLP,10000);setInterval(loadStrategy,30000);setInterval(stamp,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMarket();loadTrades();loadLP();loadStrategy();}});

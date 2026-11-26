@@ -2282,3 +2282,24 @@ reviewed change. `docs/UNI-REFRESH.md` holds the progress/evidence checklist.
   revealed by the latest automated snapshot. No financial record/formula was
   rewritten. Preserve the review's capital/realized rules, both themes/languages,
   Lending visit reset, private agent policy and read-only wallet access.
+
+### UNI trade history speed and simplicity — push authorized
+
+The owner reports history is still syncing and explicitly asks to simplify it
+and **push**. `docs/UNI-HISTORY.md` records the findings, checks and release status.
+The visible table now uses `/api/uni?view=history`: bounded canonical UNI Transfer
+intervals, Base/BNB in parallel, no wallet-wide nonce search or price discovery.
+Preserve the full receipt/pool/1inch verification and immutable execution prices.
+Recent cursors resume separately from archive inventory and sender checkpoints.
+The shared transport recovers unsupported/incomplete batches through individually
+verified requests and exact range splits; failed intervals remain retryable.
+
+Show saved confirmed rows immediately and check every ten seconds while visible.
+Keep five table columns: time (network beneath), side, UNI, price, total. Omit
+transaction links, wallet IDs, route/gas notes and per-row realized P&L. Keep the
+separate strategy P&L record and receipt evidence. Partial network reads cannot
+erase confirmed trades or hide new Base fills behind BNB. Older archive coverage
+stays in the existing method detail; actual failed current checks remain visible.
+App/translations/changed trade assets use **191**, unchanged assets retain their
+versions. No financial JSON, LP Book v9, strategy cost, Lending visit reset or
+private-agent behavior is changed. No new dependency, secret or public function.

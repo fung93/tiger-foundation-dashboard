@@ -5,7 +5,7 @@ import {TRANSFER,uniTransfers,receiptUniTrade} from '../uni-trade-core.mjs';
 import {verifyUniOrders} from './_uni-orders.mjs';
 const owners=CFG.wallets.map(w=>w.address.toLowerCase()),hex=n=>'0x'+n.toString(16),hash=v=>/^0x[0-9a-f]{64}$/i.test(v||'');
 const collect='0x40d0efd1a53d60ecbf40971b9daf7dc90178c3aadc7aab1765632738fa8b8f01',npms={base:'0x03a520b32c04bf3beef7beb72e919cf822ed34f1',bnb:'0x7b8a01b39d58278b5de7e48c8449c9f4f5170613'};
-export async function scanUniFlows(book,chain,rpc,tip,{maxWindows=32,recent=false,deadlineMs=Infinity,readBatch,provePool,readReturnPrice,quote}={}){
+export async function scanUniFlows(book,chain,rpc,tip,{maxWindows=32,recent=false,deadlineMs=Infinity,readBatch,provePool,readReturnPrice,quote,verifyInventory=true}={}){
  const original=book.chains[chain.key];if(!original)throw Error('UNI history baseline unavailable');
  let state=original;
  if(recent){
@@ -64,7 +64,7 @@ export async function scanUniFlows(book,chain,rpc,tip,{maxWindows=32,recent=fals
    }done++;
   }
  }
- if(recent&&original.recentCursor===tip.number){
+ if(recent&&verifyInventory&&original.recentCursor===tip.number){
   const raw=await Promise.all(owners.map(owner=>rpc('eth_call',[{to:chain.uni.address,data:'0x70a08231'+pad(owner)},hex(tip.number)])));
   if(!raw.every(value=>/^0x[0-9a-f]{64}$/i.test(value)))throw Error('Current UNI inventory unavailable');
   const moved=(book.flows||[]).filter(flow=>flow.chain===chain.key&&flow.block>=original.recentStart&&flow.block<=tip.number).reduce((total,flow)=>total+BigInt(flow.raw),0n),opening=raw.reduce((total,value)=>total+BigInt(value),0n)-moved;

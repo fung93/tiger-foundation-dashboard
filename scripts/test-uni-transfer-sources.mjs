@@ -4,7 +4,7 @@ import {CFG,pad,keccakHex} from '../api/_core.mjs';
 import {UNI_CHAINS} from '../api/_uni-config.mjs';
 import {createUniTransferBatch} from '../api/_uni-transfers.mjs';
 import {scanUniFlows} from '../api/_uni-flow-reader.mjs';
-import {emptyUniTradeBook,validUniTradeBook} from '../api/_uni-trades.mjs';
+import {emptyUniTradeBook,validUniTradeBook,advanceUniTradeFeed} from '../api/_uni-trades.mjs';
 import {TRANSFER,ONEINCH_PROTOCOL} from '../uni-trade-core.mjs';
 let n=0;const eq=(a,b,m)=>{assert.deepEqual(a,b,m);n++;},ok=(v,m)=>{assert.ok(v,m);n++;},H=n=>'0x'+BigInt(n).toString(16).padStart(64,'0'),hex=n=>'0x'+n.toString(16),owners=CFG.wallets.map(w=>w.address),base=UNI_CHAINS.base;
 const filter=(from,to,side=2,chain=base)=>{const topics=[TRANSFER,null,null];topics[side]=owners.map(o=>'0x'+pad(o));return {address:chain.uni.address,topics,fromBlock:hex(from),toBlock:hex(to)};};
@@ -22,6 +22,7 @@ const fixture=JSON.parse(readFileSync(new URL('./fixtures/uni-limit-fills.json',
  domain=hash(K('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')+K('1inch Aggregation Router')+K('6')+pad(base.id.toString(16))+pad(ONEINCH_PROTOCOL)),type=K('Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)');
 let failReceipt=false;
 const read=async(method,params)=>{
+ if(method==='eth_blockNumber')return hex(head);
  if(method==='eth_call'){if(params[0].to===base.uni.address)return H(0);if(params[0].to===ONEINCH_PROTOCOL)return '0x'+hash('1901'+domain+hash(type+params[0].data.slice(10)));throw Error('Unexpected contract');}
  if(method==='eth_getTransactionReceipt'){if(failReceipt&&params[0]==='0x4e569b5d534451f8b56c73ab45513507bd1ed841fb40b3526568c5e60595b814')return null;return entries.find(e=>e.receipt.transactionHash===params[0])?.receipt;}
  if(method==='eth_getTransactionByHash')return entries.find(e=>e.transaction.hash===params[0])?.transaction;
@@ -35,4 +36,8 @@ const original=JSON.stringify(book.trades);await scanUniFlows(book,base,read,tip
 const failed=fresh();failReceipt=true;await assert.rejects(()=>scanUniFlows(failed,base,read,tip,opts),/receipt unavailable/);eq(failed.trades.length,0,'An unavailable resolver receipt does not publish a partial fill');eq(failed.chains.base.transferCursor,failed.chains.base.transferStart-1,'The failed interval stays retryable');failReceipt=false;await scanUniFlows(failed,base,read,tip,opts);eq(failed.trades.length,3,'Receipt recovery catches all fills exactly once');
 const incomplete=fresh();await assert.rejects(()=>scanUniFlows(incomplete,base,read,tip,{...opts,readBatch:async filters=>(await readBatch(filters)).slice(1)}),/Incomplete/);eq(incomplete.trades.length,0,'A missing RPC batch result cannot become an empty history');
 const reorg=structuredClone(book);reorg.chains.base.transferHash=H(1);await assert.rejects(()=>scanUniFlows(reorg,base,read,tip,opts),/checkpoint changed/);eq(reorg.trades,book.trades,'A source reorg preserves booked execution amounts');
+let fast=fresh();Object.assign(fast.chains.base,{recentStart:58688016,recentCursor:58688015,recentHash:null,recentOpeningUni:null});let latest;
+for(let i=0;i<8&&fast.chains.base.recentCursor<head;i++){latest=await advanceUniTradeFeed(fast,{rpcFactory:()=>read,readTransferBatch:(_c,filters)=>readBatch(filters),now:()=>tip.ts*1000});fast=latest.book;}
+eq(fast.chains.base.recentCursor,head,'Short recent passes resume the saved checkpoint without skipping an unread gap');eq(latest.checked.base,true,'A completed actual maker-fill interval receives a current proof');
+eq([...fast.trades].sort((a,b)=>a.id.localeCompare(b.id)),[...book.trades].sort((a,b)=>a.id.localeCompare(b.id)),'The lightweight reader preserves all three real 1inch fills and their exact original costs');eq(fast.flows.length,8,'Actual LP deposits and collections stay outside the simple buy/sell table');
 console.log(`UNI transfer batching, actual maker-fill discovery and safe recovery: ${n} assertions passed.`);

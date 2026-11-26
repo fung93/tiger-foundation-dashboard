@@ -79,7 +79,7 @@ export async function createPreviewServer({root=DEFAULT_ROOT,host='127.0.0.1',po
         const name=pathname.slice('/api/'.length);
         if(!API_NAMES.has(name)){send(response,404,'API not found.');return;}
         if(review&&Object.hasOwn(REVIEW_SCENARIOS,review)){
-          const fixture=uniStrategyReview(review),view=new URL(request.url,'http://local.invalid').searchParams.get('view'),value=name==='lpbook'?fixture.lp:name==='uni'&&view==='trades'?fixture.trade:name==='uni'&&view==='market'?fixture.market:name==='uni'&&view==='strategy'?fixture.strategy:null;
+          const fixture=uniStrategyReview(review),view=new URL(request.url,'http://local.invalid').searchParams.get('view'),value=name==='lpbook'?fixture.lp:name==='uni'&&view==='history'?fixture.history:name==='uni'&&view==='trades'?fixture.trade:name==='uni'&&view==='market'?fixture.market:name==='uni'&&view==='strategy'?fixture.strategy:null;
           if(value){send(response,200,request.method==='HEAD'?undefined:JSON.stringify(value),MIME['.json']);return;}
         }
         const target=await realpath(resolve(base,'api',name+'.mjs'));

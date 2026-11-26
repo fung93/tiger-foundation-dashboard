@@ -4,6 +4,7 @@
 import { CFG, encodeAgg3, decodeAgg3, pad } from './_core.mjs';
 import { UNI_CHAINS, UNI_FEE_TIERS, UNI_MULTICALL } from './_uni-config.mjs';
 import {scanUniFlows} from './_uni-flow-reader.mjs';
+import {createUniTransferBatch} from './_uni-transfers.mjs';
 import { createUniRpc } from './_uni-reader.mjs';
 import { UNI_TRADE_VERSION, SWAPS, receiptUniTrade, uniTransfers, replayUniTrades, validateUniTradeBook } from '../uni-trade-core.mjs';
 import { createLiveCache, fetchJSON, requestOrigin, responseHeaders } from './_live-cache.mjs';
@@ -167,6 +168,46 @@ export async function advanceUniTrades(input, { maxWindows = 2, rpcFactory, now 
   const inventoryCoverage=Object.fromEntries(Object.entries(book.chains).map(([chain,state])=>{const full=historyCovered(state);return [chain,{complete:(full||state.recentCursor===state.head&&state.recentOpeningUni!==null)&&!errors[chain],fromBlock:full?state.transferStart:state.recentStart,throughBlock:full?state.head:state.recentCursor,openingUni:full?state.openingUni:state.recentOpeningUni}];}));
   return {book,quotes,wallets,errors,historyErrors,historyComplete,inventoryCoverage,complete,at};
 }
+/* The visible table only needs new verified UNI fills. It must not wait for
+   wallet-wide nonce searches, price discovery or an old inventory backfill. */
+export async function advanceUniTradeFeed(input,{rpcFactory,readTransferBatch,maxRecentWindows=4,budgetMs=6500,now=Date.now}={}){
+ validUniTradeBook(input);const book=clone(input),errors={},checked={},at=Math.floor(now()/1000);
+ await Promise.all(Object.values(UNI_CHAINS).map(async chain=>{
+  const state=book.chains[chain.key];if(!state){errors[chain.key]='The saved trade checkpoint is not available yet';return;}
+  if(state.tradeCheckAt===undefined)state.tradeCheckAt=state.recentCursor===state.head&&!book.errors?.[chain.key]?state.ts:null;
+  const deadline=Date.now()+budgetMs,rpc=rpcFactory?rpcFactory(chain):createUniRpc(chain,{timeoutMs:budgetMs,requestTimeoutMs:800,maxRequests:120,preferHealthy:true});
+  try{
+   const head=Number(BigInt(await rpc('eth_blockNumber',[]))),block=await rpc('eth_getBlockByNumber',[hex(head),false]);
+   if(Number(BigInt(block?.number))!==head||!/^0x[0-9a-f]{64}$/i.test(block?.hash||''))throw Error('The current trade block is incomplete');
+   const tip={number:head,hash:block.hash,ts:Number(BigInt(block.timestamp))};
+   if(Math.abs(at-tip.ts)>180)throw Error('The trade source is behind');
+   if(head<Math.max(state.head,state.cursor,state.recentCursor||0,state.transferCursor||0))throw Error('The trade source is behind its checkpoint');
+   state.head=head;state.ts=tip.ts;
+   const read=readTransferBatch?filters=>readTransferBatch(chain,filters):rpcFactory?filters=>Promise.all(filters.map(f=>rpc('eth_getLogs',[f]))):createUniTransferBatch(chain,{timeoutMs:Math.max(1,deadline-Date.now()),requestTimeoutMs:900,maxRequests:400});
+   await scanUniFlows(book,chain,rpc,tip,{recent:true,verifyInventory:false,maxWindows:maxRecentWindows,deadlineMs:deadline,readBatch:read,provePool:poolProof,readReturnPrice:async()=>null});
+   if(state.recentCursor===head){state.tradeCheckAt=tip.ts;checked[chain.key]=true;}
+  }catch(error){errors[chain.key]=String(error?.message||error).slice(0,160);}
+ }));
+ validUniTradeBook(book);return {book,errors,checked,at,complete:Object.values(UNI_CHAINS).every(c=>checked[c.key]===true)};
+}
+export function uniTradeFeedView({book,errors={},checked={},at}){
+ validUniTradeBook(book);
+ const coverage=Object.fromEntries(Object.values(UNI_CHAINS).map(chain=>{const s=book.chains[chain.key];
+  return [chain.key,{current:checked[chain.key]===true,checkedAt:s?.tradeCheckAt??null,historyComplete:historyCovered(s)&&!book.historyErrors?.[chain.key],remainingBlocks:s?Math.max(0,s.head-(s.recentCursor??s.head)):null}];}));
+ return {schemaVersion:'uni-trade-feed-v1',book:{wallets:book.wallets},
+  trades:book.trades.map(({id,chain,side,ts,uni,usd,price,verified})=>({id,chain,side,ts,uni,usd,price,verified})).sort((a,b)=>b.ts-a.ts||a.id.localeCompare(b.id)),
+  complete:Object.values(coverage).every(c=>c.current),historyComplete:Object.values(coverage).every(c=>c.historyComplete),coverage,errors,at};
+}
+const feedCache=createLiveCache({ttlMs:3000,complete:v=>v.complete===true}),feedCheckpoints=new Map();
+export async function readUniTradeFeed(origin){
+ return feedCache(origin,async()=>{
+  const saved=validUniTradeBook(await fetchJSON(origin+'/uni-trades.json',{timeoutMs:2000})),identity=JSON.stringify(saved),prior=feedCheckpoints.get(origin),input=prior?.identity===identity?prior.book:saved;
+  const next=await advanceUniTradeFeed(input),legacy=checkpoints.get(origin);
+  feedCheckpoints.set(origin,{identity,book:next.book,historyComplete:Object.values(next.book.chains).every(historyCovered),quotes:legacy?.quotes||saved.quotes||{},wallets:legacy?.wallets||saved.walletReadings||[]});
+  if(feedCheckpoints.size>8)feedCheckpoints.delete(feedCheckpoints.keys().next().value);
+  return uniTradeFeedView(next);
+ });
+}
 const cache = createLiveCache({ complete: v => v.complete === true && !Object.keys(v.errors).length }), checkpoints = new Map();
 export async function readUniTradeView(origin) {
   const saved = validUniTradeBook(await fetchJSON(origin + '/uni-trades.json'));
@@ -188,11 +229,17 @@ export const readCachedUniTradeView = origin => cache(origin, () => readUniTrade
    a second trade backfill. An unseen fill remains pending until this reader
    verifies it; it is never priced from the strategy's current market quote. */
 export async function readAvailableUniTradeView(origin){
- const saved=validUniTradeBook(await fetchJSON(origin+'/uni-trades.json')),prior=checkpoints.get(origin),warm=prior?.identity===JSON.stringify(saved)?prior:null,book=warm?.book||saved;
+ const saved=validUniTradeBook(await fetchJSON(origin+'/uni-trades.json')),identity=JSON.stringify(saved),feed=feedCheckpoints.get(origin),prior=checkpoints.get(origin),warm=feed?.identity===identity?feed:prior?.identity===identity?prior:null,book=warm?.book||saved;
  return {book,trades:book.trades,flows:book.flows||[],quotes:warm?.quotes||saved.quotes||{},wallets:warm?.wallets||saved.walletReadings||[],historyComplete:warm?.historyComplete??saved.historyComplete===true};
 }
 export async function handleUniTrades(req, res) {
   const query = req.query || Object.fromEntries(new URL(req.url || '/', 'https://local.invalid').searchParams);
+  if(query.view==='history'){
+   responseHeaders(res);
+   try{const value=await readUniTradeFeed(requestOrigin(req));res.setHeader('cache-control',value.complete?'public, max-age=0, s-maxage=3, must-revalidate':'no-store');res.status(200).end(JSON.stringify(value));}
+   catch{res.status(502).end(JSON.stringify({error:'New UNI trades could not be checked.'}));}
+   return true;
+  }
   if (query.view !== 'trades') return false;
   responseHeaders(res);
   try { const origin = requestOrigin(req), view = await readCachedUniTradeView(origin); responseHeaders(res, view.complete && !Object.keys(view.errors).length); res.status(200).end(JSON.stringify(view)); }

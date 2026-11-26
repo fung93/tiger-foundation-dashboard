@@ -16,9 +16,9 @@
 <link rel="stylesheet" href="/strategy.css">
 <link rel="stylesheet" href="/uni.css">
 <link rel="stylesheet" href="/theme.css">
-<script src="/i18n-zh.js?v=189"></script>
-<script src="/i18n.js?v=189"></script>
-<link rel="stylesheet" href="/i18n.css?v=189">
+<script src="/i18n-zh.js?v=191"></script>
+<script src="/i18n.js?v=191"></script>
+<link rel="stylesheet" href="/i18n.css?v=191">
 <link rel="stylesheet" href="/uni-trade.css?v=189">
 </head>
 <body class="themed-page">
@@ -50,7 +50,7 @@
   <p class="uni-trade-help" id="lpHealth" role="status"></p><div class="lpw-grid" id="uniLps"></div>
   <div class="uni-trade-section"><div class="label" id="tradeCount">Buy / sell history</div><label class="uni-trade-help" for="tradeNetwork">Network <select id="tradeNetwork"><option value="all">Both networks</option><option value="base">Base</option><option value="bnb">BNB Chain</option></select></label></div>
   <div class="card uni-trade-history" id="tradeHistory"></div>
-  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>History counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Average buy price is weighted across recorded purchases. Sale results use the carried strategy cost, including tokens returned from LPs. LP deposits, withdrawals and claims are not buys or sells.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. UNI held counts actual wallet UNI and UNI inside open tracked LPs. Capital is fresh funding minus withdrawals, including funds used to buy UNI or to fund the stablecoin side of a UNI LP. Reinvesting returned funds does not add capital. Value now includes wallet UNI, open LPs, returned strategy cash and pending principal or fees, counted once. P&amp;L equals Value now minus net Capital, split between settled results and current gains or losses. An LP reaching its upper edge is still open; settled LP results require confirmed withdrawal and collection. Settled values keep their original transaction prices, and the existing LP Book history stays unchanged. Owner-paid network fees are listed in their native token and are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
+  <details class="uni-trade-method"><summary>How UNI trade accounting works</summary><p id="historyCoverage"></p><p>History counts confirmed UNI swaps and 1inch limit-order fills on Base and BNB Chain, including fills submitted by a resolver. Average buy price is weighted across recorded purchases. Sale results use the carried strategy cost, including tokens returned from LPs. LP deposits, withdrawals and claims are not buys or sells.</p><p>Trade prices use the tokens actually paid or received in that transaction. Supported dollar stablecoins use the stated $1 anchor. Unverified swaps or missing dollar costs keep cost-based results unavailable. UNI held counts actual wallet UNI and UNI inside open tracked LPs. Capital is fresh funding minus withdrawals, including funds used to buy UNI or to fund the stablecoin side of a UNI LP. Reinvesting returned funds does not add capital. Value now includes wallet UNI, open LPs, returned strategy cash and pending principal or fees, counted once. P&amp;L equals Value now minus net Capital, split between settled results and current gains or losses. An LP reaching its upper edge is still open; settled LP results require confirmed withdrawal and collection. Settled values keep their original transaction prices, and the existing LP Book history stays unchanged. Native network fees are excluded from P&amp;L. Source blocks and transaction links remain attached to the saved history.</p></details>
   <noscript><div class="card uni-trade-empty">Turn on JavaScript to read your UNI trades.</div></noscript>
 </main>
 <dialog id="uniPnlRecord" class="uni-pnl-dialog" aria-labelledby="uniPnlRecordTitle">
@@ -58,7 +58,7 @@
   <div id="uniPnlRecordBody"></div>
 </dialog>
 <script src="/lpcards.js?v=183"></script>
-<script type="module" src="/uni-trade.js?v=190"></script>
+<script type="module" src="/uni-trade.js?v=191"></script>
 <script src="/agent-launcher.js" defer></script>
 </body>
 </html>
