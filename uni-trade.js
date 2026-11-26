@@ -1,29 +1,47 @@
 import {replayUniTrades} from './uni-trade-core.mjs?v=180';
+import {fetchUniJSON} from './uni-refresh.mjs?v=190';
 import {uniTradeOverview} from './uni-accounting.mjs?v=188';
 import {replayUniStrategy,valueUniStrategy,validateUniStrategy} from './uni-strategy-core.mjs?v=189';
 const $=id=>document.getElementById(id),TOKENS={base:'0xc3de830ea07524a0761646a6a4e4be0e114a3c83',bnb:'0xbf5140a22578168fd562dccf235e5d43a02ce9b1'},KEY='tf_uni_trades_v2';
 let trade=null,lastFull=null,lp=null,lastLP=null,tradeBusy=false,lpBusy=false,failed=false,lpFailed=false,
- strategy=null,strategyBusy=false,strategyFailed=false,lastStrategyTotals=null,lastStrategyAt=null;
+ strategy=null,strategyBusy=false,strategyFailed=false,lastStrategyTotals=null,lastStrategyAt=null,
+ market=null,marketBusy=false,marketFailed=false;
 const money=n=>{if(!Number.isFinite(n))return '—';const value=Math.abs(n)<.005?0:n;return (value<0?'-$':'$')+Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
 const unitPrice=money;
 const num=n=>Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
  gasAmount=n=>n.toLocaleString('en-US',{maximumFractionDigits:8}),esc=LPCards.esc,chainName=c=>c==='bnb'?'BNB Chain':'Base';
 const when=ts=>new Date(ts*1000).toLocaleString(window.TFI18n?.getLanguage()==='zh-CN'?'zh-CN':'en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 const valid=v=>v?.schemaVersion==='uni-trade-view-v1'&&v.accountingVersion===2&&Array.isArray(v.flows)&&Array.isArray(v.trades)&&v.trades.every(t=>['base','bnb'].includes(t.chain)&&/^0x[0-9a-f]{64}$/i.test(t.hash)&&Number.isFinite(t.uni)&&t.uni>0&&/^0x[0-9a-f]{40}$/i.test(t.owner)&&Number.isSafeInteger(t.ts)&&t.ts>0&&(t.usd===null||Number.isFinite(t.usd)&&t.usd>=0)&&['buy','sell'].includes(t.side))&&v.book&&v.quotes&&Object.entries(v.quotes).every(([c,q])=>TOKENS[c]&&Number.isFinite(q.priceUsd)&&q.priceUsd>0&&Number.isSafeInteger(q.ts)&&q.ts>0)&&Array.isArray(v.wallets)&&v.wallets.every(w=>TOKENS[w.chain]&&Number.isFinite(w.uni)&&w.uni>=0&&Number.isFinite(w.valueUsd)&&w.valueUsd>=0)&&typeof v.complete==='boolean';
-async function json(url){const c=new AbortController();let timer;const limit=new Promise((_,reject)=>{timer=setTimeout(()=>{c.abort();reject(Error('Reading timed out'));},55000);});try{return await Promise.race([(async()=>{const r=await fetch(url,{cache:'no-store',signal:c.signal});if(!r.ok)throw Error('Reading unavailable');return r.json();})(),limit]);}finally{clearTimeout(timer);}}
+const json=(url,timeoutMs=55000)=>fetchUniJSON(url,{timeoutMs});
+const validMarket=v=>v?.schemaVersion==='uni-market-view-v1'&&v.quotes&&Array.isArray(v.wallets)&&typeof v.complete==='boolean'&&v.errors&&Object.entries(v.quotes).every(([c,q])=>TOKENS[c]&&Number.isFinite(q.priceUsd)&&q.priceUsd>0&&Number.isSafeInteger(q.ts)&&q.ts>0&&Number.isSafeInteger(q.block))&&v.wallets.every(w=>TOKENS[w.chain]&&/^0x[0-9a-f]{40}$/.test(w.owner)&&/^\d+$/.test(w.raw)&&Number.isFinite(w.uni)&&w.uni>=0&&Number.isFinite(w.valueUsd)&&w.valueUsd>=0&&w.ts===v.quotes[w.chain]?.ts&&w.block===v.quotes[w.chain]?.block)&&(!v.complete||Object.keys(v.quotes).length===2&&v.wallets.length===4&&!Object.keys(v.errors).length&&new Set(v.wallets.map(w=>w.chain+':'+w.owner)).size===4);
+function displayTrade(){
+ const source=trade?.complete?trade:lastFull||trade;if(!source||!market)return source;
+ const quotes={},wallets=new Map();
+ for(const q of [source.quotes||{},trade?.quotes||{},market.quotes])for(const [chain,row]of Object.entries(q))if(!quotes[chain]||row.ts>=quotes[chain].ts)quotes[chain]=row;
+ for(const row of [...(source.wallets||[]),...(trade?.wallets||[]),...market.wallets]){const key=row.chain+':'+row.owner;if(!wallets.has(key)||row.ts>=wallets.get(key).ts)wallets.set(key,row);}
+ return {...source,quotes,wallets:[...wallets.values()],complete:market.complete&&!marketFailed};
+}
+function uniLPState(view){
+ const status=LPCards.readingState(view),records=view?.uni?.positions;
+ const complete=view?.uni?.complete===true&&Array.isArray(records)&&Array.isArray(view.position_data)&&Array.isArray(view.position_metrics)&&records.filter(p=>p.status==='open').every(p=>{
+  const data=view.position_data.find(d=>d.chain===p.chain&&String(d.id)===String(p.id)&&d.owner===p.owner),metric=view.position_metrics.find(m=>m.key===p.key);
+  return data?.status==='observed'&&metric?.complete===true&&Number.isFinite(data.principalUsd)&&Number.isFinite(metric.unclaimedUsd);
+ });
+ return {...status,partial:!complete};
+}
 function stamp(){
- const dates=Object.values(trade?.quotes||{}).map(q=>q.ts).filter(Number.isFinite),ts=dates.length?Math.min(...dates):0,
-  fresh=!!trade?.complete&&!failed&&!Object.keys(trade.errors||{}).length&&dates.length===2&&ts>0&&Date.now()/1000-ts<=180&&dates.every(t=>t<=Date.now()/1000+30);
+ const display=displayTrade(),quotes=market?.quotes||display?.quotes||{},dates=Object.values(quotes).map(q=>q.ts).filter(Number.isFinite),ts=dates.length?Math.min(...dates):0,
+  fresh=!!display?.complete&&(market?!marketFailed:!failed)&&dates.length===2&&ts>0&&Date.now()/1000-ts<=180&&dates.every(t=>t<=Date.now()/1000+30);
  const box=$('stamp');box.className='stamp'+(fresh?'':' stale');box.innerHTML='<span class="dot"></span><span class="st">'+(fresh?'LIVE':ts?'STALE':'LOADING')+'</span><br>'+(ts?new Date(ts*1000).toLocaleTimeString('en-GB',{timeZone:'Asia/Kuala_Lumpur',hour12:false}):'—');
  box.title=ts?when(ts)+' MYT':'';
 }
 function render(){
- const display=trade?.complete?trade:lastFull||trade,ready=!!display?.complete||!!display?.trades?.some(t=>t.verified&&t.route==='1inch_limit'),summary=display?replayUniTrades(display.trades,display.quotes):null;
+ const display=displayTrade(),ready=!!display?.complete||!!display?.trades?.some(t=>t.verified&&t.route==='1inch_limit'),summary=display?replayUniTrades(display.trades,display.quotes):null;
  renderTotals();
- const quotes=trade?.quotes||display?.quotes||{};
+ const quotes=display?.quotes||market?.quotes||{};
  const quote=quotes.base||quotes.bnb;
  $('uniCurrentPrice').textContent=money(quote?.priceUsd);
- const balances=trade?.wallets||display?.wallets||[];
+ const balances=display?.wallets||market?.wallets||[];
  $('walletUni').textContent=balances.length?'Wallet UNI: '+num(balances.reduce((s,w)=>s+w.uni,0))+' · '+money(balances.reduce((s,w)=>s+w.valueUsd,0)):'Wallet balances are being read.';
  $('tradeHealth').textContent=failed?'Could not refresh UNI trades. Previous figures keep their original reading time.':trade&&!trade.complete?'Trade history is syncing. Complete figures will appear automatically.':trade&&Object.keys(trade.errors||{}).length?'Some live readings could not be refreshed.':summary?.cost===null?'Some trade costs still need verification.':'';
  $('tradeHealth').classList.toggle('on',!!$('tradeHealth').textContent);
@@ -37,14 +55,14 @@ function render(){
  renderLP();stamp();
 }
 function renderTotals(){
- const display=trade?.complete?trade:lastFull||trade,view=lp||lastLP,
+ const display=displayTrade(),view=lp||lastLP,
   overview=uniTradeOverview({trade:display,lpView:view});
  $('uniPrice').textContent=money(overview.averageBuyPriceUsd);
  $('uniHeld').textContent=num(overview.heldUni);
  $('uniHeldDetail').textContent='Wallet '+num(overview.walletUni)+' · LP '+num(overview.lpUni);
  let record=null;
  const sourceTimes=[...Object.values(strategy?.book?.chains||{}).map(s=>s.ts),...Object.values(display?.quotes||{}).map(q=>q.ts),Date.parse(view?.generated)/1000],freshSources=sourceTimes.length>=4&&sourceTimes.every(ts=>Number.isFinite(ts)&&ts>0&&Date.now()/1000-ts<=180&&ts<=Date.now()/1000+30);
- if(strategy?.complete&&display?.complete&&view&&freshSources&&!failed&&!lpFailed&&!strategyFailed)try{
+ if(strategy?.complete&&display?.complete&&view&&freshSources&&(market?!marketFailed:!failed)&&!lpFailed&&!strategyFailed)try{
   record=valueUniStrategy(replayUniStrategy(strategy.book),{trade:display,lpView:view});
   lastStrategyTotals=record;lastStrategyAt=Math.min(...sourceTimes);
  }catch{/* Keep the previous complete calculation while independent readers catch up. */}
@@ -57,14 +75,15 @@ function renderTotals(){
  $('uniWorthDetail').innerHTML=record?label('Wallet',record.walletValueUsd)+' · '+label('LP',record.lpValueUsd)+' · '+label('Cash',record.cashUsd)+(record.pendingValueUsd>.004?' · '+label('Pending',record.pendingValueUsd):''):'Includes returned LP cash';
  $('uniPnl').textContent=money(record?.pnlUsd);$('uniPnl').className='uni-trade-value '+(record?.pnlUsd>.004?'up':record?.pnlUsd<-.004?'down':'');
  $('uniPnlDetail').innerHTML=record?label('Realized',record.realizedUsd)+' · '+label('Current',record.unrealizedUsd):'Realized + current';
- const syncing=!!strategy&&!strategy.complete,hasError=strategyFailed||failed||lpFailed;
+ const syncing=!!strategy&&!strategy.complete,hasError=strategyFailed||(market?marketFailed:failed)||lpFailed;
  $('strategyHealth').textContent=retained?'Strategy figures could not refresh. Last verified reading: '+when(lastStrategyAt)+' MYT.':hasError?'Strategy cash history could not be verified yet. Retrying automatically.':syncing||!record?'Strategy cash history is syncing. Prices and LP cards refresh independently.':'';
  $('strategyHealth').classList.toggle('on',!!$('strategyHealth').textContent);
  renderPnlRecord(record,lastStrategyAt);
 }
 function renderPnlRecord(record,observedAt){
  if(!record){$('uniPnlRecordBody').innerHTML='<p class="uni-trade-help">Strategy cash history is syncing. Prices and LP cards refresh independently.</p>';return;}
- const value=(n,profit=false)=>'<span class="uni-pnl-amount '+(profit?(n>.004?'up':n<-.004?'down':''):'')+'">'+esc(money(n))+'</span>',
+ const fundingOpen=$('uniPnlRecordBody').querySelector('.uni-pnl-funding-list')?.open,
+  value=(n,profit=false)=>'<span class="uni-pnl-amount '+(profit?(n>.004?'up':n<-.004?'down':''):'')+'">'+esc(money(n))+'</span>',
   line=(label,n,extra='',profit=false)=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n,profit)+'</div>',
   txLink=(chain,hash)=>'<a class="uni-pnl-evidence" href="'+(chain==='base'?'https://basescan.org/tx/':'https://bscscan.com/tx/')+esc(hash)+'" target="_blank" rel="noopener noreferrer">View transaction ↗</a>';
  const positions=record.currentPositions.map(p=>'<section class="uni-pnl-position" data-position="'+esc(p.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(p.pair||'UNI LP')+'</strong>'+value(p.unrealizedUsd,true)+'</div>'
@@ -85,7 +104,7 @@ function renderPnlRecord(record,observedAt){
   +'<h3>Current cycle</h3>'+positions+(!positions?'<p class="uni-trade-help">No open UNI LPs.</p>':'')
   +'<h3>Settled results</h3>'+(completed+other||'<p class="uni-trade-help">No settled results yet.</p>')
   +'<p class="uni-trade-help">Settled results keep their transaction-time values. Reinvesting does not erase them.</p>'
-  +'<details class="uni-pnl-funding-list"><summary>Funding record</summary>'+funding+'</details>'
+  +'<details class="uni-pnl-funding-list"'+(fundingOpen?' open':'')+'><summary>Funding record</summary>'+funding+'</details>'
   +'<p class="uni-trade-help">Returned cash is attributed to this strategy, not your entire wallet balance. Strategy operations use that cash first; unrelated spending uses unrelated cash first. Dollar stablecoins use the stated $1 anchor. Native network fees remain separate.</p>'
   +'<p class="uni-trade-help"><span>Verified strategy coverage</span>: '+esc(Object.keys(strategy?.book?.chains||{}).map(chainName).join(' · '))+'</p>'
   +(Object.values(strategy?.coverage||{}).includes('earlier_history_unverified')?'<p class="uni-trade-help">Earlier activity on an untracked network is not included until verified.</p>':'')
@@ -98,21 +117,25 @@ function renderLP(){
  if(!Array.isArray(view.position_data)){$('uniLps').innerHTML='<div class="card uni-trade-empty">Your current UNI LPs could not be verified.</div>';return;}
  const canonical=view.position_data,ids=new Set(canonical.filter(p=>TOKENS[p.chain]&&[p.raw?.token0?.address?.toLowerCase(),p.raw?.token1?.address?.toLowerCase()].includes(TOKENS[p.chain])).map(p=>p.chain+':'+String(p.id).replace(/^#/,'')));
  const rows=(view.live||[]).filter(p=>ids.has(p.chain+':'+String(p.id).replace(/^#/,'')));
- $('uniLps').innerHTML=rows.length?LPCards.list(rows):'<div class="card uni-trade-empty">'+(LPCards.readingState(view).partial?'Your current UNI LPs could not be verified.':'No current UNI LPs in the LP Book.')+'</div>';
- const status=LPCards.readingState(view);
+ $('uniLps').innerHTML=rows.length?LPCards.list(rows):'<div class="card uni-trade-empty">'+(uniLPState(view).partial?'Your current UNI LPs could not be verified.':'No current UNI LPs in the LP Book.')+'</div>';
+ const status=uniLPState(view);
  $('lpHealth').textContent=lpFailed||status.partial||!status.fresh?'Could not refresh every LP reading. Previous figures keep their original reading time.':'';
  requestAnimationFrame(()=>LPCards.align($('uniLps')));
 }
 async function loadTrades(){if(tradeBusy||document.hidden)return;tradeBusy=true;try{const next=await json('/api/uni?view=trades');if(!valid(next))throw Error('Invalid trade reading');trade=next;failed=false;if(next.complete){lastFull=next;try{localStorage.setItem(KEY,JSON.stringify(next));}catch{}}render();}catch{failed=true;render();}finally{tradeBusy=false;}}
-async function loadLP(){if(lpBusy||document.hidden)return;lpBusy=true;try{const next=await LPCards.fetchBook(),state=LPCards.readingState(next);if(!next?.cards||!Array.isArray(next.live))throw Error('LP reading unavailable');
+async function loadLP(){if(lpBusy||document.hidden)return;lpBusy=true;try{const next=await json('/api/lpbook?scope=uni',15000),state=uniLPState(next);if(!next?.cards||!Array.isArray(next.live))throw Error('LP reading unavailable');
  if(state.partial&&lastLP&&Date.now()-Date.parse(lastLP.generated)<300000){lp=lastLP;lpFailed=true;}else{lp=next;lpFailed=state.partial;if(state.fresh&&!state.partial)lastLP=next;}render();}catch{lpFailed=true;render();}finally{lpBusy=false;}}
 async function loadStrategy(){if(strategyBusy||document.hidden)return;strategyBusy=true;
  try{const next=await json('/api/uni?view=strategy');if(next?.schemaVersion!=='uni-strategy-view-v1'||typeof next.complete!=='boolean')throw Error('Invalid strategy reading');validateUniStrategy(next.book);strategy=next;strategyFailed=false;render();}
  catch{strategyFailed=true;renderTotals();}finally{strategyBusy=false;}}
+async function loadMarket(){if(marketBusy||document.hidden)return;marketBusy=true;
+ try{const next=await json('/api/uni?view=market',9000);if(!validMarket(next))throw Error('Invalid current reading');market=next;marketFailed=false;render();}
+ catch{marketFailed=true;render();}finally{marketBusy=false;}}
+async function loadSavedTrades(){try{const book=await json('/uni-trades.json',6000),saved={schemaVersion:'uni-trade-view-v1',accountingVersion:2,book,trades:book.trades,flows:book.flows||[],quotes:book.quotes||{},wallets:book.walletReadings||[],complete:false,historyComplete:book.historyComplete===true,errors:book.errors||{}};if(!valid(saved))return;if(!trade){trade=saved;render();}}catch{/* Live history is independent of the initial saved display. */}}
 try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(valid(saved)){trade=saved;lastFull=saved.complete?saved:null;failed=true;}}catch{}
 $('tradeNetwork').addEventListener('change',render);window.addEventListener('tf-language-change',render);
 $('uniPnlRecordBtn').addEventListener('click',()=>$('uniPnlRecord').showModal());
 $('uniPnlRecordClose').addEventListener('click',()=>$('uniPnlRecord').close());
 $('uniPnlRecord').addEventListener('click',event=>{if(event.target!==$('uniPnlRecord'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
-render();loadTrades();loadLP();loadStrategy();setInterval(loadTrades,30000);setInterval(loadLP,15000);setInterval(loadStrategy,30000);setInterval(stamp,1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadTrades();loadLP();loadStrategy();}});
+render();loadMarket();loadSavedTrades();loadTrades();loadLP();loadStrategy();setInterval(loadMarket,10000);setInterval(loadTrades,30000);setInterval(loadLP,10000);setInterval(loadStrategy,30000);setInterval(stamp,1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMarket();loadTrades();loadLP();loadStrategy();}});

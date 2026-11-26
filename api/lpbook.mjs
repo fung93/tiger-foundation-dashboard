@@ -8,7 +8,7 @@
    now is what the ledger will say after the next run — then values it all at
    live prices.
    ========================================================================== */
-import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION, V3, FABLES } from './_core.mjs';
+import { merklLp, advanceBook, bookLiveRows, livePrices, bookView, BOOK_VERSION, V3, FABLES, CFG } from './_core.mjs';
 import { createLiveCache, requestOrigin, fetchJSON, lpViewComplete, responseHeaders, savedBookValid } from './_live-cache.mjs';
 import { compactLPPositions } from '../portfolio-core.mjs';
 import { attributeLPPerformance } from '../agent-performance.mjs';
@@ -18,34 +18,38 @@ import {buildUniLPAccounting} from '../uni-accounting.mjs';
 import { readBasePortfolio } from './_base-portfolio.mjs';
 
 const readLive = createLiveCache({ complete: lpViewComplete });
+const readUni = createLiveCache({ttlMs:3000,complete:view=>view?.uni?.complete===true});
 const checkpoints = new Map();
 const readBase = createLiveCache({ complete: view => view?.complete === true });
 
-async function readBook(origin) {
+async function readBook(origin, {uniOnly=false}={}) {
   const source = await fetchJSON(origin + '/lpbook.json');
   if (!savedBookValid(source, BOOK_VERSION)) throw new Error('The saved LP book is unavailable or malformed.');
   const identity = JSON.stringify(source);
-  let checkpoint = checkpoints.get(origin);
+  const checkpointKey=uniOnly?origin+'|uni':origin;
+  if(uniOnly&&CFG.wallets.some(w=>!source.wallets.includes(w.address.toLowerCase())))throw Error('The saved UNI wallet registry needs updating.');
+  let checkpoint = checkpoints.get(checkpointKey);
   if (!checkpoint || checkpoint.identity !== identity) {
     const book = { ...source };
     // A committed snapshot starts a new warm-instance provenance boundary.
     delete book.reward_rollover_anchor;
     checkpoint = { identity, book };
-    checkpoints.set(origin, checkpoint);
+    checkpoints.set(checkpointKey, checkpoint);
     if (checkpoints.size > 8) checkpoints.delete(checkpoints.keys().next().value);
   }
-  const rawMerkl = await merklLp();
+  const rawMerkl = uniOnly?undefined:await merklLp();
   /* Resume a warm function's validated ledger instead of replaying the same six-hour
      backlog on every page poll. A new committed snapshot replaces the checkpoint whole;
      advanceBook itself rolls back a failed chain while retaining successful chains. */
   const { book: now, errors, behind, merkl = rawMerkl } = await advanceBook(checkpoint.book,
-    { merkl: rawMerkl, maxWindows: 4, ranges: 'new' });
+    { merkl: rawMerkl, maxWindows: 4, ranges: 'new', ...(uniOnly?{onlyChains:['base']}:{}) });
   checkpoint.book = now;
-  const [live, prices] = await Promise.all([bookLiveRows(now), livePrices(now, merkl.token_price)]);
+  const reads=uniOnly?{...now,positions:Object.fromEntries(Object.entries(now.positions).filter(([,p])=>p.chain==='base')),tokens:Object.fromEntries(Object.entries(now.tokens).filter(([,t])=>t.chain==='base'))}:now;
+  const [live, prices] = await Promise.all([bookLiveRows(reads), livePrices(reads, merkl?.token_price)]);
   const view = bookView(now, {
     rows: live.rows, prices, merkl,
     errors: { ...errors, ...Object.fromEntries(Object.entries(live.errors).map(([k, v]) => [k + ' (live)', v])),
-      ...(merkl.error && !errors.merkl ? { merkl: 'rewards could not be read' } : {}) },
+      ...(merkl?.error && !errors.merkl ? { merkl: 'rewards could not be read' } : {}) },
     behind,
   });
   view.generated = new Date().toISOString();
@@ -76,6 +80,11 @@ export default async function handler(req, res) {
       const base = await readBase(origin, () => readBasePortfolio());
       responseHeaders(res, base.complete);
       return res.status(200).end(JSON.stringify(base));
+    }
+    if(query.scope==='uni'){
+      const view=await readUni(origin,()=>readBook(origin,{uniOnly:true}));
+      res.setHeader('cache-control',view.uni?.complete?'public, max-age=0, s-maxage=3, must-revalidate':'no-store');
+      return res.status(200).end(JSON.stringify(view));
     }
     const view = await readLive(origin, () => readBook(origin));
     if(query.view==='cost-evidence'){

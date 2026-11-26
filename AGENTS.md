@@ -2258,3 +2258,27 @@ an edge alone does not settle the LP: require confirmed withdrawal/collection.
 - `docs/UNI-STRATEGY-REVIEW.md` holds the checklist, changed components, accounting
   policy, checks and live-verification blockers. Direct Base RPC POST is proxy
   blocked here (403); do not claim real-owner strategy totals are verified.
+
+### UNI current refresh performance — push authorized
+
+The owner reports slow/stale UNI and asks for fast refresh. After the local fix
+and testing, he explicitly said **“Push”**, authorizing publication of this
+reviewed change. `docs/UNI-REFRESH.md` holds the progress/evidence checklist.
+
+- Guide uses `/api/uni?view=live` every 10 seconds, independent of the full fee
+  history pass (5 minutes). Trade uses `?view=market` and scoped UNI LP reads
+  every 10 seconds; trade/capital history stays independent. Fast reads skip
+  logs/archive/nonce scans, retain source clocks and have bounded JSON bodies.
+- `api/_uni-live.mjs` shares in-flight current reads, uses a 3-second complete
+  cache without a stale edge window, and verifies balances at the quote block.
+  Price/fee observations merge by their own clocks, preserving edited ranges.
+- `/api/lpbook?scope=uni` uses the existing `onlyChains:['base']` reader option
+  and Base-only position/price inputs, with its own cache/checkpoint. It skips
+  Merkl and unrelated chains. Default LP Book remains unchanged. UNI does not
+  inherit another chain's partial-reading flag.
+- Service-worker `uni-pools.json` and `uni-strategy.json` reads are network-first.
+  App/changed UNI module cache is 190; unchanged assets keep their own versions.
+- The all-time regression assertion now includes existing owner trading claims
+  revealed by the latest automated snapshot. No financial record/formula was
+  rewritten. Preserve the review's capital/realized rules, both themes/languages,
+  Lending visit reset, private agent policy and read-only wallet access.

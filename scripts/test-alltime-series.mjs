@@ -92,6 +92,14 @@ try {
   check(v.series, [], 'Currently open positions are excluded from the all-time curve');
   check(v.cards.net_usd, 0, 'Open-position claims cannot inflate closed-position Net');
 
+  const ownerFees=ledger([position('owner-trading-fees',{fee_accounting_version:1,
+    claims:[claim(200,2)],trading_claims:[{ts:250,usd:.51,tokens:{'USDC@katana':.51},prices:{'USDC@katana':1}}],frozen:{pnl_usd:-1}})]);
+  v=view(ownerFees,{[token]:99999,'USDC@katana':99});
+  check(point(v,250).usd,2.51,'Owner trading fees join original rewards on their actual collection date');
+  check(point(v,300).net,1.51,'Closed Net includes both recorded income sources exactly once');
+  check(view(ownerFees,{[token]:.0001,'USDC@katana':.01}),v,'Owner fee history does not follow live token prices');
+  consistent(v,'owner fees and rewards');
+
   const saved = JSON.parse(readFileSync(new URL('../lpbook.json', import.meta.url), 'utf8'));
   const original = structuredClone(saved);
   const savedView = view(saved, { [token]: 99999 });
@@ -99,7 +107,7 @@ try {
   check(view(saved, { [token]: .00000001 }), savedView, 'Checked-in history is independent of live prices');
   check(saved, original, 'Rendering checked-in history leaves every stored value untouched');
   const closed = Object.values(saved.positions).filter(p => p.status !== 'open');
-  const expectedFees = closed.reduce((sum, p) => sum + r2((p.claims || []).reduce((s, c) => s + (c.usd ?? 0), 0)), 0);
+  const expectedFees = closed.reduce((sum, p) => sum + r2([...(p.claims || []),...(p.trading_claims || [])].reduce((s, c) => s + (c.usd ?? 0), 0)), 0);
   const expectedPnl = closed.reduce((sum, p) => sum + (p.frozen?.pnl_usd ?? r2(p.out_usd - p.cost_usd)), 0);
   check(savedView.series.at(-1)?.net ?? 0, r2(expectedFees + expectedPnl), 'Saved ledger Net matches original claims and frozen realised PnL');
   for (const p of closed) check(!!point(savedView, p.closed_ts), true, 'Saved close timestamp is represented: ' + p.key);

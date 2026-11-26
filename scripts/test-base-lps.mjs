@@ -157,6 +157,9 @@ try {
   ok(view.live.some(row => row.chain === 'base' && row.id === '#7'), 'The new Base position is visible in the real LP Book card view');
   near(view.cards.chains.base.value_usd, mainRead.lp_positions[0].liquidity_usd + vaultRead.lp_positions[0].liquidity_usd, 'Base card principal matches both independently read wallets');
   const earnings = buildUniLPAccounting(result.book, view);
+  const noRewards=bookView(result.book,{rows:live.rows,prices,errors:{},behind:{base:0}}),withoutRewards=buildUniLPAccounting(result.book,noRewards);
+  near(withoutRewards.earnedUsd,earnings.earnedUsd,'Scoped Base earnings do not require a Katana reward reading');
+  near(withoutRewards.netUsd,earnings.netUsd,'Skipping unrelated rewards cannot change UNI LP performance');
   near(earnings.earnedUsd, 6 + 1.1 * price, 'UNI fee totals use actual claimed plus unclaimed owner fees across both LPs');
   near(earnings.earnedTokens.UNI, 1.1, 'UNI fee inventory includes unclaimed fees and excludes principal');
   near(earnings.earnedTokens.USDC, 6, 'USDC fee inventory includes unclaimed fees and excludes principal');

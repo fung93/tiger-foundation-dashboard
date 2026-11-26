@@ -25,7 +25,7 @@
 /* v30: the power-of-compounding card — measured daily rate, days to double, doubling bars. */
 /* v31: the Arc V4 catch-up scan walks the whole gap in one pass, not one window per refresh. */
 /* v32: the browser remembers the Arc V4 positions it has found, so a reload shows them at once. */
-var CACHE_VERSION = 'tiger-v189';  /* UNI strategy capital, returned cash and settled/current results */
+var CACHE_VERSION = 'tiger-v190';  /* Fast UNI current readings, independent history and bounded recovery */
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var DATA_CACHE = CACHE_VERSION + '-data';
 
@@ -70,11 +70,12 @@ var SHELL_ASSETS = [
   '/strategy-core.mjs',
   '/uni.html',
   '/uni.css',
-  '/uni.js',
-  '/uni-core.mjs',
+  '/uni.js?v=190',
+  '/uni-core.mjs?v=190',
+  '/uni-refresh.mjs?v=190',
   '/uni-trade.html',
   '/uni-trade.css?v=189',
-  '/uni-trade.js?v=189',
+  '/uni-trade.js?v=190',
   '/uni-trade-core.mjs?v=180',
   '/uni-accounting.mjs?v=188',
   '/uni-strategy-core.mjs?v=189',
@@ -168,7 +169,8 @@ self.addEventListener('fetch', function (e) {
      Strip the cache-buster ?t= so offline lookups hit. */
   var isData = url.pathname === '/data.json' || url.pathname === '/history.json' ||
                url.pathname === '/claims.json' || url.pathname === '/positions.json' ||
-               url.pathname === '/morpho-history.json' || url.pathname === '/uni-trades.json';
+               url.pathname === '/morpho-history.json' || url.pathname === '/uni-trades.json' ||
+               url.pathname === '/uni-pools.json' || url.pathname === '/uni-strategy.json';
   var isCrossOrigin = url.origin !== self.location.origin;
   /* /api/* reads the chain on every request — the widget's whole point is that the price is
      current, so it must never be answered from the cache first. Without this it fell through

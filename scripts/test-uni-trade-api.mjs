@@ -46,6 +46,6 @@ for(const key of ['base','bnb']){
 }
 const recorded=JSON.parse(readFileSync(new URL('./fixtures/uni-trades-recorded.json',import.meta.url),'utf8'));
 for(const entry of recorded.entries){const found=receiptUniTrade({chain:UNI_CHAINS.base,wallets:CFG.wallets.map(w=>w.address),...entry});eq(found.trade,null,'Recorded Base approvals, transfers and LP operations remain outside UNI buy/sell history');}
-const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=189','/uni-trade.css?v=189','/uni-trade-core.mjs?v=180','/uni-strategy-core.mjs?v=189'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
+const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const p of ['/uni-trade.html','/uni-trade.js?v=190','/uni-trade.css?v=189','/uni-trade-core.mjs?v=180','/uni-strategy-core.mjs?v=189'])ok(worker.includes(p),'The new page and modules are available in the refreshed app shell');
 const apis=(await import('node:fs/promises')).readdir;eq((await apis(new URL('../api/',import.meta.url))).filter(p=>p.endsWith('.mjs')&&!p.startsWith('_')).length,12,'UNI Trade does not exceed Vercel Hobby’s function limit');
 console.log(`UNI trade API isolation, source recovery, recorded receipts and read-only access: ${checks} assertions passed.`);

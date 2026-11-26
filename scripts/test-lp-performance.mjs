@@ -284,7 +284,7 @@ try {
   for (const p of supported) {
     const benchmark = savedView.alltime.history.find(h => h.id === p.id && h.chain === p.chain).comparison;
     const hold = p.deposits.reduce((s, d) => s + d.a0 * p.frozen.prices[p.t0] + d.a1 * p.frozen.prices[p.t1], 0);
-    const fees = (p.claims || []).reduce((s, claim) => s + (claim.usd ?? 0), 0);
+    const fees = [...(p.claims || []),...(p.trading_claims || [])].reduce((s, claim) => s + (claim.usd ?? 0), 0);
     check(benchmark.hold_usd, r2(hold), 'Actual saved original deposit benchmark: ' + p.key);
     check(benchmark.difference_usd, r2(p.frozen.principal_usd + r2(fees) - hold) || 0, 'Actual saved LP-versus-hold result: ' + p.key);
     identities(benchmark, 'Actual saved comparison ' + p.key);

@@ -2,11 +2,13 @@
 import {readUniPools} from './_uni-reader.mjs';
 import {handleUniTrades} from './_uni-trades.mjs';
 import {handleUniStrategy} from './_uni-strategy.mjs';
+import {handleUniLive,rememberUniHistory} from './_uni-live.mjs';
 import {readFile} from 'node:fs/promises';
 import {emptyUniSnapshot,validateUniSnapshot,mergeUniSnapshots} from '../uni-core.mjs';
 let pending=null,cached=null,cachedUntil=0;
 export default async function handler(req,res){
   if(!['GET','HEAD'].includes(req.method||'GET')){res.setHeader('allow','GET, HEAD');return res.status(405).json({error:'Read-only endpoint'});}
+  if(await handleUniLive(req,res))return;
   if(await handleUniTrades(req,res))return;
   if(await handleUniStrategy(req,res))return;
   if(cached&&Date.now()<cachedUntil){res.setHeader('cache-control','public, s-maxage=30, stale-while-revalidate=30');return res.status(200).json(cached);}
@@ -15,6 +17,7 @@ export default async function handler(req,res){
     return mergeUniSnapshots(saved,await readUniPools({saved}));
   })().finally(()=>{pending=null;});
   const value=await pending;
+  rememberUniHistory(value);
   if(value.chains.some(c=>c.status!=='unavailable')){cached=value;cachedUntil=Date.now()+30000;}
   res.setHeader('cache-control',value.chains.every(c=>c.status==='unavailable')?'no-store':'public, s-maxage=30, stale-while-revalidate=30');
   return res.status(value.chains.every(c=>c.status==='unavailable')?503:200).json(value);

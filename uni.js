@@ -1,6 +1,7 @@
-import {uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots} from './uni-core.mjs?v=171';
+import {uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots,mergeUniPoolReading} from './uni-core.mjs?v=190';
+import {fetchUniJSON} from './uni-refresh.mjs?v=190';
 const $=id=>document.getElementById(id),states=new Map(),rows=new Map();
-const REFRESH=60000,CACHE='tf_uni_pools_v1';let busy=false,chains=[],lastError=false;
+const REFRESH=10000,HISTORY_REFRESH=300000,CACHE='tf_uni_pools_v1';let busy=false,historyBusy=false,chains=[],lastError=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(v):'—';
 const feeMoney=v=>Number.isFinite(v)?(v>0&&v<.000001?'<$0.000001':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:v>0&&v<.01?6:2}).format(v)):'—';
@@ -16,17 +17,10 @@ function accept(value,{saved=false}={}){
   if(value?.schemaVersion!==1||!Array.isArray(value.chains)||!Array.isArray(value.pools))throw Error('Invalid pool response');
   if(value.chains.length!==2||new Set(value.chains.map(c=>c.key)).size!==2||value.chains.some(c=>!['base','bnb'].includes(c.key)||!['fresh','partial','unavailable'].includes(c.status))||value.pools.some(p=>!validPool(p)))throw Error('Incomplete pool response');
   const incoming=new Set(value.pools.filter(validPool).map(p=>p.id));
-  for(const [id,old] of rows){const source=value.chains.find(c=>c.key===old.chain);if(!incoming.has(id)){if(source?.status==='fresh')rows.delete(id);else old.retained=true;}}
-  for(const p of value.pools){if(!validPool(p))continue;const old=rows.get(p.id);if(old&&p.at<old.at)continue;
-    // Price/TVL and history have separate evidence times. A failed fee method
-    // must not freeze a later valid TVL or erase its last dated fee observation.
-    const next={...p};
-    if(old&&old.at<=p.at&&p.at-old.at<=8*3600){
-      if(!next.feeWindow&&old.feeWindow?.verified&&p.at-old.feeWindow.toTs<=8*3600){next.feeWindow=old.feeWindow;next.feeHistoryRetained=true;}
-      if(next.fees24hUsd===null&&Number.isFinite(old.fees24hUsd)&&p.at-(old.tradingWindow?.toTs??old.at)<=8*3600){next.fees24hUsd=old.fees24hUsd;next.volume24hUsd=old.volume24hUsd;next.apr=old.apr;next.tradingWindow=old.tradingWindow||{toTs:old.at};next.tradingRetained=true;}
-    }
-    rows.set(p.id,{...next,retained:saved?(old?.at===p.at?old.retained:true):!!p.retained});}
-  chains=value.chains;
+  for(const [id,old] of rows){const source=value.chains.find(c=>c.key===old.chain);if(!incoming.has(id)){if((source?.status==='fresh'||source?.quoteComplete)&&source.at>=old.at)rows.delete(id);else if(source?.status==='unavailable'||source?.at>=old.at)old.retained=true;}}
+  for(const p of value.pools){if(!validPool(p))continue;const old=rows.get(p.id),next=mergeUniPoolReading(old,p);
+    rows.set(p.id,{...next,retained:old?.at>p.at?old.retained:saved?(old?.at===p.at?old.retained:true):!!p.retained});}
+  chains=value.chains.map(c=>{const old=chains.find(v=>v.key===c.key);return old?.at>c.at&&c.at>0?old:c;});
   if(!saved)try{localStorage.setItem(CACHE,JSON.stringify({schemaVersion:1,chains,pools:[...rows.values()]}));}catch{}
 }
 function poolCard(p){
@@ -99,9 +93,12 @@ function render(){
   container.setAttribute('aria-busy','false');
 }
 async function refresh(){if(busy||document.hidden)return;busy=true;
-  try{const r=await fetch('/api/uni',{cache:'no-store',signal:AbortSignal.timeout(55000)}),value=await r.json();validateUniSnapshot(value);accept(value);lastError=!r.ok||value.chains.every(c=>c.status==='unavailable');}
+  try{const value=await fetchUniJSON('/api/uni?view=live');validateUniSnapshot(value);accept(value);lastError=value.chains.every(c=>c.status==='unavailable');}
   catch{lastError=true;}finally{busy=false;render();}}
+async function refreshHistory(){if(historyBusy||document.hidden)return;historyBusy=true;
+  try{const value=await fetchUniJSON('/api/uni',{timeoutMs:50000});validateUniSnapshot(value);accept(value);render();}
+  catch{/* Fee history keeps its original period; current readings run independently. */}finally{historyBusy=false;}}
 try{const saved=JSON.parse(localStorage.getItem(CACHE));if(saved){accept(saved,{saved:true});render();}}catch{}
-fetch('/uni-pools.json',{cache:'no-store',signal:AbortSignal.timeout(6000)}).then(r=>{if(!r.ok)throw Error('Saved pool readings unavailable');return r.json();}).then(value=>{validateUniSnapshot(value);const merged=mergeUniSnapshots({schemaVersion:1,checkedAt:Date.now()/1000,chains,pools:[...rows.values()]},value);if(value.pools.length){accept(merged,{saved:true});render();}}).catch(()=>{});
-$('chainFilter').addEventListener('change',render);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-refresh();setInterval(refresh,REFRESH);setInterval(()=>{if(!document.hidden)render();},15000);
+fetchUniJSON('/uni-pools.json',{timeoutMs:6000}).then(value=>{validateUniSnapshot(value);const merged=mergeUniSnapshots({schemaVersion:1,checkedAt:Date.now()/1000,chains,pools:[...rows.values()]},value);if(value.pools.length){accept(merged,{saved:true});render();}}).catch(()=>{});
+$('chainFilter').addEventListener('change',render);document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();refreshHistory();}});
+refresh();setTimeout(refreshHistory,1000);setInterval(refresh,REFRESH);setInterval(refreshHistory,HISTORY_REFRESH);setInterval(()=>{if(!document.hidden)render();},15000);

@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {performance} from 'node:perf_hooks';
+import {uniFixture} from './fixtures/uni.mjs';
+import {readUniChain,readUniPools,createUniRpc} from '../api/_uni-reader.mjs';
+import {createUniLiveReader} from '../api/_uni-live.mjs';
+import {emptyUniSnapshot,mergeUniSnapshots,mergeUniPoolReading,uniEstimate,uniDefaultInput} from '../uni-core.mjs';
+import {fetchUniJSON} from '../uni-refresh.mjs';
+let n=0;const eq=(a,b,m)=>{assert.deepEqual(a,b,m);n++;},ok=(v,m)=>{assert.ok(v,m);n++;};
+const f=uniFixture(),history=await readUniChain(f.chain,f),old=structuredClone(history.pools[0]);
+old.at-=600;old.tvlUsd=999;old.feeWindow.fromTs-=600;old.feeWindow.toTs-=600;old.tradingWindow.fromTs-=600;old.tradingWindow.toTs-=600;
+const fresh=uniFixture(),start=fresh.requests.length;
+const fast=await readUniChain(fresh.chain,{...fresh,currentOnly:true,savedPools:[old],historyRpc:async()=>{throw Error('History must never be requested');}}),p=fast.pools[0];
+eq(fast.quoteComplete,true,'Complete current pool proof does not depend on fee history');ok(Math.abs(p.price-8)<1e-10,'Current price is observed');ok(Math.abs(p.tvlUsd-18000)<1e-8,'Saved TVL is replaced by current balances');
+eq(p.feeWindow.toTs,old.feeWindow.toTs,'Fee history keeps its source clock');eq(p.tradingWindow.toTs,old.tradingWindow.toTs,'Pool fee totals keep their original period');
+ok(fresh.requests.slice(start).every(r=>r.method!=='eth_getLogs'),'The fast path performs no log scans');
+ok(fresh.requests.filter(r=>r.method==='eth_getBlockByNumber').every(r=>Number(BigInt(r.params[0]))===fresh.requests.filter(q=>q.method==='eth_getBlockByNumber').map(q=>Number(BigInt(q.params[0])))[0]),'The fast path performs no historical block search');
+ok(fresh.requests.length<=7,'A healthy current-only guide read is at most seven RPC calls per network');
+ok(uniEstimate(p,uniDefaultInput(p,'balanced')).activeFeesPerDay>0,'Live liquidity still supports a dated, evidence-backed fee estimate');
+const optional=uniFixture('base',{currentGrowthFailure:true});const noGrowth=await readUniChain(optional.chain,{...optional,currentOnly:true,savedPools:[old]});eq(noGrowth.quoteComplete,true,'Unsupported fee-growth methods cannot block current refresh');
+const latest={...p,at:p.at+40,price:9,tvlUsd:19000},lateHistory={...history.pools[0],at:p.at+20,feeWindow:{...p.feeWindow,toTs:p.at+20,fromTs:p.at+20-86400},tradingWindow:{toTs:p.at+20,fromTs:p.at+20-86400},fees24hUsd:7,volume24hUsd:14000,apr:.1};
+const mixed=mergeUniPoolReading(latest,lateHistory);eq(mixed.price,9,'A late history answer never rolls the current price backwards');eq(mixed.at,latest.at,'Quote timestamp remains the actual latest observation');eq(mixed.feeWindow.toTs,lateHistory.at,'The newer fee interval can arrive independently');eq(mixed.fees24hUsd,7,'Newer fee/volume evidence is accepted despite an older quote timestamp');
+const sampled={...lateHistory,feeWindow:{...lateHistory.feeWindow,method:'swap_fee_lower_bound'}},exact={...lateHistory,feeWindow:{...lateHistory.feeWindow,method:'fee_growth'}};
+eq(mergeUniPoolReading(sampled,exact).feeWindow.method,'fee_growth','Exact fee growth supersedes a lower bound for the same dated window');
+const ancient=mergeUniPoolReading({...latest,at:p.at+9*3600},old);eq(ancient.feeWindow,null,'Fast refreshes cannot make an expired fee interval new');eq(ancient.fees24hUsd,null,'Expired trading totals do not become a false fresh zero');
+const base={...emptyUniSnapshot(),checkedAt:latest.at,chains:[{...fast,at:latest.at},{key:'bnb',name:'BNB Chain',status:'fresh',at:latest.at,pools:[]}],pools:[latest]},late={...base,checkedAt:lateHistory.at,chains:base.chains.map(c=>({...c,at:lateHistory.at})),pools:[lateHistory]};
+eq(mergeUniSnapshots(base,late).pools[0].feeWindow.toTs,lateHistory.at,'Snapshot merging preserves independent history clocks');
+let finishCurrent,entered;
+const waiting=new Promise(r=>{entered=r;}),race=createUniLiveReader({readSaved:async()=>emptyUniSnapshot(),readPools:async()=>{entered();return new Promise(r=>{finishCurrent=r;});}}),pending=race.read();
+await waiting;race.remember(late);finishCurrent(base);const combined=await pending;eq(combined.pools[0].feeWindow.toTs,lateHistory.at,'History completing during an in-flight current request is not discarded');eq(combined.pools[0].at,latest.at,'The concurrent merge still keeps the newest quote clock');
+const fixtures=Object.fromEntries(['base','bnb'].map(c=>[c,uniFixture(c)]));let poolReads=0,historyTouched=false;
+const reader=createUniLiveReader({readSaved:async()=>({...emptyUniSnapshot(),pools:[],checkedAt:f.now}),readPools:opts=>{poolReads++;historyTouched||=!opts.currentOnly;return readUniPools({...opts,now:f.now,readChain:(c,o)=>readUniChain(c,{...o,rpc:fixtures[c.key].rpc})});},rpcFactory:c=>fixtures[c.key].rpc});
+const [a,b]=await Promise.all([reader.read(),reader.read()]);eq(a,b,'Concurrent current requests share one source pass');eq(poolReads,1,'No duplicate current scan');eq(historyTouched,false,'The API reader explicitly requests current-only work');
+const market=await reader.market();eq(market.complete,true,'Both verified quotes and wallet balances are available without history');eq(market.wallets.length,4,'Both owned wallets on both networks are read');eq(poolReads,1,'Guide and Trade reuse the same current pool proof');
+ok(market.wallets.every(w=>w.ts===market.quotes[w.chain].ts&&w.block===market.quotes[w.chain].block),'Wallet quantities and their quote use the same block');
+const bad={...emptyUniSnapshot(),checkedAt:f.now,chains:[fast,{key:'bnb',name:'BNB Chain',status:'unavailable',at:null,pools:[]}],pools:[p]};
+const one=createUniLiveReader({readSaved:async()=>emptyUniSnapshot(),readPools:async()=>bad,rpcFactory:()=>f.rpc});const partial=await one.market();eq(partial.complete,false,'One failed network cannot claim fully live holdings');ok(partial.quotes.base&&!partial.quotes.bnb,'Healthy Base quote survives the other network failure');eq(partial.wallets.length,2,'A failed network is not filled with invented zero balances');
+const failing=createUniLiveReader({readSaved:async()=>emptyUniSnapshot(),readPools:async()=>{throw Error('Source down');}});await assert.rejects(failing.read());n++;
+// A body that hangs after HTTP headers used to bypass AbortSignal timeouts in
+// transports that do not reject on cancellation. Prove bounded fallback and reuse.
+const chain={...f.chain,rpcs:['https://body-hang.test','https://healthy.test']},sent=[];
+const fetcher=async(url,options)=>{const q=JSON.parse(options.body);sent.push({url,method:q.method});return {ok:true,json:url.includes('body-hang')?()=>new Promise(()=>{}):async()=>({result:q.method==='eth_chainId'?'0x2105':'0x10'})};};
+const started=performance.now(),rpc=createUniRpc(chain,{fetcher,timeoutMs:300,requestTimeoutMs:15,preferHealthy:true});eq(await rpc('eth_blockNumber',[]),'0x10','Stalled response bodies fall back to a healthy provider');ok(performance.now()-started<250,'A hung body cannot consume the whole page-refresh interval');
+const before=sent.length;await createUniRpc(chain,{fetcher,timeoutMs:300,requestTimeoutMs:15,preferHealthy:true})('eth_blockNumber',[]);ok(sent.slice(before).every(r=>r.url.includes('healthy')),'Next refresh starts with the provider that actually worked');
+let signed=0;await assert.rejects(createUniRpc(chain,{fetcher:async()=>{signed++;}})('eth_sendRawTransaction',[]),/Read-only/);n++;eq(signed,0,'The fast path adds no signing or transaction capability');
+await assert.rejects(fetchUniJSON('/test',{timeoutMs:15,fetcher:async()=>({ok:true,json:()=>new Promise(()=>{})})}),/timed out/);n++;
+eq(await fetchUniJSON('/test',{timeoutMs:50,fetcher:async()=>({ok:true,json:async()=>({recovered:true})})}),{recovered:true},'A later client poll can recover after its prior body timed out');
+// Latency evidence uses a controlled 4 ms source delay, not a claim about the
+// actual public RPCs. Count calls as well as time to make the comparison useful.
+const run=async currentOnly=>{const sample=uniFixture(),begin=performance.now();await readUniChain(sample.chain,{now:sample.now,currentOnly,savedPools:[old],rpc:async(...args)=>{await new Promise(r=>setTimeout(r,4));return sample.rpc(...args);}});return {ms:performance.now()-begin,calls:sample.requests.length};};
+const slow=await run(false),quick=await run(true);ok(quick.calls<slow.calls/2,'Current-only work removes more than half the RPC calls');ok(quick.ms<slow.ms,'Current refresh does not wait for the independently dated day scan');
+console.log(`UNI current/history isolation, source clocks, safe fallback and timeouts: ${n} assertions passed. Controlled latency: full ${slow.ms.toFixed(1)} ms/${slow.calls} calls; current ${quick.ms.toFixed(1)} ms/${quick.calls} calls.`);

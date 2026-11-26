@@ -80,8 +80,23 @@ export function validateUniSnapshot(value){
 }
 export function mergeUniSnapshots(previous,next){
   validateUniSnapshot(next);const out=structuredClone(next),oldPools=previous?.pools||[],incoming=new Set(next.pools.map(p=>p.id));
-  for(const old of oldPools){const source=next.chains.find(c=>c.key===old.chain);if(!incoming.has(old.id)&&(source?.status!=='fresh'||!(source.at>=old.at)))out.pools.push({...structuredClone(old),retained:source?.status==='unavailable'||source?.at>=old.at?true:!!old.retained});}
-  out.pools=out.pools.map(p=>{const old=oldPools.find(v=>v.id===p.id);return old?.at>p.at?structuredClone(old):p;});
-  if(previous?.checkedAt>next.checkedAt){out.checkedAt=previous.checkedAt;out.chains=out.chains.map(c=>structuredClone(previous.chains?.find(v=>v.key===c.key)||c));}
+  out.pools=out.pools.filter(p=>{const prior=previous?.chains?.find(c=>c.key===p.chain);return oldPools.some(old=>old.id===p.id)||!((prior?.quoteComplete||prior?.status==='fresh')&&prior.at>p.at);});
+  for(const old of oldPools){const source=next.chains.find(c=>c.key===old.chain);if(!incoming.has(old.id)&&(!(source?.status==='fresh'||source?.quoteComplete)||!(source.at>=old.at)))out.pools.push({...structuredClone(old),retained:source?.status==='unavailable'||source?.at>=old.at?true:!!old.retained});}
+  out.pools=out.pools.map(p=>mergeUniPoolReading(oldPools.find(v=>v.id===p.id),p));
+  out.checkedAt=Math.max(previous?.checkedAt||0,next.checkedAt);
+  out.chains=out.chains.map(c=>{const old=previous?.chains?.find(v=>v.key===c.key);return structuredClone(old?.at>c.at&&c.at>0?old:c);});
   return out;
+}
+/* Quote and fee-history requests finish independently. Merge their own source
+   times so a late history answer cannot roll a current price backwards. */
+export function mergeUniPoolReading(previous,incoming){
+  if(!previous)return structuredClone(incoming);
+  const sources=[previous,incoming],latest=previous.at>incoming.at?previous:incoming,result=structuredClone(latest),same=p=>p.id===result.id&&p.fee===result.fee&&p.token0?.address===result.token0?.address&&p.token1?.address===result.token1?.address;
+  const eligible=sources.filter(p=>same(p)&&p.at<=result.at),recent=ts=>Number.isFinite(ts)&&ts<=result.at&&result.at-ts<=8*3600;
+  const fee=eligible.filter(p=>p.feeWindow?.verified&&recent(p.feeWindow.toTs)).sort((a,b)=>b.feeWindow.toTs-a.feeWindow.toTs||Number(b.feeWindow.method==='fee_growth')-Number(a.feeWindow.method==='fee_growth'))[0];
+  result.feeWindow=fee?structuredClone(fee.feeWindow):null;result.feeHistoryRetained=!!fee&&fee.feeWindow.toTs<result.at;
+  const trading=eligible.filter(p=>[p.fees24hUsd,p.volume24hUsd,p.apr].every(Number.isFinite)&&recent(p.tradingWindow?.toTs??p.at)).sort((a,b)=>(b.tradingWindow?.toTs??b.at)-(a.tradingWindow?.toTs??a.at))[0];
+  for(const key of ['fees24hUsd','volume24hUsd','apr'])result[key]=trading?trading[key]:null;
+  result.tradingWindow=trading?structuredClone(trading.tradingWindow||{toTs:trading.at}):null;result.tradingRetained=!!trading&&(trading.tradingWindow?.toTs??trading.at)<result.at;
+  return result;
 }
