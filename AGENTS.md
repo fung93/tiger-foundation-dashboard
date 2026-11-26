@@ -2314,3 +2314,15 @@ Remove repeated funding/value breakdowns, transaction links, cost subrows and
 long explanations from this dialog. Stored evidence and financial calculations
 remain intact. App/changed UNI Trade JS/CSS use **192**; translation/history and
 other assets keep their versions. See `docs/UNI-TRADE.md` for release evidence.
+
+### UNI HUB default destination — push authorized
+
+The owner explicitly requests **UNI → UNI HUB**, make UNI Trade the main page
+and LP guide secondary, then **push**. Every shared main menu now labels the
+section UNI HUB and opens `/uni-trade.html`. That page's title/heading is UNI HUB;
+its existing LP guide link opens `/uni.html`, which is titled LP guide and links
+back to the hub. Keep both existing URLs and financial readers/calculations.
+Chinese section label is UNI 中心; token units remain UNI. App/shared translation
+references are **193**, unchanged Trade/guide/accounting assets keep their
+versions. Both Portfolio copies remain identical. Browser checks cover all
+shared menus, both languages/themes and narrow phones; see `docs/UNI-TRADE.md`.

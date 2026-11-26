@@ -453,3 +453,26 @@ The owner explicitly requests **simplify the P&L record and push**.
 
 Validation logs/screenshots: `/workspace/tiger-agent-validation/uni-simple-pnl/`.
 No new configuration, service, secret or wallet permission is required.
+
+## UNI HUB main page — 26 November 2026
+
+The owner explicitly requests **change UNI to UNI HUB, make UNI Trade the default
+main page and LP guide secondary, push**.
+
+- [x] All 11 shared main menus label the section **UNI HUB** and link directly
+  to the existing trade page `/uni-trade.html`.
+- [x] The main title/heading is UNI HUB. The existing LP guide button opens
+  `/uni.html`; its LP guide title/heading and return-to-hub link show that it is
+  the secondary page. Both URLs and all financial readers remain available.
+- [x] Chinese section label is **UNI 中心**, with token tickers unchanged. App
+  and shared translation references are **193**; independent module versions
+  remain unchanged. Portfolio copies match; no financial JSON is edited.
+- [x] **258 browser assertions** pass: all main menus, actual default navigation
+  and guide round trip, both languages/themes, mobile widths 320/375 and desktop
+  1366. Six navigation pills remain on one row without clipping or side scroll.
+- [x] `npm run check` passes all **99 suites**. Portfolio copies and
+  `git diff --check` pass. This navigation release edits no financial records.
+- [ ] Verify the real deployment; production access has been proxy blocked here.
+
+Validation evidence: `/workspace/tiger-agent-validation/uni-hub/`.
+No new route, redirect, configuration, service, secret or wallet permission.

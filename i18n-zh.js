@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   window.TF_ZH = Object.freeze({
+    "UNI HUB":"UNI 中心",
     "Time":"时间",
     "Could not check new UNI trades. Showing your confirmed trades.":"暂时无法检查新成交，下面保留已确认的记录。",
     "Checking newer trades. Confirmed trades are shown below.":"正在检查新成交，下方已显示确认的记录。",
