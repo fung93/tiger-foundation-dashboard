@@ -2303,3 +2303,14 @@ stays in the existing method detail; actual failed current checks remain visible
 App/translations/changed trade assets use **191**, unchanged assets retain their
 versions. No financial JSON, LP Book v9, strategy cost, Lending visit reset or
 private-agent behavior is changed. No new dependency, secret or public function.
+
+### UNI P&L record simplification — push authorized
+
+The owner explicitly requests **simplify the P&L record and push**. The UNI Trade
+record now shows realized/current/total P&L plus compact LP contributions (pair,
+ID, network and result). Keep settled/current attribution, including partial
+exits and wallet/pending amounts; reuse the existing deterministic values.
+Remove repeated funding/value breakdowns, transaction links, cost subrows and
+long explanations from this dialog. Stored evidence and financial calculations
+remain intact. App/changed UNI Trade JS/CSS use **192**; translation/history and
+other assets keep their versions. See `docs/UNI-TRADE.md` for release evidence.

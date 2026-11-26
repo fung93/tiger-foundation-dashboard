@@ -81,33 +81,22 @@ function renderTotals(){
  renderPnlRecord(record,lastStrategyAt);
 }
 function renderPnlRecord(record,observedAt){
- if(!record){$('uniPnlRecordBody').innerHTML='<p class="uni-trade-help">Strategy cash history is syncing. Prices and LP cards refresh independently.</p>';return;}
- const fundingOpen=$('uniPnlRecordBody').querySelector('.uni-pnl-funding-list')?.open,
-  value=(n,profit=false)=>'<span class="uni-pnl-amount '+(profit?(n>.004?'up':n<-.004?'down':''):'')+'">'+esc(money(n))+'</span>',
-  line=(label,n,extra='',profit=false)=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n,profit)+'</div>',
-  txLink=(chain,hash)=>'<a class="uni-pnl-evidence" href="'+(chain==='base'?'https://basescan.org/tx/':'https://bscscan.com/tx/')+esc(hash)+'" target="_blank" rel="noopener noreferrer">View transaction ↗</a>';
- const positions=record.currentPositions.map(p=>'<section class="uni-pnl-position" data-position="'+esc(p.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(p.pair||'UNI LP')+'</strong>'+value(p.unrealizedUsd,true)+'</div>'
-  +'<div class="uni-trade-help">'+esc(chainName(p.chain))+' · #'+esc(p.id)+' · <span>Open</span></div>'
-  +'<div class="uni-pnl-parts"><div><span>Cycle cost</span>'+value(p.basisUsd)+'</div><div><span>Value incl. fees</span>'+value(p.valueUsd)+'</div></div></section>').join('');
- const completed=record.positions.filter(p=>p.settledCostUsd>0||p.feesUsd>0).map(p=>{
-  const evidence=record.settlements.filter(s=>s.position===p.key),last=evidence.at(-1);
-  return '<section class="uni-pnl-position" data-settled="'+esc(p.key)+'"><div class="uni-pnl-position-head"><strong>'+esc(p.pair||'UNI LP')+' #'+esc(p.id)+'</strong>'+value(p.realizedUsd,true)+'</div>'
-   +'<div class="uni-trade-help">'+esc(chainName(p.chain))+' · <span>'+(p.closedTs?'Closed':'Settled portion')+'</span>'+(last?' · '+esc(when(last.ts))+' MYT':'')+'</div>'
-   +'<div class="uni-pnl-parts"><div><span>Settled cost</span>'+value(p.settledCostUsd)+'</div><div><span>Returned incl. fees</span>'+value(p.proceedsUsd+p.feesUsd)+'</div></div>'+(last?txLink(p.chain,last.hash):'')+'</section>';
- }).join('');
- const other=record.settlements.filter(s=>!s.position).map(s=>'<div class="uni-pnl-settlement">'+line(s.kind==='sale'?'UNI sale':'UNI withdrawal',s.usd,'',true)+'<div class="uni-trade-help">'+esc(when(s.ts))+' MYT · '+txLink(s.chain,s.hash)+'</div></div>').join('');
- const funding=record.funding.map(f=>'<div class="uni-pnl-funding">'+line(f.kind==='in'?'Funds added':'Funds withdrawn',f.usd)+'<div class="uni-trade-help">'+esc(when(f.ts))+' MYT · '+txLink(f.chain,f.hash)+'</div></div>').join('');
- $('uniPnlRecordBody').innerHTML='<p class="uni-trade-help">Capital tracks fresh money, not repeated purchases. Reusing LP proceeds does not add capital.</p>'
-  +'<div class="uni-pnl-totals">'+line('Original funding',record.originalUsd)+line('Added funding',record.addedUsd)+line('Withdrawn',record.withdrawnUsd)+line('Net capital',record.capitalUsd)
-  +line('Wallet UNI value',record.walletValueUsd)+line('Open LP value incl. fees',record.lpValueUsd)+line('Returned strategy cash',record.cashUsd)+(record.pendingValueUsd>.004?line('Pending principal / fees',record.pendingValueUsd):'')
-  +line('Value now',record.valueNowUsd)+line('Realized P&L',record.realizedUsd,'',true)+line('Current P&L',record.unrealizedUsd,'',true)+line('Total P&L',record.pnlUsd,'uni-pnl-grand-total',true)+'</div>'
-  +'<h3>Current cycle</h3>'+positions+(!positions?'<p class="uni-trade-help">No open UNI LPs.</p>':'')
-  +'<h3>Settled results</h3>'+(completed+other||'<p class="uni-trade-help">No settled results yet.</p>')
-  +'<p class="uni-trade-help">Settled results keep their transaction-time values. Reinvesting does not erase them.</p>'
-  +'<details class="uni-pnl-funding-list"'+(fundingOpen?' open':'')+'><summary>Funding record</summary>'+funding+'</details>'
-  +'<p class="uni-trade-help">Returned cash is attributed to this strategy, not your entire wallet balance. Strategy operations use that cash first; unrelated spending uses unrelated cash first. Dollar stablecoins use the stated $1 anchor. Native network fees remain separate.</p>'
-  +'<p class="uni-trade-help"><span>Verified strategy coverage</span>: '+esc(Object.keys(strategy?.book?.chains||{}).map(chainName).join(' · '))+'</p>'
-  +(Object.values(strategy?.coverage||{}).includes('earlier_history_unverified')?'<p class="uni-trade-help">Earlier activity on an untracked network is not included until verified.</p>':'')
+ if(!record){$('uniPnlRecordBody').innerHTML='<p class="uni-trade-help">Reading strategy cash history…</p>';return;}
+ const value=n=>'<span class="uni-pnl-amount '+(n>.004?'up':n<-.004?'down':'')+'">'+esc(money(n))+'</span>',
+  line=(label,n,extra='')=>'<div class="uni-pnl-line '+extra+'"><span>'+label+'</span>'+value(n)+'</div>',
+  row=(label,n,detail,attribute='')=>'<section class="uni-pnl-position" '+attribute+'><div class="uni-pnl-position-head"><strong>'+label+'</strong>'+value(n)+'</div><div class="uni-trade-help">'+detail+'</div></section>',
+  name=p=>esc((p.pair||'UNI LP')+' #'+p.id);
+ let current=record.currentPositions.map(p=>row(name(p),p.unrealizedUsd,esc(chainName(p.chain)),'data-position="'+esc(p.key)+'"')).join('');
+ const otherCurrent=record.unrealizedUsd-record.currentPositions.reduce((sum,p)=>sum+p.unrealizedUsd,0);
+ if(Math.abs(otherCurrent)>=.005)current+=row('<span>Wallet</span> / <span>Pending</span>',otherCurrent,'');
+ let realized=record.positions.filter(p=>p.settledCostUsd>0||p.feesUsd>0).map(p=>row(name(p),p.realizedUsd,
+  esc(chainName(p.chain))+' · <span>'+(p.closedTs?'Closed':'Settled portion')+'</span>','data-settled="'+esc(p.key)+'"')).join('');
+ const sales=new Map();
+ for(const s of record.settlements.filter(s=>!s.position)){const key=s.chain+':'+s.kind,entry=sales.get(key)||{chain:s.chain,kind:s.kind,usd:0};entry.usd+=s.usd;sales.set(key,entry);}
+ realized+=[...sales.values()].map(s=>row('<span>'+(s.kind==='sale'?'UNI sale':'UNI withdrawal')+'</span>',s.usd,esc(chainName(s.chain)))).join('');
+ $('uniPnlRecordBody').innerHTML='<div class="uni-pnl-totals">'+line('Realized P&L',record.realizedUsd)+line('Current P&L',record.unrealizedUsd)+line('Total P&L',record.pnlUsd,'uni-pnl-grand-total')+'</div>'
+  +(current?'<h3>Current P&L</h3>'+current:'')
+  +(realized?'<h3>Realized P&L</h3>'+realized:'')
   +(Number.isFinite(observedAt)?'<p class="uni-trade-help"><span>Last verified reading</span> · '+esc(when(observedAt))+' MYT</p>':'');
 }
 function renderLP(){

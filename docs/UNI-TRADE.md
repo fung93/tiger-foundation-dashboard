@@ -428,3 +428,28 @@ Changed production files are `uni-trade.css`, its two page references
 (`uni-trade.html`, `uni.html`) and `sw.js`. The existing offline-asset assertion
 tracks the new CSS URL. No financial reader, ledger, secret or configuration
 changes are required.
+
+## Compact P&L record — 26 November 2026
+
+The owner explicitly requests **simplify the P&L record and push**.
+
+- [x] Show only realized, current and total P&L at the top.
+- [x] Keep compact per-LP results with pool pair, position ID and network.
+  Pending/loose-token gains remain represented; non-LP settled sales and
+  withdrawals group by kind/network instead of listing every transaction.
+- [x] Remove the repeated funding/value breakdown, funding history, cost/return
+  subrows, transaction links and long accounting paragraphs from the dialog.
+- [x] Preserve raw receipts, strategy funding, fee inclusion, settlement rules,
+  all financial history and the live P&L calculation. No reader/API changes.
+- [x] Bump app and changed Trade JS/CSS references to **192**. Existing history,
+  translation and other assets keep their own versions; Portfolio copies match.
+- [x] Verify the compact record: **161 browser assertions** across six accounting
+  scenarios, both languages/themes and 320/375/1366 px. Current, closed, reused,
+  top-up, partially exited and uncollected positions keep their original P&L.
+  The dialog stays open through refresh and closes with Escape; no sideways
+  overflow. `npm run check` passes all **99 suites**, including API/accounting
+  checks. Portfolio copies and `git diff --check` pass.
+- [ ] Verify the deployed page; production access has been proxy blocked here.
+
+Validation logs/screenshots: `/workspace/tiger-agent-validation/uni-simple-pnl/`.
+No new configuration, service, secret or wallet permission is required.
