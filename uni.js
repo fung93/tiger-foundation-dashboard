@@ -1,7 +1,7 @@
-import {uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots,mergeUniPoolReading} from './uni-core.mjs?v=190';
+import {buildUniFeeHistory,uniDefaultInput,uniEstimate,uniPoolLink,uniReadingStatus,validateUniSnapshot,mergeUniSnapshots,mergeUniPoolReading} from './uni-core.mjs?v=194';
 import {fetchUniJSON} from './uni-refresh.mjs?v=190';
 const $=id=>document.getElementById(id),states=new Map(),rows=new Map();
-const REFRESH=10000,HISTORY_REFRESH=300000,CACHE='tf_uni_pools_v1';let busy=false,historyBusy=false,chains=[],lastError=false;
+const REFRESH=10000,HISTORY_REFRESH=300000,CACHE='tf_uni_pools_v1';let feeHistory=null,feeHistoryBusy=false,busy=false,historyBusy=false,chains=[],lastError=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=v=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(v):'—';
 const feeMoney=v=>Number.isFinite(v)?(v>0&&v<.000001?'<$0.000001':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:v>0&&v<.01?6:2}).format(v)):'—';
@@ -46,7 +46,7 @@ function expand(card,s){card.classList.toggle('open',s.open);card.querySelector(
 function setInputs(card,s){for(const input of card.querySelectorAll('[data-input]')){const v=s.input[input.dataset.input];input.value=Number(v.toPrecision(9));s.input[input.dataset.input]=Number(input.value);}}
 function updateResult(card,p,s){
   const out=card.querySelector('.uni-result');if(!s.input){out.innerHTML='';return;}
-  const r=uniEstimate(p,s.input,{now:Date.now()/1000});
+  const r=uniEstimate(p,s.input,{now:Date.now()/1000,history:feeHistory});
   if(r.error){out.innerHTML=`<div class="uni-result-error" role="status">${esc(r.error)}</div>`;return;}
   const source=reading(p),earnings=r.activeFeesPerDay,apr=r.activeApr;
   const pnl=v=>Number.isFinite(v)?Math.abs(v)<.005?money(0):(v>=0?'+':'−')+money(Math.abs(v)):'—';
@@ -56,7 +56,7 @@ function updateResult(card,p,s){
     ${r.inRange?'':`<p class="uni-result-note uni-current-earnings"><strong>At this price: ${feeMoney(r.feesPerDay)}/day · ${percent(r.apr)} APR.</strong> Waiting for price to enter your range.</p>`}
     <p class="uni-result-note"><strong>Deposit:</strong> ${number(r.deposit.uni)} UNI + ${number(r.deposit.stable)} ${esc(p.stable)} · about ${money(r.capitalUsd)}.</p>
     <p class="uni-result-note">Uniswap’s usable range: <strong>${price(r.range.lowerPrice)}–${price(r.range.upperPrice)} ${esc(p.stable)} per UNI</strong>. ${r.inRange?'Your position starts in range.':''}</p>
-    <p class="uni-result-note">${source.recorded?'Using the recorded price from '+time(p.at)+'. ':''}${r.feeBasis&&earnings!==null?`${r.feeBasis.method==='swap_fee_lower_bound'?'Conservative estimate from verified recent swaps':'Based on recorded fee growth'} from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. ${r.inRange?'Assumes similar trading and active pool liquidity while price stays in range.':'Uses today’s active pool liquidity and recorded trading pace; both may differ when your range becomes active.'}`:'A recent fee reading and active pool liquidity are needed to estimate income while in range.'}</p>
+    <p class="uni-result-note">${source.recorded?'Using the recorded price from '+time(p.at)+'. ':''}${r.feeBasis?.history?'Adjusted using verified LP history. ':''}${r.feeBasis&&earnings!==null?`${r.feeBasis.method==='swap_fee_lower_bound'?'Conservative estimate from verified recent swaps':'Based on recorded fee growth'} from ${time(r.feeBasis.fromTs)} to ${time(r.feeBasis.toTs)}. ${r.inRange?'Assumes similar trading and active pool liquidity while price stays in range.':'Uses today’s active pool liquidity and recorded trading pace; both may differ when your range becomes active.'}`:'A recent fee reading and active pool liquidity are needed to estimate income while in range.'}</p>
     <p class="uni-result-note">Edge P&amp;L excludes fees and transaction costs. Below the lower edge you hold UNI, so losses can grow if its price keeps falling.</p>`;
 }
 function updateCard(card,p){
@@ -95,10 +95,13 @@ function render(){
 async function refresh(){if(busy||document.hidden)return;busy=true;
   try{const value=await fetchUniJSON('/api/uni?view=live');validateUniSnapshot(value);accept(value);lastError=value.chains.every(c=>c.status==='unavailable');}
   catch{lastError=true;}finally{busy=false;render();}}
+async function refreshFeeHistory(){if(feeHistoryBusy||document.hidden)return;feeHistoryBusy=true;
+  try{const next=buildUniFeeHistory(await fetchUniJSON('/lpbook.json',{timeoutMs:6000}));if(!feeHistory||next.sourceAt>=feeHistory.sourceAt){feeHistory=next;render();}}
+  catch{/* Keep verified history; its observations expire by their own dates. */}finally{feeHistoryBusy=false;}}
 async function refreshHistory(){if(historyBusy||document.hidden)return;historyBusy=true;
   try{const value=await fetchUniJSON('/api/uni',{timeoutMs:50000});validateUniSnapshot(value);accept(value);render();}
   catch{/* Fee history keeps its original period; current readings run independently. */}finally{historyBusy=false;}}
 try{const saved=JSON.parse(localStorage.getItem(CACHE));if(saved){accept(saved,{saved:true});render();}}catch{}
 fetchUniJSON('/uni-pools.json',{timeoutMs:6000}).then(value=>{validateUniSnapshot(value);const merged=mergeUniSnapshots({schemaVersion:1,checkedAt:Date.now()/1000,chains,pools:[...rows.values()]},value);if(value.pools.length){accept(merged,{saved:true});render();}}).catch(()=>{});
-$('chainFilter').addEventListener('change',render);document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();refreshHistory();}});
-refresh();setTimeout(refreshHistory,1000);setInterval(refresh,REFRESH);setInterval(refreshHistory,HISTORY_REFRESH);setInterval(()=>{if(!document.hidden)render();},15000);
+$('chainFilter').addEventListener('change',render);document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();refreshHistory();refreshFeeHistory();}});
+refresh();refreshFeeHistory();setTimeout(refreshHistory,1000);setInterval(refresh,REFRESH);setInterval(refreshHistory,HISTORY_REFRESH);setInterval(refreshFeeHistory,HISTORY_REFRESH);setInterval(()=>{if(!document.hidden)render();},15000);

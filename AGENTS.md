@@ -2326,3 +2326,19 @@ Chinese section label is UNI 中心; token units remain UNI. App/shared translat
 references are **193**, unchanged Trade/guide/accounting assets keep their
 versions. Both Portfolio copies remain identical. Browser checks cover all
 shared menus, both languages/themes and narrow phones; see `docs/UNI-TRADE.md`.
+
+### History-informed UNI guide estimate — push authorized
+
+The owner asks only for a more accurate estimated APR. Keep the existing guide,
+inputs and cards. `uni-fee-model.mjs` learns native fee growth per liquidity-day
+from complete, settled, fixed-liquidity same-pool history in `lpbook.json`.
+Require three qualifying positions/six active hours in seven days; use a
+recency/active-time weighted median and blend half current/half observed when
+current rates are elevated. Never increase a weaker live rate using old strong
+returns; leave insufficient-history and conservative swap-bound cases unchanged.
+Historical P&L, price, principal and reward reassignment are not training inputs.
+Keep claim prices and frozen history unchanged. Guide history refresh is a
+separate static read, preserving fast current polling and input edits. Cache
+194 covers changed guide/model/translation assets. After local verification the
+owner explicitly requested **push**. Validation and replay limits:
+`docs/UNI-APR-ESTIMATE.md`.

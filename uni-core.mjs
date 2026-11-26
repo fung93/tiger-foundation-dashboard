@@ -1,5 +1,7 @@
 /* UNI guide: deterministic Uniswap V3 position maths. No network or wallet access. */
 import {snapRange,liquidityForCapital,edgeOutcome,tickAtPrice,priceAtTick} from './strategy-core.mjs';
+import {uniEstimatedFeeRate} from './uni-fee-model.mjs';
+export {buildUniFeeHistory} from './uni-fee-model.mjs';
 
 export const UNI_MODES=['uni','stable','balanced'];
 export function uniPoolLink(chain,pool){
@@ -35,7 +37,7 @@ function uniDepositRange(pool,input){
   const prices=[priceAtTick(lo,pool),priceAtTick(hi,pool)].sort((a,b)=>a-b);
   return {tickLower:lo,tickUpper:hi,lowerPrice:prices[0],upperPrice:prices[1]};
 }
-export function uniEstimate(pool,input,{now=pool.at}={}){
+export function uniEstimate(pool,input,{now=pool.at,history=null}={}){
   if(!UNI_MODES.includes(input.mode))return {error:'Choose how you want to deposit first.'};
   if(!(input.amount>0)||!Number.isFinite(input.amount))return {error:'Enter an amount greater than zero.'};
   if(![input.lowerPrice,input.upperPrice].every(n=>Number.isFinite(n)&&n>0))return {error:'Enter a minimum and maximum price greater than zero.'};
@@ -53,7 +55,8 @@ export function uniEstimate(pool,input,{now=pool.at}={}){
   // and observed trading pace. This is not a reading of liquidity at a future
   // entry price. Recorded fee growth already excludes protocol fees.
   const dilution=pool.activeLiquidity>0?pool.activeLiquidity/(pool.activeLiquidity+pos.liquidity):null;
-  const projected=verified&&dilution!==null?pos.liquidity*dilution*(growth.perL0Day*pool.token0.usd+growth.perL1Day*pool.token1.usd):null;
+  const rate=verified?uniEstimatedFeeRate(pool,history,{now}):null;
+  const projected=verified&&dilution!==null?pos.liquidity*dilution*rate.perLiquidityDay:null;
   const activeFeesPerDay=Number.isFinite(projected)?projected:null,activeApr=activeFeesPerDay===null?null:activeFeesPerDay*365/capital;
   // Keep earnings at the current price separate: outside the range they are
   // exactly zero even when evidence for the conditional estimate is missing.
@@ -61,7 +64,7 @@ export function uniEstimate(pool,input,{now=pool.at}={}){
   const edge=edgeOutcome(pool,range,pos.liquidity,capital);
   return {range,inRange,capitalUsd:capital,liquidity:pos.liquidity,deposit:{uni,stable},edges:edge,
     feesPerDay:daily,apr:daily===null?null:daily*365/capital,activeFeesPerDay,activeApr,
-    feeBasis:verified?{fromTs:growth.fromTs,toTs:growth.toTs,seconds:growth.seconds,method:growth.method||'fee_growth'}:null};
+    feeBasis:verified?{fromTs:growth.fromTs,toTs:growth.toTs,seconds:growth.seconds,method:growth.method||'fee_growth',...(rate.history?{history:rate.history}:{})}:null};
 }
 export function uniPriceFromSqrt(sqrtRaw,pool){
   const ratio=(Number(sqrtRaw)/2**96)**2*10**(pool.token0.decimals-pool.token1.decimals);

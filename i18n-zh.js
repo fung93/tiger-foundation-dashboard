@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   window.TF_ZH = Object.freeze({
+    "Adjusted using verified LP history.":"已根据核实的 LP 历史收益调整。",
     "UNI HUB":"UNI 中心",
     "Time":"时间",
     "Could not check new UNI trades. Showing your confirmed trades.":"暂时无法检查新成交，下面保留已确认的记录。",
