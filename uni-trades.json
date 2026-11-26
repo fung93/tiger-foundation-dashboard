@@ -9,11 +9,11 @@
       "chainId": 8453,
       "uni": "0xc3de830ea07524a0761646a6a4e4be0e114a3c83",
       "startBlock": 58688016,
-      "cursor": 62464572,
-      "cursorHash": "0xab9bd622849028d0d993041585bb4bf130c37bc10f51c0ad9cb4c1c0ef968215",
-      "head": 62464572,
-      "ts": 1795683290,
-      "readAt": 1795683290,
+      "cursor": 62468978,
+      "cursorHash": "0x7d43dea533ccc9ec5079642407f80e453084ea5d2d53de971b1d1fb42b05c1be",
+      "head": 62468978,
+      "ts": 1795684171,
+      "readAt": 1795684171,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 4,
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 54
@@ -26,8 +26,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 59427834,
-      "recentCursor": 62464572,
-      "recentHash": "0xab9bd622849028d0d993041585bb4bf130c37bc10f51c0ad9cb4c1c0ef968215",
+      "recentCursor": 62468978,
+      "recentHash": "0x7d43dea533ccc9ec5079642407f80e453084ea5d2d53de971b1d1fb42b05c1be",
       "recentOpeningUni": {
         "combined": "13614"
       }
@@ -36,11 +36,11 @@
       "chainId": 56,
       "uni": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
       "startBlock": 94965697,
-      "cursor": 135818270,
-      "cursorHash": "0x0c4fedc0186859782a8e4261613469e70fe450c3356b2de082079c32b163f343",
-      "head": 135818270,
-      "ts": 1795683292,
-      "readAt": 1795683292,
+      "cursor": 135820222,
+      "cursorHash": "0x4cbe5ead6fbc6c4eb7fe27ae3ff3eb71386714f603497354b7395a42826af6d5",
+      "head": 135820222,
+      "ts": 1795684174,
+      "readAt": 1795684174,
       "nonces": {
         "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1": 7,
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": 7
@@ -53,8 +53,8 @@
         "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770": "0"
       },
       "recentStart": 134441406,
-      "recentCursor": 135684024,
-      "recentHash": "0x74041f4ababdf86fadbe79491b67e31405fae1cb3b19c5505a717826bcd059e4",
+      "recentCursor": 135820222,
+      "recentHash": "0x4cbe5ead6fbc6c4eb7fe27ae3ff3eb71386714f603497354b7395a42826af6d5",
       "recentOpeningUni": {
         "combined": "0"
       }
@@ -402,14 +402,6 @@
   ],
   "runs": [
     {
-      "at": 1795165932,
-      "complete": false,
-      "historyComplete": false,
-      "errors": {
-        "bnb": "Incomplete UNI transfer batch"
-      }
-    },
-    {
       "at": 1795197720,
       "complete": true,
       "historyComplete": false,
@@ -532,21 +524,27 @@
       "errors": {
         "bnb": "Incomplete UNI transfer batch"
       }
+    },
+    {
+      "at": 1795684170,
+      "complete": true,
+      "historyComplete": false,
+      "errors": {}
     }
   ],
   "quotes": {
     "base": {
-      "priceUsd": 4.745452586340358,
+      "priceUsd": 4.743360627953291,
       "pool": "0x1261d6c23a2d719e2543d2d51aec87656050b70d",
-      "block": 62464572,
-      "ts": 1795683290,
-      "tvl": 73734.80612743099
+      "block": 62468978,
+      "ts": 1795684171,
+      "tvl": 73712.14807195065
     },
     "bnb": {
       "priceUsd": 4.752882100966564,
       "pool": "0xbd045175d2a1451a015079f5f3f59ca5c05524ea",
-      "block": 135818270,
-      "ts": 1795683292,
+      "block": 135820222,
+      "ts": 1795684174,
       "tvl": 93665.58718795728
     }
   },
@@ -557,17 +555,17 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795683290,
-      "block": 62464572
+      "ts": 1795684171,
+      "block": 62468978
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
       "chain": "base",
       "raw": "24222",
       "uni": 2.4222e-14,
-      "valueUsd": 1.1494435254633615e-13,
-      "ts": 1795683290,
-      "block": 62464572
+      "valueUsd": 1.1489368113028462e-13,
+      "ts": 1795684171,
+      "block": 62468978
     },
     {
       "owner": "0xb378207ab46aa2105eb1cb94ae8a5bab57316de1",
@@ -575,8 +573,8 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795683292,
-      "block": 135818270
+      "ts": 1795684174,
+      "block": 135820222
     },
     {
       "owner": "0x4da1d0d5f7b123364d7580f19b716de2ed4e9770",
@@ -584,14 +582,12 @@
       "raw": "0",
       "uni": 0,
       "valueUsd": 0,
-      "ts": 1795683292,
-      "block": 135818270
+      "ts": 1795684174,
+      "block": 135820222
     }
   ],
-  "lastAttempt": 1795683289,
-  "errors": {
-    "bnb": "Incomplete UNI transfer batch"
-  },
+  "lastAttempt": 1795684170,
+  "errors": {},
   "flows": [
     {
       "id": "base:0xcd1bd20573b07cbafa7a0f9a73326977c516f8acb992b2001139bde6a034fa4f",
@@ -1496,6 +1492,8 @@
       ]
     }
   ],
-  "historyErrors": {},
+  "historyErrors": {
+    "bnb": "limit exceeded"
+  },
   "historyComplete": false
 }
